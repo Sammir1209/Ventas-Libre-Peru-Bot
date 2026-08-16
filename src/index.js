@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════
 
 const http = require('http');
+const https = require('https');
 const { Bot } = require('grammy');
 const config = require('./config/env');
 const db = require('./database/postgres');
@@ -223,25 +224,37 @@ async function main() {
     }
   });
 
-  // 5. Servidor HTTP Dummy para Render
+  // 5. Servidor HTTP de Mantención 24/7 para Render y UptimeRobot
   const httpServer = http.createServer((req, res) => {
-    if (req.url === '/health' || req.url === '/') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        status: 'ok',
-        bot: 'Ventas Libres Perú',
-        uptime: process.uptime(),
-        userbot: userbot.isConnected() ? 'connected' : 'disconnected',
-      }));
-    } else {
-      res.writeHead(404);
-      res.end('Not Found');
-    }
+    // Responder 200 OK a cualquier ping o comprobación de salud
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(JSON.stringify({
+      status: 'ok',
+      bot: 'Ventas Libres Perú',
+      uptime: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+      userbot: userbot.isConnected() ? 'connected' : 'disconnected',
+    }));
   });
 
-  httpServer.listen(config.PORT, () => {
-    console.log(`✓ HTTP Server escuchando en puerto ${config.PORT} (Render).`);
+  const port = process.env.PORT || config.PORT || 10000;
+  httpServer.listen(port, '0.0.0.0', () => {
+    console.log(`✓ HTTP Server escuchando en puerto ${port} (Render / UptimeRobot 24/7).`);
   });
+
+  // Self-ping preventivo cada 10 minutos si se detecta URL de Render
+  const renderUrl = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+  if (renderUrl) {
+    setInterval(() => {
+      try {
+        const client = renderUrl.startsWith('https') ? https : http;
+        client.get(`${renderUrl}/health`, () => {}).on('error', () => {});
+      } catch {}
+    }, 10 * 60 * 1000);
+  }
 
   // 6. Iniciar bot con long polling
   await bot.start({
