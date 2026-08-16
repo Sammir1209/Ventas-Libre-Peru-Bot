@@ -7,25 +7,18 @@ const { SYM, CB } = require('../../config/constants');
 // ══════════════════════════════════════════════════════
 
 /**
- * Teclado de bienvenida con botones de los 3 canales + Verificar + ¿Cómo funciona?
+ * Teclado de bienvenida limpio con 1 solo botón de Folder/Canales + Verificar + ¿Cómo funciona?
  */
 function welcomeKeyboard() {
   const kb = new InlineKeyboard();
 
-  // Si hay un Folder Link configurado se muestra, además de los canales obligatorios
-  if (config.GROUPS_FOLDER_LINK && !config.GROUPS_FOLDER_LINK.includes('+')) {
-    kb.url(`${SYM.DIAMOND} 📁 Unirme al Folder Oficial`, config.GROUPS_FOLDER_LINK).row();
-  }
+  const folderLink = config.GROUPS_FOLDER_LINK || 'https://t.me/quemando_ventaslibreperu';
 
-  // Botones de los 3 canales obligatorios (2 en fila 1, 1 en fila 2)
-  kb.url('🔥 Canal Quemados', 'https://t.me/quemando_ventaslibreperu');
-  kb.url('⭐ Canal Refes #1', 'https://t.me/+vRTkqW3Hba9jZDIx').row();
-  kb.url('📦 Canal Refes #2', 'https://t.me/+JSQRh7463MIzYmVh').row();
+  // Fila 1: [ ⟡ Unirme a los Canales ] | [ ✓ Verificar ]
+  kb.url(`${SYM.DIAMOND} Unirme a los Canales`, folderLink);
+  kb.text(`${SYM.CHECK} Verificar`, CB.VERIFY).success().row();
 
-  // Fila de acción: Verificar membresía en verde
-  kb.text(`${SYM.CHECK} Verificar Membresía`, CB.VERIFY).success().row();
-
-  // Fila de ayuda
+  // Fila 2: [ ❓ ¿Cómo funciona? ]
   kb.text(`${SYM.ARROW} ¿Cómo funciona?`, CB.HOW_IT_WORKS);
 
   return kb;
