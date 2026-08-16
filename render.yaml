@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: bot-ventas-libres-peru
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: BOT_TOKEN
+        sync: false
+      - key: OWNER_IDS
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: PUBLIC_BURN_CHANNEL_ID
+        sync: false
+      - key: STAFF_CHAT_ID
+        sync: false
+      - key: ESCROW_GROUP_ID
+        sync: false
+      - key: LOG_CHANNEL_ID
+        sync: false
+      - key: BURN_CHAT_ID
+        sync: false
