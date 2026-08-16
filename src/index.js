@@ -256,20 +256,38 @@ async function main() {
     }, 10 * 60 * 1000);
   }
 
-  // 6. Iniciar bot con long polling
-  await bot.start({
-    onStart: (botInfo) => {
-      console.log('');
-      console.log('⊱ ────── ⊰');
-      console.log(`⟡ Bot @${botInfo.username} iniciado correctamente.`);
-      console.log(`⟡ ID: ${botInfo.id}`);
-      console.log(`⟡ Owners: ${config.OWNER_IDS.join(', ')}`);
-      console.log(`⟡ Canales a verificar: ${config.CHANNELS_TO_VERIFY.length}`);
-      console.log(`⟡ Userbot: ${userbot.isConnected() ? 'Activo' : 'Inactivo'}`);
-      console.log('⊱ ────── ⊰');
-      console.log('');
-    },
-  });
+  // 6. Iniciar bot con long polling y reconexión automática anti-conflictos
+  async function startBotWithRetry() {
+    while (true) {
+      try {
+        await bot.start({
+          drop_pending_updates: true,
+          onStart: (botInfo) => {
+            console.log('');
+            console.log('⊱ ────── ⊰');
+            console.log(`⟡ Bot @${botInfo.username} iniciado correctamente.`);
+            console.log(`⟡ ID: ${botInfo.id}`);
+            console.log(`⟡ Owners: ${config.OWNER_IDS.join(', ')}`);
+            console.log(`⟡ Canales a verificar: ${config.CHANNELS_TO_VERIFY.length}`);
+            console.log(`⟡ Userbot: ${userbot.isConnected() ? 'Activo' : 'Inactivo'}`);
+            console.log('⊱ ────── ⊰');
+            console.log('');
+          },
+        });
+        break;
+      } catch (err) {
+        if (err.error_code === 409 || err.message?.includes('409') || err.message?.includes('Conflict')) {
+          console.warn('⟡ Aviso: 409 Conflict temporal durante el despliegue de Render. Reintentando en 4 segundos...');
+          await new Promise((r) => setTimeout(r, 4000));
+        } else {
+          console.error('⟡ Error en bot.start:', err.message);
+          await new Promise((r) => setTimeout(r, 5000));
+        }
+      }
+    }
+  }
+
+  await startBotWithRetry();
 }
 
 // ── Manejo de señales de cierre ──
