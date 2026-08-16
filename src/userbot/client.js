@@ -95,7 +95,28 @@ async function close() {
   }
 }
 
+
+async function resolveUser(usernameOrId) {
+  if (!client || !client.connected) return null;
+  try {
+    const target = typeof usernameOrId === 'string' ? usernameOrId.replace(/^@/, '') : usernameOrId;
+    const entity = await client.getEntity(target);
+    if (entity) {
+      return {
+        userId: Number(entity.id),
+        username: entity.username || (typeof target === 'string' && !/^\d+$/.test(target) ? target : null),
+        firstName: entity.firstName || entity.title || null,
+        lastName: entity.lastName || null,
+      };
+    }
+  } catch (err) {
+    console.error('⟡ Userbot: Error resolviendo ' + usernameOrId + ':', err.message);
+  }
+  return null;
+}
+
 module.exports = {
+  resolveUser,
   initialize,
   createDealGroup,
   isConnected,

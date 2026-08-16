@@ -1,5 +1,6 @@
 const config = require('../config/env');
 const db = require('../database/postgres');
+const userbot = require('../userbot/client');
 
 // ══════════════════════════════════════════════════════
 // ⟡ Utilidades Generales — Ventas Libres Perú
@@ -87,6 +88,16 @@ async function resolveTarget(ctx) {
   // Si tenemos username (ej: cinefastperu)
   if (target.username) {
     const cleanUsername = target.username.replace(/^@/, '');
+
+    // 1. Intentar resolver vía Userbot MTProto si está activo
+    if (userbot.isConnected()) {
+      try {
+        const ubUser = await userbot.resolveUser(cleanUsername);
+        if (ubUser && ubUser.userId) {
+          return ubUser;
+        }
+      } catch (err) {}
+    }
 
     // 1. Intentar resolver via Telegram API getChat
     try {
