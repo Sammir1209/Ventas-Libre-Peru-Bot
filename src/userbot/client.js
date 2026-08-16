@@ -21,7 +21,9 @@ async function initialize() {
     });
 
     await client.connect();
-    console.log('⟡ Userbot: Conectado correctamente vía MTProto.');
+    const me = await client.getMe();
+    const myName = me ? (me.username ? `@${me.username}` : me.firstName || 'Userbot') : 'Conectado';
+    console.log(`⟡ Userbot: Conectado correctamente vía MTProto (${myName}).`);
   } catch (err) {
     console.error('⟡ Userbot: Error al conectar:', err.message);
     client = null;
@@ -29,16 +31,15 @@ async function initialize() {
 }
 
 // ══════════════════════════════════════════════════════
-// ⟡ Crear Grupo Temporal para Trato
+// ⟡ Crear Grupo Temporal para Trato (Opcional si no se usa Topics)
 // ══════════════════════════════════════════════════════
 
 async function createDealGroup(dealId, botId) {
-  if (!client) {
+  if (!client || !isConnected()) {
     throw new Error('Userbot no está conectado. Verifica las credenciales MTProto.');
   }
 
   try {
-    // 1. Crear grupo básico con el bot como participante
     const title = `⟡ Trato #${dealId} ⊱ Ventas Libres`;
 
     const result = await client.invoke(
@@ -48,7 +49,6 @@ async function createDealGroup(dealId, botId) {
       })
     );
 
-    // Extraer el chat ID del resultado
     const chat = result.chats ? result.chats[0] : null;
     if (!chat) {
       throw new Error('No se pudo obtener el chat creado.');
@@ -56,21 +56,19 @@ async function createDealGroup(dealId, botId) {
 
     const chatId = chat.id;
 
-    // 2. Generar enlace de invitación
     const inviteResult = await client.invoke(
       new Api.messages.ExportChatInvite({
         peer: chatId,
         title: `Invitación Trato #${dealId}`,
-        usageLimit: 2, // Solo 2 personas pueden unirse
+        usageLimit: 2,
       })
     );
 
     const inviteLink = inviteResult.link;
-
     console.log(`⟡ Userbot: Grupo creado para Trato #${dealId} | Link: ${inviteLink}`);
 
     return {
-      chatId: -chatId, // Negativo para formato de Bot API
+      chatId: -chatId,
       inviteLink,
       title,
     };
@@ -85,7 +83,7 @@ async function createDealGroup(dealId, botId) {
 // ══════════════════════════════════════════════════════
 
 function isConnected() {
-  return client !== null && client.connected;
+  return client !== null && (client.connected || client._connected);
 }
 
 async function close() {
@@ -95,22 +93,27 @@ async function close() {
   }
 }
 
-
+/**
+ * Resuelve cualquier @username o ID de Telegram a través de MTProto directamente
+ */
 async function resolveUser(usernameOrId) {
-  if (!client || !client.connected) return null;
+  if (!client || !isConnected()) return null;
   try {
     const target = typeof usernameOrId === 'string' ? usernameOrId.replace(/^@/, '') : usernameOrId;
     const entity = await client.getEntity(target);
     if (entity) {
+      const rawId = entity.id ? (entity.id.value !== undefined ? entity.id.value : entity.id) : null;
+      const userId = Number(rawId);
+
       return {
-        userId: Number(entity.id),
+        userId: userId,
         username: entity.username || (typeof target === 'string' && !/^\d+$/.test(target) ? target : null),
         firstName: entity.firstName || entity.title || null,
         lastName: entity.lastName || null,
       };
     }
   } catch (err) {
-    console.error('⟡ Userbot: Error resolviendo ' + usernameOrId + ':', err.message);
+    console.warn(`⟡ Userbot: No se pudo resolver ${usernameOrId} vía MTProto:`, err.message);
   }
   return null;
 }

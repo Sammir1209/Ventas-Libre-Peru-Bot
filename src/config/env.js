@@ -41,6 +41,9 @@ const config = {
   USERBOT_API_ID: parseInt(process.env.USERBOT_API_ID) || 0,
   USERBOT_API_HASH: process.env.USERBOT_API_HASH || '',
   USERBOT_SESSION: process.env.USERBOT_SESSION || '',
+  get USERBOT_ENABLED() {
+    return !!(this.USERBOT_API_ID && this.USERBOT_API_HASH && this.USERBOT_SESSION);
+  },
 
   // Staff, Logs, Burn & Tratos
   STAFF_CHAT_ID: process.env.STAFF_CHAT_ID ? Number(process.env.STAFF_CHAT_ID) : null,
