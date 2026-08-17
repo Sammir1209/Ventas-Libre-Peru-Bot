@@ -201,7 +201,7 @@ function register(bot) {
     }
   });
 
-  // ── Callback: Verificar Membresía (Con protección de usuario) ──
+  // ── Callback: Verificar Membresía (Con protección de usuario y Anti-Spam de Clics) ──
   bot.callbackQuery([CB.VERIFY, /^verify:(\d+)$/], async (ctx) => {
     try {
       const match = ctx.match;
@@ -216,6 +216,29 @@ function register(bot) {
       }
 
       const userId = clickerId;
+
+      // 1. Evitar múltiples clics repetidos (Debounce Lock de 10 segundos)
+      const lockKey = `verifying_lock:${userId}`;
+      const isLocked = await redisDb.getCache(lockKey);
+      if (isLocked) {
+        return ctx.answerCallbackQuery({
+          text: '⏳ Ya estamos procesando tu verificación, por favor espera un momento...',
+          show_alert: false,
+        });
+      }
+
+      // 2. Si ya está verificado, notificar y salir
+      const isAlreadyVerified = await redisDb.getCache(`verified_user:${userId}`);
+      if (isAlreadyVerified) {
+        return ctx.answerCallbackQuery({
+          text: '✓ Ya te encuentras verificado.',
+          show_alert: false,
+        });
+      }
+
+      // Activar candado temporal
+      await redisDb.setCache(lockKey, true, 10);
+
       const channels = config.CHANNELS_TO_VERIFY;
 
       if (channels.length === 0) {
