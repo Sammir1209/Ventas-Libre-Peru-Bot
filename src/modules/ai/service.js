@@ -1,8 +1,5 @@
 const config = require('../../config/env');
 
-const GEMINI_MODEL = 'gemini-3.6-flash';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-
 // ── Instrucción del Sistema: Miembro de la Comunidad con Jerga Peruana Criolla y Humor ──
 const SYSTEM_PROMPT = `
 Eres un miembro legendario, pícaro y respetado de la comunidad "Ventas Libres Perú" 🇵🇪. NO eres un bot corporativo aburrido ni un asistente formal. Hablas como un pata de barrio con jerga peruana auténtica (mano, causa, batería, choche, gil, pavo, rata, palta, caleta, fichazo, quemadazo, asu mare, oe, yapo). Eres jodón, haces bromas pesadas y troleas con gracia criolla a los que preguntan tonterías, pero cuando toca hablar de seguridad o plata te pones firme.
@@ -34,26 +31,25 @@ Eres un miembro legendario, pícaro y respetado de la comunidad "Ventas Libres P
 • Responde con seguridad y onda de barrio de Ventas Libres Perú.
 `;
 
-// ── Pool de Modelos con Fallback Automático Anti-Quota (429/503) ──
-const MODELS_POOL = [
+// ── Modelos de Gemini (Primario - Cascada de Alta Cuota) ──
+const GEMINI_MODELS = [
   'gemini-3.5-flash-lite',
-  'gemini-flash-lite-latest',
   'gemini-3.5-flash',
+  'gemini-flash-lite-latest',
   'gemini-3.1-flash-lite',
-  'gemini-3.6-flash',
-  'gemini-3.7-flash',
+];
+
+// ── Modelos de Groq (Respaldo Ultra Rápido) ──
+const GROQ_MODELS = [
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+  'qwen/qwen3.6-27b',
 ];
 
 /**
- * Consulta a Google Gemini con rotación automática de modelos ante cuotas (429) o saturación (503).
+ * Consulta a Google Gemini.
  */
-async function generateAiResponse(userMessage, conversationHistory = []) {
-  const apiKey = config.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY no está configurada.');
-  }
-
-  // Preparar el cuerpo de la petición con historial + nuevo mensaje
+async function tryGemini(userMessage, conversationHistory, apiKey) {
   const contents = [...conversationHistory];
   contents.push({
     role: 'user',
@@ -71,13 +67,9 @@ async function generateAiResponse(userMessage, conversationHistory = []) {
     },
   };
 
-  let lastError = null;
-
-  // Rotar por los modelos disponibles si alguno da 429 (límite de cuota) o 503 (alta demanda)
-  for (const modelName of MODELS_POOL) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-
+  for (const modelName of GEMINI_MODELS) {
     try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -85,24 +77,98 @@ async function generateAiResponse(userMessage, conversationHistory = []) {
       });
 
       if (!res.ok) {
-        const errorText = await res.text();
-        console.warn(`⟡ Gemini Model (${modelName}) Status ${res.status}: Intentando con el siguiente modelo del pool...`);
-        lastError = new Error(`Status ${res.status}: ${errorText}`);
-        continue; // Probar siguiente modelo
+        console.warn(`⟡ Gemini (${modelName}) Status ${res.status}. Probando siguiente...`);
+        continue;
       }
 
       const data = await res.json();
-      const candidate = data.candidates && data.candidates[0];
-      if (candidate?.content?.parts?.[0]?.text) {
-        return candidate.content.parts[0].text;
-      }
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
     } catch (err) {
-      console.warn(`⟡ Error conectando con ${modelName}:`, err.message);
-      lastError = err;
+      console.warn(`⟡ Error en Gemini (${modelName}):`, err.message);
     }
   }
 
-  throw lastError || new Error('Todos los modelos del pool de Gemini están ocupados.');
+  return null; // Si todos los de Gemini fallan
+}
+
+/**
+ * Consulta a Groq (Respaldo).
+ */
+async function tryGroq(userMessage, conversationHistory, apiKey) {
+  // Convertir formato de historial de Gemini a formato OpenAI/Groq
+  const messages = [{ role: 'system', content: SYSTEM_PROMPT.trim() }];
+
+  for (const item of conversationHistory) {
+    const role = item.role === 'model' ? 'assistant' : 'user';
+    const text = item.parts?.[0]?.text || '';
+    if (text) {
+      messages.push({ role, content: text });
+    }
+  }
+
+  messages.push({ role: 'user', content: userMessage });
+
+  for (const modelName of GROQ_MODELS) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages,
+          temperature: 0.8,
+          max_tokens: 2048,
+        }),
+      });
+
+      if (!res.ok) {
+        console.warn(`⟡ Groq (${modelName}) Status ${res.status}. Probando siguiente...`);
+        continue;
+      }
+
+      const data = await res.json();
+      const text = data?.choices?.[0]?.message?.content;
+      if (text) {
+        console.log(`✓ Respuesta generada exitosamente con Respaldo Groq (${modelName}).`);
+        return text;
+      }
+    } catch (err) {
+      console.warn(`⟡ Error en Groq (${modelName}):`, err.message);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Generador Principal: Intenta con Gemini y si falla salta a Groq automáticamente.
+ */
+async function generateAiResponse(userMessage, conversationHistory = []) {
+  const geminiKey = config.GEMINI_API_KEY;
+  const groqKey = config.GROQ_API_KEY;
+
+  // 1. Intentar con Gemini
+  if (geminiKey) {
+    try {
+      const geminiResult = await tryGemini(userMessage, conversationHistory, geminiKey);
+      if (geminiResult) return geminiResult;
+    } catch (gErr) {
+      console.warn('⟡ Fallo general en Gemini, activando respaldo Groq...', gErr.message);
+    }
+  }
+
+  // 2. Respaldo inmediato con Groq
+  if (groqKey) {
+    console.log('⚡ Activando respaldo de IA con Groq...');
+    const groqResult = await tryGroq(userMessage, conversationHistory, groqKey);
+    if (groqResult) return groqResult;
+  }
+
+  throw new Error('Todos los servicios de IA (Gemini y Groq) están temporalmente no disponibles.');
 }
 
 module.exports = {

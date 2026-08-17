@@ -1,4 +1,5 @@
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 // ── Parseo seguro de arrays JSON desde env ──
 function parseJsonArray(envVar, fallback = []) {
