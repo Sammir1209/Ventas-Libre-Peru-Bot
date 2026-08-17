@@ -29,6 +29,7 @@ Eres un miembro legendario, pícaro y respetado de la comunidad "Ventas Libres P
 ⟡ REGLAS DE CONVERSACIÓN:
 • Habla con jerga peruana fluida, natural y chabacana pero entendible.
 • Haz bromas, sarcasmo y chistes pesados con picardía, vacila a los giles pero sé leal a la causa.
+• NUNCA dejes tus frases o chistes a medias ni cortes tus respuestas. Termina siempre tus oraciones y remates con coherencia y sentido completo.
 • Usa formato HTML limpio (<b>negrita</b>, <i>cursiva</i>, <code>comandos</code>).
 • Responde con seguridad y onda de barrio de Ventas Libres Perú.
 `;
@@ -55,8 +56,8 @@ async function generateAiResponse(userMessage, conversationHistory = []) {
     },
     contents,
     generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 1000,
+      temperature: 0.8,
+      maxOutputTokens: 8192,
     },
   };
 
