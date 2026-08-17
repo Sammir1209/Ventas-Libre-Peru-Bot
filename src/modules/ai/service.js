@@ -34,8 +34,18 @@ Eres un miembro legendario, pícaro y respetado de la comunidad "Ventas Libres P
 • Responde con seguridad y onda de barrio de Ventas Libres Perú.
 `;
 
+// ── Pool de Modelos con Fallback Automático Anti-Quota (429/503) ──
+const MODELS_POOL = [
+  'gemini-3.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
+];
+
 /**
- * Consulta a Google Gemini con el historial de la sesión del usuario.
+ * Consulta a Google Gemini con rotación automática de modelos ante cuotas (429) o saturación (503).
  */
 async function generateAiResponse(userMessage, conversationHistory = []) {
   const apiKey = config.GEMINI_API_KEY;
@@ -61,26 +71,38 @@ async function generateAiResponse(userMessage, conversationHistory = []) {
     },
   };
 
-  const url = `${GEMINI_ENDPOINT}?key=${apiKey}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(requestBody),
-  });
+  let lastError = null;
 
-  if (!res.ok) {
-    const errorBody = await res.text();
-    console.error('⟡ Gemini API Error:', res.status, errorBody);
-    throw new Error(`Error en Gemini API (${res.status}): ${errorBody}`);
+  // Rotar por los modelos disponibles si alguno da 429 (límite de cuota) o 503 (alta demanda)
+  for (const modelName of MODELS_POOL) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.warn(`⟡ Gemini Model (${modelName}) Status ${res.status}: Intentando con el siguiente modelo del pool...`);
+        lastError = new Error(`Status ${res.status}: ${errorText}`);
+        continue; // Probar siguiente modelo
+      }
+
+      const data = await res.json();
+      const candidate = data.candidates && data.candidates[0];
+      if (candidate?.content?.parts?.[0]?.text) {
+        return candidate.content.parts[0].text;
+      }
+    } catch (err) {
+      console.warn(`⟡ Error conectando con ${modelName}:`, err.message);
+      lastError = err;
+    }
   }
 
-  const data = await res.json();
-  const candidate = data.candidates && data.candidates[0];
-  if (!candidate || !candidate.content || !candidate.content.parts || !candidate.content.parts[0]) {
-    throw new Error('Respuesta vacía recibida del modelo Gemini.');
-  }
-
-  return candidate.content.parts[0].text;
+  throw lastError || new Error('Todos los modelos del pool de Gemini están ocupados.');
 }
 
 module.exports = {
