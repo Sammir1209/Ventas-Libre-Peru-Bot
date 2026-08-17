@@ -62,6 +62,9 @@ const config = {
   // Supabase
   SUPABASE_URL: process.env.SUPABASE_URL || '',
   SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY || '',
+
+  // Inteligencia Artificial (Gemini)
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
 };
 
 // ── Validar que el userbot tenga credenciales si se necesitan ──
