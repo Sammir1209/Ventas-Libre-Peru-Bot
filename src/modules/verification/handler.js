@@ -267,7 +267,7 @@ async function unmuteMember(ctx, userId) {
   const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
   if (!chatId) return;
 
-  const fullPerms = {
+  const standardPerms = {
     can_send_messages: true,
     can_send_audios: true,
     can_send_documents: true,
@@ -278,36 +278,25 @@ async function unmuteMember(ctx, userId) {
     can_send_polls: true,
     can_send_other_messages: true,
     can_add_web_page_previews: true,
-    can_change_info: true,
+    can_change_info: false,
     can_invite_users: true,
-    can_pin_messages: true,
-    can_manage_topics: true,
+    can_pin_messages: false,
+    can_manage_topics: false,
   };
 
   try {
     await ctx.api.restrictChatMember(chatId, userId, {
-      permissions: fullPerms,
+      permissions: standardPerms,
       use_independent_chat_permissions: true,
     });
-    console.log(`✓ Miembro ${userId} desmuteado con éxito en chat ${chatId}`);
+    console.log(`✓ Miembro ${userId} desmuteado con éxito en chat ${chatId} (independent permissions)`);
   } catch (err1) {
-    console.warn(`⟡ Intento 1 restrictChatMember: ${err1.message}. Reintentando con permisos básicos...`);
+    console.warn(`⟡ Intento 1 restrictChatMember: ${err1.message}. Reintentando con API standard...`);
     try {
       await ctx.api.restrictChatMember(chatId, userId, {
-        permissions: {
-          can_send_messages: true,
-          can_send_audios: true,
-          can_send_documents: true,
-          can_send_photos: true,
-          can_send_videos: true,
-          can_send_video_notes: true,
-          can_send_voice_notes: true,
-          can_send_polls: true,
-          can_send_other_messages: true,
-          can_add_web_page_previews: true,
-        },
+        permissions: standardPerms,
       });
-      console.log(`✓ Miembro ${userId} desmuteado con éxito (fallback)`);
+      console.log(`✓ Miembro ${userId} desmuteado con éxito (fallback standard)`);
     } catch (err2) {
       console.error(`⟡ ERROR al desmutear miembro ${userId}:`, err2.message);
     }
