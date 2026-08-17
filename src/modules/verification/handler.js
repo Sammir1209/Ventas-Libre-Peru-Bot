@@ -99,13 +99,18 @@ function register(bot) {
       if (isDisabled) await redisDb.setCache(`verify_disabled:${chatId}`, true, 86400 * 365);
     }
 
-    if (isDisabled) return;
+    // Comprobar si el usuario ya está verificado previamente
+    const cachedVerified = await redisDb.getCache(`verified_user:${userId}`);
+    if (cachedVerified) return;
+    try {
+      const u = await db.getUser(userId);
+      if (u && u.verified) {
+        await redisDb.setCache(`verified_user:${userId}`, true, 86400 * 30);
+        return;
+      }
+    } catch {}
 
-    const userId = user.id;
-    const username = user.username;
-    const firstName = user.first_name;
-
-    console.log(`⟡ Verificación: Nuevo miembro en ${chat.title || chatId} -> @${username || userId}`);
+    console.log(`⟡ Verificación: Nuevo miembro por verificar en ${chat.title || chatId} -> @${username || userId}`);
 
     // 1. Mute inmediato
     try {
@@ -171,11 +176,10 @@ function register(bot) {
       const newStatus = update.new_chat_member?.status;
       const user = update.new_chat_member?.user;
 
-      console.log(`⟡ chat_member update en ${update.chat.title || update.chat.id}: ${oldStatus} -> ${newStatus} (@${user?.username || user?.id})`);
-
-      // El usuario entra al grupo (venía de estar fuera, expulsado o restringido previo)
-      if (oldStatus !== 'member' && oldStatus !== 'administrator' && oldStatus !== 'creator') {
+      // SOLO procesar si el usuario REALMENTE ingresó de afuera (left / kicked / null)
+      if (oldStatus === 'left' || oldStatus === 'kicked' || !oldStatus) {
         if (newStatus === 'member' || newStatus === 'restricted') {
+          console.log(`⟡ Ingreso detectado vía chat_member en ${update.chat.title || update.chat.id}: ${oldStatus} -> ${newStatus} (@${user?.username || user?.id})`);
           await handleNewMember(ctx, update.chat, user);
         }
       }
