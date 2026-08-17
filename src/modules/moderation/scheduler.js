@@ -22,22 +22,47 @@ function startPeriodicNoticeScheduler(bot) {
       const groups = await db.getAllGroups();
       const groupList = Array.isArray(groups) ? [...groups] : [];
 
-      // Incluir grupo principal si no está en la lista
+      // IDs excluidos explícitamente (Canales públicos, Logs, Staff y Escrow)
+      const excludedIds = new Set([
+        Number(config.ESCROW_GROUP_ID),
+        Number(config.STAFF_CHAT_ID),
+        Number(config.BURN_CHAT_ID),
+        Number(config.LOG_CHANNEL_ID),
+        Number(config.PUBLIC_BURN_CHANNEL_ID),
+        -1003905787584, // Canal Público de Quemados
+        -1003937265207, // Grupo de Staff / Tratos
+      ].filter(Boolean));
+
+      // Grupo de Chat Oficial de la Comunidad
       const mainChatId = -1003538147715;
-      if (!groupList.some(g => Number(g.chat_id) === mainChatId)) {
-        groupList.push({ chat_id: mainChatId, title: 'Comunidad Principal' });
-      }
+
+      // Filtrar lista para incluir únicamente grupos/supergrupos de chat oficial
+      const targetChats = [];
+      
+      // Asegurar que el chat principal esté en la lista
+      targetChats.push(mainChatId);
 
       for (const grp of groupList) {
         const chatId = Number(grp.chat_id);
         if (!chatId) continue;
-
-        // No enviar a grupos de Escrow o Staff privado
-        if (chatId === config.ESCROW_GROUP_ID || chatId === config.STAFF_CHAT_ID) {
-          continue;
+        if (excludedIds.has(chatId)) continue;
+        if (grp.type === 'channel') continue; // PROHIBIDO enviar a canales
+        if (!targetChats.includes(chatId)) {
+          targetChats.push(chatId);
         }
+      }
+
+      for (const chatId of targetChats) {
+        if (excludedIds.has(chatId)) continue;
 
         try {
+          // Validar que el tipo de chat sea grupo/supergrupo y NO canal
+          const chatInfo = await bot.api.getChat(chatId);
+          if (chatInfo.type === 'channel') {
+            excludedIds.add(chatId);
+            continue; // Saltar si es un canal
+          }
+
           // Eliminar aviso anterior para no acumular mensajes en el chat
           const lastMsgId = await redisDb.getCache(`last_notice_msg:${chatId}`);
           if (lastMsgId) {
@@ -60,7 +85,7 @@ function startPeriodicNoticeScheduler(bot) {
             await redisDb.setCache(`last_notice_msg:${chatId}`, sent.message_id, 86400);
           }
         } catch (grpErr) {
-          // Silenciar si no tiene permisos en ese grupo específico
+          // Silenciar si no tiene permisos o si falló la entrega
         }
       }
     } catch (err) {
