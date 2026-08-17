@@ -3,6 +3,20 @@ const { generateAiResponse } = require('./service');
 const { getSessionHistory, addMessageToSession, clearSession } = require('./memory');
 const redisDb = require('../../database/redis');
 
+// ── Mensajes Variados y Dinámicos de Espera ──
+const THINKING_MESSAGES = [
+  '✍️ <i>Escribiendo respuesta...</i>',
+  '💭 <i>Analizando tu consulta...</i>',
+  '🧠 <i>Pensando respuesta...</i>',
+  '⚡ <i>Consultando base de datos...</i>',
+  '🔍 <i>Procesando información...</i>',
+  '🇵🇪 <i>Redactando con la IA de Ventas Libres...</i>',
+];
+
+function getRandomThinkingMessage() {
+  return THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)];
+}
+
 function register(bot) {
   let botUsername = 'ventas_libres_peru_Bot';
   bot.api.getMe().then((me) => {
@@ -15,40 +29,81 @@ function register(bot) {
     const cleanPrompt = promptText.trim();
     if (!cleanPrompt) return;
 
-    // Enviar acción de "escribiendo..." en el chat
+    // 1. Enviar acción de "escribiendo..." en el chat
     try {
       await ctx.replyWithChatAction('typing');
     } catch {}
 
+    // 2. Enviar mensaje de espera dinámico y variado
+    let placeholder = null;
     try {
-      // 1. Obtener historial aislado de este usuario
+      placeholder = await ctx.reply(getRandomThinkingMessage(), {
+        parse_mode: 'HTML',
+        reply_parameters: { message_id: ctx.message.message_id },
+      });
+    } catch {
+      try {
+        placeholder = await ctx.reply('✍️ Escribiendo...');
+      } catch {}
+    }
+
+    try {
+      // 3. Obtener historial aislado de este usuario
       const history = await getSessionHistory(userId);
 
-      // 2. Generar respuesta con Gemini
+      // 4. Generar respuesta con Gemini
       const aiReply = await generateAiResponse(cleanPrompt, history);
 
-      // 3. Guardar en memoria de sesión
+      // 5. Guardar en memoria de sesión
       await addMessageToSession(userId, 'user', cleanPrompt);
       await addMessageToSession(userId, 'model', aiReply);
 
-      // 4. Responder al usuario
-      try {
+      // 6. Editar el mensaje de espera en tiempo real con la respuesta final
+      if (placeholder) {
+        try {
+          await ctx.api.editMessageText(
+            ctx.chat.id,
+            placeholder.message_id,
+            aiReply,
+            { parse_mode: 'HTML' }
+          );
+        } catch (htmlErr) {
+          // Fallback a texto plano si alguna etiqueta HTML no cerró
+          try {
+            await ctx.api.editMessageText(
+              ctx.chat.id,
+              placeholder.message_id,
+              aiReply
+            );
+          } catch {
+            await ctx.reply(aiReply, {
+              reply_parameters: { message_id: ctx.message.message_id },
+            });
+          }
+        }
+      } else {
         await ctx.reply(aiReply, {
           parse_mode: 'HTML',
-          reply_parameters: { message_id: ctx.message.message_id },
-        });
-      } catch (htmlErr) {
-        // Fallback a texto plano si alguna etiqueta no cerró bien
-        await ctx.reply(aiReply, {
           reply_parameters: { message_id: ctx.message.message_id },
         });
       }
     } catch (err) {
       console.error('⟡ Error en Asistente IA:', err.message);
-      await ctx.reply(
-        `${SYM.CROSS} <i>Disculpa, hubo un problema momentáneo al procesar tu consulta. Intenta de nuevo en unos segundos.</i>`,
-        { parse_mode: 'HTML' }
-      );
+      if (placeholder) {
+        try {
+          await ctx.api.editMessageText(
+            ctx.chat.id,
+            placeholder.message_id,
+            `${SYM.CROSS} <i>Disculpa, hubo un problema momentáneo al procesar tu consulta. Intenta de nuevo en unos segundos.</i>`,
+            { parse_mode: 'HTML' }
+          );
+        } catch {}
+      } else {
+        await ctx.reply(
+          `${SYM.CROSS} <i>Disculpa, hubo un problema momentáneo al procesar tu consulta. Intenta de nuevo en unos segundos.</i>`,
+          { parse_mode: 'HTML' }
+        );
+      }
     }
   }
 
