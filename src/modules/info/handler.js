@@ -69,9 +69,9 @@ async function buildUserProfile(ctx, targetUser) {
 
   const text =
     `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>PERFIL DE USUARIO</b> ${SYM.DIAMOND}\n` +
+    `${SYM.CROWN} <b>PERFIL OFICIAL DE USUARIO</b> ${SYM.BADGE}\n` +
     `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} <b>Nombre:</b> ${escapeHtml(firstName || 'Usuario')}\n` +
+    `${SYM.ARROW} <b>Nombre:</b> <b>${escapeHtml(firstName || 'Usuario')}</b>\n` +
     `${SYM.ARROW} <b>Usuario:</b> ${username ? `@${username}` : '<i>Sin @username</i>'}\n` +
     `${SYM.ARROW} <b>ID:</b> <code>${userId}</code>\n\n` +
     `${SYM.THIN_LINE}\n` +
@@ -80,12 +80,11 @@ async function buildUserProfile(ctx, targetUser) {
     ratingText + '\n' +
     `${SYM.ARROW} <b>Verificado en Canales:</b> <b>${isVerifiedText}</b>\n` +
     `${SYM.THIN_LINE}\n\n` +
-    `${SYM.STAR} <i>Pulsa el botón de abajo para consultar si registra antecedentes o reportes de estafa.</i>`;
+    `${SYM.STAR} <i>Consulta de antecedentes y registros de estafas:</i>`;
 
   const keyboard = new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Verificar Antecedentes (Estafas)`, `info_check_burn:${userId}`).success()
-    .row()
-    .text(`${SYM.CROSS} Cerrar`, 'info_close').danger();
+    .text(`⛊ Antecedentes`, `info_check_burn:${userId}`).success()
+    .text(`✗ Cerrar`, 'info_close').danger();
 
   return { text, keyboard };
 }
@@ -150,19 +149,18 @@ function register(bot) {
         // USUARIO LIMPIO
         const cleanText =
           `${SYM.DIVIDER}\n` +
-          `${SYM.DIAMOND} <b>CONSULTA DE ANTECEDENTES</b> ${SYM.DIAMOND}\n` +
+          `${SYM.SHIELD} <b>CONSULTA DE ANTECEDENTES</b> ${SYM.CHECK}\n` +
           `${SYM.DIVIDER}\n\n` +
-          `${SYM.CHECK} <b>Usuario:</b> ${userMention}\n` +
+          `${SYM.ARROW} <b>Usuario:</b> ${userMention}\n` +
           `${SYM.ARROW} <b>ID:</b> <code>${targetId}</code>\n` +
-          `${SYM.CHECK} <b>Estado:</b> <b>LIMPIO 🟢</b>\n\n` +
+          `${SYM.ARROW} <b>Estado:</b> <b>LIMPIO 🟢</b>\n\n` +
           `${SYM.THIN_LINE}\n` +
-          `${SYM.STAR} Este usuario <b>NO registra antecedentes</b>, reportes ni sanciones por estafa en la base de datos oficial de Ventas Libres Perú.\n` +
+          `${SYM.STAR} Este usuario <b>NO registra antecedentes</b> ni sanciones por estafa en la base de datos oficial.\n` +
           `${SYM.THIN_LINE}`;
 
         const kb = new InlineKeyboard()
-          .text(`${SYM.DIAMOND} Volver al Perfil`, `info_back:${targetId}`).primary()
-          .row()
-          .text(`${SYM.CROSS} Cerrar`, 'info_close').danger();
+          .text(`⟡ Volver`, `info_back:${targetId}`).primary()
+          .text(`✗ Cerrar`, 'info_close').danger();
 
         await ctx.editMessageText(cleanText, {
           parse_mode: 'HTML',
@@ -180,7 +178,7 @@ function register(bot) {
 
         const burnText =
           `${SYM.DIVIDER}\n` +
-          `${SYM.CROSS} <b>ALERTA: USUARIO QUEMADO</b> ${SYM.CROSS}\n` +
+          `${SYM.ALERT} <b>ALERTA: USUARIO QUEMADO</b> ${SYM.WARNING}\n` +
           `${SYM.DIVIDER}\n\n` +
           `${SYM.CROSS} <b>Usuario:</b> ${userMention}\n` +
           `${SYM.ARROW} <b>ID:</b> <code>${targetId}</code>\n` +
@@ -190,13 +188,12 @@ function register(bot) {
           `${SYM.ARROW} <b>Reportado por:</b> <code>${burnInfo.reported_by || 'Staff'}</code>\n` +
           `${SYM.ARROW} <b>Fecha de Registro:</b> ${dateStr}\n` +
           `${SYM.THIN_LINE}\n\n` +
-          `${SYM.CROSS} <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
+          `${SYM.WARNING} <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
           `No realices transferencias, depósitos ni entregas de productos con este usuario bajo ninguna circunstancia.`;
 
         const kb = new InlineKeyboard()
-          .text(`${SYM.DIAMOND} Volver al Perfil`, `info_back:${targetId}`).primary()
-          .row()
-          .text(`${SYM.CROSS} Cerrar`, 'info_close').danger();
+          .text(`⟡ Volver`, `info_back:${targetId}`).primary()
+          .text(`✗ Cerrar`, 'info_close').danger();
 
         await ctx.editMessageText(burnText, {
           parse_mode: 'HTML',
