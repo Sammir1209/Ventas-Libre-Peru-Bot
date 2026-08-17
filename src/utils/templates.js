@@ -613,6 +613,8 @@ function modLogEntry(action, moderatorMention, targetId, chatTitle, reason) {
     `${SYM.ARROW} <b>Razón:</b> ${reason || 'Sin especificar'}\n` +
     `${SYM.ARROW} <b>Fecha:</b> <code>${new Date().toISOString()}</code>`
   );
+}
+
 /**
  * Plantilla de respuesta automática cuando un usuario menciona que fue estafado o quiere quemar/reportar.
  */
