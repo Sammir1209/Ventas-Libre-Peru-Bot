@@ -126,6 +126,7 @@ function register(bot) {
           can_pin_messages: false,
           can_manage_topics: false,
         },
+        use_independent_chat_permissions: true,
       });
     } catch (muteErr) {
       console.warn('⟡ Verificación: No se pudo mutear:', muteErr.message);
@@ -140,7 +141,7 @@ function register(bot) {
     try {
       await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName), {
         parse_mode: 'HTML',
-        reply_markup: welcomeKeyboard(),
+        reply_markup: welcomeKeyboard(userId),
       });
     } catch (sendErr) {
       console.error('⟡ Verificación: No se pudo enviar bienvenida:', sendErr.message);
@@ -177,10 +178,21 @@ function register(bot) {
     }
   });
 
-  // ── Callback: Verificar Membresía ──
-  bot.callbackQuery(CB.VERIFY, async (ctx) => {
+  // ── Callback: Verificar Membresía (Con protección de usuario) ──
+  bot.callbackQuery([CB.VERIFY, /^verify:(\d+)$/], async (ctx) => {
     try {
-      const userId = ctx.from.id;
+      const match = ctx.match;
+      const targetUserId = match && match[1] ? Number(match[1]) : null;
+      const clickerId = ctx.from.id;
+
+      if (targetUserId && clickerId !== targetUserId) {
+        return ctx.answerCallbackQuery({
+          text: '⚠️ Esta verificación fue generada para otro usuario. Si acabas de ingresar, usa el mensaje que te envió el bot.',
+          show_alert: true,
+        });
+      }
+
+      const userId = clickerId;
       const channels = config.CHANNELS_TO_VERIFY;
 
       if (channels.length === 0) {
@@ -236,7 +248,7 @@ function register(bot) {
   });
 
   // ── Callback: ¿Cómo funciona? ──
-  bot.callbackQuery(CB.HOW_IT_WORKS, async (ctx) => {
+  bot.callbackQuery([CB.HOW_IT_WORKS, /^how_it_works:(\d+)$/], async (ctx) => {
     try {
       await ctx.answerCallbackQuery();
       await ctx.reply(templates.howItWorksMessage(), {
@@ -249,41 +261,79 @@ function register(bot) {
 }
 
 /**
- * Remueve las restricciones de un usuario (unmute).
+ * Remueve completamente las restricciones de un usuario (unmute).
  */
 async function unmuteMember(ctx, userId) {
   const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
   if (!chatId) return;
 
-  await ctx.api.restrictChatMember(chatId, userId, {
-    permissions: {
-      can_send_messages: true,
-      can_send_audios: true,
-      can_send_documents: true,
-      can_send_photos: true,
-      can_send_videos: true,
-      can_send_video_notes: true,
-      can_send_voice_notes: true,
-      can_send_polls: true,
-      can_send_other_messages: true,
-      can_add_web_page_previews: true,
-      can_change_info: false,
-      can_invite_users: true,
-      can_pin_messages: false,
-      can_manage_topics: false,
-    },
-  });
+  const fullPerms = {
+    can_send_messages: true,
+    can_send_audios: true,
+    can_send_documents: true,
+    can_send_photos: true,
+    can_send_videos: true,
+    can_send_video_notes: true,
+    can_send_voice_notes: true,
+    can_send_polls: true,
+    can_send_other_messages: true,
+    can_add_web_page_previews: true,
+    can_change_info: true,
+    can_invite_users: true,
+    can_pin_messages: true,
+    can_manage_topics: true,
+  };
+
+  try {
+    await ctx.api.restrictChatMember(chatId, userId, {
+      permissions: fullPerms,
+      use_independent_chat_permissions: true,
+    });
+    console.log(`✓ Miembro ${userId} desmuteado con éxito en chat ${chatId}`);
+  } catch (err1) {
+    console.warn(`⟡ Intento 1 restrictChatMember: ${err1.message}. Reintentando con permisos básicos...`);
+    try {
+      await ctx.api.restrictChatMember(chatId, userId, {
+        permissions: {
+          can_send_messages: true,
+          can_send_audios: true,
+          can_send_documents: true,
+          can_send_photos: true,
+          can_send_videos: true,
+          can_send_video_notes: true,
+          can_send_voice_notes: true,
+          can_send_polls: true,
+          can_send_other_messages: true,
+          can_add_web_page_previews: true,
+        },
+      });
+      console.log(`✓ Miembro ${userId} desmuteado con éxito (fallback)`);
+    } catch (err2) {
+      console.error(`⟡ ERROR al desmutear miembro ${userId}:`, err2.message);
+    }
+  }
 
   // Marcar como verificado en BD
-  await db.verifyUser(userId);
+  try {
+    await db.verifyUser(userId);
+  } catch {}
 
   // Mensaje de éxito
   const user = await db.getUser(userId);
-  await ctx.api.sendMessage(
-    chatId,
-    templates.verificationSuccess(user?.username, user?.first_name),
-    { parse_mode: 'HTML' }
-  );
+  try {
+    await ctx.api.sendMessage(
+      chatId,
+      templates.verificationSuccess(user?.username || ctx.from?.username, user?.first_name || ctx.from?.first_name),
+      { parse_mode: 'HTML' }
+    );
+  } catch {}
+
+  // Limpiar mensaje de bienvenida original para mantener el grupo limpio
+  if (ctx.callbackQuery?.message?.message_id) {
+    try {
+      await ctx.api.deleteMessage(chatId, ctx.callbackQuery.message.message_id);
+    } catch {}
+  }
 }
 
 module.exports = { register };
