@@ -3,13 +3,30 @@ const db = require('../../database/postgres');
 const redisDb = require('../../database/redis');
 const templates = require('../../utils/templates');
 
-// ── Intervalo de Publicación: 20 Minutos ──
-const NOTICE_INTERVAL_MS = 20 * 60 * 1000;
+// ── Configuración del Programador Inteligente ──
+const NOTICE_INTERVAL_MS = 20 * 60 * 1000; // Cada 20 minutos
+const MIN_ACTIVITY_MESSAGES = 10; // Mínimo 10 mensajes de usuarios reales
 
 /**
- * Inicia el temporizador en background para publicar el aviso de seguridad cada 20 minutos en todos los grupos oficiales.
+ * Inicia el temporizador en background para publicar el aviso de seguridad cada 20 minutos
+ * ÚNICAMENTE si el grupo registra actividad real de conversación (>= 10 mensajes).
  */
 function startPeriodicNoticeScheduler(bot) {
+  // ── Rastreador de Actividad de Chat (Mensajes reales) ──
+  bot.on('message', async (ctx, next) => {
+    try {
+      if (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group') {
+        const sender = ctx.from;
+        if (sender && !sender.is_bot) {
+          const countKey = `chat_activity_count:${ctx.chat.id}`;
+          const current = (await redisDb.getCache(countKey)) || 0;
+          await redisDb.setCache(countKey, Number(current) + 1, 86400);
+        }
+      }
+    } catch {}
+    return next();
+  });
+
   async function broadcastNotice() {
     try {
       let botUsername = 'ventas_libres_peru_Bot';
@@ -38,8 +55,6 @@ function startPeriodicNoticeScheduler(bot) {
 
       // Filtrar lista para incluir únicamente grupos/supergrupos de chat oficial
       const targetChats = [];
-      
-      // Asegurar que el chat principal esté en la lista
       targetChats.push(mainChatId);
 
       for (const grp of groupList) {
@@ -60,7 +75,16 @@ function startPeriodicNoticeScheduler(bot) {
           const chatInfo = await bot.api.getChat(chatId);
           if (chatInfo.type === 'channel') {
             excludedIds.add(chatId);
-            continue; // Saltar si es un canal
+            continue;
+          }
+
+          // ── FILTRO INTELIGENTE ANTI-SPAM: Verificar si hay conversación activa (>= 10 mensajes) ──
+          const countKey = `chat_activity_count:${chatId}`;
+          const activityCount = Number((await redisDb.getCache(countKey)) || 0);
+
+          if (activityCount < MIN_ACTIVITY_MESSAGES) {
+            console.log(`⟡ Aviso Seguridad: Omitido en ${chatId} (${activityCount}/${MIN_ACTIVITY_MESSAGES} mensajes — Chat sin actividad suficiente para evitar spam).`);
+            continue;
           }
 
           // Eliminar aviso anterior para no acumular mensajes en el chat
@@ -83,6 +107,9 @@ function startPeriodicNoticeScheduler(bot) {
 
           if (sent?.message_id) {
             await redisDb.setCache(`last_notice_msg:${chatId}`, sent.message_id, 86400);
+            // Reiniciar el contador de actividad para el siguiente ciclo
+            await redisDb.setCache(countKey, 0, 86400);
+            console.log(`✓ Aviso Seguridad enviado en ${chatId} (Actividad: ${activityCount} mensajes procesados).`);
           }
         } catch (grpErr) {
           // Silenciar si no tiene permisos o si falló la entrega
@@ -93,17 +120,12 @@ function startPeriodicNoticeScheduler(bot) {
     }
   }
 
-  // Primer envío tras 1 minuto de haber iniciado el bot
-  setTimeout(() => {
-    broadcastNotice().catch(() => {});
-  }, 60 * 1000);
-
   // Programación fija cada 20 minutos
   setInterval(() => {
     broadcastNotice().catch(() => {});
   }, NOTICE_INTERVAL_MS);
 
-  console.log('✓ Aviso Periódico de Seguridad: Programado automáticamente cada 20 minutos.');
+  console.log('✓ Aviso Periódico de Seguridad: Programado cada 20 min con filtro anti-spam (requiere >= 10 mensajes activos).');
 }
 
 module.exports = {
