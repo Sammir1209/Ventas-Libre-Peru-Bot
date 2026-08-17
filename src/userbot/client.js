@@ -31,7 +31,7 @@ async function initialize() {
 }
 
 // ══════════════════════════════════════════════════════
-// ⟡ Crear Grupo Temporal para Trato (Opcional si no se usa Topics)
+// ⟡ Crear Grupo Temporal para Trato
 // ══════════════════════════════════════════════════════
 
 async function createDealGroup(dealId, botId) {
@@ -118,8 +118,56 @@ async function resolveUser(usernameOrId) {
   return null;
 }
 
+/**
+ * Desmutea y remueve todas las restricciones de un usuario vía MTProto directamente
+ */
+async function unrestrictUser(chatId, userId) {
+  if (!client || !isConnected()) return false;
+  try {
+    const chatEntity = await client.getEntity(chatId);
+    const userEntity = await client.getEntity(userId);
+    if (chatEntity && userEntity) {
+      await client.invoke(
+        new Api.channels.EditBanned({
+          channel: chatEntity,
+          participant: userEntity,
+          bannedRights: new Api.ChatBannedRights({
+            untilDate: 0,
+            viewMessages: false,
+            sendMessages: false,
+            sendMedia: false,
+            sendStickers: false,
+            sendGifs: false,
+            sendGames: false,
+            sendInline: false,
+            embedLinks: false,
+            sendPolls: false,
+            changeInfo: false,
+            inviteUsers: false,
+            pinMessages: false,
+            manageTopics: false,
+            sendPhotos: false,
+            sendVideos: false,
+            sendRoundvideos: false,
+            sendAudios: false,
+            sendVoices: false,
+            sendDocs: false,
+            sendPlain: false,
+          }),
+        })
+      );
+      console.log(`✓ Userbot MTProto: Restricciones levantadas exitosamente para ${userId} en ${chatId}`);
+      return true;
+    }
+  } catch (err) {
+    // Si el userbot no es admin en ese chat, el bot oficial lo hace vía Bot API
+  }
+  return false;
+}
+
 module.exports = {
   resolveUser,
+  unrestrictUser,
   initialize,
   createDealGroup,
   isConnected,

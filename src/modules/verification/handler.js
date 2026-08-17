@@ -280,14 +280,13 @@ function register(bot) {
 }
 
 /**
- * Remueve completamente las restricciones de un usuario (unmute).
+ * Remueve completamente las restricciones de un usuario (unmute) restaurando su rol normal.
  */
 async function unmuteMember(ctx, userId) {
   const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
   if (!chatId) return;
 
-  // 1. Obtener los permisos por defecto del chat
-  let targetPerms = {
+  const standardPerms = {
     can_send_messages: true,
     can_send_audios: true,
     can_send_documents: true,
@@ -299,63 +298,52 @@ async function unmuteMember(ctx, userId) {
     can_send_other_messages: true,
     can_add_web_page_previews: true,
     can_invite_users: true,
-    can_change_info: false,
-    can_pin_messages: false,
-    can_manage_topics: false,
   };
 
+  // 1. Desmutear vía Bot API (sin use_independent_chat_permissions para que Telegram elimine el estado 'restricted')
   try {
-    const chatInfo = await ctx.api.getChat(chatId);
-    if (chatInfo?.permissions) {
-      targetPerms = {
-        ...chatInfo.permissions,
-        can_send_messages: true,
-        can_send_audios: true,
-        can_send_documents: true,
-        can_send_photos: true,
-        can_send_videos: true,
-        can_send_video_notes: true,
-        can_send_voice_notes: true,
-        can_send_polls: true,
-        can_send_other_messages: true,
-        can_add_web_page_previews: true,
-      };
+    await ctx.api.restrictChatMember(chatId, userId, {
+      permissions: standardPerms,
+    });
+    console.log(`✓ [Bot API] Miembro ${userId} desmuteado con éxito a status: member en chat ${chatId}`);
+  } catch (err1) {
+    console.warn(`⟡ [Bot API Intento 1]: ${err1.message}. Intentando con permisos explícitos...`);
+    try {
+      await ctx.api.restrictChatMember(chatId, userId, {
+        permissions: {
+          ...standardPerms,
+          can_change_info: false,
+          can_pin_messages: false,
+          can_manage_topics: false,
+        },
+        use_independent_chat_permissions: true,
+      });
+      console.log(`✓ [Bot API Intento 2] Miembro ${userId} desmuteado`);
+    } catch (err2) {
+      console.error(`⟡ [Bot API Error] No se pudo desmutear miembro ${userId}:`, err2.message);
+    }
+  }
+
+  // 2. Respaldo por MTProto directo si el Userbot está activo
+  try {
+    const userbot = require('../../userbot/client');
+    if (userbot.isConnected()) {
+      await userbot.unrestrictUser(chatId, userId);
     }
   } catch {}
 
-  // Método 1: Restricción con permisos del chat y use_independent_chat_permissions
-  try {
-    await ctx.api.restrictChatMember(chatId, userId, {
-      permissions: targetPerms,
-      use_independent_chat_permissions: true,
-    });
-    console.log(`✓ [Método 1] Miembro ${userId} desmuteado con éxito en chat ${chatId}`);
-  } catch (err1) {
-    console.warn(`⟡ [Método 1 falló]: ${err1.message}. Intentando Método 2...`);
-    try {
-      await ctx.api.restrictChatMember(chatId, userId, {
-        permissions: targetPerms,
-      });
-      console.log(`✓ [Método 2] Miembro ${userId} desmuteado con éxito`);
-    } catch (err2) {
-      console.error(`⟡ [Método 2 falló] ERROR al desmutear miembro ${userId}:`, err2.message);
-    }
-  }
-
-  // Verificar estado real en Telegram y registrar en log
+  // 3. Verificar estado en tiempo real
   try {
     const memberAfter = await ctx.api.getChatMember(chatId, userId);
-    console.log(`⟡ Estado de @${memberAfter?.user?.username || userId} tras desmutear: [${memberAfter?.status}] can_send_messages=${memberAfter?.can_send_messages}`);
-  } catch (statErr) {
-    console.warn('⟡ No se pudo leer estado del miembro:', statErr.message);
-  }
+    console.log(`⟡ Estado real de @${memberAfter?.user?.username || userId} en Telegram: [${memberAfter?.status}] (can_send_messages=${memberAfter?.can_send_messages !== false})`);
+  } catch {}
 
-  // Marcar como verificado en BD
+  // 4. Marcar como verificado en BD
   try {
     await db.verifyUser(userId);
   } catch {}
 
-  // Mensaje de éxito
+  // 5. Mensaje de bienvenida y éxito
   const user = await db.getUser(userId);
   try {
     await ctx.api.sendMessage(
@@ -365,7 +353,7 @@ async function unmuteMember(ctx, userId) {
     );
   } catch {}
 
-  // Limpiar mensaje de bienvenida original para mantener el grupo limpio
+  // 6. Limpiar mensaje de bienvenida original para mantener el grupo limpio
   if (ctx.callbackQuery?.message?.message_id) {
     try {
       await ctx.api.deleteMessage(chatId, ctx.callbackQuery.message.message_id);
