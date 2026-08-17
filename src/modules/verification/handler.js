@@ -77,79 +77,103 @@ function register(bot) {
     }
   });
 
-  // ── Evento: Nuevo miembro en el grupo (Solo Grupos/Supergrupos) ──
+  // ── Función Universal para Procesar Nuevo Miembro ──
+  async function handleNewMember(ctx, chat, user) {
+    if (!chat || !user || user.is_bot) return;
+
+    // Solo grupos y supergrupos
+    if (chat.type !== 'group' && chat.type !== 'supergroup') return;
+
+    const chatId = chat.id;
+
+    // Eximir automáticamente supergrupos de Escrow y Staff
+    if (chatId === config.ESCROW_GROUP_ID || chatId === config.STAFF_CHAT_ID) {
+      return;
+    }
+
+    // Comprobar si la verificación está desactivada para este grupo
+    let isDisabled = await redisDb.getCache(`verify_disabled:${chatId}`);
+    if (isDisabled === null || isDisabled === undefined) {
+      const saved = await db.getSetting(`verify_disabled_${chatId}`);
+      isDisabled = saved === 'true';
+      if (isDisabled) await redisDb.setCache(`verify_disabled:${chatId}`, true, 86400 * 365);
+    }
+
+    if (isDisabled) return;
+
+    const userId = user.id;
+    const username = user.username;
+    const firstName = user.first_name;
+
+    console.log(`⟡ Verificación: Nuevo miembro en ${chat.title || chatId} -> @${username || userId}`);
+
+    // 1. Mute inmediato
+    try {
+      await ctx.api.restrictChatMember(chatId, userId, {
+        permissions: {
+          can_send_messages: false,
+          can_send_audios: false,
+          can_send_documents: false,
+          can_send_photos: false,
+          can_send_videos: false,
+          can_send_video_notes: false,
+          can_send_voice_notes: false,
+          can_send_polls: false,
+          can_send_other_messages: false,
+          can_add_web_page_previews: false,
+          can_change_info: false,
+          can_invite_users: false,
+          can_pin_messages: false,
+          can_manage_topics: false,
+        },
+      });
+    } catch (muteErr) {
+      console.warn('⟡ Verificación: No se pudo mutear:', muteErr.message);
+    }
+
+    // 2. Registrar usuario en BD
+    try {
+      await db.upsertUser(userId, username, firstName);
+    } catch {}
+
+    // 3. Enviar mensaje de bienvenida con teclado
+    try {
+      await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName), {
+        parse_mode: 'HTML',
+        reply_markup: welcomeKeyboard(),
+      });
+    } catch (sendErr) {
+      console.error('⟡ Verificación: No se pudo enviar bienvenida:', sendErr.message);
+    }
+  }
+
+  // ── Evento 1: Mensaje de servicio nuevo miembro ──
   bot.on('message:new_chat_members', async (ctx) => {
     try {
-      // 1. Estricto: NUNCA ejecutar en canales de difusión ni en chats privados
-      if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
-        return;
-      }
-
-      const chatId = ctx.chat.id;
-
-      // 2. Eximir automáticamente el supergrupo de Escrow y Staff
-      if (chatId === config.ESCROW_GROUP_ID || chatId === config.STAFF_CHAT_ID) {
-        return;
-      }
-
-      // 2. Comprobar si la verificación está desactivada para este grupo
-      let isDisabled = await redisDb.getCache(`verify_disabled:${chatId}`);
-      if (isDisabled === null || isDisabled === undefined) {
-        const saved = await db.getSetting(`verify_disabled_${chatId}`);
-        isDisabled = saved === 'true';
-        if (isDisabled) await redisDb.setCache(`verify_disabled:${chatId}`, true, 86400 * 365);
-      }
-
-      if (isDisabled) {
-        return; // No mutear ni pedir verificación
-      }
-
       const newMembers = ctx.message.new_chat_members || [];
-
       for (const member of newMembers) {
-        if (member.is_bot) continue;
-
-        const userId = member.id;
-        const username = member.username;
-        const firstName = member.first_name;
-
-        // 2. Mute inmediato
-        try {
-          await ctx.api.restrictChatMember(ctx.chat.id, userId, {
-            permissions: {
-              can_send_messages: false,
-              can_send_audios: false,
-              can_send_documents: false,
-              can_send_photos: false,
-              can_send_videos: false,
-              can_send_video_notes: false,
-              can_send_voice_notes: false,
-              can_send_polls: false,
-              can_send_other_messages: false,
-              can_add_web_page_previews: false,
-              can_change_info: false,
-              can_invite_users: false,
-              can_pin_messages: false,
-              can_manage_topics: false,
-            },
-          });
-        } catch (muteErr) {
-          console.error('⟡ Verificación: No se pudo mutear:', muteErr.message);
-        }
-
-        // 3. Registrar usuario en BD
-        try {
-          await db.upsertUser(userId, username, firstName);
-        } catch {}
-
-        // 4. Enviar mensaje de bienvenida con botones
-        await ctx.api.sendMessage(ctx.chat.id, templates.welcomeMessage(username, firstName), {
-          parse_mode: 'HTML',
-          reply_markup: welcomeKeyboard(),
-        });
+        await handleNewMember(ctx, ctx.chat, member);
       }
     } catch (err) {
       console.error('⟡ Verificación: Error en message:new_chat_members:', err.message);
+    }
+  });
+
+  // ── Evento 2: chat_member (Para supergrupos grandes o con mensajes de servicio ocultos) ──
+  bot.on('chat_member', async (ctx) => {
+    try {
+      const update = ctx.chatMember;
+      if (!update) return;
+
+      const oldStatus = update.old_chat_member?.status;
+      const newStatus = update.new_chat_member?.status;
+
+      // El usuario acaba de unirse o fue añadido
+      if ((oldStatus === 'left' || oldStatus === 'kicked' || !oldStatus) && newStatus === 'member') {
+        await handleNewMember(ctx, update.chat, update.new_chat_member.user);
+      }
+    } catch (err) {
+      console.error('⟡ Verificación: Error en chat_member:', err.message);
     }
   });
 
