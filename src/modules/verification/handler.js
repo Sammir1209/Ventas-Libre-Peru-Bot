@@ -14,10 +14,9 @@ function register(bot) {
   // ── Comando /verify (Activar / Desactivar Verificación en el Grupo) ──
   bot.command('verify', async (ctx) => {
     try {
-      const isPrivate = ctx.chat.type === 'private';
-      if (isPrivate) {
+      if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
         return ctx.reply(
-          `${SYM.CROSS} Este comando se utiliza <b>dentro de un grupo</b> para activar o desactivar la verificación obligatoria de nuevos miembros.`,
+          `${SYM.CROSS} Este comando solo se utiliza <b>dentro de un grupo o supergrupo</b> para activar o desactivar la verificación obligatoria.`,
           { parse_mode: 'HTML' }
         );
       }
@@ -78,12 +77,17 @@ function register(bot) {
     }
   });
 
-  // ── Evento: Nuevo miembro en el grupo ──
+  // ── Evento: Nuevo miembro en el grupo (Solo Grupos/Supergrupos) ──
   bot.on('message:new_chat_members', async (ctx) => {
     try {
+      // 1. Estricto: NUNCA ejecutar en canales de difusión ni en chats privados
+      if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
+        return;
+      }
+
       const chatId = ctx.chat.id;
 
-      // 1. Eximir automáticamente el supergrupo de Escrow y Staff
+      // 2. Eximir automáticamente el supergrupo de Escrow y Staff
       if (chatId === config.ESCROW_GROUP_ID || chatId === config.STAFF_CHAT_ID) {
         return;
       }
