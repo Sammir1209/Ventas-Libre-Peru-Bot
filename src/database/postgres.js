@@ -109,20 +109,42 @@ async function getUser(userId) {
   return null;
 }
 
-async function isUserBurned(userId) {
-  if (useSupabase && supabase) {
-    const { data, error } = await supabase
-      .from('burned_users')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) console.error('⟡ Supabase isUserBurned error:', error.message);
-    return !!data;
+async function isUserBurned(userId, username = null) {
+  if (!userId && !username) return false;
+
+  // 1. Comprobar por ID
+  if (userId) {
+    if (useSupabase && supabase) {
+      const { data } = await supabase
+        .from('burned_users')
+        .select('user_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (data) return true;
+    }
+    if (pool) {
+      const res = await pool.query(`SELECT user_id FROM burned_users WHERE user_id = $1`, [userId]);
+      if (res.rows.length > 0) return true;
+    }
   }
-  if (pool) {
-    const res = await pool.query(`SELECT user_id FROM burned_users WHERE user_id = $1`, [userId]);
-    return res.rows.length > 0;
+
+  // 2. Comprobar por Username
+  if (username) {
+    const clean = username.replace(/^@/, '').toLowerCase().trim();
+    if (useSupabase && supabase) {
+      const { data } = await supabase
+        .from('burned_users')
+        .select('user_id')
+        .ilike('username', clean)
+        .maybeSingle();
+      if (data) return true;
+    }
+    if (pool) {
+      const res = await pool.query(`SELECT user_id FROM burned_users WHERE LOWER(username) = LOWER($1)`, [clean]);
+      if (res.rows.length > 0) return true;
+    }
   }
+
   return false;
 }
 

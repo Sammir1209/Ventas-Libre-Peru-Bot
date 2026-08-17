@@ -85,6 +85,42 @@ function register(bot) {
     if (chat.type !== 'group' && chat.type !== 'supergroup') return;
 
     const chatId = chat.id;
+    const userId = user.id;
+    const username = user.username || null;
+    const firstName = user.first_name || 'Usuario';
+
+    // ── 🛡️ CAPA 1 BLACKLIST DINÁMICO: Baneo inmediato de estafadores al ingresar ──
+    try {
+      const isBurned = await db.isUserBurned(userId, username);
+      if (isBurned) {
+        console.warn(`🚨 [BLACKLIST DINÁMICO] Intruso detectado intentando ingresar: ${userId} (@${username}) en chat ${chatId}`);
+        try {
+          await ctx.api.banChatMember(chatId, userId);
+        } catch (banErr) {
+          console.error('⟡ Error baneando estafador detectado:', banErr.message);
+        }
+
+        // Enviar alerta pública al grupo
+        try {
+          const userTag = username ? `@${username}` : `<b>${escapeHtml(firstName)}</b>`;
+          const alertMsg =
+            `${SYM.DIVIDER}\n` +
+            `${SYM.ALERT} <b>ESTAFADOR DETECTADO Y EXPULSADO</b> ${SYM.WARNING}\n` +
+            `${SYM.DIVIDER}\n\n` +
+            `${SYM.CROSS} <b>Usuario:</b> ${userTag}\n` +
+            `${SYM.ARROW} <b>ID:</b> <code>${userId}</code>\n` +
+            `${SYM.ARROW} <b>Estado:</b> Registrado en la <b>Lista Negra Oficial</b>\n\n` +
+            `${SYM.THIN_LINE}\n` +
+            `${SYM.SHIELD} <i>Intruso expulsado y bloqueado automáticamente por seguridad.</i>`;
+
+          await ctx.reply(alertMsg, { parse_mode: 'HTML' });
+        } catch {}
+
+        return;
+      }
+    } catch (chkErr) {
+      console.error('⟡ Error comprobando blacklist dinámico en join:', chkErr.message);
+    }
 
     // Eximir automáticamente supergrupos de Escrow y Staff
     if (chatId === config.ESCROW_GROUP_ID || chatId === config.STAFF_CHAT_ID) {
@@ -193,6 +229,16 @@ function register(bot) {
     try {
       const req = ctx.chatJoinRequest;
       if (!req) return;
+
+      const isBurned = await db.isUserBurned(req.from.id, req.from.username);
+      if (isBurned) {
+        console.warn(`🚨 [BLACKLIST DINÁMICO] Solicitud rechazada para estafador: ${req.from.id} (@${req.from.username})`);
+        try {
+          await ctx.api.declineChatJoinRequest(req.chat.id, req.from.id);
+        } catch {}
+        return;
+      }
+
       console.log(`⟡ Solicitud de unión en ${req.chat.title || req.chat.id} de @${req.from.username || req.from.id}`);
       await ctx.api.approveChatJoinRequest(req.chat.id, req.from.id);
       await handleNewMember(ctx, req.chat, req.from);

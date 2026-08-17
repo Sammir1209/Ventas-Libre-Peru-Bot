@@ -12,6 +12,29 @@ const logger = require('./logger');
 // ══════════════════════════════════════════════════════
 
 function register(bot) {
+  // ── 🛡️ CAPA 2 BLACKLIST DINÁMICO: Interceptor en Tiempo Real de Mensajes ──
+  bot.on('message', async (ctx, next) => {
+    try {
+      if (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group') {
+        const sender = ctx.from;
+        if (sender && !sender.is_bot) {
+          const isBurned = await db.isUserBurned(sender.id, sender.username);
+          if (isBurned) {
+            console.warn(`🚨 [BLACKLIST DINÁMICO] Mensaje interceptado de estafador: ${sender.id} (@${sender.username}) en ${ctx.chat.id}`);
+            try {
+              await ctx.deleteMessage();
+            } catch {}
+            try {
+              await ctx.api.banChatMember(ctx.chat.id, sender.id);
+            } catch {}
+            return; // Cortar el flujo por completo
+          }
+        }
+      }
+    } catch {}
+    return next();
+  });
+
   // ── /ban ──
   bot.command('ban', requireStaff(), async (ctx) => {
     try {
