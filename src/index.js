@@ -262,7 +262,7 @@ async function main() {
       try {
         await bot.start({
           drop_pending_updates: true,
-          allowed_updates: ['message', 'callback_query', 'chat_member', 'my_chat_member', 'channel_post'],
+          allowed_updates: ['message', 'callback_query', 'chat_member', 'my_chat_member', 'channel_post', 'chat_join_request'],
           onStart: (botInfo) => {
             console.log('');
             console.log('⊱ ────── ⊰');

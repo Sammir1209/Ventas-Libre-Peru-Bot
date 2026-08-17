@@ -152,6 +152,7 @@ function register(bot) {
   bot.on('message:new_chat_members', async (ctx) => {
     try {
       const newMembers = ctx.message.new_chat_members || [];
+      console.log(`⟡ message:new_chat_members detectado en ${ctx.chat.title || ctx.chat.id} (${newMembers.length} miembros)`);
       for (const member of newMembers) {
         await handleNewMember(ctx, ctx.chat, member);
       }
@@ -168,13 +169,31 @@ function register(bot) {
 
       const oldStatus = update.old_chat_member?.status;
       const newStatus = update.new_chat_member?.status;
+      const user = update.new_chat_member?.user;
 
-      // El usuario acaba de unirse o fue añadido
-      if ((oldStatus === 'left' || oldStatus === 'kicked' || !oldStatus) && newStatus === 'member') {
-        await handleNewMember(ctx, update.chat, update.new_chat_member.user);
+      console.log(`⟡ chat_member update en ${update.chat.title || update.chat.id}: ${oldStatus} -> ${newStatus} (@${user?.username || user?.id})`);
+
+      // El usuario entra al grupo (venía de estar fuera, expulsado o restringido previo)
+      if (oldStatus !== 'member' && oldStatus !== 'administrator' && oldStatus !== 'creator') {
+        if (newStatus === 'member' || newStatus === 'restricted') {
+          await handleNewMember(ctx, update.chat, user);
+        }
       }
     } catch (err) {
       console.error('⟡ Verificación: Error en chat_member:', err.message);
+    }
+  });
+
+  // ── Evento 3: chat_join_request (Si el grupo tiene activada la aprobación de miembros) ──
+  bot.on('chat_join_request', async (ctx) => {
+    try {
+      const req = ctx.chatJoinRequest;
+      if (!req) return;
+      console.log(`⟡ Solicitud de unión en ${req.chat.title || req.chat.id} de @${req.from.username || req.from.id}`);
+      await ctx.api.approveChatJoinRequest(req.chat.id, req.from.id);
+      await handleNewMember(ctx, req.chat, req.from);
+    } catch (err) {
+      console.error('⟡ Verificación: Error en chat_join_request:', err.message);
     }
   });
 
