@@ -3,14 +3,14 @@ const { generateAiResponse } = require('./service');
 const { getSessionHistory, addMessageToSession, clearSession } = require('./memory');
 const redisDb = require('../../database/redis');
 
-// ── Mensajes Variados y Dinámicos de Espera ──
+// ── Mensajes Variados y Dinámicos de Espera (Estilo Barrio / Comunidad) ──
 const THINKING_MESSAGES = [
-  '✍️ <i>Escribiendo respuesta...</i>',
-  '💭 <i>Analizando tu consulta...</i>',
-  '🧠 <i>Pensando respuesta...</i>',
-  '⚡ <i>Consultando base de datos...</i>',
-  '🔍 <i>Procesando información...</i>',
-  '🇵🇪 <i>Redactando con la IA de Ventas Libres...</i>',
+  '✍️ <i>Aguanta mano, te estoy redactando la firme...</i>',
+  '🧠 <i>Pensando qué decirte, causa...</i>',
+  '🇵🇪 <i>Procesando con la batería seria...</i>',
+  '⚡ <i>Buscando en la data al toque...</i>',
+  '💭 <i>A ver qué me estás preguntando, choche...</i>',
+  '🔍 <i>Chequeando el archivo de la gente...</i>',
 ];
 
 function getRandomThinkingMessage() {
