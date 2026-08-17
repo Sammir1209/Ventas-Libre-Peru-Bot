@@ -613,6 +613,23 @@ function modLogEntry(action, moderatorMention, targetId, chatTitle, reason) {
     `${SYM.ARROW} <b>Razón:</b> ${reason || 'Sin especificar'}\n` +
     `${SYM.ARROW} <b>Fecha:</b> <code>${new Date().toISOString()}</code>`
   );
+/**
+ * Plantilla de respuesta automática cuando un usuario menciona que fue estafado o quiere quemar/reportar.
+ */
+function scamKeywordReply(firstName, username) {
+  const userTag = username ? `@${username}` : (firstName ? `<b>${escapeHtml(firstName)}</b>` : 'Estimado usuario');
+  return (
+    `${SYM.DIVIDER}\n` +
+    `🚨 <b>CENTRAL DE REPORTES Y ANTI-ESTAFAS</b> 🚨\n` +
+    `${SYM.DIVIDER}\n\n` +
+    `Hola ${userTag}, si has sido víctima de una estafa o deseas quemar a un estafador:\n\n` +
+    `📌 <b>Pasos para reportar de forma segura:</b>\n` +
+    `1️⃣ <b>Guarda las pruebas:</b> No borres capturas de pantalla, comprobantes de pago ni el chat con el estafador.\n` +
+    `2️⃣ <b>Inicia tu reporte privado:</b> Pulsa el botón de abajo o escribe <code>/quemar</code> directamente al bot.\n` +
+    `3️⃣ <b>Evaluación del Staff:</b> Nuestro equipo revisará las pruebas y publicará la ficha oficial en el <b>Canal de Quemados</b> y la <b>Lista Negra</b>.\n\n` +
+    `${SYM.THIN_LINE}\n` +
+    `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`
+  );
 }
 
 module.exports = {
@@ -648,4 +665,5 @@ module.exports = {
   burnAlertBroadcast,
   renderStaffList,
   modLogEntry,
+  scamKeywordReply,
 };

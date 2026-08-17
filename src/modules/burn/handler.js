@@ -893,6 +893,63 @@ function register(bot) {
       await ctx.reply(`${SYM.CROSS} Error al generar el canvas: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
+
+  // ── Auto-Respuesta a Palabras Clave de Estafa y Reporte en Grupos ──
+  const SCAM_PATTERNS = [
+    /\b(alguien\s+me\s+estafo|me\s+estafaron|me\s+estafo|fui\s+estafado|me\s+acaban\s+de\s+estafar)\b/i,
+    /\b(quiero\s+quemar|quiero\s+reportar|como\s+reporto|como\s+quemo|como\s+quemar|donde\s+reporto|donde\s+quemo|reportar\s+a\s+alguien|para\s+quemar|para\s+reportar|como\s+hago\s+para\s+quemar)\b/i,
+    /\b(me\s+robo|me\s+robaron|fui\s+robado|hacer\s+un\s+reporte|iniciar\s+reporte)\b/i,
+  ];
+
+  bot.on('message:text', async (ctx, next) => {
+    try {
+      const text = ctx.message?.text;
+      if (!text || ctx.chat.type === 'private' || ctx.from?.is_bot) {
+        return next();
+      }
+
+      // Si es un comando (/...), dejar que lo manejen los handlers de comandos
+      if (text.startsWith('/')) {
+        return next();
+      }
+
+      // Normalizar texto sin acentos para coincidencia precisa
+      const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+      const matched = SCAM_PATTERNS.some((pattern) => pattern.test(normalized));
+      if (matched) {
+        const userId = ctx.from.id;
+        const chatId = ctx.chat.id;
+        const cooldownKey = `scam_reply_cd:${chatId}:${userId}`;
+
+        // Cooldown de 60 segundos por usuario en el grupo para evitar saturación
+        const inCooldown = await redisDb.getCache(cooldownKey);
+        if (!inCooldown) {
+          await redisDb.setCache(cooldownKey, true, 60);
+
+          let botUsername = 'ventas_libres_peru_Bot';
+          try {
+            const botInfo = await ctx.api.getMe();
+            botUsername = botInfo.username;
+          } catch {}
+
+          const kb = new InlineKeyboard().url(
+            `🚨 Iniciar Reporte Anti-Estafa`,
+            `https://t.me/${botUsername}?start=quemar`
+          );
+
+          await ctx.reply(templates.scamKeywordReply(ctx.from.first_name, ctx.from.username), {
+            parse_mode: 'HTML',
+            reply_to_message_id: ctx.message.message_id,
+            reply_markup: kb,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('⟡ Error en auto-reply de palabras clave de estafa:', err.message);
+    }
+    return next();
+  });
 }
 
 module.exports = { register };
