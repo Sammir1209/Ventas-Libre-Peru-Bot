@@ -821,8 +821,8 @@ function register(bot) {
     }
   });
 
-  // ── /canvas [ID / @username / Responder] (Previsualizar tarjeta de perfil) ──
-  bot.command(['canvas', 'test_canvas', 'card', 'banner'], async (ctx) => {
+  // ── /canvas o /perfil [ID / @username / Responder] (Previsualizar tarjeta) ──
+  bot.command(['canvas', 'perfil'], async (ctx) => {
     try {
       const { resolveTarget } = require('../../utils/helpers');
       const { generateScammerCard } = require('../../utils/scammerCard');

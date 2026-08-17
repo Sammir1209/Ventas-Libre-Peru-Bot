@@ -1,63 +1,89 @@
 const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
 const fs = require('fs');
+const path = require('path');
 
-// Registrar fuentes nativas de Windows para soporte universal de Emojis y tipografías
-try {
-  if (fs.existsSync('C:/Windows/Fonts/seguiemj.ttf')) {
-    GlobalFonts.registerFromPath('C:/Windows/Fonts/seguiemj.ttf', 'Segoe UI Emoji');
+// ══════════════════════════════════════════════════════
+// ⟡ Carga y Registro Universal de Fuentes (Linux & Windows)
+// ══════════════════════════════════════════════════════
+
+const FONTS_DIR = path.join(__dirname, '../assets/fonts');
+
+function loadBundledFonts() {
+  const fontDefinitions = [
+    { file: 'segoeui.ttf', family: 'Segoe UI' },
+    { file: 'segoeuib.ttf', family: 'Segoe UI Bold' },
+    { file: 'seguiemj.ttf', family: 'Segoe UI Emoji' },
+    { file: 'seguisym.ttf', family: 'Segoe UI Symbol' },
+    { file: 'arial.ttf', family: 'Arial' },
+    { file: 'arialbd.ttf', family: 'Arial Bold' },
+    { file: 'calibri.ttf', family: 'Calibri' },
+  ];
+
+  for (const item of fontDefinitions) {
+    const fullPath = path.join(FONTS_DIR, item.file);
+    if (fs.existsSync(fullPath)) {
+      try {
+        GlobalFonts.registerFromPath(fullPath, item.family);
+      } catch (err) {
+        console.warn(`⟡ Canvas: No se pudo registrar fuente ${item.file}:`, err.message);
+      }
+    }
   }
-  if (fs.existsSync('C:/Windows/Fonts/segoeui.ttf')) {
-    GlobalFonts.registerFromPath('C:/Windows/Fonts/segoeui.ttf', 'Segoe UI');
-  }
-  if (fs.existsSync('C:/Windows/Fonts/segoeuib.ttf')) {
-    GlobalFonts.registerFromPath('C:/Windows/Fonts/segoeuib.ttf', 'Segoe UI Bold');
-  }
-  if (fs.existsSync('C:/Windows/Fonts/segoeuisb.ttf')) {
-    GlobalFonts.registerFromPath('C:/Windows/Fonts/segoeuisb.ttf', 'Segoe UI Semibold');
-  }
-  if (fs.existsSync('C:/Windows/Fonts/arial.ttf')) {
-    GlobalFonts.registerFromPath('C:/Windows/Fonts/arial.ttf', 'Arial');
-  }
-} catch {}
+
+  // Respaldo para entorno local Windows si faltasen archivos
+  try {
+    if (fs.existsSync('C:/Windows/Fonts/seguiemj.ttf')) {
+      GlobalFonts.registerFromPath('C:/Windows/Fonts/seguiemj.ttf', 'Segoe UI Emoji');
+    }
+    if (fs.existsSync('C:/Windows/Fonts/segoeui.ttf')) {
+      GlobalFonts.registerFromPath('C:/Windows/Fonts/segoeui.ttf', 'Segoe UI');
+    }
+    if (fs.existsSync('C:/Windows/Fonts/segoeuib.ttf')) {
+      GlobalFonts.registerFromPath('C:/Windows/Fonts/segoeuib.ttf', 'Segoe UI Bold');
+    }
+  } catch {}
+}
+
+loadBundledFonts();
 
 const FONT_STACK = '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Noto Color Emoji", Arial, sans-serif';
 
 /**
- * Trunca texto sin romper pares suplentes de Unicode ni emojis
+ * Limpia y normaliza texto para asegurar compatibilidad total sin caracteres corruptos ni cuadrados
  */
-function safeSlice(str, maxChars) {
+function cleanAndNormalize(str, maxChars = 32) {
   if (!str) return '';
-  const arr = Array.from(str);
-  if (arr.length <= maxChars) return str;
+  // Normalizar caracteres matemáticos/góticos a su equivalente legible manteniendo emojis
+  const normalized = str.normalize('NFKD');
+  const arr = Array.from(normalized);
+  if (arr.length <= maxChars) return arr.join('');
   return arr.slice(0, maxChars).join('') + '...';
 }
 
 /**
- * Recrea exactamente la captura del modal de perfil de Telegram Desktop en Alta Definición (2x Retina).
+ * Recrea exactamente la captura del modal de perfil de Telegram Desktop en Ultra HD (2x Retina).
  * @param {Object} data - { name, username, id, bio, avatarBuffer }
  * @returns {Promise<Buffer>} - Buffer PNG HD idéntico a Telegram Desktop
  */
 async function generateScammerCard({ name, username, id, bio, avatarBuffer }) {
-  // Dimensiones base en alta resolución (2x Retina)
   const scale = 2;
   const baseW = 380;
-  
+
   // Procesar biografía y líneas
   const cleanBio = bio || 'Sin biografía.';
   const bioLines = splitTextIntoLines(cleanBio, 38, 3);
-  
+
   const baseH = 460 + (bioLines.length - 1) * 20;
-  
+
   const width = baseW * scale;
   const height = baseH * scale;
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  // Escalar contexto para renderizado Ultra HD
   ctx.scale(scale, scale);
 
-  // 1. Fondo general de Telegram Desktop (#17212b)
+  // 1. Fondo base Telegram Desktop (#17212b)
   ctx.fillStyle = '#17212b';
   ctx.fillRect(0, 0, baseW, baseH);
 
@@ -69,7 +95,7 @@ async function generateScammerCard({ name, username, id, bio, avatarBuffer }) {
   ctx.fillStyle = headGrad;
   ctx.fillRect(0, 0, baseW, headH);
 
-  // Botón de cerrar "✕" nativo en la esquina superior derecha
+  // Botón de cerrar "✕" nativo
   drawCloseButton(ctx, baseW - 22, 22);
 
   // 3. Avatar Circular de Telegram (76px diámetro)
@@ -94,8 +120,8 @@ async function generateScammerCard({ name, username, id, bio, avatarBuffer }) {
     drawDefaultAvatar(ctx, avX, avY, avR, name);
   }
 
-  // 4. Nombre Completo (soporte perfecto de emojis y símbolos)
-  const cleanName = safeSlice(name || 'Usuario', 28);
+  // 4. Nombre Completo (100% legible, emojis soportados)
+  const cleanName = cleanAndNormalize(name || 'Usuario', 28);
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold 16px ${FONT_STACK}`;
   ctx.textAlign = 'center';
@@ -123,16 +149,13 @@ async function generateScammerCard({ name, username, id, bio, avatarBuffer }) {
   actions.forEach((act, idx) => {
     const x = startX + idx * (btnW + gap);
 
-    // Fondo botón suave con esquinas redondeadas
     ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
     ctx.beginPath();
     ctx.roundRect(x, btnY, btnW, btnH, 8);
     ctx.fill();
 
-    // Icono centrado
     drawActionIcon(ctx, x + btnW / 2, btnY + 17, act.icon);
 
-    // Texto botón
     ctx.fillStyle = '#e4ecf2';
     ctx.font = `10.5px ${FONT_STACK}`;
     ctx.textAlign = 'center';
@@ -165,7 +188,7 @@ async function generateScammerCard({ name, username, id, bio, avatarBuffer }) {
 
   curY += 22;
 
-  // 8. Sección @Username con icono QR a la derecha
+  // 8. Sección @Username con icono QR
   const userTag = username ? `@${username}` : 'Sin nombre de usuario';
   ctx.fillStyle = '#40a7e3';
   ctx.font = `13.5px ${FONT_STACK}`;
@@ -247,7 +270,6 @@ function drawActionIcon(ctx, x, y, type) {
   ctx.lineWidth = 1.4;
 
   if (type === 'msg') {
-    // Burbuja mensaje nativa
     ctx.beginPath();
     ctx.arc(x, y - 1, 6.5, 0, Math.PI * 2);
     ctx.fill();
@@ -257,7 +279,6 @@ function drawActionIcon(ctx, x, y, type) {
     ctx.lineTo(x - 1, y + 4.5);
     ctx.fill();
   } else if (type === 'mute') {
-    // Campana silenciada
     ctx.beginPath();
     ctx.arc(x, y - 2, 4.5, Math.PI, 0, false);
     ctx.lineTo(x + 5.5, y + 2.5);
@@ -267,19 +288,16 @@ function drawActionIcon(ctx, x, y, type) {
     ctx.beginPath();
     ctx.arc(x, y + 4.5, 1.5, 0, Math.PI * 2);
     ctx.fill();
-    // Barra diagonal
     ctx.beginPath();
     ctx.moveTo(x - 6, y - 5);
     ctx.lineTo(x + 6, y + 6);
     ctx.stroke();
   } else if (type === 'call') {
-    // Teléfono
     ctx.beginPath();
     ctx.arc(x, y, 5, 0.4, Math.PI * 1.2, false);
     ctx.lineWidth = 2.4;
     ctx.stroke();
   } else if (type === 'more') {
-    // 3 puntos horizontales
     ctx.beginPath();
     ctx.arc(x - 4.5, y, 1.5, 0, Math.PI * 2);
     ctx.arc(x, y, 1.5, 0, Math.PI * 2);
