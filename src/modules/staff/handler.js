@@ -197,6 +197,67 @@ function register(bot) {
     }
   });
 
+function getCustomTitle(role) {
+  const upper = (role || '').toUpperCase();
+  if (upper === 'OWNER') return '♔ Owner';
+  if (upper === 'CO-OWNER' || upper === 'COOWNER') return '♕ Co-Owner';
+  if (upper === 'ADMIN') return '⚔ Admin';
+  if (upper === 'TRATO ADMIN' || upper === 'TRATOADMIN') return '㉿ Trato Admin';
+  return 'Staff';
+}
+
+async function applyTelegramAdminRights(api, chatId, userId, role) {
+  try {
+    // 1. Otorgar permisos de Administrador
+    await api.promoteChatMember(chatId, userId, {
+      can_manage_chat: true,
+      can_delete_messages: true,
+      can_restrict_members: true,
+      can_invite_users: true,
+      can_pin_messages: true,
+      can_manage_topics: true,
+      can_manage_video_chats: true,
+      is_anonymous: false,
+    });
+
+    // 2. Asignar Tag / Custom Title oficial
+    const title = getCustomTitle(role);
+    try {
+      await api.setChatAdministratorCustomTitle(chatId, userId, title);
+    } catch (titleErr) {
+      console.warn(`⟡ Custom title "${title}" en chat ${chatId}:`, titleErr.message);
+    }
+    return true;
+  } catch (err) {
+    console.warn(`⟡ No se pudo promover en chat ${chatId}:`, err.message);
+    return false;
+  }
+}
+
+async function revokeTelegramAdminRights(api, chatId, userId) {
+  try {
+    await api.promoteChatMember(chatId, userId, {
+      can_manage_chat: false,
+      can_change_info: false,
+      can_delete_messages: false,
+      can_invite_users: false,
+      can_restrict_members: false,
+      can_pin_messages: false,
+      can_promote_members: false,
+      can_manage_video_chats: false,
+      can_manage_topics: false,
+      can_post_stories: false,
+      can_edit_stories: false,
+      can_delete_stories: false,
+      is_anonymous: false,
+    });
+    return true;
+  } catch (err) {
+    console.warn(`⟡ No se pudo revocar admin en chat ${chatId}:`, err.message);
+    return false;
+  }
+}
+
   // ── Callback: Ejecutar Promoción ──
   bot.callbackQuery(/^promote_to:(\d+):(.+)$/, requireOwner(), async (ctx) => {
     try {
@@ -208,23 +269,41 @@ function register(bot) {
       const firstName = cached.firstName || null;
       const oldRole = cached.currentRole || 'USER';
 
-      // Asignar en Supabase / BD
+      // 1. Asignar en Supabase / BD
       await db.setStaffRole(targetId, username, firstName, newRole, ctx.from.id);
       await redisDb.clearCache(`staff_target:${targetId}`);
 
-      await ctx.answerCallbackQuery({ text: `✓ Promovido a ${newRole}` });
+      // 2. Aplicar permisos de Administrador reales y Tag en Telegram
+      const targetChatId = ctx.chat?.id;
+      if (ctx.chat?.type === 'supergroup' || ctx.chat?.type === 'group') {
+        await applyTelegramAdminRights(ctx.api, targetChatId, targetId, newRole);
+      }
+
+      // También aplicar en grupos oficiales registrados
+      try {
+        const groups = await db.getAllGroups();
+        for (const grp of groups) {
+          if (grp.chat_id && grp.chat_id !== targetChatId && grp.type !== 'channel') {
+            await applyTelegramAdminRights(ctx.api, grp.chat_id, targetId, newRole);
+          }
+        }
+      } catch {}
+
+      await ctx.answerCallbackQuery({ text: `✓ Promovido a ${newRole} con tag ${getCustomTitle(newRole)}` });
 
       const userMention = mentionFromData(targetId, username, firstName);
       const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
       await ctx.editMessageText(
         `${SYM.DIVIDER}\n` +
-        `${SYM.DIAMOND} <b>PROMOCIÓN DE STAFF COMPLETADA</b> ${SYM.DIAMOND}\n` +
+        `${SYM.CROWN} <b>PROMOCIÓN DE STAFF COMPLETADA</b> ${SYM.BADGE}\n` +
         `${SYM.DIVIDER}\n\n` +
         `${SYM.CHECK} <b>Usuario:</b> ${userMention}\n` +
         `${SYM.ARROW} <b>ID:</b> <code>${targetId}</code>\n` +
         `${SYM.ARROW} <b>Rango Anterior:</b> ${oldRole}\n` +
-        `${SYM.STAR} <b>Nuevo Rango:</b> <b>${newRole}</b>\n\n` +
+        `${SYM.STAR} <b>Nuevo Rango:</b> <b>${newRole}</b>\n` +
+        `🏷️ <b>Tag en Telegram:</b> <code>${getCustomTitle(newRole)}</code>\n` +
+        `🛡️ <b>Permisos de Admin:</b> ✓ ACTIVOS EN TELEGRAM\n\n` +
         `${SYM.THIN_LINE}\n` +
         `${SYM.ARROW} <i>Promovido por: ${adminMention}</i>`,
         { parse_mode: 'HTML' }
@@ -246,29 +325,58 @@ function register(bot) {
       const firstName = cached.firstName || null;
       const oldRole = cached.currentRole || 'STAFF';
 
+      const targetChatId = ctx.chat?.id;
+
       if (newRole === 'USER') {
-        // Remover del staff
+        // 1. Remover del staff en BD
         await db.removeStaff(targetId);
+
+        // 2. Revocar permisos de Administrador reales en Telegram
+        if (ctx.chat?.type === 'supergroup' || ctx.chat?.type === 'group') {
+          await revokeTelegramAdminRights(ctx.api, targetChatId, targetId);
+        }
+        try {
+          const groups = await db.getAllGroups();
+          for (const grp of groups) {
+            if (grp.chat_id && grp.chat_id !== targetChatId && grp.type !== 'channel') {
+              await revokeTelegramAdminRights(ctx.api, grp.chat_id, targetId);
+            }
+          }
+        } catch {}
       } else {
-        // Asignar nuevo rango inferior
+        // 1. Asignar nuevo rango inferior en BD
         await db.setStaffRole(targetId, username, firstName, newRole, ctx.from.id);
+
+        // 2. Actualizar tag en Telegram
+        if (ctx.chat?.type === 'supergroup' || ctx.chat?.type === 'group') {
+          await applyTelegramAdminRights(ctx.api, targetChatId, targetId, newRole);
+        }
+        try {
+          const groups = await db.getAllGroups();
+          for (const grp of groups) {
+            if (grp.chat_id && grp.chat_id !== targetChatId && grp.type !== 'channel') {
+              await applyTelegramAdminRights(ctx.api, grp.chat_id, targetId, newRole);
+            }
+          }
+        } catch {}
       }
 
       await redisDb.clearCache(`staff_target:${targetId}`);
-      await ctx.answerCallbackQuery({ text: newRole === 'USER' ? '✓ Removido del Staff' : `✓ Degradado a ${newRole}` });
+      await ctx.answerCallbackQuery({ text: newRole === 'USER' ? '✓ Removido del Staff y Admin' : `✓ Degradado a ${newRole}` });
 
       const userMention = mentionFromData(targetId, username, firstName);
       const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
       await ctx.editMessageText(
         `${SYM.DIVIDER}\n` +
-        `${SYM.DIAMOND} <b>DEGRADACIÓN DE STAFF COMPLETADA</b> ${SYM.DIAMOND}\n` +
+        `${SYM.SWORD} <b>DEGRADACIÓN DE STAFF COMPLETADA</b> ${SYM.SHIELD}\n` +
         `${SYM.DIVIDER}\n\n` +
         `${SYM.CHECK} <b>Usuario:</b> ${userMention}\n` +
         `${SYM.ARROW} <b>ID:</b> <code>${targetId}</code>\n` +
         `${SYM.ARROW} <b>Rango Anterior:</b> ${oldRole}\n` +
-        `${SYM.STAR} <b>Nuevo Rango:</b> <b>${newRole === 'USER' ? 'USUARIO (Sin Permisos)' : newRole}</b>\n\n` +
-        `${SYM.THIN_LINE}\n` +
+        `${SYM.STAR} <b>Nuevo Rango:</b> <b>${newRole === 'USER' ? 'USUARIO (Permisos Revocados)' : newRole}</b>\n` +
+        (newRole !== 'USER' ? `🏷️ <b>Tag en Telegram:</b> <code>${getCustomTitle(newRole)}</code>\n` : `🛡️ <b>Permisos de Admin:</b> ❌ REMOVIDOS EN TELEGRAM\n`) +
+        `\n${SYM.THIN_LINE}\n` +
         `${SYM.ARROW} <i>Modificado por: ${adminMention}</i>`,
         { parse_mode: 'HTML' }
       );
