@@ -293,6 +293,29 @@ function register(bot) {
     }
   });
 
+  // ── Callback: Cancelar Verificación ──
+  bot.callbackQuery([/^verify_cancel(?::(\d+))?$/, 'verify_cancel'], async (ctx) => {
+    try {
+      const match = ctx.match;
+      const targetUserId = match && match[1] ? Number(match[1]) : null;
+      const clickerId = ctx.from.id;
+
+      if (targetUserId && clickerId !== targetUserId) {
+        return ctx.answerCallbackQuery({
+          text: '⚠️ Este botón no te pertenece.',
+          show_alert: true,
+        });
+      }
+
+      await ctx.answerCallbackQuery({ text: 'Verificación cancelada.' });
+      try {
+        await ctx.deleteMessage();
+      } catch {}
+    } catch (err) {
+      console.error('⟡ Verificación: Error en verify_cancel:', err.message);
+    }
+  });
+
   // ── Callback: ¿Cómo funciona? ──
   bot.callbackQuery([CB.HOW_IT_WORKS, /^how_it_works:(\d+)$/], async (ctx) => {
     try {

@@ -7,21 +7,19 @@ const { SYM, CB } = require('../../config/constants');
 // ══════════════════════════════════════════════════════
 
 /**
- * Teclado de bienvenida con botón de Folder y acción vinculada al ID del usuario
+ * Teclado de bienvenida con botones cortos alineados uno al costado del otro
  */
 function welcomeKeyboard(targetUserId = null) {
   const kb = new InlineKeyboard();
 
   const folderLink = config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh';
   const verifyData = targetUserId ? `verify:${targetUserId}` : CB.VERIFY;
-  const howData = targetUserId ? `how_it_works:${targetUserId}` : CB.HOW_IT_WORKS;
+  const cancelData = targetUserId ? `verify_cancel:${targetUserId}` : 'verify_cancel';
 
-  // Fila 1: [ ⟡ Unirme a los Canales ] | [ ✓ Verificar ]
-  kb.url(`${SYM.DIAMOND} Unirme a los Canales`, folderLink);
-  kb.text(`${SYM.CHECK} Verificar`, verifyData).success().row();
-
-  // Fila 2: [ ❓ ¿Cómo funciona? ]
-  kb.text(`${SYM.ARROW} ¿Cómo funciona?`, howData);
+  // Fila única: [ ⟡ Unirme ] | [ ✓ Verificar ] | [ ✗ Cancelar ] (uno al costado del otro)
+  kb.url(`⟡ Unirme`, folderLink);
+  kb.text(`✓ Verificar`, verifyData).success();
+  kb.text(`✗ Cancelar`, cancelData).danger();
 
   return kb;
 }
