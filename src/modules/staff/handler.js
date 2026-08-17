@@ -208,7 +208,32 @@ function getCustomTitle(role) {
 
 async function applyTelegramAdminRights(api, chatId, userId, role) {
   try {
-    // 1. Otorgar permisos de Administrador
+    const title = getCustomTitle(role);
+
+    // 1. Validar que el chat no sea canal
+    const chat = await api.getChat(chatId);
+    if (chat.type === 'channel') return false;
+
+    // 2. Verificar permisos del bot
+    const me = await api.getMe();
+    const botMember = await api.getChatMember(chatId, me.id);
+    if (botMember.status !== 'administrator' && botMember.status !== 'creator') {
+      return false;
+    }
+    if (botMember.status === 'administrator' && !botMember.can_promote_members) {
+      return false;
+    }
+
+    // 3. Verificar estado del usuario a promover
+    const targetMember = await api.getChatMember(chatId, userId);
+    if (targetMember.status === 'creator') {
+      try {
+        await api.setChatAdministratorCustomTitle(chatId, userId, title);
+      } catch {}
+      return true;
+    }
+
+    // 4. Promover a Administrador
     await api.promoteChatMember(chatId, userId, {
       can_manage_chat: true,
       can_delete_messages: true,
@@ -220,22 +245,35 @@ async function applyTelegramAdminRights(api, chatId, userId, role) {
       is_anonymous: false,
     });
 
-    // 2. Asignar Tag / Custom Title oficial
-    const title = getCustomTitle(role);
+    // 5. Asignar Tag / Custom Title oficial
     try {
       await api.setChatAdministratorCustomTitle(chatId, userId, title);
-    } catch (titleErr) {
-      console.warn(`⟡ Custom title "${title}" en chat ${chatId}:`, titleErr.message);
-    }
+    } catch {}
     return true;
   } catch (err) {
-    console.warn(`⟡ No se pudo promover en chat ${chatId}:`, err.message);
     return false;
   }
 }
 
 async function revokeTelegramAdminRights(api, chatId, userId) {
   try {
+    const chat = await api.getChat(chatId);
+    if (chat.type === 'channel') return false;
+
+    const me = await api.getMe();
+    const botMember = await api.getChatMember(chatId, me.id);
+    if (botMember.status !== 'administrator' && botMember.status !== 'creator') {
+      return false;
+    }
+    if (botMember.status === 'administrator' && !botMember.can_promote_members) {
+      return false;
+    }
+
+    const targetMember = await api.getChatMember(chatId, userId);
+    if (targetMember.status === 'creator') {
+      return false;
+    }
+
     await api.promoteChatMember(chatId, userId, {
       can_manage_chat: false,
       can_change_info: false,
@@ -253,7 +291,6 @@ async function revokeTelegramAdminRights(api, chatId, userId) {
     });
     return true;
   } catch (err) {
-    console.warn(`⟡ No se pudo revocar admin en chat ${chatId}:`, err.message);
     return false;
   }
 }

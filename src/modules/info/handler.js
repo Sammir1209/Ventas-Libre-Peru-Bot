@@ -162,10 +162,16 @@ function register(bot) {
           .text(`⟡ Volver`, `info_back:${targetId}`).primary()
           .text(`✗ Cerrar`, 'info_close').danger();
 
-        await ctx.editMessageText(cleanText, {
-          parse_mode: 'HTML',
-          reply_markup: kb,
-        });
+        try {
+          await ctx.editMessageText(cleanText, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+          });
+        } catch (editErr) {
+          if (!editErr.message?.includes('message is not modified')) {
+            console.error('⟡ Info: Error editando mensaje cleanText:', editErr.message);
+          }
+        }
       } else {
         // USUARIO QUEMADO (ESTAFADOR)
         const dateStr = burnInfo.created_at
@@ -195,13 +201,21 @@ function register(bot) {
           .text(`⟡ Volver`, `info_back:${targetId}`).primary()
           .text(`✗ Cerrar`, 'info_close').danger();
 
-        await ctx.editMessageText(burnText, {
-          parse_mode: 'HTML',
-          reply_markup: kb,
-        });
+        try {
+          await ctx.editMessageText(burnText, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+          });
+        } catch (editErr) {
+          if (!editErr.message?.includes('message is not modified')) {
+            console.error('⟡ Info: Error editando mensaje burnText:', editErr.message);
+          }
+        }
       }
     } catch (err) {
-      console.error('⟡ Info: Error en info_check_burn:', err.message);
+      if (!err.message?.includes('message is not modified')) {
+        console.error('⟡ Info: Error en info_check_burn:', err.message);
+      }
     }
   });
 
@@ -212,12 +226,20 @@ function register(bot) {
       await ctx.answerCallbackQuery();
 
       const { text, keyboard } = await buildUserProfile(ctx, { userId: targetId });
-      await ctx.editMessageText(text, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      });
+      try {
+        await ctx.editMessageText(text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        });
+      } catch (editErr) {
+        if (!editErr.message?.includes('message is not modified')) {
+          console.error('⟡ Info: Error editando perfil info_back:', editErr.message);
+        }
+      }
     } catch (err) {
-      console.error('⟡ Info: Error en info_back:', err.message);
+      if (!err.message?.includes('message is not modified')) {
+        console.error('⟡ Info: Error en info_back:', err.message);
+      }
     }
   });
 
