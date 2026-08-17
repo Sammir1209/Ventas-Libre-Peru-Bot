@@ -49,22 +49,19 @@ function dealCancelKeyboard() {
  */
 function dealConfirmKeyboard() {
   return new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Confirmar y Solicitar Admin`, 'deal_confirm').success()
-    .row()
-    .text(`${SYM.CROSS} Cancelar`, CB.DEAL_CANCEL).danger();
+    .text(`✓ Confirmar`, 'deal_confirm').success()
+    .text(`✗ Cancelar`, CB.DEAL_CANCEL).danger();
 }
 
 /**
- * Teclado en estado de espera con botón Canal Oficial (Azul) y Cancelar.
+ * Teclado en estado de espera con botón Canal Oficial y Cancelar (2 lado a lado).
  */
 function dealWaitingKeyboard(dealId) {
   const kb = new InlineKeyboard();
 
   const channelUrl = config.GROUPS_FOLDER_LINK || 'https://t.me/+JSQRh7463MIzYmVh';
-  kb.url(`${SYM.DIAMOND} Canal Oficial`, channelUrl).primary();
-
-  kb.row();
-  kb.text(`${SYM.CROSS} Cancelar Solicitud`, `deal_cancel_pending:${dealId}`).danger();
+  kb.url(`⟡ Canal`, channelUrl).primary();
+  kb.text(`✗ Cancelar`, `deal_cancel_pending:${dealId}`).danger();
 
   return kb;
 }
@@ -74,7 +71,7 @@ function dealWaitingKeyboard(dealId) {
  */
 function dealAcceptKeyboard(dealId) {
   return new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Aceptar Trato`, `${CB.DEAL_ACCEPT}${dealId}`).success();
+    .text(`⟡ Aceptar Trato`, `${CB.DEAL_ACCEPT}${dealId}`).success();
 }
 
 /**
@@ -82,8 +79,8 @@ function dealAcceptKeyboard(dealId) {
  */
 function dealCompleteKeyboard(dealId) {
   return new InlineKeyboard()
-    .text(`${SYM.CHECK} Finalizar Trato`, `${CB.DEAL_COMPLETE}${dealId}`).success()
-    .text(`${SYM.STAR} Cancelar`, `deal_force_cancel:${dealId}`).danger();
+    .text(`✓ Finalizar`, `${CB.DEAL_COMPLETE}${dealId}`).success()
+    .text(`✗ Cancelar`, `deal_force_cancel:${dealId}`).danger();
 }
 
 /**
@@ -94,6 +91,7 @@ function dealRatingKeyboard(dealId) {
     .text('1 ⭐', `${CB.DEAL_RATE}${dealId}:1`)
     .text('2 ⭐', `${CB.DEAL_RATE}${dealId}:2`)
     .text('3 ⭐', `${CB.DEAL_RATE}${dealId}:3`)
+    .row()
     .text('4 ⭐', `${CB.DEAL_RATE}${dealId}:4`)
     .text('5 ⭐', `${CB.DEAL_RATE}${dealId}:5`);
 }
@@ -103,9 +101,8 @@ function dealRatingKeyboard(dealId) {
  */
 function dealTopicKeyboard(dealId) {
   return new InlineKeyboard()
-    .text(`${SYM.CHECK} Finalizar Trato y Cerrar Hilo`, `${CB.DEAL_COMPLETE}${dealId}`).success()
-    .row()
-    .text(`${SYM.CROSS} Cancelar Trato`, `deal_force_cancel:${dealId}`).danger();
+    .text(`✓ Finalizar`, `${CB.DEAL_COMPLETE}${dealId}`).success()
+    .text(`✗ Cancelar`, `deal_force_cancel:${dealId}`).danger();
 }
 
 module.exports = {

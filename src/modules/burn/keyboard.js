@@ -17,22 +17,21 @@ function burnTargetTypeKeyboard() {
  */
 function burnProofUploadKeyboard() {
   return new InlineKeyboard()
-    .text(`${SYM.CHECK} Listo, revisar reporte`, 'burn_review').primary()
-    .row()
-    .text(`${SYM.CROSS} Cancelar`, 'burn_cancel').danger();
+    .text(`✓ Revisar`, 'burn_review').primary()
+    .text(`✗ Cancelar`, 'burn_cancel').danger();
 }
 
 /**
  * Teclado del resumen final antes de enviar:
- * Fila 1 (2 al lado): [ ✏️ Editar ] [ ✗ Cancelar ]
- * Fila 2 (debajo con verde): [ 🔥 Quemar ]
+ * Fila 1: [ 🔥 Quemar ] [ ✏️ Editar ]
+ * Fila 2: [ ✗ Cancelar ]
  */
 function burnSummaryKeyboard() {
   return new InlineKeyboard()
+    .text('🔥 Quemar', 'burn_confirm_send').success()
     .text('✏️ Editar', 'burn_edit_menu').primary()
-    .text(`${SYM.CROSS} Cancelar`, 'burn_cancel').danger()
     .row()
-    .text('🔥 Quemar', 'burn_confirm_send').success();
+    .text('✗ Cancelar', 'burn_cancel').danger();
 }
 
 /**
@@ -46,7 +45,7 @@ function burnEditMenuKeyboard() {
     .text('📸 Pruebas', 'burn_edit:proofs').primary()
     .text('« Resumen', 'burn_edit:back').primary()
     .row()
-    .text(`${SYM.CROSS} Cancelar Reporte`, 'burn_cancel').danger();
+    .text(`✗ Cancelar`, 'burn_cancel').danger();
 }
 
 /**
@@ -54,10 +53,10 @@ function burnEditMenuKeyboard() {
  */
 function burnStaffKeyboard(reportId) {
   return new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Aprobar y Quemar`, `${CB.BURN_APPROVE}${reportId}`).danger()
+    .text(`✓ Aprobar`, `${CB.BURN_APPROVE}${reportId}`).danger()
+    .text(`✗ Rechazar`, `${CB.BURN_REJECT}${reportId}`).primary()
     .row()
-    .text(`${SYM.ARROW} Rechazar`, `${CB.BURN_REJECT}${reportId}`).primary()
-    .text(`${SYM.CROSS} Banear Reportante`, `${CB.BURN_BAN_REPORTER}${reportId}`).danger();
+    .text(`⛔ Ban Reportante`, `${CB.BURN_BAN_REPORTER}${reportId}`).danger();
 }
 
 module.exports = {

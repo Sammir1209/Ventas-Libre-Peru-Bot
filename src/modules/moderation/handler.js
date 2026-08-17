@@ -478,16 +478,18 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
   const currPayload = ownerId ? `blacklist_page:${currentPage}:${ownerId}` : `blacklist_page:${currentPage}`;
   const nextPayload = ownerId ? `blacklist_page:${currentPage + 1}:${ownerId}` : `blacklist_page:${currentPage + 1}`;
 
-  // Fila de paginación
+  // Fila 1: Paginación
   if (currentPage > 1) {
     kb.text('« Anterior', prevPayload).primary();
   }
-  kb.text(`📄 ${currentPage}/${totalPages}`, currPayload);
   if (currentPage < totalPages) {
     kb.text('Siguiente »', nextPayload).primary();
   }
 
-  kb.row().text(`${SYM.CROSS} Cerrar Panel`, closePayload).danger();
+  // Fila 2: Indicador y Cerrar
+  kb.row();
+  kb.text(`📄 ${currentPage}/${totalPages}`, currPayload);
+  kb.text(`${SYM.CROSS} Cerrar`, closePayload).danger();
 
   return { text, keyboard: kb };
 }
