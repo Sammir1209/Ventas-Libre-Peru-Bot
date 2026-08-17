@@ -7,19 +7,21 @@ const { SYM, CB } = require('../../config/constants');
 // ══════════════════════════════════════════════════════
 
 /**
- * Teclado de bienvenida limpio con 1 solo botón de Folder/Canales + Verificar + ¿Cómo funciona?
+ * Teclado de bienvenida con botón de Folder y acción vinculada al ID del usuario
  */
-function welcomeKeyboard() {
+function welcomeKeyboard(targetUserId = null) {
   const kb = new InlineKeyboard();
 
   const folderLink = config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh';
+  const verifyData = targetUserId ? `verify:${targetUserId}` : CB.VERIFY;
+  const howData = targetUserId ? `how_it_works:${targetUserId}` : CB.HOW_IT_WORKS;
 
   // Fila 1: [ ⟡ Unirme a los Canales ] | [ ✓ Verificar ]
   kb.url(`${SYM.DIAMOND} Unirme a los Canales`, folderLink);
-  kb.text(`${SYM.CHECK} Verificar`, CB.VERIFY).success().row();
+  kb.text(`${SYM.CHECK} Verificar`, verifyData).success().row();
 
   // Fila 2: [ ❓ ¿Cómo funciona? ]
-  kb.text(`${SYM.ARROW} ¿Cómo funciona?`, CB.HOW_IT_WORKS);
+  kb.text(`${SYM.ARROW} ¿Cómo funciona?`, howData);
 
   return kb;
 }

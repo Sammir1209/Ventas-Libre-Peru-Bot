@@ -344,7 +344,7 @@ function register(bot) {
         targetPage = parseInt(parts[1]);
       }
 
-      const { text: msgText, keyboard } = await renderBlacklistPage(targetPage);
+      const { text: msgText, keyboard } = await renderBlacklistPage(targetPage, ctx.from.id);
       await ctx.reply(msgText, {
         parse_mode: 'HTML',
         reply_markup: keyboard,
@@ -355,12 +355,21 @@ function register(bot) {
     }
   });
 
-  // ── Callbacks de Paginación de Lista Negra ──
-  bot.callbackQuery(/^blacklist_page:(\d+)$/, async (ctx) => {
+  // ── Callbacks de Paginación de Lista Negra (Protegidos por Usuario) ──
+  bot.callbackQuery(/^blacklist_page:(\d+)(?::(\d+))?$/, async (ctx) => {
     try {
-      await ctx.answerCallbackQuery();
       const page = parseInt(ctx.match[1]);
-      const { text, keyboard } = await renderBlacklistPage(page);
+      const ownerId = ctx.match[2] ? parseInt(ctx.match[2]) : null;
+
+      if (ownerId && ctx.from.id !== ownerId) {
+        return ctx.answerCallbackQuery({
+          text: '⚠️ Este panel fue abierto por otro usuario. Ejecuta /listanegra para abrir el tuyo.',
+          show_alert: true,
+        });
+      }
+
+      await ctx.answerCallbackQuery();
+      const { text, keyboard } = await renderBlacklistPage(page, ownerId || ctx.from.id);
 
       try {
         await ctx.editMessageText(text, {
@@ -373,8 +382,17 @@ function register(bot) {
     }
   });
 
-  bot.callbackQuery('blacklist_close', async (ctx) => {
+  bot.callbackQuery(/^blacklist_close(?::(\d+))?$/, async (ctx) => {
     try {
+      const ownerId = ctx.match[1] ? parseInt(ctx.match[1]) : null;
+
+      if (ownerId && ctx.from.id !== ownerId) {
+        return ctx.answerCallbackQuery({
+          text: '⚠️ Este panel fue abierto por otro usuario. Ejecuta /listanegra para abrir el tuyo.',
+          show_alert: true,
+        });
+      }
+
       await ctx.answerCallbackQuery();
       try {
         await ctx.deleteMessage();
@@ -405,7 +423,7 @@ function formatPeruDate(isoString) {
   }
 }
 
-async function renderBlacklistPage(page = 1) {
+async function renderBlacklistPage(page = 1, ownerId = null) {
   const PAGE_SIZE = 5;
   const totalCount = await db.getBurnedUsersCount();
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -413,6 +431,7 @@ async function renderBlacklistPage(page = 1) {
   const offset = (currentPage - 1) * PAGE_SIZE;
 
   const users = await db.getAllBurnedUsers(PAGE_SIZE, offset);
+  const closePayload = ownerId ? `blacklist_close:${ownerId}` : 'blacklist_close';
 
   if (totalCount === 0 || users.length === 0) {
     return {
@@ -423,7 +442,7 @@ async function renderBlacklistPage(page = 1) {
         `✓ <b>Estado de la Comunidad:</b> Limpia.\n` +
         `✓ Actualmente no hay estafadores registrados en la lista negra.\n\n` +
         `${SYM.THIN_LINE}`,
-      keyboard: new InlineKeyboard().text(`${SYM.CROSS} Cerrar`, 'blacklist_close').danger(),
+      keyboard: new InlineKeyboard().text(`${SYM.CROSS} Cerrar`, closePayload).danger(),
     };
   }
 
@@ -455,16 +474,20 @@ async function renderBlacklistPage(page = 1) {
 
   const kb = new InlineKeyboard();
 
+  const prevPayload = ownerId ? `blacklist_page:${currentPage - 1}:${ownerId}` : `blacklist_page:${currentPage - 1}`;
+  const currPayload = ownerId ? `blacklist_page:${currentPage}:${ownerId}` : `blacklist_page:${currentPage}`;
+  const nextPayload = ownerId ? `blacklist_page:${currentPage + 1}:${ownerId}` : `blacklist_page:${currentPage + 1}`;
+
   // Fila de paginación
   if (currentPage > 1) {
-    kb.text('« Anterior', `blacklist_page:${currentPage - 1}`).primary();
+    kb.text('« Anterior', prevPayload).primary();
   }
-  kb.text(`📄 ${currentPage}/${totalPages}`, `blacklist_page:${currentPage}`);
+  kb.text(`📄 ${currentPage}/${totalPages}`, currPayload);
   if (currentPage < totalPages) {
-    kb.text('Siguiente »', `blacklist_page:${currentPage + 1}`).primary();
+    kb.text('Siguiente »', nextPayload).primary();
   }
 
-  kb.row().text(`${SYM.CROSS} Cerrar Panel`, 'blacklist_close').danger();
+  kb.row().text(`${SYM.CROSS} Cerrar Panel`, closePayload).danger();
 
   return { text, keyboard: kb };
 }
