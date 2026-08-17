@@ -36,13 +36,13 @@ const SYM = {
   NUM_4:      '④',
   NUM_5:      '⑤',
 
-  // Líneas y Separadores Ultra-Clean (Optimizados para pantallas móviles)
+  // Líneas y Separadores Ultra-Clean (Ajuste estilizado y compacto)
   DASH:       '━',
   DASH_SLIM:  '─',
-  DIVIDER:    '━━━━━━━━━━━━━━━━━',
-  LINE:       '━━━━━━━━━━━━━━━━━',
-  THIN_LINE:  '─────────────────',
-  FRAME_DIV:  '⊱ ━━━━━━━━━━━━━ ⊰',
+  DIVIDER:    '━━━━━━━━━━━━',
+  LINE:       '━━━━━━━━━━━━',
+  THIN_LINE:  '────────────',
+  FRAME_DIV:  '⊱ ━━━━━━━━━━ ⊰',
 };
 
 // ── Roles del Staff ──

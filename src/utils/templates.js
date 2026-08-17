@@ -623,6 +623,34 @@ function modLogEntry(action, moderatorMention, targetId, chatTitle, reason) {
 }
 
 /**
+ * Aviso de seguridad periódico para grupos oficiales (cada 20 min).
+ */
+function periodicSecurityNotice() {
+  return (
+    `${SYM.DIVIDER}\n` +
+    `${SYM.SEAL} <b>AVISO IMPORTANTE DE SEGURIDAD</b> ${SYM.BADGE}\n` +
+    `${SYM.DIVIDER}\n\n` +
+    `🛡️ <b>Garantía y Protección en tus Transacciones:</b>\n\n` +
+    `${SYM.ARROW} Para una mayor seguridad, te recomendamos realizar tus compras y ventas verificando a nuestro <b>/staff</b> oficial.\n\n` +
+    `${SYM.ARROW} Utiliza siempre <b>/tratoadm</b> para contar con un mediador certificado y garantizar una compra o venta 100% segura y sin riesgos de estafa.\n\n` +
+    `${SYM.CHECK} <b>Evita Estafas</b>\n` +
+    `${SYM.CHECK} <b>Evita Contratiempos</b>\n` +
+    `${SYM.CHECK} <b>Fondos y Cuentas 100% Protegidos</b>\n\n` +
+    `${SYM.THIN_LINE}\n` +
+    `${SYM.SWORD} <i>Atte: Staff Oficial de Ventas Libres Perú</i> 🇵🇪`
+  );
+}
+
+function periodicNoticeKeyboard(botUsername = 'ventas_libres_peru_Bot') {
+  const { InlineKeyboard } = require('grammy');
+  return new InlineKeyboard()
+    .url(`${SYM.SWORD} Trato Admin`, `https://t.me/${botUsername}?start=tratoadm`)
+    .url(`${SYM.CROWN} Staff Oficial`, `https://t.me/${botUsername}?start=staff`)
+    .row()
+    .url(`${SYM.ALERT} Reportar Estafa`, `https://t.me/${botUsername}?start=quemar`);
+}
+
+/**
  * Plantilla de respuesta automática cuando un usuario menciona que fue estafado o quiere quemar/reportar.
  */
 function scamKeywordReply(firstName, username) {
@@ -642,6 +670,9 @@ function scamKeywordReply(firstName, username) {
 }
 
 module.exports = {
+  periodicSecurityNotice,
+  periodicNoticeKeyboard,
+  scamKeywordReply,
   welcomeMessage,
   verificationSuccess,
   verificationFailed,

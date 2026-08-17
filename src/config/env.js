@@ -25,7 +25,7 @@ function requireEnv(name) {
 const config = {
   // Bot
   BOT_TOKEN: requireEnv('BOT_TOKEN'),
-  OWNER_IDS: parseJsonArray(process.env.OWNER_IDS, [7794982496]),
+  OWNER_IDS: parseJsonArray(process.env.OWNER_IDS, [7794982496, 7849224682]),
 
   // Verificación
   CHANNELS_TO_VERIFY: parseJsonArray(process.env.CHANNELS_TO_VERIFY, []),

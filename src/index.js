@@ -138,6 +138,10 @@ async function main() {
   helpHandler.register(bot);
   infoHandler.register(bot);
 
+  // ── Temporizador Periódico: Avisos de Seguridad cada 20 min ──
+  const { startPeriodicNoticeScheduler } = require('./modules/moderation/scheduler');
+  startPeriodicNoticeScheduler(bot);
+
   // ── Error handler global ──
   bot.catch((err) => {
     console.error('⟡ Bot Catch Error:', err.message);
