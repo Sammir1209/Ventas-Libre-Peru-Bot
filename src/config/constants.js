@@ -2,25 +2,47 @@
 // ⟡ Constantes Globales — Ventas Libres Perú
 // ══════════════════════════════════════════════════════
 
-const EMOJI_DASH = '<tg-emoji emoji-id="5255830000707322745">-</tg-emoji>';
-
-// ── Símbolos Estéticos y Separadores Custom ──
+// ── Símbolos Estéticos y Separadores de Diseño (Glyphy Aesthetic Symbols) ──
 const SYM = {
+  // Símbolos Principales y Marcas
   DIAMOND:    '⟡',
-  ARROW:      '»',
-  DASH:       EMOJI_DASH,
-  DIVIDER:    `${EMOJI_DASH.repeat(8)}`,
   STAR:       '✧',
   STAR_FULL:  '✦',
-  DOT:        '·',
-  LINE:       `${EMOJI_DASH.repeat(10)}`,
-  THIN_LINE:  `${EMOJI_DASH.repeat(8)}`,
+  FLOWER:     '✤',
+  CROWN:      '♔',
+  SEAL:       '㉿',
+  BADGE:      '〄',
+  SHIELD:     '⛊',
+  SWORD:      '⚔',
+  WARNING:    '⚠',
+  ALERT:      '⨻',
+  PRINT:      '⎙',
+  EDIT:       '✎',
+
+  // Flechas y Punteros
+  ARROW:      '➜',
+  ARROW_THIN: '»',
   BULLET:     '▸',
+  DOT:        '·',
   CHECK:      '✓',
   CROSS:      '✗',
-  SHIELD:     '⛊',
   CIRCLE:     '◉',
   RING:       '○',
+
+  // Números Circulares
+  NUM_1:      '①',
+  NUM_2:      '②',
+  NUM_3:      '③',
+  NUM_4:      '④',
+  NUM_5:      '⑤',
+
+  // Líneas y Separadores
+  DASH:       '━',
+  DASH_SLIM:  '─',
+  DIVIDER:    '━━━━━━━━━━━━━━━━━━━━━━━━━',
+  LINE:       '━━━━━━━━━━━━━━━━━━━━━━━━━',
+  THIN_LINE:  '─────────────────────────',
+  FRAME_DIV:  '⊱ ━━━━━━━━━━━━━━━━━━━━━ ⊰',
 };
 
 // ── Roles del Staff ──

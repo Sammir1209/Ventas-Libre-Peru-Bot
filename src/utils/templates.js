@@ -15,15 +15,15 @@ function welcomeMessage(username, firstName) {
 
   return (
     `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>VENTAS LIBRES PERÚ</b> ${SYM.DIAMOND}\n` +
+    `${SYM.SEAL} <b>VENTAS LIBRES PERÚ</b> ${SYM.BADGE}\n` +
     `${SYM.DIVIDER}\n\n` +
-    `${SYM.STAR} ¡Hola, ${mention}!\n\n` +
+    `${SYM.FLOWER} ¡Hola, ${mention}!\n\n` +
     `${SYM.ARROW} Has ingresado en modo <b>silenciado</b> por seguridad.\n` +
     `${SYM.ARROW} Para desbloquear tu acceso y escribir en el grupo:\n\n` +
-    `${SYM.BULLET} 1. Únete a nuestros canales obligatorios pulsando <b>[ Unirme ]</b>.\n` +
-    `${SYM.BULLET} 2. Pulsa el botón <b>[ Verificar ]</b>.\n\n` +
+    `${SYM.NUM_1} Únete a nuestros canales oficiales con <b>[ ⟡ Unirme ]</b>.\n` +
+    `${SYM.NUM_2} Pulsa el botón <b>[ ✓ Verificar ]</b>.\n\n` +
     `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <i>Solo toma unos segundos.</i>`
+    `${SYM.STAR} <i>El proceso es automático y toma 3 segundos.</i>`
   );
 }
 
@@ -36,9 +36,11 @@ function verificationSuccess(username, firstName) {
     : `<b>${escapeHtml(firstName || 'Usuario')}</b>`;
 
   return (
-    `${SYM.DIAMOND} <b>Verificación Exitosa</b>\n\n` +
-    `${SYM.CHECK} <b>${mention}</b>, tus restricciones han sido removidas.\n` +
-    `${SYM.ARROW} Ahora tienes membresía normal. Bienvenido ${SYM.STAR}`
+    `${SYM.DIVIDER}\n` +
+    `${SYM.CHECK} <b>VERIFICACIÓN EXITOSA</b> ${SYM.STAR_FULL}\n` +
+    `${SYM.DIVIDER}\n\n` +
+    `${SYM.ARROW} <b>${mention}</b>, tus restricciones han sido removidas.\n` +
+    `${SYM.ARROW} Ahora eres miembro verificado. ¡Bienvenido(a)! 🇵🇪`
   );
 }
 
@@ -57,10 +59,12 @@ function verificationFailed(missingChannels) {
   }).join('\n');
 
   return (
-    `${SYM.DIAMOND} <b>Verificación Fallida</b>\n\n` +
-    `${SYM.CROSS} Aún no estás en todos los canales obligatorios:\n\n` +
+    `${SYM.DIVIDER}\n` +
+    `${SYM.WARNING} <b>VERIFICACIÓN INCOMPLETA</b>\n` +
+    `${SYM.DIVIDER}\n\n` +
+    `${SYM.CROSS} Aún no te has unido a todos los canales requeridos:\n\n` +
     `${list}\n\n` +
-    `${SYM.ARROW} Únete a todos y pulsa <b>[ Verificar ]</b> nuevamente.`
+    `${SYM.ARROW} Únete a la carpeta y pulsa <b>[ ✓ Verificar ]</b> nuevamente.`
   );
 }
 
@@ -70,12 +74,12 @@ function verificationFailed(missingChannels) {
 function howItWorksMessage() {
   return (
     `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>¿Cómo funciona?</b>\n` +
+    `${SYM.PRINT} <b>GUÍA DE FUNCIONAMIENTO — VENTAS LIBRES</b>\n` +
     `${SYM.DIVIDER}\n\n` +
-    `${SYM.BULLET} Al ingresar a un grupo oficial, serás silenciado automáticamente.\n\n` +
-    `${SYM.BULLET} Para escribir, debes unirte a nuestros canales y grupos obligatorios.\n\n` +
-    `${SYM.BULLET} Tras unirte, pulsa <b>[ Verificar ]</b> y el bot comprobará tu membresía.\n\n` +
-    `${SYM.BULLET} Si todo está correcto, se te removerán las restricciones al instante.\n\n` +
+    `${SYM.NUM_1} Al ingresar al grupo oficial, serás silenciado preventivamente.\n\n` +
+    `${SYM.NUM_2} Para hablar, únete a nuestros canales y grupos oficiales.\n\n` +
+    `${SYM.NUM_3} Tras unirte, pulsa <b>[ ✓ Verificar ]</b> para validar tu membresía.\n\n` +
+    `${SYM.NUM_4} El bot te otorgará acceso completo al instante.\n\n` +
     `${SYM.THIN_LINE}`
   );
 }
@@ -86,11 +90,11 @@ function howItWorksMessage() {
 function dealMainMenuMessage() {
   return (
     `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>SISTEMA DE TRATOS ADMIN (ESCROW)</b> ${SYM.DIAMOND}\n` +
+    `${SYM.SWORD} <b>SISTEMA DE TRATOS ADMIN (ESCROW)</b> ${SYM.SHIELD}\n` +
     `${SYM.DIVIDER}\n\n` +
-    `${SYM.STAR} <b>Seguridad y Garantía en tus Transacciones</b>\n\n` +
-    `${SYM.ARROW} Un <b>Trato Admin</b> es un servicio oficial donde un mediador certificado ` +
-    `retiene los fondos o productos hasta que ambas partes cumplan con lo acordado.\n\n` +
+    `${SYM.FLOWER} <b>Seguridad y Garantía en tus Transacciones</b>\n\n` +
+    `${SYM.ARROW} Un <b>Trato Admin</b> es un servicio donde un mediador certificado ` +
+    `custodia los fondos y productos hasta que ambas partes concluyan el acuerdo.\n\n` +
     `${SYM.BULLET} <b>Comisión:</b> 10% fija sobre el valor del trato.\n` +
     `${SYM.BULLET} <b>Tiempo estimado de atención:</b> 1 a 5 minutos.\n\n` +
     `${SYM.THIN_LINE}\n` +
@@ -538,17 +542,17 @@ function burnAlertBroadcast(targetId) {
 function renderStaffList(groupedStaff) {
   let output = (
     `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>STAFF — VENTAS LIBRES PERÚ</b> ${SYM.DIAMOND}\n` +
+    `${SYM.CROWN} <b>STAFF OFICIAL ⊱ VENTAS LIBRES PERÚ</b> ${SYM.BADGE}\n` +
     `${SYM.DIVIDER}\n\n`
   );
 
   // 1. OWNER(s)
-  output += `<b>OWNER(s)</b>\n`;
+  output += `<b>${SYM.CROWN} PROPIETARIOS (OWNERS)</b>\n`;
   if (groupedStaff.owners.length > 0) {
     for (const m of groupedStaff.owners) {
       const userTag = m.username ? `@${m.username}` : `(Sin username)`;
       const name = m.first_name || m.username || 'Owner';
-      output += `${SYM.DIAMOND} ${userTag} | ${escapeHtml(name)} | <code>${m.user_id}</code>\n`;
+      output += `${SYM.DIAMOND} ${userTag} ➜ <b>${escapeHtml(name)}</b> | <code>${m.user_id}</code>\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -556,12 +560,12 @@ function renderStaffList(groupedStaff) {
   output += `\n`;
 
   // 2. Co-Owner(s)
-  output += `<b>Co-Owner(s)</b>\n`;
+  output += `<b>${SYM.FLOWER} CO-PROPIETARIOS (CO-OWNERS)</b>\n`;
   if (groupedStaff.coowners.length > 0) {
     for (const m of groupedStaff.coowners) {
       const userTag = m.username ? `@${m.username}` : `(Sin username)`;
       const name = m.first_name || m.username || 'Co-Owner';
-      output += `${SYM.DIAMOND} ${userTag} | ${escapeHtml(name)} | <code>${m.user_id}</code>\n`;
+      output += `${SYM.DIAMOND} ${userTag} ➜ <b>${escapeHtml(name)}</b> | <code>${m.user_id}</code>\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -569,12 +573,12 @@ function renderStaffList(groupedStaff) {
   output += `\n`;
 
   // 3. ADMIN(s)
-  output += `<b>ADMIN(s)</b>\n`;
+  output += `<b>${SYM.SWORD} ADMINISTRADORES (ADMINS)</b>\n`;
   if (groupedStaff.admins.length > 0) {
     for (const m of groupedStaff.admins) {
       const userTag = m.username ? `@${m.username}` : `(Sin username)`;
       const name = m.first_name || m.username || 'Admin';
-      output += `${SYM.DIAMOND} ${userTag} | ${escapeHtml(name)} | <code>${m.user_id}</code>\n`;
+      output += `${SYM.DIAMOND} ${userTag} ➜ <b>${escapeHtml(name)}</b> | <code>${m.user_id}</code>\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -582,13 +586,13 @@ function renderStaffList(groupedStaff) {
   output += `\n`;
 
   // 4. TRATO ADMIN
-  output += `<b>TRATO ADMIN</b>\n`;
+  output += `<b>${SYM.SEAL} MEDIADORES OFICIALES (TRATO ADMIN)</b>\n`;
   if (groupedStaff.dealAdmins.length > 0) {
     for (const m of groupedStaff.dealAdmins) {
       const userTag = m.username ? `@${m.username}` : `(Sin username)`;
       const name = m.first_name || m.username || 'Trato Admin';
-      const score = m.avgRating ? `${m.avgRating}/5 ${SYM.STAR_FULL}` : `5/5 ${SYM.STAR_FULL}`;
-      output += `${SYM.DIAMOND} ${userTag} | ${escapeHtml(name)} | <code>${m.user_id}</code> | Score: ${score}\n`;
+      const score = m.avgRating ? `${m.avgRating}/5.0 ${SYM.STAR_FULL}` : `5.0/5.0 ${SYM.STAR_FULL}`;
+      output += `${SYM.DIAMOND} ${userTag} ➜ <b>${escapeHtml(name)}</b> | <code>${m.user_id}</code> | Rep: <b>${score}</b>\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -596,7 +600,7 @@ function renderStaffList(groupedStaff) {
 
   output += `\n${SYM.THIN_LINE}\n`;
   output += `${SYM.SHIELD} <b>RECOMENDACIÓN DE SEGURIDAD:</b>\n`;
-  output += `» Para garantizar una <b>compra y venta 100% segura</b> y evitar riesgos de estafa, realiza siempre tus transacciones mediante <b>/tratoadm</b> con un mediador certificado del Staff.\n`;
+  output += `➜ Para garantizar una <b>compra y venta 100% segura</b> y evitar estafas, realiza siempre tus transacciones con <b>/tratoadm</b> con un mediador certificado del Staff.\n`;
   output += `\n${SYM.DIVIDER}`;
   return output;
 }
@@ -606,12 +610,15 @@ function renderStaffList(groupedStaff) {
  */
 function modLogEntry(action, moderatorMention, targetId, chatTitle, reason) {
   return (
-    `${SYM.DIAMOND} <b>LOG: ${action}</b>\n\n` +
+    `${SYM.DIVIDER}\n` +
+    `${SYM.PRINT} <b>REGISTRO DE MODERACIÓN ⊱ ${action}</b>\n` +
+    `${SYM.DIVIDER}\n\n` +
     `${SYM.ARROW} <b>Moderador:</b> ${moderatorMention}\n` +
     `${SYM.ARROW} <b>Objetivo:</b> <code>${targetId}</code>\n` +
     `${SYM.ARROW} <b>Grupo:</b> ${chatTitle || 'N/A'}\n` +
     `${SYM.ARROW} <b>Razón:</b> ${reason || 'Sin especificar'}\n` +
-    `${SYM.ARROW} <b>Fecha:</b> <code>${new Date().toISOString()}</code>`
+    `${SYM.ARROW} <b>Fecha:</b> <code>${new Date().toISOString()}</code>\n\n` +
+    `${SYM.THIN_LINE}`
   );
 }
 
@@ -622,15 +629,15 @@ function scamKeywordReply(firstName, username) {
   const userTag = username ? `@${username}` : (firstName ? `<b>${escapeHtml(firstName)}</b>` : 'Estimado usuario');
   return (
     `${SYM.DIVIDER}\n` +
-    `🚨 <b>CENTRAL DE REPORTES Y ANTI-ESTAFAS</b> 🚨\n` +
+    `${SYM.ALERT} <b>CENTRAL DE REPORTES Y ANTI-ESTAFAS</b> ${SYM.WARNING}\n` +
     `${SYM.DIVIDER}\n\n` +
     `Hola ${userTag}, si has sido víctima de una estafa o deseas quemar a un estafador:\n\n` +
     `📌 <b>Pasos para reportar de forma segura:</b>\n` +
-    `1️⃣ <b>Guarda las pruebas:</b> No borres capturas de pantalla, comprobantes de pago ni el chat con el estafador.\n` +
-    `2️⃣ <b>Inicia tu reporte privado:</b> Pulsa el botón de abajo o escribe <code>/quemar</code> directamente al bot.\n` +
-    `3️⃣ <b>Evaluación del Staff:</b> Nuestro equipo revisará las pruebas y publicará la ficha oficial en el <b>Canal de Quemados</b> y la <b>Lista Negra</b>.\n\n` +
+    `${SYM.NUM_1} <b>Guarda las pruebas:</b> No borres capturas de pantalla, comprobantes de pago ni el chat.\n` +
+    `${SYM.NUM_2} <b>Inicia tu reporte privado:</b> Pulsa el botón de abajo o escribe <code>/quemar</code> directamente al bot.\n` +
+    `${SYM.NUM_3} <b>Evaluación del Staff:</b> Nuestro equipo revisará las pruebas y publicará la ficha oficial en el <b>Canal de Quemados</b> y la <b>Lista Negra</b>.\n\n` +
     `${SYM.THIN_LINE}\n` +
-    `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`
+    `${SYM.SHIELD} <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`
   );
 }
 
