@@ -134,7 +134,149 @@ function buildUserHelp() {
   return { text, kb };
 }
 
+const redisDb = require('../../database/redis');
+const templates = require('../../utils/templates');
+const { escapeHtml } = require('../../utils/formatting');
+
 function register(bot) {
+  // ── Comando /start con Deep-Linking (quemar, tratoadm, etc.) ──
+  bot.command('start', async (ctx) => {
+    try {
+      const isPrivate = ctx.chat.type === 'private';
+      const payload = ctx.match ? ctx.match.trim().toLowerCase() : '';
+
+      // 1. Deep-link: Iniciar reporte de estafa (/start quemar)
+      if (payload === 'quemar') {
+        const userId = ctx.from.id;
+        const { burnTargetTypeKeyboard } = require('../burn/keyboard');
+
+        await redisDb.setBurnState(userId, {
+          step: 'CHOOSE_TYPE',
+          targetId: null,
+          targetUsername: null,
+          targetLabel: null,
+          context: null,
+          proofs: [],
+          proofUrls: [],
+        });
+
+        return ctx.reply(templates.burnInitialPrompt(), {
+          parse_mode: 'HTML',
+          reply_markup: burnTargetTypeKeyboard(),
+        });
+      }
+
+      // 2. Deep-link: Iniciar Trato Admin (/start tratoadm o /start tratos)
+      if (payload === 'tratoadm' || payload === 'tratos') {
+        const { dealMainKeyboard } = require('../escrow/keyboard');
+        await redisDb.clearCache(`deal_form:${ctx.from.id}`);
+        return ctx.reply(templates.dealMainMenuMessage(), {
+          parse_mode: 'HTML',
+          reply_markup: dealMainKeyboard(),
+        });
+      }
+
+      // 3. Menú Principal de Bienvenida en DM (/start)
+      if (isPrivate) {
+        const name = ctx.from.first_name || 'Usuario';
+        const startText =
+          `${SYM.DIVIDER}\n` +
+          `${SYM.SEAL} <b>VENTAS LIBRES PERÚ — BOT OFICIAL</b> ${SYM.BADGE}\n` +
+          `${SYM.DIVIDER}\n\n` +
+          `¡Hola, <b>${escapeHtml(name)}</b>! Bienvenido al sistema oficial de <b>Ventas Libres Perú</b> 🇵🇪\n\n` +
+          `📌 <b>Servicios y Funciones Disponibles:</b>\n` +
+          `${SYM.SWORD} <b>Trato Admin:</b> Mediación y custodia 100% segura para tus compras y ventas.\n` +
+          `${SYM.ALERT} <b>Quemar Estafadores:</b> Denuncia estafas con pruebas y consulta la lista negra.\n` +
+          `${SYM.CROWN} <b>Staff Certificado:</b> Conoce al equipo oficial de mediadores y administradores.\n\n` +
+          `${SYM.THIN_LINE}\n` +
+          `${SYM.STAR} <i>Selecciona una opción para comenzar:</i>`;
+
+        const kb = new InlineKeyboard()
+          .text(`${SYM.SWORD} Trato Admin`, 'start_tratoadm').success()
+          .text(`${SYM.ALERT} Quemar`, 'start_quemar').danger()
+          .row()
+          .text(`${SYM.CROWN} Staff`, 'start_staff').primary()
+          .text(`${SYM.PRINT} Ayuda`, 'start_help').primary();
+
+        return ctx.reply(startText, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        });
+      }
+    } catch (err) {
+      console.error('⟡ Error en /start:', err.message);
+    }
+  });
+
+  // Callbacks del menú de inicio
+  bot.callbackQuery('start_tratoadm', async (ctx) => {
+    try {
+      await ctx.answerCallbackQuery();
+      const { dealMainKeyboard } = require('../escrow/keyboard');
+      await redisDb.clearCache(`deal_form:${ctx.from.id}`);
+      await ctx.reply(templates.dealMainMenuMessage(), {
+        parse_mode: 'HTML',
+        reply_markup: dealMainKeyboard(),
+      });
+    } catch {}
+  });
+
+  bot.callbackQuery('start_quemar', async (ctx) => {
+    try {
+      await ctx.answerCallbackQuery();
+      const { burnTargetTypeKeyboard } = require('../burn/keyboard');
+      await redisDb.setBurnState(ctx.from.id, {
+        step: 'CHOOSE_TYPE',
+        targetId: null,
+        targetUsername: null,
+        targetLabel: null,
+        context: null,
+        proofs: [],
+        proofUrls: [],
+      });
+      await ctx.reply(templates.burnInitialPrompt(), {
+        parse_mode: 'HTML',
+        reply_markup: burnTargetTypeKeyboard(),
+      });
+    } catch {}
+  });
+
+  bot.callbackQuery('start_staff', async (ctx) => {
+    try {
+      await ctx.answerCallbackQuery();
+      // Mostrar lista staff
+      const grouped = { owners: [], coowners: [], admins: [], dealAdmins: [] };
+      for (const ownerId of config.OWNER_IDS) {
+        let username = null;
+        let firstName = 'Owner';
+        try {
+          const chatInfo = await ctx.api.getChat(ownerId);
+          username = chatInfo.username || null;
+          firstName = chatInfo.first_name || firstName;
+        } catch {}
+        grouped.owners.push({ user_id: ownerId, username, first_name: firstName });
+      }
+      try {
+        const staffMembers = await db.getAllStaff();
+        for (const member of staffMembers) {
+          const role = (member.role || '').toUpperCase();
+          if (role === ROLES.CO_OWNER) grouped.coowners.push(member);
+          else if (role === 'ADMIN') grouped.admins.push(member);
+          else if (role === ROLES.DEAL_ADMIN) grouped.dealAdmins.push({ ...member, avgRating: '5.0' });
+        }
+      } catch {}
+      await ctx.reply(templates.renderStaffList(grouped), { parse_mode: 'HTML' });
+    } catch {}
+  });
+
+  bot.callbackQuery('start_help', async (ctx) => {
+    try {
+      await ctx.answerCallbackQuery();
+      const view = buildUserHelp();
+      await ctx.reply(view.text, { parse_mode: 'HTML', reply_markup: view.kb });
+    } catch {}
+  });
+
   // ── Comando /help /ayuda ──
   bot.command(['help', 'ayuda'], async (ctx) => {
     try {
