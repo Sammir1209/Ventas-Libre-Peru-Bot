@@ -2,16 +2,19 @@
 // ⟡ Constantes Globales — Ventas Libres Perú
 // ══════════════════════════════════════════════════════
 
-// ── Símbolos Estéticos (PROHIBIDO usar emojis regulares) ──
+const EMOJI_DASH = '<tg-emoji emoji-id="5255830000707322745">-</tg-emoji>';
+
+// ── Símbolos Estéticos y Separadores Custom ──
 const SYM = {
   DIAMOND:    '⟡',
   ARROW:      '»',
-  DIVIDER:    '⊱ ────── ⊰',
+  DASH:       EMOJI_DASH,
+  DIVIDER:    `${EMOJI_DASH.repeat(8)}`,
   STAR:       '✧',
   STAR_FULL:  '✦',
   DOT:        '·',
-  LINE:       '═══════════════════════',
-  THIN_LINE:  '───────────────────────',
+  LINE:       `${EMOJI_DASH.repeat(10)}`,
+  THIN_LINE:  `${EMOJI_DASH.repeat(8)}`,
   BULLET:     '▸',
   CHECK:      '✓',
   CROSS:      '✗',
