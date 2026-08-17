@@ -12,7 +12,7 @@ const { SYM, CB } = require('../../config/constants');
 function welcomeKeyboard() {
   const kb = new InlineKeyboard();
 
-  const folderLink = config.GROUPS_FOLDER_LINK || 'https://t.me/quemando_ventaslibreperu';
+  const folderLink = config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh';
 
   // Fila 1: [ ⟡ Unirme a los Canales ] | [ ✓ Verificar ]
   kb.url(`${SYM.DIAMOND} Unirme a los Canales`, folderLink);

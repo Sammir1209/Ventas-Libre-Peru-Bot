@@ -29,7 +29,7 @@ const config = {
 
   // Verificación
   CHANNELS_TO_VERIFY: parseJsonArray(process.env.CHANNELS_TO_VERIFY, []),
-  GROUPS_FOLDER_LINK: process.env.GROUPS_FOLDER_LINK || '',
+  GROUPS_FOLDER_LINK: process.env.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh',
 
   // PostgreSQL
   POSTGRES_URL: process.env.POSTGRES_URL || 'postgresql://localhost:5432/ventas_libres',
