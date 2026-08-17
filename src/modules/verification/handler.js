@@ -286,7 +286,8 @@ async function unmuteMember(ctx, userId) {
   const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
   if (!chatId) return;
 
-  const standardPerms = {
+  // 1. Obtener los permisos por defecto del chat
+  let targetPerms = {
     can_send_messages: true,
     can_send_audios: true,
     can_send_documents: true,
@@ -297,28 +298,56 @@ async function unmuteMember(ctx, userId) {
     can_send_polls: true,
     can_send_other_messages: true,
     can_add_web_page_previews: true,
-    can_change_info: false,
     can_invite_users: true,
+    can_change_info: false,
     can_pin_messages: false,
     can_manage_topics: false,
   };
 
   try {
+    const chatInfo = await ctx.api.getChat(chatId);
+    if (chatInfo?.permissions) {
+      targetPerms = {
+        ...chatInfo.permissions,
+        can_send_messages: true,
+        can_send_audios: true,
+        can_send_documents: true,
+        can_send_photos: true,
+        can_send_videos: true,
+        can_send_video_notes: true,
+        can_send_voice_notes: true,
+        can_send_polls: true,
+        can_send_other_messages: true,
+        can_add_web_page_previews: true,
+      };
+    }
+  } catch {}
+
+  // Método 1: Restricción con permisos del chat y use_independent_chat_permissions
+  try {
     await ctx.api.restrictChatMember(chatId, userId, {
-      permissions: standardPerms,
+      permissions: targetPerms,
       use_independent_chat_permissions: true,
     });
-    console.log(`✓ Miembro ${userId} desmuteado con éxito en chat ${chatId} (independent permissions)`);
+    console.log(`✓ [Método 1] Miembro ${userId} desmuteado con éxito en chat ${chatId}`);
   } catch (err1) {
-    console.warn(`⟡ Intento 1 restrictChatMember: ${err1.message}. Reintentando con API standard...`);
+    console.warn(`⟡ [Método 1 falló]: ${err1.message}. Intentando Método 2...`);
     try {
       await ctx.api.restrictChatMember(chatId, userId, {
-        permissions: standardPerms,
+        permissions: targetPerms,
       });
-      console.log(`✓ Miembro ${userId} desmuteado con éxito (fallback standard)`);
+      console.log(`✓ [Método 2] Miembro ${userId} desmuteado con éxito`);
     } catch (err2) {
-      console.error(`⟡ ERROR al desmutear miembro ${userId}:`, err2.message);
+      console.error(`⟡ [Método 2 falló] ERROR al desmutear miembro ${userId}:`, err2.message);
     }
+  }
+
+  // Verificar estado real en Telegram y registrar en log
+  try {
+    const memberAfter = await ctx.api.getChatMember(chatId, userId);
+    console.log(`⟡ Estado de @${memberAfter?.user?.username || userId} tras desmutear: [${memberAfter?.status}] can_send_messages=${memberAfter?.can_send_messages}`);
+  } catch (statErr) {
+    console.warn('⟡ No se pudo leer estado del miembro:', statErr.message);
   }
 
   // Marcar como verificado en BD
