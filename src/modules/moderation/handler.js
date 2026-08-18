@@ -503,6 +503,119 @@ function register(bot) {
       console.error('⟡ Mod: Error en callback blacklist_close:', err.message);
     }
   });
+
+  // ── Callbacks de Botones Interactivos en Logs del Staff ──
+  bot.callbackQuery(/^log_unban:(\d+)$/, requireStaff(), async (ctx) => {
+    try {
+      const targetId = parseInt(ctx.match[1]);
+      await ctx.answerCallbackQuery({ text: '🔓 Desbaneando usuario...' });
+
+      // 1. Desbanear en BD
+      await db.unburnUser(targetId);
+
+      // 2. Desbanear en todos los grupos registrados
+      const groups = await db.getAllGroups();
+      let unbannedCount = 0;
+      for (const grp of groups) {
+        if (grp.chat_id && grp.type !== 'channel') {
+          try {
+            await ctx.api.unbanChatMember(grp.chat_id, targetId, { only_if_banned: true });
+            unbannedCount++;
+          } catch {}
+        }
+      }
+
+      await db.addModLog('UNBAN_LOG_BTN', ctx.from.id, targetId, ctx.chat?.id || 0, 'Desbaneado desde botón de log');
+      await ctx.reply(`✓ <b>Usuario <code>${targetId}</code> desbaneado con éxito</b> (${unbannedCount} grupos).`, { parse_mode: 'HTML' });
+    } catch (err) {
+      console.error('⟡ Error en log_unban callback:', err.message);
+      await ctx.answerCallbackQuery({ text: `✗ Error: ${err.message}`, show_alert: true });
+    }
+  });
+
+  bot.callbackQuery(/^log_unmute:(\d+)$/, requireStaff(), async (ctx) => {
+    try {
+      const targetId = parseInt(ctx.match[1]);
+      await ctx.answerCallbackQuery({ text: '🔊 Desmuteando usuario...' });
+
+      const fullPerms = {
+        can_send_messages: true,
+        can_send_audios: true,
+        can_send_documents: true,
+        can_send_photos: true,
+        can_send_videos: true,
+        can_send_video_notes: true,
+        can_send_voice_notes: true,
+        can_send_polls: true,
+        can_send_other_messages: true,
+        can_add_web_page_previews: true,
+        can_change_info: true,
+        can_invite_users: true,
+        can_pin_messages: true,
+        can_manage_topics: true,
+      };
+
+      const groups = await db.getAllGroups();
+      for (const grp of groups) {
+        if (grp.chat_id && grp.type !== 'channel') {
+          try {
+            await ctx.api.restrictChatMember(grp.chat_id, targetId, {
+              permissions: fullPerms,
+              use_independent_chat_permissions: true,
+            });
+          } catch {}
+        }
+      }
+
+      await ctx.reply(`✓ <b>Usuario <code>${targetId}</code> desmuteado con éxito.</b>`, { parse_mode: 'HTML' });
+    } catch (err) {
+      console.error('⟡ Error en log_unmute callback:', err.message);
+      await ctx.answerCallbackQuery({ text: `✗ Error: ${err.message}`, show_alert: true });
+    }
+  });
+
+  bot.callbackQuery(/^log_ban:(\d+)$/, requireStaff(), async (ctx) => {
+    try {
+      const targetId = parseInt(ctx.match[1]);
+      await ctx.answerCallbackQuery();
+
+      const user = await db.getUser(targetId) || { user_id: targetId };
+      const userMention = mentionFromData(targetId, user.username, user.first_name);
+
+      const kb = new InlineKeyboard()
+        .text('🔥 Sí, Banear / GBan', `gban_confirm:${targetId}`).danger()
+        .text('❌ Cancelar', 'gban_cancel').primary();
+
+      await ctx.reply(
+        `${SYM.DIVIDER}\n` +
+        `⚠️ <b>CONFIRMAR BANEO DESDE LOGS</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Objetivo:</b> ${userMention}\n` +
+        `➜ <b>ID:</b> <code>${targetId}</code>\n\n` +
+        `¿Deseas aplicar baneo global a este usuario?`,
+        { parse_mode: 'HTML', reply_markup: kb }
+      );
+    } catch (err) {
+      console.error('⟡ Error en log_ban callback:', err.message);
+    }
+  });
+
+  bot.callbackQuery(/^log_info:(\d+)$/, async (ctx) => {
+    try {
+      const targetId = parseInt(ctx.match[1]);
+      await ctx.answerCallbackQuery();
+
+      const { buildUserProfile } = require('../info/handler');
+      const { text, keyboard } = await buildUserProfile(ctx, { userId: targetId });
+
+      await ctx.reply(text, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      });
+    } catch (err) {
+      console.error('⟡ Error en log_info callback:', err.message);
+    }
+  });
 }
 
 function formatPeruDate(isoString) {

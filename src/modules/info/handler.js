@@ -256,4 +256,7 @@ function register(bot) {
   });
 }
 
-module.exports = { register };
+module.exports = {
+  register,
+  buildUserProfile,
+};
