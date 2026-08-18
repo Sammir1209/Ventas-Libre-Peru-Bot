@@ -382,6 +382,7 @@ async function unmuteMember(ctx, userId) {
   const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
   if (!chatId) return;
 
+  // Todos los permisos en TRUE para que Telegram remueva la restricción completamente
   const perms = {
     can_send_messages: true,
     can_send_audios: true,
@@ -393,21 +394,28 @@ async function unmuteMember(ctx, userId) {
     can_send_polls: true,
     can_send_other_messages: true,
     can_add_web_page_previews: true,
-    can_change_info: false,
+    can_change_info: true,
     can_invite_users: true,
-    can_pin_messages: false,
-    can_manage_topics: false,
+    can_pin_messages: true,
+    can_manage_topics: true,
   };
 
-  // 1. Desmutear con permisos independientes (Requerido en Bot API 6.5+)
+  // 1. Desmutear con permisos independientes (Telegram Bot API 6.5+)
   try {
     await ctx.api.restrictChatMember(chatId, userId, {
       permissions: perms,
       use_independent_chat_permissions: true,
     });
-    console.log(`✓ [Paso 1] restrictChatMember con use_independent_chat_permissions: true enviado para ${userId}`);
+    console.log(`✓ restrictChatMember enviado para ${userId} en chat ${chatId}`);
   } catch (e1) {
-    console.warn(`⟡ Paso 1 error: ${e1.message}`);
+    try {
+      await ctx.api.restrictChatMember(chatId, userId, {
+        permissions: perms,
+        use_independent_chat_permissions: false,
+      });
+    } catch (e2) {
+      console.warn(`⟡ Error desmuteando: ${e2.message}`);
+    }
   }
 
   // 2. Desmutear también con API estándar
