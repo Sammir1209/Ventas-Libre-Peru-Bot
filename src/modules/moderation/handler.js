@@ -243,54 +243,117 @@ function register(bot) {
       const parts = text.split(/\s+/);
       const reason = parts.slice(2).join(' ') || 'Sanción por estafa / infracción grave';
 
+      // Guardar motivo en caché temporal para el callback de confirmación
+      const redisDb = require('../../database/redis');
+      await redisDb.setCache(`gban_pending:${target.userId}`, {
+        userId: target.userId,
+        username: target.username || null,
+        reason,
+        issuerId: ctx.from.id,
+      }, 300);
+
+      const targetMention = target.username ? `@${target.username}` : `<code>${target.userId}</code>`;
+
+      const kb = new InlineKeyboard()
+        .text('🔥 Sí, Ejecutar GBan', `gban_confirm:${target.userId}`).danger()
+        .text('❌ Cancelar', 'gban_cancel').primary();
+
+      await ctx.reply(
+        `${SYM.DIVIDER}\n` +
+        `⚠️ <b>CONFIRMACIÓN DE BANEO GLOBAL (GBAN)</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Objetivo:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `➜ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n\n` +
+        `🚨 <b>Advertencia:</b> Esta acción expulsará y bloqueará al usuario de <b>TODOS los grupos y canales oficiales</b> y lo registrará en la Lista Negra permanentemente.\n\n` +
+        `${SYM.THIN_LINE}\n` +
+        `¿Estás seguro de que deseas proceder?`,
+        {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        }
+      );
+    } catch (err) {
+      console.error('⟡ Mod: Error en /gban:', err.message);
+      await ctx.reply(`${SYM.CROSS} Error al solicitar baneo global: ${err.message}`, { parse_mode: 'HTML' });
+    }
+  });
+
+  // ── Callback: Confirmar y Ejecutar GBan ──
+  bot.callbackQuery(/^gban_confirm:(\d+)$/, requireStaff(), async (ctx) => {
+    try {
+      const targetId = parseInt(ctx.match[1]);
+      const redisDb = require('../../database/redis');
+      const pending = (await redisDb.getCache(`gban_pending:${targetId}`)) || {};
+      const reason = pending.reason || 'Sanción por estafa / infracción grave';
+      const username = pending.username || null;
+
+      await ctx.answerCallbackQuery({ text: '🔥 Ejecutando GBan Global...' });
+
       // 1. Obtener todos los grupos oficiales
       const groups = await db.getAllGroups();
       let bannedCount = 0;
 
       // Banear en el chat actual si es grupo
-      if (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group') {
+      if (ctx.chat?.type === 'supergroup' || ctx.chat?.type === 'group') {
         try {
-          await ctx.api.banChatMember(ctx.chat.id, target.userId);
+          await ctx.api.banChatMember(ctx.chat.id, targetId);
           bannedCount++;
         } catch {}
       }
 
       // Banear en todos los demás grupos registrados
       for (const grp of groups) {
-        if (grp.chat_id !== ctx.chat.id) {
+        if (grp.chat_id && grp.chat_id !== ctx.chat?.id && grp.type !== 'channel') {
           try {
-            await ctx.api.banChatMember(grp.chat_id, target.userId);
+            await ctx.api.banChatMember(grp.chat_id, targetId);
             bannedCount++;
           } catch {}
         }
       }
 
       // 2. Guardar en lista negra permanente (burned_users)
-      await db.burnUser(target.userId, ctx.from.id, `GBAN: ${reason}`, ctx.from.id);
+      await db.burnUser(targetId, username, 'Estafador', `GBAN: ${reason}`, `Staff (${ctx.from.id})`);
+      await redisDb.clearCache(`gban_pending:${targetId}`);
 
       // 3. Registrar log
-      await db.addModLog('GBAN', ctx.from.id, target.userId, ctx.chat.id, reason);
-      await logger.sendLog(ctx.api, 'GBAN', ctx.from, target.userId, ctx.chat.title || 'Global', reason);
+      await db.addModLog('GBAN', ctx.from.id, targetId, ctx.chat?.id || 0, reason);
+      await logger.sendLog(ctx.api, 'GBAN', ctx.from, targetId, ctx.chat?.title || 'Global', reason);
 
-      const targetMention = target.username ? `@${target.username}` : `<code>${target.userId}</code>`;
+      const targetMention = username ? `@${username}` : `<code>${targetId}</code>`;
+      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
-      await ctx.reply(
+      await ctx.editMessageText(
         `${SYM.DIVIDER}\n` +
-        `${SYM.CROSS} <b>BANEO GLOBAL APLICADO (GBAN)</b> ${SYM.CROSS}\n` +
+        `🔥 <b>BANEO GLOBAL APLICADO (GBAN)</b> ${SYM.CROSS}\n` +
         `${SYM.DIVIDER}\n\n` +
-        `${SYM.CROSS} <b>Usuario:</b> ${targetMention}\n` +
-        `${SYM.ARROW} <b>ID:</b> <code>${target.userId}</code>\n` +
-        `${SYM.ARROW} <b>Motivo:</b> <i>${reason}</i>\n` +
-        `${SYM.CHECK} <b>Grupos Sancionados:</b> <code>${bannedCount}</code>\n` +
-        `${SYM.CROSS} <b>Estado:</b> <b>LISTA NEGRA PERMANENTE 🔴</b>\n\n` +
+        `➜ <b>Usuario:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${targetId}</code>\n` +
+        `➜ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `➜ <b>Grupos Sancionados:</b> <code>${bannedCount}</code>\n` +
+        `➜ <b>Estado:</b> 🔴 LISTA NEGRA PERMANENTE\n\n` +
         `${SYM.THIN_LINE}\n` +
-        `${SYM.STAR} El usuario no podrá unirse ni participar en ningún grupo de Ventas Libres Perú.`,
+        `<i>Ejecutado por: ${adminMention}</i>`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
-      console.error('⟡ Mod: Error en /gban:', err.message);
-      await ctx.reply(`${SYM.CROSS} Error al aplicar baneo global: ${err.message}`, { parse_mode: 'HTML' });
+      console.error('⟡ Error en gban_confirm callback:', err.message);
+      await ctx.answerCallbackQuery({ text: `✗ Error: ${err.message}`, show_alert: true });
     }
+  });
+
+  // ── Callback: Cancelar GBan ──
+  bot.callbackQuery('gban_cancel', async (ctx) => {
+    try {
+      await ctx.answerCallbackQuery({ text: 'Operación cancelada.' });
+      await ctx.editMessageText(
+        `${SYM.DIVIDER}\n` +
+        `❌ <b>OPERACIÓN DE GBAN CANCELADA</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `<i>No se aplicó ninguna sanción al usuario.</i>`,
+        { parse_mode: 'HTML' }
+      );
+    } catch {}
   });
 
   // ── /ungban (Remover Baneo Global y Desbanear de todos los grupos) ──
