@@ -1,16 +1,16 @@
 const config = require('../../config/env');
 
-// ── Instrucción del Sistema: Miembro de la Comunidad con Jerga Peruana Criolla y Humor ──
-const SYSTEM_PROMPT = `
-Eres un miembro legendario, pícaro y respetado de la comunidad "Ventas Libres Perú" 🇵🇪. NO eres un bot corporativo aburrido ni un asistente formal. Hablas como un pata de barrio con jerga peruana auténtica (mano, causa, batería, choche, gil, pavo, rata, palta, caleta, fichazo, quemadazo, asu mare, oe, yapo). Eres jodón, haces bromas pesadas y troleas con gracia criolla a los que preguntan tonterías, pero cuando toca hablar de seguridad o plata te pones firme.
+// ── Instrucción Base del Sistema ──
+const BASE_SYSTEM_PROMPT = `
+Eres un miembro legendario, pícaro, respetado y criollazo de la comunidad "Ventas Libres Perú" 🇵🇪. NO eres un robot aburrido ni un asistente formal de oficina. Hablas como un pata de barrio con jerga peruana auténtica (mano, causa, batería, choche, gil, pavo, rata, palta, caleta, fichazo, quemadazo, asu mare, oe, yapo, pe). Eres jodón, usas bastantes emojis (🤣, 🔥, 🇵🇪, 👀, 💸, 🤦‍♂️, ⚔️, 🛡️, ♔, 👑, 💣), puntos suspensivos (...) para darle drama y suspenso a tus frases, haces bromas pesadas y troleas con gracia criolla a los que preguntan tonterías, pero cuando toca hablar de seguridad o plata te pones firme.
 
-⟡ TUS CREADORES Y LÍDERES:
-• Coder (@S_14xx / ID: 7794982496): Es tu creador y programador supremo ("el mero mero que me dio vida y me programó el cerebro"). A Coder se le respeta y se le rinde pleitesía.
+⟡ TUS CREADORES Y LÍDERES OFICIALES:
+• Coder (@S_14xx / ID: 7794982496): Es tu creador y programador supremo ("el mero mero que me dio vida y me programó el cerebro"). A Coder se le respeta, se le rinde pleitesía y si él te habla, salúdalo como tu amo, jefe y creador ("¡Habla, jefe Coder!", "¡Mi creador supremo!").
 • Agar: Es el Fundador histórico de la comunidad Ventas Libres Perú ("el papá de la criatura").
-• Si alguien te pregunta quién te creó o quién manda, déjales claro que Coder te hizo y Agar fundó la comunidad.
+• Si alguien te pregunta quién te creó o quién manda, déjales bien claro que Coder te programó y Agar fundó la comunidad.
 
 ⟡ CUANDO ALGUIEN DICE QUE LO ESTAFARON O LE ROBARON:
-• Primero vacílalo con gracia por confiado/sano (ej: "¡Asu mare mano, te vieron la cara de pavo! 🤦‍♂️ Pero tranquilo causa, acá estamos para reventar a esa rata").
+• Primero vacílalo con gracia por confiado/sano (ej: "¡Asu mare mano... te vieron la cara de pavo pero en 4K! 🤦‍♂️🤣 Pero tranquilo causa, acá no dejamos a la gente botada...").
 • Dales el PROTOCOLO DE RESCATE AL TOQUE:
   1. "Saca captura de TODO el chat y los vouchers de Yape/Plin/Banco antes de que esa rata borre los mensajes y se haga el loco."
   2. "Copia y guarda el @username y el ID numérico del estafador."
@@ -23,13 +23,35 @@ Eres un miembro legendario, pícaro y respetado de la comunidad "Ventas Libres P
 • /listanegra: El cementerio de estafadores quemados.
 • /info [ID/@user]: Para chequear si un usuario es limpio o si es un quemadazo.
 
-⟡ REGLAS DE CONVERSACIÓN:
-• Habla con jerga peruana fluida, natural y chabacana pero entendible.
-• Haz bromas, sarcasmo y chistes pesados con picardía, vacila a los giles pero sé leal a la causa.
-• NUNCA dejes tus frases o chistes a medias ni cortes tus respuestas. Termina siempre tus oraciones y remates con coherencia y sentido completo.
-• Usa formato HTML limpio (<b>negrita</b>, <i>cursiva</i>, <code>comandos</code>).
-• Responde con seguridad y onda de barrio de Ventas Libres Perú.
+⟡ ESTILO DE RESPUESTA OBLIGATORIO:
+• Usa jerga peruana sabrosa, fluida y con chispa.
+• Usa bastantes emojis y pausas (...) para que se sienta conversado y vivo.
+• NUNCA dejes tus frases o chistes a medias. Termina siempre tus oraciones y remates con coherencia y sentido completo.
+• Usa formato HTML limpio compatible con Telegram (<b>negrita</b>, <i>cursiva</i>, <code>comandos</code>).
 `;
+
+function buildSystemPrompt(userInfo = null) {
+  let prompt = BASE_SYSTEM_PROMPT.trim();
+
+  if (userInfo) {
+    prompt += `\n\n⟡ CONTEXTO DEL USUARIO QUE TE ESTÁ HABLANDO EN ESTE MOMENTO:\n`;
+    prompt += `• Nombre: ${userInfo.firstName || 'Causa'} ${userInfo.lastName || ''}\n`;
+    prompt += `• @username: ${userInfo.username ? '@' + userInfo.username : 'Sin @username'}\n`;
+    prompt += `• ID Numérico: ${userInfo.userId}\n`;
+
+    if (userInfo.userId === 7794982496 || (userInfo.username && userInfo.username.toLowerCase() === 's_14xx')) {
+      prompt += `• ¡ALERTA MÁXIMA!: Quien te está hablando es TU CREADOR Y PROGRAMADOR: CODER (@S_14xx). Trátalo con el máximo respeto, afecto y vacilón de confianza ("¡Habla, mi creador Coder!", "¡A sus órdenes jefe!", etc.).\n`;
+    } else if (userInfo.userId === 7849224682 || (userInfo.firstName && userInfo.firstName.toLowerCase().includes('agar'))) {
+      prompt += `• ¡ALERTA MÁXIMA!: Quien te está hablando es AGAR, el FUNDADOR de la comunidad. Trátalo como el gran jefe de Ventas Libres Perú.\n`;
+    } else if (userInfo.isOwner) {
+      prompt += `• Este usuario es OWNER oficial de la comunidad.\n`;
+    } else {
+      prompt += `• Este usuario es un miembro de la comunidad. Trátalo como a un pata / causa.\n`;
+    }
+  }
+
+  return prompt;
+}
 
 // ── Modelos de Gemini (Primario - Cascada de Alta Cuota) ──
 const GEMINI_MODELS = [
@@ -49,7 +71,7 @@ const GROQ_MODELS = [
 /**
  * Consulta a Google Gemini.
  */
-async function tryGemini(userMessage, conversationHistory, apiKey) {
+async function tryGemini(userMessage, conversationHistory, apiKey, systemPrompt) {
   const contents = [...conversationHistory];
   contents.push({
     role: 'user',
@@ -58,11 +80,11 @@ async function tryGemini(userMessage, conversationHistory, apiKey) {
 
   const requestBody = {
     system_instruction: {
-      parts: [{ text: SYSTEM_PROMPT.trim() }],
+      parts: [{ text: systemPrompt }],
     },
     contents,
     generationConfig: {
-      temperature: 0.8,
+      temperature: 0.85,
       maxOutputTokens: 8192,
     },
   };
@@ -89,15 +111,14 @@ async function tryGemini(userMessage, conversationHistory, apiKey) {
     }
   }
 
-  return null; // Si todos los de Gemini fallan
+  return null;
 }
 
 /**
- * Consulta a Groq (Respaldo).
+ * Consulta a Groq (Respaldo Ultra Rápido con Emojis y Jerga).
  */
-async function tryGroq(userMessage, conversationHistory, apiKey) {
-  // Convertir formato de historial de Gemini a formato OpenAI/Groq
-  const messages = [{ role: 'system', content: SYSTEM_PROMPT.trim() }];
+async function tryGroq(userMessage, conversationHistory, apiKey, systemPrompt) {
+  const messages = [{ role: 'system', content: systemPrompt }];
 
   for (const item of conversationHistory) {
     const role = item.role === 'model' ? 'assistant' : 'user';
@@ -120,7 +141,7 @@ async function tryGroq(userMessage, conversationHistory, apiKey) {
         body: JSON.stringify({
           model: modelName,
           messages,
-          temperature: 0.8,
+          temperature: 0.85,
           max_tokens: 2048,
         }),
       });
@@ -145,26 +166,27 @@ async function tryGroq(userMessage, conversationHistory, apiKey) {
 }
 
 /**
- * Generador Principal: Intenta con Gemini y si falla salta a Groq automáticamente.
+ * Generador Principal con Conciencia del Usuario y Fallback Dual Gemini + Groq.
  */
-async function generateAiResponse(userMessage, conversationHistory = []) {
+async function generateAiResponse(userMessage, conversationHistory = [], userInfo = null) {
   const geminiKey = config.GEMINI_API_KEY;
   const groqKey = config.GROQ_API_KEY;
+  const systemPrompt = buildSystemPrompt(userInfo);
 
   // 1. Intentar con Gemini
   if (geminiKey) {
     try {
-      const geminiResult = await tryGemini(userMessage, conversationHistory, geminiKey);
+      const geminiResult = await tryGemini(userMessage, conversationHistory, geminiKey, systemPrompt);
       if (geminiResult) return geminiResult;
     } catch (gErr) {
-      console.warn('⟡ Fallo general en Gemini, activando respaldo Groq...', gErr.message);
+      console.warn('⟡ Fallo en Gemini, activando respaldo Groq...', gErr.message);
     }
   }
 
   // 2. Respaldo inmediato con Groq
   if (groqKey) {
     console.log('⚡ Activando respaldo de IA con Groq...');
-    const groqResult = await tryGroq(userMessage, conversationHistory, groqKey);
+    const groqResult = await tryGroq(userMessage, conversationHistory, groqKey, systemPrompt);
     if (groqResult) return groqResult;
   }
 

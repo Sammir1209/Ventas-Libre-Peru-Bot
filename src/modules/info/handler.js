@@ -219,8 +219,8 @@ function register(bot) {
     }
   });
 
-  // ── Callback: Volver a la Vista Principal del Perfil ──
-  bot.callbackQuery(/^info_back:(\d+)$/, async (ctx) => {
+  // ── Callback: Volver a la Vista Principal del Perfil (o desde Search) ──
+  bot.callbackQuery(/^(?:info_back|info_profile):(\d+)$/, async (ctx) => {
     try {
       const targetId = parseInt(ctx.match[1]);
       await ctx.answerCallbackQuery();

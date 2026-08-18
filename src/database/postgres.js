@@ -109,6 +109,51 @@ async function getUser(userId) {
   return null;
 }
 
+async function searchUsers(query) {
+  if (!query) return [];
+  const clean = query.replace(/^@/, '').trim();
+  const isNumeric = /^\d+$/.test(clean);
+
+  let results = [];
+  if (useSupabase && supabase) {
+    let q = supabase.from('users').select('*');
+    if (isNumeric) {
+      q = q.or(`user_id.eq.${clean},first_name.ilike.%${clean}%,username.ilike.%${clean}%`);
+    } else {
+      q = q.or(`first_name.ilike.%${clean}%,username.ilike.%${clean}%`);
+    }
+    const { data, error } = await q.limit(10);
+    if (error) console.error('⟡ Supabase searchUsers error:', error.message);
+    results = data || [];
+  } else if (pool) {
+    if (isNumeric) {
+      const res = await pool.query(
+        `SELECT * FROM users WHERE user_id = $1 OR first_name ILIKE $2 OR username ILIKE $2 LIMIT 10`,
+        [Number(clean), `%${clean}%`]
+      );
+      results = res.rows || [];
+    } else {
+      const res = await pool.query(
+        `SELECT * FROM users WHERE first_name ILIKE $1 OR username ILIKE $1 LIMIT 10`,
+        [`%${clean}%`]
+      );
+      results = res.rows || [];
+    }
+  }
+
+  // Comprobar estado de estafa en cada resultado
+  for (const u of results) {
+    try {
+      const burned = await isUserBurned(u.user_id, u.username);
+      u.is_burned = !!burned;
+    } catch {
+      u.is_burned = false;
+    }
+  }
+
+  return results;
+}
+
 async function isUserBurned(userId, username = null) {
   if (!userId && !username) return false;
 
@@ -901,6 +946,7 @@ module.exports = {
   verifyUser,
   getUser,
   getUserByUsername,
+  searchUsers,
   // Staff
   setStaffRole,
   removeStaff,

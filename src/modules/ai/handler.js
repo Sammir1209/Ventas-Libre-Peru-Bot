@@ -1,4 +1,5 @@
 const { SYM } = require('../../config/constants');
+const config = require('../../config/env');
 const { generateAiResponse } = require('./service');
 const { getSessionHistory, addMessageToSession, clearSession } = require('./memory');
 const redisDb = require('../../database/redis');
@@ -51,10 +52,20 @@ function register(bot) {
       // 3. Obtener historial aislado de este usuario
       const history = await getSessionHistory(userId);
 
-      // 4. Generar respuesta con Gemini
-      const aiReply = await generateAiResponse(cleanPrompt, history);
+      // 4. Identificar al usuario que habla
+      const isOwner = config.OWNER_IDS.includes(userId);
+      const userInfo = {
+        userId,
+        username: ctx.from.username || null,
+        firstName: ctx.from.first_name || '',
+        lastName: ctx.from.last_name || '',
+        isOwner,
+      };
 
-      // 5. Guardar en memoria de sesión
+      // 5. Generar respuesta con Gemini o Groq
+      const aiReply = await generateAiResponse(cleanPrompt, history, userInfo);
+
+      // 6. Guardar en memoria de sesión
       await addMessageToSession(userId, 'user', cleanPrompt);
       await addMessageToSession(userId, 'model', aiReply);
 
