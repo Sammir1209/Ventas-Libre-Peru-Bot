@@ -17,7 +17,7 @@ function register(bot) {
     try {
       if (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group') {
         const sender = ctx.from;
-        if (sender && !sender.is_bot) {
+          // 1. Blacklist Dinámico
           const isBurned = await db.isUserBurned(sender.id, sender.username);
           if (isBurned) {
             console.warn(`🚨 [BLACKLIST DINÁMICO] Mensaje interceptado de estafador: ${sender.id} (@${sender.username}) en ${ctx.chat.id}`);
@@ -29,7 +29,21 @@ function register(bot) {
             } catch {}
             return; // Cortar el flujo por completo
           }
-        }
+
+          // 2. Anti-Impersonator / Guardián Anti-Clones en Tiempo Real
+          try {
+            const { checkImpersonation, handleImpersonator } = require('./antiImpersonator');
+            const cloneDetection = await checkImpersonation(sender, ctx.api);
+            if (cloneDetection) {
+              try {
+                await ctx.deleteMessage();
+              } catch {}
+              await handleImpersonator(ctx, ctx.chat, sender, cloneDetection);
+              return;
+            }
+          } catch (impErr) {
+            console.error('⟡ Error en checkImpersonation en mensaje:', impErr.message);
+          }
       }
     } catch {}
     return next();

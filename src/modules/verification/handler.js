@@ -122,6 +122,18 @@ function register(bot) {
       console.error('⟡ Error comprobando blacklist dinámico en join:', chkErr.message);
     }
 
+    // ── 🛡️ CAPA 1.5 ANTI-IMPERSONATOR: Detección y baneo de clones de Staff/Coder/Agar ──
+    try {
+      const { checkImpersonation, handleImpersonator } = require('../moderation/antiImpersonator');
+      const cloneDetection = await checkImpersonation(user, ctx.api);
+      if (cloneDetection) {
+        await handleImpersonator(ctx, chat, user, cloneDetection);
+        return;
+      }
+    } catch (cloneErr) {
+      console.error('⟡ Error comprobando anti-impersonator en join:', cloneErr.message);
+    }
+
     // Eximir automáticamente supergrupos de Escrow y Staff
     if (chatId === config.ESCROW_GROUP_ID || chatId === config.STAFF_CHAT_ID) {
       return;

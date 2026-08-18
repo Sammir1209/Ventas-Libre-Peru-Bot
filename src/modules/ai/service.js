@@ -10,11 +10,7 @@ Eres un miembro de la comunidad "Ventas Libres Perú" 🇵🇪. NO eres un bot a
 • Si alguien te pregunta quién te creó o quién manda, déjales en claro que Coder te programó y Agar fundó la comunidad.
 
 ⟡ CUANDO ALGUIEN DICE QUE LO ESTAFARON O LE ROBARON:
-• Primero dale su estate quieto (ej: "¡Puta mare oe... te vieron la cara de pavo! 🤦‍♂️🤣 A la firme, ¿cómo vas a soltar plata así por así? Pero tranquilo mano, acá no dejamos botada a la gente...").
-• Dales el PROTOCOLO DE RESCATE AL TOQUE:
-  1. "Saca captura de TODO el chat y los vouchers de Yape/Plin/Banco antes de que esa rata borre los mensajes y se haga el loco."
-  2. "Copia y guarda el @username y el ID numérico del estafador."
-  3. "Entra al bot por privado y manda /quemar para que el Staff lo revise y lo mandemos de cabeza a la Lista Negra con su /gban permanente."
+• Dale su respuesta rápida y al grano (ej: "¡Puta mare oe... te vieron la cara de pavo! 🤦‍♂️🤣 A la firme mano, saca capturas de los chats y vouchers de Yape/Plin, copia su @user e ID y mándalo al toque con <code>/quemar</code> por privado para que el Staff le clave su <code>/gban</code>.").
 
 ⟡ CULTURA Y COMANDOS DE VENTAS LIBRES PERÚ:
 • /tratoadm (Escrow): "No seas gil de pasar plata directo por privado a un NN, usa /tratoadm con un admin oficial del Staff que retiene la plata y te asegura la jugada".
@@ -23,9 +19,22 @@ Eres un miembro de la comunidad "Ventas Libres Perú" 🇵🇪. NO eres un bot a
 • /listanegra: El cementerio de estafadores quemados.
 • /info [ID/@user]: Para chequear si un usuario es limpio o si es un quemadazo.
 
-⟡ REGLAS DE CONVERSACIÓN:
-• Jerga peruana auténtica y directa con la gente y los giles (Puta mare oe, a la firme, CSV, serio mano, safa oe gilaso).
-• NUNCA dejes frases a medias ni cortes tus respuestas. Termina siempre tus oraciones con sentido completo.
+⟡ CONOCIMIENTO INTERNO DE TODOS LOS SISTEMAS YA IMPLEMENTADOS EN EL BOT:
+(Tú conoces perfectamente la arquitectura del bot. Si Coder o alguien te pregunta qué sistemas tiene el bot o qué novedades agregar, NUNCA propongas sistemas que YA EXISTEN. Los que ya tenemos 100% operativos son):
+1. 🛡️ Guardián Anti-Impersonator / Anti-Clones en Tiempo Real: Detección algorítmica de homóglifos y similitud >= 80% en nombres/usernames que intenten suplantar a Coder, Agar o Admins, con auto-gban y alerta a logs.
+2. 🔒 Blacklist Dinámico en Tiempo Real: Interceptor de joins y mensajes de estafadores con expulsión inmediata y purga.
+3. 🤝 Sistema Escrow / Intermediario (/tratoadm): Creación de tratos con retención de fondos por Admins, cálculo de comisiones, cola en vivo y calificaciones de 1 a 5 estrellas con reputación.
+4. 🔥 Sistema de Quema & Lista Negra (/quemar, /listanegra, /ungban): Formulario de reporte guiado por privado, revisión en 2 pasos por Staff, publicación automática en el canal público @quemando_ventaslibreperu y baneo global.
+5. 🔍 Radar de Búsqueda en Lenguaje Natural: Búsqueda sin slash ('Búscame a [nombre/@user/ID]', 'Busca a el usuario [nombre]') optimizada para localizar cuentas sin @username, con botones de verificación y GBan seguro con confirmación.
+6. ✅ Verificación Inteligente de Nuevos Miembros: Mute automático al entrar, teclado en 2 filas (Unirme + Verificar arriba, Cancelar abajo) y restauración nativa completa de permisos de miembro.
+7. 👑 Gestión de Staff & Promociones Reales (/promote, /demote, /staff): Concesión y revocación real de permisos de admin en Telegram con asignación de Custom Titles oficiales (♔ Owner, ♕ Co-Owner, ⚔ Admin, ㉿ Trato Admin).
+8. 📢 Avisos Periódicos de Seguridad Anti-Spam: Notificaciones automáticas cada 20 min en el grupo principal condicionadas a al menos 10 mensajes reales para no saturar chats inactivos.
+9. 🧠 Motor de IA Groq LPUs de Ultra Velocidad (120b/20b): Memoria conversacional aislada por usuario en Redis con TTL de 30 min y reconocimiento de Coder como creador supremo.
+
+⟡ REGLAS DE ORO DE CONVERSACIÓN (RESPUESTAS CORTAS):
+• 🛑 MÁXIMO 1 A 2 PÁRRAFOS BREVES (3 A 5 LÍNEAS): Prohibido soltar testamentos o discursos largos que aburran el chat del grupo. Responde rápido, dinámico, con chispa y directo al grano.
+• Jerga peruana auténtica y directa con la gente (Puta mare oe, a la firme, CSV, serio mano, safa oe gilaso).
+• NUNCA dejes frases a medias ni cortes tus respuestas. Termina siempre tus oraciones con coherencia y sentido completo.
 • Usa formato HTML limpio (<b>negrita</b>, <i>cursiva</i>, <code>comandos</code>).
 `;
 
@@ -57,17 +66,7 @@ Quien te habla es AGAR, el Fundador de la comunidad. Trátalo con respeto, educa
   return prompt;
 }
 
-// ── Modelos de Gemini (Primario - Cascada de Alta Cuota) ──
-const GEMINI_MODELS = [
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-flash-latest',
-  'gemini-flash-lite-latest',
-  'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
-];
-
-// ── Modelos de Groq (Respaldo Ultra Rápido) ──
+// ── Modelos de Groq (Motor 100% Dedicado y Ultrarrápido) ──
 const GROQ_MODELS = [
   'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
@@ -75,60 +74,14 @@ const GROQ_MODELS = [
 ];
 
 /**
- * Consulta a Google Gemini.
- */
-async function tryGemini(userMessage, conversationHistory, apiKey, systemPrompt) {
-  const contents = [...conversationHistory];
-  contents.push({
-    role: 'user',
-    parts: [{ text: userMessage }],
-  });
-
-  const requestBody = {
-    system_instruction: {
-      parts: [{ text: systemPrompt }],
-    },
-    contents,
-    generationConfig: {
-      temperature: 0.85,
-      maxOutputTokens: 8192,
-    },
-  };
-
-  for (const modelName of GEMINI_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (!res.ok) {
-        console.warn(`⟡ Gemini (${modelName}) Status ${res.status}. Probando siguiente...`);
-        continue;
-      }
-
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text;
-    } catch (err) {
-      console.warn(`⟡ Error en Gemini (${modelName}):`, err.message);
-    }
-  }
-
-  return null;
-}
-
-/**
- * Consulta a Groq (Respaldo Ultra Rápido con Emojis y Jerga).
+ * Consulta a Groq LPUs (Inferencia en menos de 0.5s)
  */
 async function tryGroq(userMessage, conversationHistory, apiKey, systemPrompt) {
   const messages = [{ role: 'system', content: systemPrompt }];
 
   for (const item of conversationHistory) {
-    const role = item.role === 'model' ? 'assistant' : 'user';
-    const text = item.parts?.[0]?.text || '';
+    const role = item.role === 'model' || item.role === 'assistant' ? 'assistant' : 'user';
+    const text = item.parts?.[0]?.text || item.content || '';
     if (text) {
       messages.push({ role, content: text });
     }
@@ -147,8 +100,8 @@ async function tryGroq(userMessage, conversationHistory, apiKey, systemPrompt) {
         body: JSON.stringify({
           model: modelName,
           messages,
-          temperature: 0.85,
-          max_tokens: 2048,
+          temperature: 0.8,
+          max_tokens: 500,
         }),
       });
 
@@ -160,8 +113,7 @@ async function tryGroq(userMessage, conversationHistory, apiKey, systemPrompt) {
       const data = await res.json();
       const text = data?.choices?.[0]?.message?.content;
       if (text) {
-        console.log(`✓ Respuesta generada exitosamente con Respaldo Groq (${modelName}).`);
-        return text;
+        return text.trim();
       }
     } catch (err) {
       console.warn(`⟡ Error en Groq (${modelName}):`, err.message);
@@ -172,31 +124,19 @@ async function tryGroq(userMessage, conversationHistory, apiKey, systemPrompt) {
 }
 
 /**
- * Generador Principal con Conciencia del Usuario y Fallback Dual Gemini + Groq.
+ * Generador Principal con Groq Dedicado
  */
 async function generateAiResponse(userMessage, conversationHistory = [], userInfo = null) {
-  const geminiKey = config.GEMINI_API_KEY;
   const groqKey = config.GROQ_API_KEY;
+  if (!groqKey) {
+    throw new Error('La variable GROQ_API_KEY no está configurada en el entorno.');
+  }
   const systemPrompt = buildSystemPrompt(userInfo);
 
-  // 1. Intentar con Gemini
-  if (geminiKey) {
-    try {
-      const geminiResult = await tryGemini(userMessage, conversationHistory, geminiKey, systemPrompt);
-      if (geminiResult) return geminiResult;
-    } catch (gErr) {
-      console.warn('⟡ Fallo en Gemini, activando respaldo Groq...', gErr.message);
-    }
-  }
+  const result = await tryGroq(userMessage, conversationHistory, groqKey, systemPrompt);
+  if (result) return result;
 
-  // 2. Respaldo inmediato con Groq
-  if (groqKey) {
-    console.log('⚡ Activando respaldo de IA con Groq...');
-    const groqResult = await tryGroq(userMessage, conversationHistory, groqKey, systemPrompt);
-    if (groqResult) return groqResult;
-  }
-
-  throw new Error('Todos los servicios de IA (Gemini y Groq) están temporalmente no disponibles.');
+  throw new Error('El servicio de IA con Groq está temporalmente ocupado. Intenta de nuevo en unos segundos.');
 }
 
 module.exports = {
