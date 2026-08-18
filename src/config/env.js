@@ -64,8 +64,9 @@ const config = {
   SUPABASE_URL: process.env.SUPABASE_URL || '',
   SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY || '',
 
-  // Inteligencia Artificial (Gemini)
+  // Inteligencia Artificial (Gemini & Groq)
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GROQ_API_KEY: process.env.GROQ_API_KEY || '',
 };
 
 // ── Validar que el userbot tenga credenciales si se necesitan ──
