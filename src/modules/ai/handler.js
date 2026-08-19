@@ -6,7 +6,7 @@ const redisDb = require('../../database/redis');
 
 // ── Mensajes Variados y Dinámicos de Espera (Estilo Barrio / Comunidad) ──
 const THINKING_MESSAGES = [
-  '✍️ <i>Aguanta mano, te estoy redactando la firme...</i>',
+  '✍️ <i>Aguanta mano, te estoy redactando ...</i>',
   '🧠 <i>Pensando qué decirte, causa...</i>',
   '🇵🇪 <i>Procesando con la batería seria...</i>',
   '⚡ <i>Buscando en la data al toque...</i>',
@@ -22,7 +22,7 @@ function register(bot) {
   let botUsername = 'ventas_libres_peru_Bot';
   bot.api.getMe().then((me) => {
     if (me?.username) botUsername = me.username;
-  }).catch(() => {});
+  }).catch(() => { });
 
   // ── Función Central para Procesar Consultas de IA ──
   async function handleAiQuery(ctx, promptText) {
@@ -33,7 +33,7 @@ function register(bot) {
     // 1. Enviar acción de "escribiendo..." en el chat
     try {
       await ctx.replyWithChatAction('typing');
-    } catch {}
+    } catch { }
 
     // 2. Enviar mensaje de espera dinámico y variado
     let placeholder = null;
@@ -45,7 +45,7 @@ function register(bot) {
     } catch {
       try {
         placeholder = await ctx.reply('✍️ Escribiendo...');
-      } catch {}
+      } catch { }
     }
 
     try {
@@ -72,11 +72,11 @@ function register(bot) {
       aiReply = aiReply.replace(/<h\d.*?>/gi, '<b>');
       aiReply = aiReply.replace(/<\/h\d>/gi, '</b>\n');
       aiReply = aiReply.replace(/<\/?(div|span|ul|ol|li).*?>/gi, '');
-      
+
       // Convertir Markdown (asteriscos) a HTML para Telegram
       aiReply = aiReply.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
       aiReply = aiReply.replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, '<i>$1</i>');
-      
+
       aiReply = aiReply.trim();
 
       // 6. Guardar en memoria de sesión
@@ -122,7 +122,7 @@ function register(bot) {
             `${SYM.CROSS} <i>Disculpa, hubo un problema momentáneo al procesar tu consulta. Intenta de nuevo en unos segundos.</i>`,
             { parse_mode: 'HTML' }
           );
-        } catch {}
+        } catch { }
       } else {
         await ctx.reply(
           `${SYM.CROSS} <i>Disculpa, hubo un problema momentáneo al procesar tu consulta. Intenta de nuevo en unos segundos.</i>`,
@@ -196,7 +196,7 @@ function register(bot) {
         if (dealForm) {
           return next();
         }
-      } catch {}
+      } catch { }
 
       await handleAiQuery(ctx, text);
       return;
