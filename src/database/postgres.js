@@ -125,6 +125,21 @@ async function searchUsers(query) {
     const { data, error } = await q.limit(10);
     if (error) console.error('⟡ Supabase searchUsers error:', error.message);
     results = data || [];
+  } else if (pool) {
+    if (isNumeric) {
+      const res = await pool.query(
+        `SELECT * FROM users WHERE user_id = $1 OR first_name ILIKE $2 OR username ILIKE $2 LIMIT 10`,
+        [Number(clean), `%${clean}%`]
+      );
+      results = res.rows || [];
+    } else {
+      const res = await pool.query(
+        `SELECT * FROM users WHERE first_name ILIKE $1 OR username ILIKE $1 LIMIT 10`,
+        [`%${clean}%`]
+      );
+      results = res.rows || [];
+    }
+  }
 
   const cleanNormalized = clean
     .normalize('NFKD')
