@@ -5,6 +5,7 @@ const { SYM } = require('../../config/constants');
 const { requireOwner } = require('../../middleware/auth');
 const { InlineKeyboard } = require('grammy');
 const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
+const userbot = require('../../userbot/client');
 
 /**
  * Limpia y extrae el nombre, @username o ID eliminando cualquier frase o prefijo en español
@@ -48,7 +49,18 @@ async function executeSearch(ctx, rawQuery) {
   // 1. Buscar en Base de Datos por Nombre, Username o ID
   let results = await db.searchUsers(cleanNoAt);
 
-  // 2. Si no hubo coincidencias en BD, intentar resolver en Telegram (por @username o ID)
+  // 1.5. Si no hay en BD, buscar usando el Userbot nativo (soporta fuentes raras y usuarios invisibles)
+  if ((!results || results.length === 0) && userbot.isConnected()) {
+    try {
+      const groups = await db.getAllGroups();
+      const chatIds = groups.map((g) => g.chat_id).filter(Boolean);
+      results = await userbot.searchCommunityUsers(cleanNoAt, chatIds);
+    } catch (err) {
+      console.error('⟡ Error usando userbot search:', err.message);
+    }
+  }
+
+  // 2. Si no hubo coincidencias en BD ni Userbot, intentar resolver en Telegram Bot API (por @username o ID)
   if (!results || results.length === 0) {
     try {
       let chatInfo = null;

@@ -165,9 +165,45 @@ async function unrestrictUser(chatId, userId) {
   return false;
 }
 
+/**
+ * Busca usuarios directamente en los grupos usando el motor nativo de Telegram (MTProto).
+ * Esto permite encontrar usuarios por nombre, soporte completo de unicodes y gente que nunca ha hablado.
+ */
+async function searchCommunityUsers(query, chatIds) {
+  if (!client || !isConnected()) return [];
+  const resultsMap = new Map();
+
+  for (const chatId of chatIds) {
+    try {
+      const entity = await client.getEntity(chatId);
+      const participants = await client.getParticipants(entity, {
+        search: query,
+        limit: 10,
+      });
+
+      for (const p of participants) {
+        const id = Number(p.id?.value || p.id);
+        if (!resultsMap.has(id)) {
+          resultsMap.set(id, {
+            user_id: id,
+            username: p.username || null,
+            first_name: p.firstName || p.title || 'Usuario',
+            is_burned: false,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn(`⟡ Userbot: Error buscando en chat ${chatId}:`, err.message);
+    }
+  }
+
+  return Array.from(resultsMap.values());
+}
+
 module.exports = {
   resolveUser,
   unrestrictUser,
+  searchCommunityUsers,
   initialize,
   createDealGroup,
   isConnected,
