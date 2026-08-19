@@ -17,6 +17,8 @@
   "author": "Ventas Libres Perú",
   "license": "PRIVATE",
   "dependencies": {
+    "@grammyjs/auto-retry": "^2.0.2",
+    "@grammyjs/transformer-throttler": "^1.2.1",
     "@napi-rs/canvas": "^1.0.6",
     "@supabase/supabase-js": "^2.112.3",
     "dotenv": "^16.4.0",

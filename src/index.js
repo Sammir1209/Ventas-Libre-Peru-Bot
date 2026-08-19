@@ -5,6 +5,8 @@
 const http = require('http');
 const https = require('https');
 const { Bot } = require('grammy');
+const { autoRetry } = require('@grammyjs/auto-retry');
+const { apiThrottler } = require('@grammyjs/transformer-throttler');
 const config = require('./config/env');
 const db = require('./database/postgres');
 const redisDb = require('./database/redis');
@@ -102,6 +104,10 @@ async function main() {
 
   // 5. Instanciar Bot de Telegram con grammY
   const bot = new Bot(config.BOT_TOKEN);
+
+  // ── Plugins de Alta Disponibilidad y Anti-Rate Limits (30 msg/s & 429 Flood Control) ──
+  bot.api.config.use(autoRetry({ maxRetryAttempts: 5, maxDelaySeconds: 60 }));
+  bot.api.config.use(apiThrottler());
 
   // ── Middleware global ──
   bot.use(antiSpam());
