@@ -27,7 +27,7 @@ async function initialize() {
 
     // Cachear entidades (grupos/canales) al inicio para que getEntity(chatId) no falle con CHANNEL_INVALID
     try {
-      await client.getDialogs({ limit: 100 });
+      await client.getDialogs({}); // Sin límite, descarga todos los chats activos del userbot
       console.log('⟡ Userbot: Entidades cacheadas correctamente.');
     } catch (dErr) {
       console.warn('⟡ Userbot: Aviso al cachear diálogos:', dErr.message);
