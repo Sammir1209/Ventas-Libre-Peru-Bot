@@ -126,6 +126,38 @@ function register(bot) {
     }
   });
 
+  // ── Comando /id para obtener el ID del Chat y del Usuario ──
+  bot.command('id', async (ctx) => {
+    try {
+      let replyText = 
+        `${SYM.DIVIDER}\n` +
+        `🔍 <b>IDENTIFICADORES (IDs)</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>ID de este Chat:</b> <code>${ctx.chat.id}</code>\n`;
+      
+      if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
+        replyText += `➜ <b>Tipo de Chat:</b> Grupo\n`;
+      } else if (ctx.chat.type === 'channel') {
+        replyText += `➜ <b>Tipo de Chat:</b> Canal\n`;
+      } else {
+        replyText += `➜ <b>Tipo de Chat:</b> Privado\n`;
+      }
+
+      replyText += `\n`;
+
+      if (ctx.message?.reply_to_message) {
+        const repliedUser = ctx.message.reply_to_message.from;
+        replyText += `➜ <b>ID del usuario respondido:</b> <code>${repliedUser.id}</code>\n`;
+      } else {
+        replyText += `➜ <b>Tu ID:</b> <code>${ctx.from.id}</code>\n`;
+      }
+
+      await ctx.reply(replyText, { parse_mode: 'HTML' });
+    } catch (err) {
+      console.error('⟡ Info: Error en /id:', err.message);
+    }
+  });
+
   // ── Callback: Verificar Antecedentes de Estafa (/info) ──
   bot.callbackQuery(/^info_check_burn:(\d+)$/, async (ctx) => {
     try {
