@@ -60,39 +60,7 @@ async function executeSearch(ctx, rawQuery) {
     }
   }
 
-  // 2. Si no hubo coincidencias en BD ni Userbot, intentar resolver en Telegram Bot API (por @username o ID)
-  if (!results || results.length === 0) {
-    try {
-      let chatInfo = null;
-
-      // Si es ID numérico
-      if (/^\d+$/.test(cleanNoAt)) {
-        try {
-          chatInfo = await ctx.api.getChat(Number(cleanNoAt));
-        } catch {}
-      }
-
-      // Si es @username o texto
-      if (!chatInfo) {
-        try {
-          chatInfo = await ctx.api.getChat(`@${cleanNoAt}`);
-        } catch {}
-      }
-
-      // Solo aislar usuarios (personas reales), ignorar canales y grupos
-      if (chatInfo && chatInfo.id && chatInfo.type === 'private') {
-        const burned = await db.isUserBurned(chatInfo.id, chatInfo.username);
-        results = [{
-          user_id: chatInfo.id,
-          username: chatInfo.username || null,
-          first_name: chatInfo.first_name || 'Usuario Telegram',
-          is_burned: !!burned,
-        }];
-      }
-    } catch {}
-  }
-
-  // 3. Si sigue sin encontrar, revisar en la Lista Negra / Quemados por nombre
+  // 2. Revisar en la Lista Negra / Quemados por nombre si no se encontró en BD ni Userbot
   if (!results || results.length === 0) {
     try {
       const burnedInfo = await db.getBurnedUserInfo(cleanNoAt);
@@ -112,8 +80,8 @@ async function executeSearch(ctx, rawQuery) {
       `${SYM.DIVIDER}\n` +
       `🔍 <b>RADAR DE RASTREO — RESULTADO</b>\n` +
       `${SYM.DIVIDER}\n\n` +
-      `${SYM.CROSS} No se encontraron coincidencias para: <code>${escapeHtml(query)}</code>\n\n` +
-      `💡 <i>Verifica que el nombre, @username o ID numérico esté bien escrito.</i>`,
+      `${SYM.CROSS} No se encontraron coincidencias para el nombre: <code>${escapeHtml(query)}</code>\n\n` +
+      `💡 <i>Verifica que el nombre esté bien escrito. Este comando busca exclusivamente por nombre (First Name) dentro de la comunidad.</i>`,
       { parse_mode: 'HTML' }
     );
   }
@@ -130,18 +98,20 @@ async function executeSearch(ctx, rawQuery) {
         const member = await ctx.api.getChatMember(grp.chat_id, user.user_id);
         if (['member', 'administrator', 'creator', 'restricted'].includes(member.status)) {
           isInCommunity = true;
-          break; // Está en la comunidad, no hace falta buscar en más grupos
+          break; // Está en la comunidad
         }
       } catch {}
     }
     
-    // También incluirlo si ya está en la lista negra (quemado)
     if (isInCommunity || user.is_burned) {
-      communityResults.push(user);
+      // Evitar duplicados
+      if (!communityResults.find(u => u.user_id === user.user_id)) {
+        communityResults.push(user);
+      }
     }
     
-    // Limitar a máximo 5 resultados filtrados por rendimiento
-    if (communityResults.length >= 5) break;
+    // Limitar a máximo 6 resultados para mostrar el primero + 5 en lista
+    if (communityResults.length >= 6) break;
   }
 
   if (communityResults.length === 0) {
@@ -149,45 +119,51 @@ async function executeSearch(ctx, rawQuery) {
       `${SYM.DIVIDER}\n` +
       `🔍 <b>RADAR DE RASTREO — RESULTADO</b>\n` +
       `${SYM.DIVIDER}\n\n` +
-      `${SYM.CROSS} El usuario existe, pero <b>no pertenece a la comunidad</b> ni está en la base de datos de estafadores.\n\n` +
+      `${SYM.CROSS} El usuario existe globalmente, pero <b>no pertenece a la comunidad</b> ni está en la base de datos de estafadores.\n\n` +
       `💡 <i>El radar está restringido para buscar solo dentro de nuestros grupos y canales oficiales.</i>`,
       { parse_mode: 'HTML' }
     );
   }
 
-  for (const user of communityResults) {
-    const userMention = mentionFromData(user.user_id, user.username, user.first_name);
-    const usernameDisplay = user.username 
-      ? `@${user.username}` 
-      : '<i>⚠️ Sin @username (Cuenta Anónima)</i>';
-    const statusBadge = user.is_burned 
-      ? '🔴 <b>QUEMADO / ESTAFADOR</b>' 
-      : '🟢 <b>LIMPIO</b>';
+  // Mostrar el primer resultado en una tarjeta grande
+  const firstUser = communityResults[0];
+  const userMention = mentionFromData(firstUser.user_id, firstUser.username, firstUser.first_name);
+  const usernameDisplay = firstUser.username 
+    ? `@${firstUser.username}` 
+    : '<i>⚠️ Sin @username (Cuenta Anónima)</i>';
+  const statusBadge = firstUser.is_burned 
+    ? '🔴 <b>QUEMADO / ESTAFADOR</b>' 
+    : '🟢 <b>LIMPIO</b>';
 
-    const kb = new InlineKeyboard()
-      .text('🔍 Verificar Info', `info_profile:${user.user_id}`)
-      .text('🔥 Quemar (GBan)', `search_gban:${user.user_id}`);
+  const kb = new InlineKeyboard()
+    .text('🔍 Verificar Info', `info_profile:${firstUser.user_id}`)
+    .text('🔥 Quemar (GBan)', `search_gban:${firstUser.user_id}`);
 
-    await ctx.reply(
-      `${SYM.DIVIDER}\n` +
-      `👤 <b>USUARIO LOCALIZADO EN EL RADAR</b>\n` +
-      `${SYM.DIVIDER}\n\n` +
-      `➜ <b>Nombre:</b> ${escapeHtml(user.first_name || 'Sin nombre registrado')}\n` +
-      `➜ <b>Username:</b> ${usernameDisplay}\n` +
-      `➜ <b>ID Numérico:</b> <code>${user.user_id}</code>\n` +
-      `➜ <b>Mención:</b> ${userMention}\n` +
-      `➜ <b>Estado:</b> ${statusBadge}\n\n` +
-      `${SYM.THIN_LINE}`,
-      {
-        parse_mode: 'HTML',
-        reply_markup: kb,
-      }
-    );
+  let replyText = 
+    `${SYM.DIVIDER}\n` +
+    `👤 <b>USUARIO LOCALIZADO EN EL RADAR</b>\n` +
+    `${SYM.DIVIDER}\n\n` +
+    `➜ <b>Nombre:</b> ${escapeHtml(firstUser.first_name || 'Sin nombre registrado')}\n` +
+    `➜ <b>Username:</b> ${usernameDisplay}\n` +
+    `➜ <b>ID Numérico:</b> <code>${firstUser.user_id}</code>\n` +
+    `➜ <b>Mención:</b> ${userMention}\n` +
+    `➜ <b>Estado:</b> ${statusBadge}\n\n` +
+    `${SYM.THIN_LINE}`;
+
+  // Si hay más personas con nombres similares, ponerlos en una lista abajo
+  if (communityResults.length > 1) {
+    replyText += `\n\n👥 <b>Otros posibles resultados (${communityResults.length - 1}):</b>\n`;
+    for (let i = 1; i < communityResults.length; i++) {
+      const u = communityResults[i];
+      const otherMention = mentionFromData(u.user_id, u.username, u.first_name);
+      replyText += `• ${otherMention} (<code>${u.user_id}</code>)\n`;
+    }
   }
 
-  if (results.length > 5 && communityResults.length === 5) {
-    await ctx.reply(`<i>... y otros posibles resultados descartados o en cola. Sé más específico en tu búsqueda.</i>`, { parse_mode: 'HTML' });
-  }
+  await ctx.reply(replyText, {
+    parse_mode: 'HTML',
+    reply_markup: kb,
+  });
 }
 
 function register(bot) {
