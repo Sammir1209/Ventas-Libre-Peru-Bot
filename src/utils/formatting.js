@@ -64,6 +64,19 @@ function truncate(text, maxLength = 200) {
   return text.substring(0, maxLength) + '...';
 }
 
+/**
+ * Normaliza texto Unicode (fuentes estilizadas, letras góticas/cursivas, acentos, emojis)
+ * a texto plano ASCII estándar para búsquedas ultra-precisas.
+ */
+function normalizeUnicodeText(text) {
+  if (!text) return '';
+  return String(text)
+    .normalize('NFKD') // Descompone caracteres matemáticos / estilizados a ASCII
+    .replace(/[\u0300-\u036f]/g, '') // Elimina acentos y diacríticos
+    .toLowerCase()
+    .trim();
+}
+
 module.exports = {
   escapeHtml,
   userMention,
@@ -71,4 +84,5 @@ module.exports = {
   formatId,
   formatDate,
   truncate,
+  normalizeUnicodeText,
 };

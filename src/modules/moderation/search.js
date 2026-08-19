@@ -55,6 +55,13 @@ async function executeSearch(ctx, rawQuery) {
       const groups = await db.getAllGroups();
       const chatIds = groups.map((g) => g.chat_id).filter(Boolean);
       results = await userbot.searchCommunityUsers(cleanNoAt, chatIds);
+
+      // Guardar en base de datos para que quede registrado
+      if (results && results.length > 0) {
+        for (const u of results) {
+          db.upsertUser(u.user_id, u.username, u.first_name).catch(() => {});
+        }
+      }
     } catch (err) {
       console.error('⟡ Error usando userbot search:', err.message);
     }

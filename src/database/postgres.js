@@ -126,37 +126,37 @@ async function searchUsers(query) {
     if (error) console.error('⟡ Supabase searchUsers error:', error.message);
     results = data || [];
 
-    // Fallback: Búsqueda difusa (Fuzzy Search) para homóglifos o caracteres extendidos
-    if (results.length === 0 && !isNumeric && clean.length > 2) {
-      const fuzzyClean = clean.split('').join('%');
-      const { data: fuzzyData } = await supabase.from('users').select('*')
-        .or(`first_name.ilike.%${fuzzyClean}%,username.ilike.%${fuzzyClean}%`)
-        .limit(10);
-      results = fuzzyData || [];
-    }
-  } else if (pool) {
-    if (isNumeric) {
-      const res = await pool.query(
-        `SELECT * FROM users WHERE user_id = $1 OR first_name ILIKE $2 OR username ILIKE $2 LIMIT 10`,
-        [Number(clean), `%${clean}%`]
-      );
-      results = res.rows || [];
-    } else {
-      const res = await pool.query(
-        `SELECT * FROM users WHERE first_name ILIKE $1 OR username ILIKE $1 LIMIT 10`,
-        [`%${clean}%`]
-      );
-      results = res.rows || [];
+  const cleanNormalized = clean
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 
-      // Fallback: Búsqueda difusa
-      if (results.length === 0 && clean.length > 2) {
-        const fuzzyClean = clean.split('').join('%');
-        const fuzzyRes = await pool.query(
-          `SELECT * FROM users WHERE first_name ILIKE $1 OR username ILIKE $1 LIMIT 10`,
-          [`%${fuzzyClean}%`]
-        );
-        results = fuzzyRes.rows || [];
+  // Fallback Universal: Si SQL no encontró por fuentes raras/unicodes/decoraciones
+  if (results.length === 0 && !isNumeric && cleanNormalized.length >= 2) {
+    try {
+      let allUsers = [];
+      if (useSupabase && supabase) {
+        const { data } = await supabase.from('users').select('*').limit(2000);
+        allUsers = data || [];
+      } else if (pool) {
+        const res = await pool.query(`SELECT * FROM users LIMIT 2000`);
+        allUsers = res.rows || [];
       }
+
+      results = allUsers.filter((u) => {
+        const normFirst = (u.first_name || '')
+          .normalize('NFKD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+        const normUser = (u.username || '')
+          .normalize('NFKD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+        return normFirst.includes(cleanNormalized) || normUser.includes(cleanNormalized);
+      }).slice(0, 10);
+    } catch (err) {
+      console.warn('⟡ Error en fallback unicode search:', err.message);
     }
   }
 

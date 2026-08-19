@@ -181,23 +181,40 @@ async function searchCommunityUsers(query, chatIds) {
   if (!client || !isConnected()) return [];
   const resultsMap = new Map();
 
+  const cleanNorm = query
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
   for (const chatId of chatIds) {
     try {
       const entity = await client.getEntity(chatId);
       const participants = await client.getParticipants(entity, {
         search: query,
-        limit: 10,
+        limit: 25,
       });
 
       for (const p of participants) {
         const id = Number(p.id?.value || p.id);
-        if (!resultsMap.has(id)) {
-          resultsMap.set(id, {
-            user_id: id,
-            username: p.username || null,
-            first_name: p.firstName || p.title || 'Usuario',
-            is_burned: false,
-          });
+        const firstName = p.firstName || p.title || '';
+        const username = p.username || null;
+
+        const normFirst = firstName
+          .normalize('NFKD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+
+        // Validar coincidencia en nombre o username normalizado
+        if (normFirst.includes(cleanNorm) || (username && username.toLowerCase().includes(cleanNorm))) {
+          if (!resultsMap.has(id)) {
+            resultsMap.set(id, {
+              user_id: id,
+              username: username,
+              first_name: firstName || 'Usuario',
+              is_burned: false,
+            });
+          }
         }
       }
     } catch (err) {
