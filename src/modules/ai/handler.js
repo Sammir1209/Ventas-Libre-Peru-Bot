@@ -72,6 +72,7 @@ function register(bot) {
       aiReply = aiReply.replace(/<h\d.*?>/gi, '<b>');
       aiReply = aiReply.replace(/<\/h\d>/gi, '</b>\n');
       aiReply = aiReply.replace(/<\/?(div|span|ul|ol|li).*?>/gi, '');
+      aiReply = aiReply.replace(/&nbsp;/gi, ' ');
 
       // Convertir Markdown (asteriscos) a HTML para Telegram
       aiReply = aiReply.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
