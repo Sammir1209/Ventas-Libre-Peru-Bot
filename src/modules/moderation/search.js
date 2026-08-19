@@ -67,7 +67,8 @@ async function executeSearch(ctx, rawQuery) {
         } catch {}
       }
 
-      if (chatInfo && chatInfo.id) {
+      // Solo aislar usuarios (personas reales), ignorar canales y grupos
+      if (chatInfo && chatInfo.id && chatInfo.type === 'private') {
         const burned = await db.isUserBurned(chatInfo.id, chatInfo.username);
         results = [{
           user_id: chatInfo.id,
@@ -105,10 +106,44 @@ async function executeSearch(ctx, rawQuery) {
     );
   }
 
-  // Enviar hasta 5 tarjetas de usuario encontradas
-  const topResults = results.slice(0, 5);
+  // Filtrar resultados para asegurar que solo pertenecen a la comunidad
+  const groups = await db.getAllGroups();
+  const communityResults = [];
+  
+  for (const user of results) {
+    let isInCommunity = false;
+    for (const grp of groups) {
+      if (!grp.chat_id) continue;
+      try {
+        const member = await ctx.api.getChatMember(grp.chat_id, user.user_id);
+        if (['member', 'administrator', 'creator', 'restricted'].includes(member.status)) {
+          isInCommunity = true;
+          break; // Está en la comunidad, no hace falta buscar en más grupos
+        }
+      } catch {}
+    }
+    
+    // También incluirlo si ya está en la lista negra (quemado)
+    if (isInCommunity || user.is_burned) {
+      communityResults.push(user);
+    }
+    
+    // Limitar a máximo 5 resultados filtrados por rendimiento
+    if (communityResults.length >= 5) break;
+  }
 
-  for (const user of topResults) {
+  if (communityResults.length === 0) {
+    return ctx.reply(
+      `${SYM.DIVIDER}\n` +
+      `🔍 <b>RADAR DE RASTREO — RESULTADO</b>\n` +
+      `${SYM.DIVIDER}\n\n` +
+      `${SYM.CROSS} El usuario existe, pero <b>no pertenece a la comunidad</b> ni está en la base de datos de estafadores.\n\n` +
+      `💡 <i>El radar está restringido para buscar solo dentro de nuestros grupos y canales oficiales.</i>`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  for (const user of communityResults) {
     const userMention = mentionFromData(user.user_id, user.username, user.first_name);
     const usernameDisplay = user.username 
       ? `@${user.username}` 
@@ -138,8 +173,8 @@ async function executeSearch(ctx, rawQuery) {
     );
   }
 
-  if (results.length > 5) {
-    await ctx.reply(`<i>... y ${results.length - 5} resultados más. Sé más específico en tu búsqueda.</i>`, { parse_mode: 'HTML' });
+  if (results.length > 5 && communityResults.length === 5) {
+    await ctx.reply(`<i>... y otros posibles resultados descartados o en cola. Sé más específico en tu búsqueda.</i>`, { parse_mode: 'HTML' });
   }
 }
 
