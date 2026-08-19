@@ -63,7 +63,16 @@ function register(bot) {
       };
 
       // 5. Generar respuesta con Gemini o Groq
-      const aiReply = await generateAiResponse(cleanPrompt, history, userInfo);
+      let aiReply = await generateAiResponse(cleanPrompt, history, userInfo);
+
+      // Limpiar etiquetas HTML no compatibles con Telegram
+      aiReply = aiReply.replace(/<br\s*\/?>/gi, '\n');
+      aiReply = aiReply.replace(/<\/p>/gi, '\n\n');
+      aiReply = aiReply.replace(/<p.*?>/gi, '');
+      aiReply = aiReply.replace(/<h\d.*?>/gi, '<b>');
+      aiReply = aiReply.replace(/<\/h\d>/gi, '</b>\n');
+      aiReply = aiReply.replace(/<\/?(div|span|ul|ol|li).*?>/gi, '');
+      aiReply = aiReply.trim();
 
       // 6. Guardar en memoria de sesión
       await addMessageToSession(userId, 'user', cleanPrompt);

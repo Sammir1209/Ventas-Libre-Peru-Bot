@@ -4,11 +4,32 @@ const redisDb = require('../../database/redis');
 const templates = require('../../utils/templates');
 const { CB, SYM } = require('../../config/constants');
 const { welcomeKeyboard } = require('./keyboard');
-const { escapeHtml } = require('../../utils/formatting');
+const { escapeHtml, mentionFromData } = require('../../utils/formatting');
 
 // ══════════════════════════════════════════════════════
-// ⟡ Módulo 1: Verificación de Membresía (Con Toggle /verify)
+// ⟡ Módulo 1: Verificación de Membresía (Estilo Group Help Profesional)
 // ══════════════════════════════════════════════════════
+
+/**
+ * Obtiene los canales/grupos requeridos para la verificación (desde BD o config).
+ */
+async function getChannelsToVerify() {
+  try {
+    const saved = await db.getSetting('channels_to_verify');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+
+  if (Array.isArray(config.CHANNELS_TO_VERIFY) && config.CHANNELS_TO_VERIFY.length > 0) {
+    return config.CHANNELS_TO_VERIFY;
+  }
+
+  return [];
+}
 
 function register(bot) {
   // ── Comando /verify (Activar / Desactivar Verificación en el Grupo) ──
@@ -74,6 +95,89 @@ function register(bot) {
       }
     } catch (err) {
       console.error('⟡ Verificación: Error en /verify:', err.message);
+    }
+  });
+
+  // ── Comando /set_canales_verificar o /set_canales (Configurar lista de canales requeridos) ──
+  bot.command(['set_canales_verificar', 'set_canales', 'set_canales_verify'], async (ctx) => {
+    try {
+      const userId = ctx.from.id;
+      if (!config.OWNER_IDS.includes(userId)) {
+        return ctx.reply(`${SYM.CROSS} Solo los <b>Owners</b> pueden configurar los canales de verificación.`, {
+          parse_mode: 'HTML',
+        });
+      }
+
+      const args = ctx.message.text.split(/\s+/).slice(1);
+      if (args.length === 0) {
+        return ctx.reply(
+          `${SYM.DIVIDER}\n` +
+          `${SYM.DIAMOND} <b>CONFIGURAR CANALES / GRUPOS DE VERIFICACIÓN</b>\n` +
+          `${SYM.DIVIDER}\n\n` +
+          `${SYM.ARROW} <b>Uso:</b> <code>/set_canales [canal1] [canal2] [canal3]...</code>\n\n` +
+          `${SYM.STAR} <b>Ejemplo:</b>\n` +
+          `<code>/set_canales @VentasLibresPeru @CanalRespaldo -1001234567890</code>\n\n` +
+          `${SYM.ALERT} <i>Asegúrate de que el bot sea Administrador en todos los canales/grupos indicados para poder comprobar membresía.</i>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      // Guardar lista en BD
+      await db.setSetting('channels_to_verify', JSON.stringify(args));
+      config.CHANNELS_TO_VERIFY = args;
+
+      await ctx.reply(
+        `${SYM.DIVIDER}\n` +
+        `${SYM.CHECK} <b>CANALES DE VERIFICACIÓN GUARDADOS</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `${SYM.ARROW} <b>Canales configurados (${args.length}):</b>\n` +
+        args.map((ch, i) => `${SYM.BULLET} <b>${i + 1}.</b> <code>${escapeHtml(ch)}</code>`).join('\n') +
+        `\n\n${SYM.CHECK} <b>Persistencia:</b> Guardado en Base de Datos.`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      console.error('⟡ Error en /set_canales:', err.message);
+      await ctx.reply(`${SYM.CROSS} Error guardando canales: ${err.message}`, { parse_mode: 'HTML' });
+    }
+  });
+
+  // ── Comando /canales_verificar (Ver canales requeridos actuales) ──
+  bot.command(['canales_verificar', 'ver_canales', 'canales_verify'], async (ctx) => {
+    try {
+      const channels = await getChannelsToVerify();
+      if (channels.length === 0) {
+        return ctx.reply(
+          `${SYM.DIVIDER}\n` +
+          `${SYM.ALERT} <b>CANALES DE VERIFICACIÓN</b>\n` +
+          `${SYM.DIVIDER}\n\n` +
+          `${SYM.CROSS} No hay canales ni grupos obligatorios configurados.\n` +
+          `${SYM.ARROW} Configúralos con <code>/set_canales [canal1] [canal2] [canal3]</code>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      const statusList = [];
+      for (const ch of channels) {
+        try {
+          const chat = await ctx.api.getChat(ch);
+          statusList.push(`${SYM.CHECK} <b>${escapeHtml(chat.title || ch)}</b> (<code>${ch}</code>)`);
+        } catch (e) {
+          statusList.push(`${SYM.WARNING} <code>${escapeHtml(ch)}</code> (<i>${e.message}</i>)`);
+        }
+      }
+
+      await ctx.reply(
+        `${SYM.DIVIDER}\n` +
+        `${SYM.DIAMOND} <b>CANALES Y GRUPOS OBLIGATORIOS</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `${SYM.ARROW} <b>Total requeridos:</b> ${channels.length}\n\n` +
+        statusList.join('\n') +
+        `\n\n${SYM.THIN_LINE}\n` +
+        `${SYM.STAR} <i>Los nuevos miembros deben unirse a todos ellos para poder hablar.</i>`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      console.error('⟡ Error en /canales_verificar:', err.message);
     }
   });
 
@@ -147,6 +251,10 @@ function register(bot) {
       if (isDisabled) await redisDb.setCache(`verify_disabled:${chatId}`, true, 86400 * 365);
     }
 
+    if (isDisabled) {
+      return;
+    }
+
     // Comprobar si el usuario ya está verificado previamente
     const cachedVerified = await redisDb.getCache(`verified_user:${userId}`);
     if (cachedVerified) return;
@@ -160,7 +268,7 @@ function register(bot) {
 
     console.log(`⟡ Verificación: Nuevo miembro por verificar en ${chat.title || chatId} -> @${username || userId}`);
 
-    // 1. Mute inmediato
+    // 1. Mute preventivo inmediato estilo Group Help
     try {
       await ctx.api.restrictChatMember(chatId, userId, {
         permissions: {
@@ -174,15 +282,12 @@ function register(bot) {
           can_send_polls: false,
           can_send_other_messages: false,
           can_add_web_page_previews: false,
-          can_change_info: false,
-          can_invite_users: false,
-          can_pin_messages: false,
-          can_manage_topics: false,
         },
         use_independent_chat_permissions: true,
       });
+      console.log(`✓ Mute preventivo aplicado a ${userId} en ${chatId}`);
     } catch (muteErr) {
-      console.warn('⟡ Verificación: No se pudo mutear:', muteErr.message);
+      console.warn('⟡ Verificación: Advertencia al mutear preventivamente:', muteErr.message);
     }
 
     // 2. Registrar usuario en BD
@@ -190,7 +295,7 @@ function register(bot) {
       await db.upsertUser(userId, username, firstName);
     } catch {}
 
-    // 3. Enviar mensaje de bienvenida con teclado
+    // 3. Enviar mensaje de bienvenida con teclado interactivo
     try {
       await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName), {
         parse_mode: 'HTML',
@@ -205,7 +310,6 @@ function register(bot) {
   bot.on('message:new_chat_members', async (ctx) => {
     try {
       const newMembers = ctx.message.new_chat_members || [];
-      console.log(`⟡ message:new_chat_members detectado en ${ctx.chat.title || ctx.chat.id} (${newMembers.length} miembros)`);
       for (const member of newMembers) {
         await handleNewMember(ctx, ctx.chat, member);
       }
@@ -224,10 +328,9 @@ function register(bot) {
       const newStatus = update.new_chat_member?.status;
       const user = update.new_chat_member?.user;
 
-      // SOLO procesar si el usuario REALMENTE ingresó de afuera (left / kicked / null)
+      // SOLO procesar si el usuario REALMENTE ingresó de afuera
       if (oldStatus === 'left' || oldStatus === 'kicked' || !oldStatus) {
         if (newStatus === 'member' || newStatus === 'restricted') {
-          console.log(`⟡ Ingreso detectado vía chat_member en ${update.chat.title || update.chat.id}: ${oldStatus} -> ${newStatus} (@${user?.username || user?.id})`);
           await handleNewMember(ctx, update.chat, user);
         }
       }
@@ -251,7 +354,6 @@ function register(bot) {
         return;
       }
 
-      console.log(`⟡ Solicitud de unión en ${req.chat.title || req.chat.id} de @${req.from.username || req.from.id}`);
       await ctx.api.approveChatJoinRequest(req.chat.id, req.from.id);
       await handleNewMember(ctx, req.chat, req.from);
     } catch (err) {
@@ -268,66 +370,70 @@ function register(bot) {
 
       if (targetUserId && clickerId !== targetUserId) {
         return ctx.answerCallbackQuery({
-          text: '⚠️ Esta verificación fue generada para otro usuario. Si acabas de ingresar, usa el mensaje que te envió el bot.',
+          text: '⚠️ Este botón de verificación fue generado para otro usuario.',
           show_alert: true,
         });
       }
 
       const userId = clickerId;
 
-      // 1. Evitar múltiples clics repetidos (Debounce Lock de 10 segundos)
+      // 1. Debounce Lock de 4 segundos para evitar spam de clics
       const lockKey = `verifying_lock:${userId}`;
       const isLocked = await redisDb.getCache(lockKey);
       if (isLocked) {
         return ctx.answerCallbackQuery({
-          text: '⏳ Ya estamos procesando tu verificación, por favor espera un momento...',
+          text: '⏳ Comprobando membresía, por favor espera un momento...',
           show_alert: false,
         });
       }
+      await redisDb.setCache(lockKey, true, 4);
 
-      // 2. Si ya está verificado, notificar y salir
-      const isAlreadyVerified = await redisDb.getCache(`verified_user:${userId}`);
-      if (isAlreadyVerified) {
-        return ctx.answerCallbackQuery({
-          text: '✓ Ya te encuentras verificado.',
-          show_alert: false,
-        });
-      }
-
-      // Activar candado temporal
-      await redisDb.setCache(lockKey, true, 10);
-
-      const channels = config.CHANNELS_TO_VERIFY;
+      // 2. Obtener lista de canales obligatorios
+      const channels = await getChannelsToVerify();
 
       if (channels.length === 0) {
-        // Sin canales configurados — verificar directamente
-        await unmuteMember(ctx, userId);
-        await ctx.answerCallbackQuery({
-          text: '✓ Verificación exitosa',
-          show_alert: false,
-        });
+        // Sin canales configurados — desmutear directamente
+        const unmuted = await unmuteMember(ctx, userId);
+        if (unmuted) {
+          await ctx.answerCallbackQuery({
+            text: '✓ ¡Verificación exitosa! Ya puedes hablar en el grupo.',
+            show_alert: false,
+          });
+        } else {
+          await ctx.answerCallbackQuery({
+            text: '✓ Verificado. Si continúas silenciado, pide al Staff que verifique los permisos de Admin del bot.',
+            show_alert: true,
+          });
+        }
         return;
       }
 
-      // Verificar membresía en cada canal
+      // 3. Verificar membresía en cada uno de los canales/grupos
       const missingChannels = [];
 
       for (const channel of channels) {
         try {
           const member = await ctx.api.getChatMember(channel, userId);
-          const validStatuses = ['member', 'administrator', 'creator'];
-          if (!validStatuses.includes(member.status)) {
-            missingChannels.push(channel);
+          const validStatuses = ['creator', 'administrator', 'member'];
+          if (validStatuses.includes(member.status)) {
+            // Es miembro activo
+            continue;
           }
-        } catch {
+          if (member.status === 'restricted' && member.is_member !== false) {
+            // Es miembro pero se encuentra temporalmente restringido/muteado en ese chat
+            continue;
+          }
+          missingChannels.push(channel);
+        } catch (chkErr) {
+          console.warn(`⟡ Verificación: No se pudo chequear al usuario ${userId} en canal ${channel}: ${chkErr.message}`);
           missingChannels.push(channel);
         }
       }
 
       if (missingChannels.length > 0) {
-        // Faltan canales
+        // Faltan canales por unirse
         await ctx.answerCallbackQuery({
-          text: '✗ Aún te faltan canales por unirte',
+          text: `✗ Aún te faltan ${missingChannels.length} grupo(s)/canal(es) por unirte.`,
           show_alert: true,
         });
         await ctx.reply(templates.verificationFailed(missingChannels), {
@@ -336,18 +442,21 @@ function register(bot) {
         return;
       }
 
-      // Todos verificados — unmute
-      await unmuteMember(ctx, userId);
+      // 4. Todos los canales verificados -> Proceder al desmuteo
+      const unmuted = await unmuteMember(ctx, userId);
       await ctx.answerCallbackQuery({
-        text: '✓ Verificación exitosa',
+        text: unmuted ? '✓ ¡Verificación exitosa! Restricciones removidas.' : '✓ Verificado exitosamente.',
         show_alert: false,
       });
+
     } catch (err) {
       console.error('⟡ Verificación: Error en callback verify:', err.message);
-      await ctx.answerCallbackQuery({
-        text: '✗ Error al verificar. Intenta de nuevo.',
-        show_alert: true,
-      });
+      try {
+        await ctx.answerCallbackQuery({
+          text: '✗ Error procesando verificación. Intenta de nuevo.',
+          show_alert: true,
+        });
+      } catch {}
     }
   });
 
@@ -388,14 +497,19 @@ function register(bot) {
 }
 
 /**
- * Remueve completamente las restricciones de un usuario (unmute) restaurando su rol normal.
+ * Remueve completamente las restricciones de un usuario (desmuteo estilo Group Help / Bot API estándar).
  */
 async function unmuteMember(ctx, userId) {
   const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
-  if (!chatId) return;
+  if (!chatId) {
+    console.error(`⟡ Unmute: No se pudo determinar chatId para usuario ${userId}`);
+    return false;
+  }
 
-  // Todos los permisos en TRUE para que Telegram remueva la restricción completamente
-  const perms = {
+  console.log(`⟡ Iniciando proceso de desmuteo para ${userId} en chat ${chatId}...`);
+
+  // Permisos normales de miembro estándar (sin incluir permisos administrativos que causan error 400 en Telegram)
+  const defaultMemberPerms = {
     can_send_messages: true,
     can_send_audios: true,
     can_send_documents: true,
@@ -406,69 +520,101 @@ async function unmuteMember(ctx, userId) {
     can_send_polls: true,
     can_send_other_messages: true,
     can_add_web_page_previews: true,
-    can_change_info: true,
     can_invite_users: true,
-    can_pin_messages: true,
-    can_manage_topics: true,
   };
 
-  // 1. Desmutear con permisos independientes (Telegram Bot API 6.5+)
+  let targetPermissions = { ...defaultMemberPerms };
+
+  // Intentar obtener permisos predeterminados del grupo si están configurados
+  try {
+    const chatInfo = await ctx.api.getChat(chatId);
+    if (chatInfo && chatInfo.permissions) {
+      const cp = chatInfo.permissions;
+      targetPermissions = {
+        can_send_messages: cp.can_send_messages !== false,
+        can_send_audios: cp.can_send_audios !== false,
+        can_send_documents: cp.can_send_documents !== false,
+        can_send_photos: cp.can_send_photos !== false,
+        can_send_videos: cp.can_send_videos !== false,
+        can_send_video_notes: cp.can_send_video_notes !== false,
+        can_send_voice_notes: cp.can_send_voice_notes !== false,
+        can_send_polls: cp.can_send_polls !== false,
+        can_send_other_messages: cp.can_send_other_messages !== false,
+        can_add_web_page_previews: cp.can_add_web_page_previews !== false,
+        can_invite_users: cp.can_invite_users !== false,
+      };
+    }
+  } catch (chatErr) {
+    console.warn(`⟡ Aviso al leer permisos de chat ${chatId}:`, chatErr.message);
+  }
+
+  let unmutedSuccessfully = false;
+
+  // 1. Intento principal: restrictChatMember con permisos independientes (Bot API 6.5+)
   try {
     await ctx.api.restrictChatMember(chatId, userId, {
-      permissions: perms,
+      permissions: targetPermissions,
       use_independent_chat_permissions: true,
     });
-    console.log(`✓ restrictChatMember enviado para ${userId} en chat ${chatId}`);
-  } catch (e1) {
+    unmutedSuccessfully = true;
+    console.log(`✓ [Intento 1] restrictChatMember exitoso (use_independent_chat_permissions) para ${userId} en ${chatId}`);
+  } catch (err1) {
+    console.warn(`⟡ Falló intento 1 de desmuteo (${err1.message}), probando modo estándar...`);
+
+    // 2. Intento secundario: restrictChatMember estándar sin use_independent_chat_permissions
     try {
       await ctx.api.restrictChatMember(chatId, userId, {
-        permissions: perms,
+        permissions: defaultMemberPerms,
         use_independent_chat_permissions: false,
       });
-    } catch (e2) {
-      console.warn(`⟡ Error desmuteando: ${e2.message}`);
+      unmutedSuccessfully = true;
+      console.log(`✓ [Intento 2] restrictChatMember estándar exitoso para ${userId} en ${chatId}`);
+    } catch (err2) {
+      console.warn(`⟡ Falló intento 2 de desmuteo (${err2.message}), probando permiso mínimo...`);
+
+      // 3. Intento terciario: únicamente can_send_messages
+      try {
+        await ctx.api.restrictChatMember(chatId, userId, {
+          permissions: { can_send_messages: true },
+        });
+        unmutedSuccessfully = true;
+        console.log(`✓ [Intento 3] restrictChatMember mínimo exitoso para ${userId} en ${chatId}`);
+      } catch (err3) {
+        console.error(`🚨 ERROR CRÍTICO desmuteando a ${userId} en ${chatId}: ${err3.message}`);
+        console.error(`👉 Verifica que el Bot tenga permiso de Administrador con "Restringir miembros" (can_restrict_members) en este grupo.`);
+      }
     }
   }
 
-  // 2. Desmutear también con API estándar
-  try {
-    await ctx.api.restrictChatMember(chatId, userId, {
-      permissions: perms,
-      use_independent_chat_permissions: false,
-    });
-    console.log(`✓ [Paso 2] restrictChatMember standard enviado para ${userId}`);
-  } catch (e2) {
-    console.warn(`⟡ Paso 2 error: ${e2.message}`);
-  }
-
-  // 3. Respaldo por MTProto directo si el Userbot está activo
+  // 4. Respaldo por MTProto directo si el Userbot está activo
   try {
     const userbot = require('../../userbot/client');
-    if (userbot.isConnected()) {
+    if (userbot && userbot.isConnected && userbot.isConnected()) {
       await userbot.unrestrictUser(chatId, userId);
+      console.log(`✓ Desmuteo MTProto Userbot enviado para ${userId} en ${chatId}`);
     }
   } catch {}
 
-  // 4. Verificar estado real en Telegram
+  // 5. Marcar como verificado en Redis y BD
   try {
-    const memberAfter = await ctx.api.getChatMember(chatId, userId);
-    console.log(`⟡ Estado final tras desmutear @${memberAfter?.user?.username || userId} (${userId}): status=[${memberAfter?.status}] can_send_messages=${memberAfter?.can_send_messages}`);
-  } catch {}
-
-  // 5. Marcar como verificado en BD
-  try {
+    await redisDb.setCache(`verified_user:${userId}`, true, 86400 * 30);
     await db.verifyUser(userId);
   } catch {}
 
-  // 6. Mensaje de bienvenida y éxito
-  const user = await db.getUser(userId);
+  // 6. Mensaje de bienvenida y éxito en el chat
   try {
+    const user = await db.getUser(userId);
+    const firstName = user?.first_name || ctx.from?.first_name || 'Usuario';
+    const username = user?.username || ctx.from?.username || null;
+
     await ctx.api.sendMessage(
       chatId,
-      templates.verificationSuccess(user?.username || ctx.from?.username, user?.first_name || ctx.from?.first_name),
+      templates.verificationSuccess(username, firstName),
       { parse_mode: 'HTML' }
     );
-  } catch {}
+  } catch (msgErr) {
+    console.warn('⟡ No se pudo enviar mensaje de éxito:', msgErr.message);
+  }
 
   // 7. Limpiar mensaje de bienvenida original para mantener el grupo limpio
   if (ctx.callbackQuery?.message?.message_id) {
@@ -476,6 +622,8 @@ async function unmuteMember(ctx, userId) {
       await ctx.api.deleteMessage(chatId, ctx.callbackQuery.message.message_id);
     } catch {}
   }
+
+  return unmutedSuccessfully;
 }
 
 module.exports = { register };

@@ -3,7 +3,7 @@ const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { requireStaff } = require('../../middleware/auth');
 const { extractTarget } = require('../../utils/helpers');
-const { formatId, escapeHtml } = require('../../utils/formatting');
+const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 const logger = require('./logger');
 

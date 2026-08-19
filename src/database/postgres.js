@@ -741,22 +741,33 @@ async function burnUser(userId, reportedBy, context, approvedBy, username = null
   }
 
   if (useSupabase && supabase) {
-    const { data, error } = await supabase
+    const payload = {
+      user_id: userId,
+      username: finalUsername,
+      first_name: finalFirstName,
+      reported_by: reportedBy,
+      context,
+      approved_by: approvedBy,
+      burned_at: new Date().toISOString(),
+    };
+
+    let { data, error } = await supabase
       .from('burned_users')
-      .upsert(
-        {
-          user_id: userId,
-          username: finalUsername,
-          first_name: finalFirstName,
-          reported_by: reportedBy,
-          context,
-          approved_by: approvedBy,
-          burned_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
+      .upsert(payload, { onConflict: 'user_id' })
       .select()
       .maybeSingle();
+
+    if (error && error.message && error.message.includes('first_name')) {
+      delete payload.first_name;
+      const retry = await supabase
+        .from('burned_users')
+        .upsert(payload, { onConflict: 'user_id' })
+        .select()
+        .maybeSingle();
+      data = retry.data;
+      error = retry.error;
+    }
+
     if (error) console.error('⟡ Supabase burnUser error:', error.message);
     return data;
   }
