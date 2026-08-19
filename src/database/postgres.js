@@ -125,6 +125,15 @@ async function searchUsers(query) {
     const { data, error } = await q.limit(10);
     if (error) console.error('⟡ Supabase searchUsers error:', error.message);
     results = data || [];
+
+    // Fallback: Búsqueda difusa (Fuzzy Search) para homóglifos o caracteres extendidos
+    if (results.length === 0 && !isNumeric && clean.length > 2) {
+      const fuzzyClean = clean.split('').join('%');
+      const { data: fuzzyData } = await supabase.from('users').select('*')
+        .or(`first_name.ilike.%${fuzzyClean}%,username.ilike.%${fuzzyClean}%`)
+        .limit(10);
+      results = fuzzyData || [];
+    }
   } else if (pool) {
     if (isNumeric) {
       const res = await pool.query(
@@ -138,6 +147,16 @@ async function searchUsers(query) {
         [`%${clean}%`]
       );
       results = res.rows || [];
+
+      // Fallback: Búsqueda difusa
+      if (results.length === 0 && clean.length > 2) {
+        const fuzzyClean = clean.split('').join('%');
+        const fuzzyRes = await pool.query(
+          `SELECT * FROM users WHERE first_name ILIKE $1 OR username ILIKE $1 LIMIT 10`,
+          [`%${fuzzyClean}%`]
+        );
+        results = fuzzyRes.rows || [];
+      }
     }
   }
 

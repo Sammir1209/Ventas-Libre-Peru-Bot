@@ -74,10 +74,17 @@ function register(bot) {
       aiReply = aiReply.replace(/<\/?(div|span|ul|ol|li).*?>/gi, '');
       aiReply = aiReply.replace(/&nbsp;/gi, ' ');
 
+      // Convertir Markdown Links a HTML
+      aiReply = aiReply.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2">$1</a>');
+
+      // Convertir bloques de código Markdown a HTML
+      aiReply = aiReply.replace(/```(?:[a-z0-9]+)?\n([\s\S]*?)```/gi, '<pre><code>$1</code></pre>');
+      aiReply = aiReply.replace(/`(.*?)`/g, '<code>$1</code>');
+
       // Convertir Markdown (asteriscos) a HTML para Telegram
       aiReply = aiReply.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
       aiReply = aiReply.replace(/(?<!\*)\*(?!\*)(.*?)(?<!\*)\*(?!\*)/g, '<i>$1</i>');
-
+      
       aiReply = aiReply.trim();
 
       // 6. Guardar en memoria de sesión
