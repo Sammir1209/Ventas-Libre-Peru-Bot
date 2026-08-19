@@ -24,6 +24,14 @@ async function initialize() {
     const me = await client.getMe();
     const myName = me ? (me.username ? `@${me.username}` : me.firstName || 'Userbot') : 'Conectado';
     console.log(`⟡ Userbot: Conectado correctamente vía MTProto (${myName}).`);
+
+    // Cachear entidades (grupos/canales) al inicio para que getEntity(chatId) no falle con CHANNEL_INVALID
+    try {
+      await client.getDialogs({ limit: 100 });
+      console.log('⟡ Userbot: Entidades cacheadas correctamente.');
+    } catch (dErr) {
+      console.warn('⟡ Userbot: Aviso al cachear diálogos:', dErr.message);
+    }
   } catch (err) {
     console.error('⟡ Userbot: Error al conectar:', err.message);
     client = null;
