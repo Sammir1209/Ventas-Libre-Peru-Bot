@@ -202,8 +202,8 @@ function register(bot) {
     }
   });
 
-  // ── Comando /tratoadm (Con verificación de chat privado) ──
-  bot.command('tratoadm', async (ctx) => {
+  // ── Comando /tratoadm y /tratoadmin (Con verificación de chat privado) ──
+  bot.command(['tratoadm', 'tratoadmin'], async (ctx) => {
     try {
       const isPrivate = ctx.chat.type === 'private';
 

@@ -138,8 +138,8 @@ function register(bot) {
         });
       }
 
-      // 2. Deep-link: Iniciar Trato Admin (/start tratoadm o /start tratos)
-      if (payload === 'tratoadm' || payload === 'tratos') {
+      // 2. Deep-link: Iniciar Trato Admin (/start tratoadm o /start tratoadmin)
+      if (payload === 'tratoadm' || payload === 'tratoadmin' || payload === 'tratos') {
         const { dealMainKeyboard } = require('../escrow/keyboard');
         await redisDb.clearCache(`deal_form:${ctx.from.id}`);
         return ctx.reply(templates.dealMainMenuMessage(), {
