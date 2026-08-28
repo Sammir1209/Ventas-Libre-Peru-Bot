@@ -2,642 +2,377 @@ const { SYM } = require('../config/constants');
 const { escapeHtml } = require('./formatting');
 
 // ══════════════════════════════════════════════════════
-// ⟡ Plantillas HTML — Ventas Libres Perú
+// ⟡ Plantillas HTML — Ventas Libres Perú (Compactas)
 // ══════════════════════════════════════════════════════
 
-/**
- * Mensaje de bienvenida para nuevos miembros.
- */
 function welcomeMessage(username, firstName) {
   const mention = username
     ? `@${username}`
     : `<b>${escapeHtml(firstName || 'Usuario')}</b>`;
 
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.SEAL} <b>VENTAS LIBRES PERÚ</b> ${SYM.BADGE}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.FLOWER} ¡Hola, ${mention}!\n\n` +
-    `${SYM.ARROW} Has ingresado en modo <b>silenciado</b> por seguridad.\n` +
-    `${SYM.ARROW} Para desbloquear tu acceso y escribir en el grupo:\n\n` +
-    `${SYM.NUM_1} Únete a nuestros canales oficiales con <b>[ ⟡ Unirme ]</b>.\n` +
-    `${SYM.NUM_2} Pulsa el botón <b>[ ✓ Verificar ]</b>.\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <i>El proceso es automático y toma 3 segundos.</i>`
+    `${SYM.SEAL} <b>VENTAS LIBRES PERÚ</b> ${SYM.BADGE}\n\n` +
+    `¡Hola, ${mention}! Estás en modo <b>silenciado</b>.\n\n` +
+    `① Únete a nuestros canales → <b>[ ⟡ Unirme ]</b>\n` +
+    `② Pulsa <b>[ ✓ Verificar ]</b>\n\n` +
+    `<i>Proceso automático, 3 segundos.</i>`
   );
 }
 
-/**
- * Mensaje de éxito tras verificar membresía.
- */
 function verificationSuccess(username, firstName) {
   const mention = username
     ? `@${username}`
     : `<b>${escapeHtml(firstName || 'Usuario')}</b>`;
 
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.CHECK} <b>VERIFICACIÓN EXITOSA</b> ${SYM.STAR_FULL}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} <b>${mention}</b>, tus restricciones han sido removidas.\n` +
-    `${SYM.ARROW} Ahora eres miembro verificado. ¡Bienvenido(a)! 🇵🇪`
+    `${SYM.CHECK} <b>${mention}</b>, verificación exitosa. ¡Bienvenido(a)! 🇵🇪`
   );
 }
 
-/**
- * Mensaje cuando faltan canales por unirse.
- */
 function verificationFailed(missingChannels) {
   const list = missingChannels.map(ch => {
-    if (ch.startsWith('http')) {
-      return `${SYM.BULLET} <a href="${ch}">${ch}</a>`;
-    }
-    if (ch.startsWith('@')) {
-      return `${SYM.BULLET} <a href="https://t.me/${ch.replace('@', '')}">${ch}</a>`;
-    }
+    if (ch.startsWith('http')) return `${SYM.BULLET} <a href="${ch}">${ch}</a>`;
+    if (ch.startsWith('@')) return `${SYM.BULLET} <a href="https://t.me/${ch.replace('@', '')}">${ch}</a>`;
     return `${SYM.BULLET} <code>${ch}</code>`;
   }).join('\n');
 
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.WARNING} <b>VERIFICACIÓN INCOMPLETA</b>\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CROSS} Aún no te has unido a todos los canales requeridos:\n\n` +
-    `${list}\n\n` +
-    `${SYM.ARROW} Únete a la carpeta y pulsa <b>[ ✓ Verificar ]</b> nuevamente.`
+    `${SYM.WARNING} <b>VERIFICACIÓN INCOMPLETA</b>\n\n` +
+    `Te faltan canales:\n${list}\n\n` +
+    `Únete y pulsa <b>[ ✓ Verificar ]</b> de nuevo.`
   );
 }
 
-/**
- * Información sobre cómo funciona el sistema.
- */
 function howItWorksMessage() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.PRINT} <b>GUÍA DE FUNCIONAMIENTO — VENTAS LIBRES</b>\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.NUM_1} Al ingresar al grupo oficial, serás silenciado preventivamente.\n\n` +
-    `${SYM.NUM_2} Para hablar, únete a nuestros canales y grupos oficiales.\n\n` +
-    `${SYM.NUM_3} Tras unirte, pulsa <b>[ ✓ Verificar ]</b> para validar tu membresía.\n\n` +
-    `${SYM.NUM_4} El bot te otorgará acceso completo al instante.\n\n` +
-    `${SYM.THIN_LINE}`
+    `${SYM.PRINT} <b>¿CÓMO FUNCIONA?</b>\n\n` +
+    `① Al ingresar, serás silenciado.\n` +
+    `② Únete a los canales oficiales.\n` +
+    `③ Pulsa <b>[ ✓ Verificar ]</b>.\n` +
+    `④ Acceso completo al instante.`
   );
 }
 
-/**
- * Plantilla del menú principal /tratoadm.
- */
 function dealMainMenuMessage() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.SWORD} <b>SISTEMA DE TRATOS ADMIN (ESCROW)</b> ${SYM.SHIELD}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.FLOWER} <b>Seguridad y Garantía en tus Transacciones</b>\n\n` +
-    `${SYM.ARROW} Un <b>Trato Admin</b> es un servicio donde un mediador certificado ` +
-    `custodia los fondos y productos hasta que ambas partes concluyan el acuerdo.\n\n` +
-    `${SYM.BULLET} <b>Comisión:</b> 10% fija sobre el valor del trato.\n` +
-    `${SYM.BULLET} <b>Tiempo estimado de atención:</b> 1 a 5 minutos.\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.ARROW} Selecciona una opción para comenzar:`
+    `${SYM.SWORD} <b>TRATO ADMIN (ESCROW)</b> ${SYM.SHIELD}\n\n` +
+    `Un mediador certificado custodia los fondos hasta que ambas partes cumplan.\n\n` +
+    `${SYM.BULLET} <b>Comisión:</b> 10% fija\n` +
+    `${SYM.BULLET} <b>Atención:</b> 1-5 min\n\n` +
+    `Selecciona una opción:`
   );
 }
 
-/**
- * Explicación detallada para [ Inf. Trato Adm ].
- */
 function dealDetailedInfoMessage() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>GUÍA COMPLETA: TRATOS ADMIN</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.STAR} <b>¿Qué es y por qué usarlo?</b>\n` +
-    `${SYM.ARROW} El Trato Admin evita estafas al 100%. El comprador paga al Admin, ` +
-    `el vendedor entrega el producto, el comprador verifica la entrega y el Admin libera el pago.\n\n` +
-    `${SYM.STAR} <b>Paso a paso del proceso:</b>\n` +
-    `${SYM.BULLET} <b>1. Solicitud:</b> Indicas si vendes o compras, el usuario de la contraparte y la descripción.\n` +
-    `${SYM.BULLET} <b>2. Aceptación:</b> Un Trato Admin certificado toma tu caso.\n` +
-    `${SYM.BULLET} <b>3. Grupo Privado:</b> Se genera un enlace exclusivo para el comprador, vendedor y admin.\n` +
-    `${SYM.BULLET} <b>4. Custodia:</b> El dinero/producto queda retenido por el Admin.\n` +
-    `${SYM.BULLET} <b>5. Cierre y Calificación:</b> Finalizada la entrega, se califica el servicio (1-5 ✦).\n\n` +
-    `${SYM.STAR} <b>Tarifario de Comisión (10%):</b>\n` +
-    `${SYM.BULLET} Trato de 10 soles ➜ Comisión: 1 sol.\n` +
-    `${SYM.BULLET} Trato de 50 soles ➜ Comisión: 5 soles.\n` +
-    `${SYM.BULLET} Trato de 100 soles ➜ Comisión: 10 soles.\n\n` +
-    `${SYM.DIAMOND} <i>¡Nunca realices tratos por fuera del grupo oficial creado por el bot!</i>\n\n` +
-    `${SYM.THIN_LINE}`
+    `${SYM.DIAMOND} <b>GUÍA: TRATOS ADMIN</b>\n\n` +
+    `El Trato Admin evita estafas al 100%. El comprador paga al Admin, el vendedor entrega, el comprador confirma y el Admin libera el pago.\n\n` +
+    `<b>Proceso:</b>\n` +
+    `${SYM.BULLET} <b>1.</b> Solicitas indicando si vendes/compras.\n` +
+    `${SYM.BULLET} <b>2.</b> Un admin toma tu caso.\n` +
+    `${SYM.BULLET} <b>3.</b> Se genera grupo privado.\n` +
+    `${SYM.BULLET} <b>4.</b> Dinero en custodia del Admin.\n` +
+    `${SYM.BULLET} <b>5.</b> Entrega verificada → cierre y calificación.\n\n` +
+    `<b>Comisión (10%):</b> S/10 → S/1 | S/50 → S/5 | S/100 → S/10\n\n` +
+    `<i>¡Nunca hagas tratos fuera del grupo oficial!</i>`
   );
 }
 
-/**
- * Paso 1 del formulario de Trato: Elección de rol.
- */
 function dealRoleStepMessage() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>NUEVA SOLICITUD DE TRATO ADMIN</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.STAR} <b>Paso 1 de 3: ¿Cuál es tu rol en la transacción?</b>\n\n` +
-    `${SYM.ARROW} Selecciona si eres quien va a <b>Vender</b> o quien va a <b>Comprar</b>:`
+    `${SYM.DIAMOND} <b>NUEVA SOLICITUD DE TRATO</b>\n\n` +
+    `<b>Paso 1/3:</b> ¿Cuál es tu rol?\n\n` +
+    `Selecciona si vas a <b>Vender</b> o <b>Comprar</b>:`
   );
 }
 
-/**
- * Paso 2 del formulario de Trato: Contraparte.
- */
 function dealCounterpartStepMessage(role) {
-  const isSeller = role === 'VENDEDOR';
-  const counterpartName = isSeller ? 'Comprador' : 'Vendedor';
-
+  const counterpartName = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>NUEVA SOLICITUD DE TRATO ADMIN</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.STAR} <b>Paso 2 de 3: Contraparte (${counterpartName})</b>\n\n` +
-    `${SYM.ARROW} Como <b>${role}</b>, ¿con quién realizarás la transacción?\n\n` +
-    `${SYM.BULLET} Escribe y envía el <b>@usuario</b> (ej. <code>@usuario123</code>) o el <b>ID numérico</b> del <b>${counterpartName}</b>:`
+    `${SYM.DIAMOND} <b>SOLICITUD DE TRATO</b>\n\n` +
+    `<b>Paso 2/3:</b> ¿Con quién es el trato?\n\n` +
+    `Envía el <b>@usuario</b> o <b>ID</b> del <b>${counterpartName}</b>:`
   );
 }
 
-/**
- * Paso 3 del formulario de Trato: Descripción.
- */
 function dealDescriptionStepMessage(role, counterpart) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>NUEVA SOLICITUD DE TRATO ADMIN</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.STAR} <b>Paso 3 de 3: Detalles de la Transacción</b>\n\n` +
-    `${SYM.ARROW} Contraparte: <b>${escapeHtml(counterpart)}</b>\n\n` +
-    `${SYM.BULLET} Envía una <b>breve descripción</b> de lo que se va a negociar.\n` +
-    `  <i>Ejemplo: Venta de cuenta de juego nivel 50 por 40 soles</i>`
+    `${SYM.DIAMOND} <b>SOLICITUD DE TRATO</b>\n\n` +
+    `<b>Paso 3/3:</b> Detalles\n` +
+    `Contraparte: <b>${escapeHtml(counterpart)}</b>\n\n` +
+    `Envía una breve descripción de la transacción:`
   );
 }
 
-/**
- * Paso 4: Resumen y confirmación de la solicitud de Trato.
- */
 function dealSummaryMessage(role, counterpart, description) {
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
-
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>CONFIRMAR SOLICITUD DE TRATO</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} <b>Tu Rol:</b> ${role}\n` +
-    `${SYM.ARROW} <b>Contraparte (${counterpartRole}):</b> <code>${escapeHtml(counterpart)}</code>\n` +
+    `${SYM.DIAMOND} <b>CONFIRMAR SOLICITUD</b>\n\n` +
+    `${SYM.ARROW} <b>Rol:</b> ${role}\n` +
+    `${SYM.ARROW} <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart)}</code>\n` +
     `${SYM.ARROW} <b>Detalles:</b> ${escapeHtml(description)}\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} ¿Deseas enviar esta solicitud a los Trato Admins disponibles?`
+    `¿Enviar solicitud a los Trato Admins?`
   );
 }
 
-/**
- * Mensaje de espera tras confirmar la solicitud de Trato.
- */
 function dealWaitingMessage(dealId, role, counterpart, description) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>SOLICITUD EN COLA DE ESPERA</b> #${dealId} ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CHECK} <b>¡Solicitud enviada con éxito!</b>\n\n` +
-    `${SYM.ARROW} <b>Tu Rol:</b> ${role}\n` +
+    `${SYM.DIAMOND} <b>SOLICITUD EN COLA</b> #${dealId}\n\n` +
+    `${SYM.CHECK} ¡Enviada con éxito!\n\n` +
+    `${SYM.ARROW} <b>Rol:</b> ${role}\n` +
     `${SYM.ARROW} <b>Contraparte:</b> <code>${escapeHtml(counterpart)}</code>\n` +
     `${SYM.ARROW} <b>Detalles:</b> ${escapeHtml(description)}\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} Los <b>Trato Admins</b> han sido notificados.\n` +
-    `${SYM.STAR} En cuanto un admin tome tu caso, se generará el grupo privado.\n\n` +
-    `${SYM.ARROW} <i>Puedes visitar nuestro canal oficial mientras esperas:</i>`
+    `Los <b>Trato Admins</b> han sido notificados. Espera a que tomen tu caso.`
   );
 }
 
-/**
- * Notificación al admin cuando hay un trato pendiente (con información enriquecida).
- */
 function dealNotifyAdmin(dealId, creatorUsername, creatorId, role, counterpart, description) {
   const mention = creatorUsername ? `@${creatorUsername}` : `ID: <code>${creatorId}</code>`;
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
-
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>NUEVA SOLICITUD DE TRATO #${dealId}</b> ⟡\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} <b>Solicitado por:</b> ${mention} (Rol: <b>${role || 'N/A'}</b>)\n` +
-    `${SYM.ARROW} <b>Contraparte (${counterpartRole}):</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
-    `${SYM.ARROW} <b>Descripción:</b> ${escapeHtml(description || 'Sin especificar')}\n` +
-    `${SYM.ARROW} <b>Estado:</b> ⏳ En cola de espera\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} Pulsa <b>[ Aceptar Trato ]</b> para tomar este caso y crear el grupo.`
+    `${SYM.DIAMOND} <b>SOLICITUD DE TRATO #${dealId}</b>\n\n` +
+    `${SYM.ARROW} <b>Solicitante:</b> ${mention} (${role || 'N/A'})\n` +
+    `${SYM.ARROW} <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
+    `${SYM.ARROW} <b>Descripción:</b> ${escapeHtml(description || 'Sin especificar')}\n\n` +
+    `Pulsa <b>[ Aceptar Trato ]</b> para tomar este caso.`
   );
 }
 
-/**
- * Confirmación en grupo de que un admin tomó el trato.
- */
 function dealAcceptedGroup(dealId, adminUsername) {
   const mention = adminUsername ? `@${adminUsername}` : 'Admin';
   return (
     `${SYM.DIAMOND} <b>Trato #${dealId} Aceptado</b>\n\n` +
-    `${SYM.CHECK} El admin <b>${mention}</b> ha tomado este caso.\n` +
-    `${SYM.ARROW} Se está preparando el grupo privado de negociación${SYM.DOT}${SYM.DOT}${SYM.DOT}`
+    `${SYM.CHECK} <b>${mention}</b> ha tomado este caso.\n` +
+    `Preparando grupo privado...`
   );
 }
 
-/**
- * Mensaje DM al creador del trato con el enlace de acceso al grupo/hilo.
- */
 function dealInviteMessage(dealId, inviteLink, topicLink, counterpart, role, description) {
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   const cleanCounterpart = (counterpart || 'N/A').startsWith('@') ? counterpart : `@${counterpart}`;
-
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>SALA DE TRATO ADMIN N°${dealId} CREADA</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CHECK} <b>¡Tu sala privada de negociación está lista!</b>\n\n` +
-    `${SYM.ARROW} <b>Tu Rol:</b> <b>${role}</b>\n` +
-    `${SYM.ARROW} <b>Contraparte (${counterpartRole}):</b> <b>${cleanCounterpart}</b>\n` +
+    `${SYM.DIAMOND} <b>SALA DE TRATO #${dealId} LISTA</b>\n\n` +
+    `${SYM.ARROW} <b>Rol:</b> ${role}\n` +
+    `${SYM.ARROW} <b>${counterpartRole}:</b> ${cleanCounterpart}\n` +
     `${SYM.ARROW} <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <b>Enlace de Acceso a la Sala:</b>\n` +
-    `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala Trato N°${dealId} ]</b></a>\n\n` +
-    `${SYM.STAR} <b>Instrucciones:</b>\n` +
-    `${SYM.BULLET} Pulsa el enlace para unirte a la sala de negociación.\n` +
-    `${SYM.BULLET} El Trato Admin supervisará la entrega y el pago.\n` +
-    `${SYM.BULLET} Al finalizar la transacción, el admin cerrará la sala.\n` +
-    `${SYM.THIN_LINE}`
+    `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala #${dealId} ]</b></a>\n\n` +
+    `El Trato Admin supervisará la entrega y el pago.`
   );
 }
 
-/**
- * Mensaje DM enviado a la CONTRAPARTE con su perspectiva invertida (ej: Comprador/Vendedor).
- */
 function dealCounterpartInviteMessage(dealId, inviteLink, creatorMention, myRole, creatorRole, description) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>SALA DE TRATO ADMIN N°${dealId} CREADA</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CHECK} <b>¡Tu sala privada de negociación está lista!</b>\n\n` +
-    `${SYM.ARROW} <b>Tu Rol:</b> <b>${myRole}</b>\n` +
-    `${SYM.ARROW} <b>Contraparte (${creatorRole}):</b> <b>${creatorMention}</b>\n` +
+    `${SYM.DIAMOND} <b>SALA DE TRATO #${dealId} LISTA</b>\n\n` +
+    `${SYM.ARROW} <b>Tu Rol:</b> ${myRole}\n` +
+    `${SYM.ARROW} <b>${creatorRole}:</b> ${creatorMention}\n` +
     `${SYM.ARROW} <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <b>Enlace de Acceso a la Sala:</b>\n` +
-    `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala Trato N°${dealId} ]</b></a>\n\n` +
-    `${SYM.STAR} <b>Instrucciones:</b>\n` +
-    `${SYM.BULLET} Pulsa el enlace para unirte a la sala de negociación.\n` +
-    `${SYM.BULLET} El Trato Admin supervisará la entrega y el pago.\n` +
-    `${SYM.BULLET} Al finalizar la transacción, el admin cerrará la sala.\n` +
-    `${SYM.THIN_LINE}`
+    `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala #${dealId} ]</b></a>\n\n` +
+    `El Trato Admin supervisará la entrega y el pago.`
   );
 }
 
-/**
- * Banner de bienvenida fijado en el hilo/topic creado.
- */
 function dealTopicWelcomeBanner(dealId, creatorMention, counterpart, adminMention, description, role) {
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
-
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>SALA DE MEDIACIÓN — TRATO ADMIN N°${dealId}</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} <b>Solicitante (${role}):</b> ${creatorMention}\n` +
-    `${SYM.ARROW} <b>Contraparte (${counterpartRole}):</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
-    `${SYM.ARROW} <b>Trato Admin Asignado:</b> ${adminMention}\n` +
+    `${SYM.DIAMOND} <b>SALA DE MEDIACIÓN — TRATO #${dealId}</b>\n\n` +
+    `${SYM.ARROW} <b>${role}:</b> ${creatorMention}\n` +
+    `${SYM.ARROW} <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
+    `${SYM.ARROW} <b>Admin:</b> ${adminMention}\n` +
     `${SYM.ARROW} <b>Descripción:</b> ${escapeHtml(description || 'Sin especificar')}\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <b>Reglas de Seguridad:</b>\n` +
-    `${SYM.BULLET} Toda la conversación y comprobantes deben enviarse en este hilo.\n` +
-    `${SYM.BULLET} El comprador transfiere el dinero al <b>Trato Admin</b> asignado.\n` +
-    `${SYM.BULLET} El vendedor entrega el producto una vez que el Admin confirme el pago en custodia.\n` +
-    `${SYM.BULLET} Al finalizar, el Trato Admin cerrará este hilo con el botón inferior.\n\n` +
-    `${SYM.DIAMOND} <i>Ventas Libres Perú — Garantía y Confianza</i>`
+    `<b>Reglas:</b>\n` +
+    `${SYM.BULLET} Toda evidencia va en este hilo.\n` +
+    `${SYM.BULLET} Comprador paga al Admin, vendedor entrega tras confirmación.\n` +
+    `${SYM.BULLET} Al finalizar, el Admin cierra el hilo.`
   );
 }
 
-/**
- * Mensaje de éxito al configurar el grupo oficial de tratos.
- */
 function escrowGroupConfigured(groupTitle, groupId) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>GRUPO OFICIAL DE TRATOS CONFIGURADO</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CHECK} <b>Grupo:</b> ${escapeHtml(groupTitle)}\n` +
-    `${SYM.ARROW} <b>ID:</b> <code>${groupId}</code>\n` +
-    `${SYM.ARROW} <b>Opción de Temas (Hilos / Topics):</b> <b>ACTIVADA ✓</b>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} A partir de ahora, cada Trato Admin aceptado creará automáticamente un hilo dedicado:\n` +
-    `<b>"⟡ Trato Admin N°X"</b> dentro de este grupo.`
+    `${SYM.CHECK} <b>GRUPO DE TRATOS CONFIGURADO</b>\n\n` +
+    `<b>Grupo:</b> ${escapeHtml(groupTitle)}\n` +
+    `<b>ID:</b> <code>${groupId}</code>\n` +
+    `<b>Temas (Topics):</b> ACTIVADOS ✓\n\n` +
+    `Cada trato aceptado creará un hilo <b>"⟡ Trato Admin N°X"</b>.`
   );
 }
 
-/**
- * Error cuando el grupo no tiene la opción de temas/hilos activada.
- */
 function escrowGroupNotForumError() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.CROSS} <b>OPCIÓN DE TEMAS NO DETECTADA</b> ${SYM.CROSS}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} Este grupo <b>NO tiene activada la función de Temas (Topics / Hilos)</b>.\n\n` +
-    `${SYM.STAR} <b>¿Cómo activarlo en Telegram?</b>\n` +
-    `${SYM.BULLET} 1. Abre el perfil del Grupo y toca en <b>Editar</b> (ícono de lápiz).\n` +
-    `${SYM.BULLET} 2. Busca la opción <b>"Temas" (Topics / Hilos)</b>.\n` +
-    `${SYM.BULLET} 3. Actívala y guarda los cambios.\n` +
-    `${SYM.BULLET} 4. Asegúrate de que el bot sea <b>Administrador</b> con permisos de <b>"Gestionar temas" (Manage Topics)</b>.\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.ARROW} <i>Una vez activado, vuelve a enviar <code>/set_grupo_tratos</code> aquí.</i>`
+    `${SYM.CROSS} <b>TEMAS NO ACTIVADOS</b>\n\n` +
+    `Este grupo no tiene la función de Temas activada.\n\n` +
+    `<b>Para activar:</b>\n` +
+    `${SYM.BULLET} Editar grupo → Activar "Temas" → Guardar.\n` +
+    `${SYM.BULLET} Bot como Admin con "Gestionar temas".\n\n` +
+    `Luego ejecuta <code>/set_grupo_tratos</code> de nuevo.`
   );
 }
 
-/**
- * Error cuando el bot no tiene permisos de gestionar temas.
- */
 function escrowGroupNoPermissionError() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.CROSS} <b>PERMISOS INSUFICIENTES</b> ${SYM.CROSS}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} El bot necesita ser <b>Administrador</b> del grupo con el permiso:\n` +
-    `${SYM.BULLET} <b>Gestionar temas (Manage Topics / Create Topics)</b>\n` +
-    `${SYM.BULLET} <b>Invitar usuarios mediante enlace</b>\n\n` +
-    `${SYM.ARROW} Dale los permisos necesarios y vuelve a ejecutar <code>/set_grupo_tratos</code>.`
+    `${SYM.CROSS} <b>PERMISOS INSUFICIENTES</b>\n\n` +
+    `El bot necesita ser Admin con:\n` +
+    `${SYM.BULLET} Gestionar temas (Manage Topics)\n` +
+    `${SYM.BULLET} Invitar usuarios por enlace\n\n` +
+    `Dale los permisos y vuelve a ejecutar <code>/set_grupo_tratos</code>.`
   );
 }
 
-/**
- * Mensaje de calificación al finalizar un trato.
- */
 function dealRatingMessage(dealId, adminUsername) {
   const mention = adminUsername ? `@${adminUsername}` : 'el Trato Admin';
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>CALIFICACIÓN DE SERVICIO (ESCROW)</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CHECK} <b>¡Tu Trato Admin N°${dealId} ha sido completado con éxito!</b>\n\n` +
-    `${SYM.ARROW} <b>Mediador Asignado:</b> <b>${mention}</b>\n` +
-    `${SYM.ARROW} <b>Garantía:</b> Fondos y productos verificados.\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <b>¿Cómo calificarías la atención de ${mention}?</b>\n` +
-    `<i>Tu puntuación ayuda a mejorar la reputación del mediador en la comunidad:</i>`
+    `${SYM.DIAMOND} <b>CALIFICAR SERVICIO</b> — Trato #${dealId}\n\n` +
+    `${SYM.CHECK} Trato completado con éxito.\n` +
+    `<b>Mediador:</b> ${mention}\n\n` +
+    `¿Cómo calificarías la atención?`
   );
 }
 
-/**
- * Trato cancelado.
- */
 function dealCancelledMessage(dealId) {
-  return (
-    `${SYM.DIAMOND} <b>Trato #${dealId} Cancelado</b>\n\n` +
-    `${SYM.CROSS} La solicitud de trato ha sido cancelada.`
-  );
+  return `${SYM.CROSS} <b>Trato #${dealId} Cancelado.</b>`;
 }
 
-/**
- * Advertencia y selección inicial del método de identificación para /quemar.
- */
 function burnInitialPrompt() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFADORES (/QUEMAR)</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.STAR} <b>ADVERTENCIA ESTRICTA</b>\n` +
-    `${SYM.BULLET} El uso <b>falso o de broma</b> de este sistema resultará en <b>Baneo Global Permanente</b>.\n` +
-    `${SYM.BULLET} Solo procede si dispones de <b>pruebas fotográficas reales</b>.\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <b>Paso 1/3:</b> ¿Cómo deseas identificar al acusado?`
+    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFADORES</b>\n\n` +
+    `${SYM.WARNING} El uso falso resulta en <b>Baneo Global Permanente</b>.\n` +
+    `Solo procede con <b>pruebas reales</b>.\n\n` +
+    `<b>Paso 1/3:</b> ¿Cómo identificar al acusado?`
   );
 }
 
 function burnAskIdPrompt() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>IDENTIFICACIÓN POR ID NUMÉRICO</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} Envía el <b>ID numérico de Telegram</b> del acusado:\n` +
-    `<i>Ejemplo: <code>8579513055</code></i>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <i>Puedes consultar su ID mediante bots de información o reenviando uno de sus mensajes.</i>`
+    `${SYM.DIAMOND} <b>IDENTIFICAR POR ID</b>\n\n` +
+    `Envía el <b>ID numérico</b> del acusado:\n` +
+    `<i>Ej: <code>8579513055</code></i>`
   );
 }
 
 function burnAskUsernamePrompt() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>IDENTIFICACIÓN POR @USERNAME</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} Envía el <b>@Username</b> del acusado:\n` +
-    `<i>Ejemplo: <code>@usuario_estafador</code></i>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <i>Escribe el @ de su perfil público.</i>`
+    `${SYM.DIAMOND} <b>IDENTIFICAR POR @USERNAME</b>\n\n` +
+    `Envía el <b>@Username</b> del acusado:\n` +
+    `<i>Ej: <code>@usuario_estafador</code></i>`
   );
 }
 
-/**
- * Paso 2 del flujo /quemar (Descripción de los hechos).
- */
 function burnContextPrompt(targetLabel) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>DETALLES DE LA ESTAFA</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CHECK} <b>Acusado:</b> <b>${targetLabel}</b>\n\n` +
-    `${SYM.ARROW} <b>Paso 2/3:</b> Describe detalladamente lo que sucedió:\n` +
-    `${SYM.BULLET} Monto de dinero o producto involucrado.\n` +
-    `${SYM.BULLET} Cómo se llevó a cabo el engaño o incumplimiento.\n` +
-    `${SYM.BULLET} Cualquier dato extra relevante.\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <i>Escribe tu relato completo en un solo mensaje.</i>`
+    `${SYM.DIAMOND} <b>DETALLES DE LA ESTAFA</b>\n\n` +
+    `${SYM.CHECK} <b>Acusado:</b> ${targetLabel}\n\n` +
+    `<b>Paso 2/3:</b> Describe lo que sucedió (monto, cómo fue el engaño, datos extra).\n\n` +
+    `<i>Escribe todo en un solo mensaje.</i>`
   );
 }
 
-/**
- * Paso 3 del flujo /quemar (Pruebas fotográficas obligatorias).
- */
 function burnProofPrompt(targetLabel, proofsCount = 0) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>EVIDENCIAS Y CAPTURAS (OBLIGATORIO)</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CHECK} <b>Acusado:</b> <b>${targetLabel}</b>\n` +
-    `${SYM.ARROW} <b>Capturas subidas:</b> <b>${proofsCount}</b>\n\n` +
-    `${SYM.STAR} <b>Paso 3/3:</b> Envía las <b>capturas de pantalla / fotos</b> de prueba:\n` +
-    `${SYM.BULLET} Comprobantes de pago / transferencias.\n` +
-    `${SYM.BULLET} Capturas de la conversación con el acusado.\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.ARROW} <b>Es obligatorio adjuntar al menos 1 captura</b> para validar el reporte.`
+    `${SYM.DIAMOND} <b>EVIDENCIAS (OBLIGATORIO)</b>\n\n` +
+    `<b>Acusado:</b> ${targetLabel} | <b>Capturas:</b> ${proofsCount}\n\n` +
+    `<b>Paso 3/3:</b> Envía capturas de comprobantes de pago y conversaciones.\n` +
+    `<b>Mínimo 1 captura obligatoria.</b>`
   );
 }
 
-/**
- * Resumen final para confirmación antes de enviar.
- */
 function burnSummaryMessage(targetLabel, context, proofsCount) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>RESUMEN DEL REPORTE DE ESTAFA</b> ${SYM.DIAMOND}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `👤 <b>Acusado:</b> <b>${targetLabel}</b>\n` +
-    `📸 <b>Pruebas Adjuntas:</b> <b>${proofsCount} captura(s)</b>\n\n` +
-    `📝 <b>Descripción de los Hechos:</b>\n` +
-    `<i>${escapeHtml(context)}</i>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <i>Verifica los datos. Si todo es correcto, pulsa <b>[ Quemar ]</b> para enviar la denuncia al Staff.</i>`
+    `${SYM.DIAMOND} <b>RESUMEN DEL REPORTE</b>\n\n` +
+    `👤 <b>Acusado:</b> ${targetLabel}\n` +
+    `📸 <b>Pruebas:</b> ${proofsCount} captura(s)\n\n` +
+    `📝 <b>Hechos:</b>\n<i>${escapeHtml(context)}</i>\n\n` +
+    `Si todo es correcto, pulsa <b>[ Quemar ]</b>.`
   );
 }
 
-/**
- * Mensaje tras enviar el reporte de quemar.
- */
 function burnSentMessage() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.CHECK} <b>REPORTE ENVIADO AL STAFF CON ÉXITO</b> ${SYM.CHECK}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CHECK} Tu denuncia y pruebas (capturas) han sido enviadas al equipo de moderación.\n` +
-    `${SYM.ARROW} El caso será revisado minuciosamente por los Admins.\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.STAR} <i>Gracias por colaborar en mantener segura la comunidad de Ventas Libres Perú.</i>`
+    `${SYM.CHECK} <b>REPORTE ENVIADO</b>\n\n` +
+    `Tu denuncia y pruebas fueron enviadas al Staff.\n` +
+    `<i>Gracias por mantener segura la comunidad.</i>`
   );
 }
 
-/**
- * Reporte que recibe el staff en su grupo privado.
- */
 function burnStaffReport(reportId, reporterMention, targetId, context) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.DIAMOND} <b>NUEVO REPORTE DE ESTAFA</b> #${reportId}\n` +
-    `${SYM.DIVIDER}\n\n` +
+    `${SYM.DIAMOND} <b>REPORTE DE ESTAFA</b> #${reportId}\n\n` +
     `${SYM.ARROW} <b>Reportante:</b> ${reporterMention}\n` +
-    `${SYM.ARROW} <b>Acusado (ID):</b> <code>${targetId}</code>\n\n` +
-    `${SYM.STAR} <b>Contexto / Historia:</b>\n` +
-    `${escapeHtml(context)}\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.ARROW} <b>Acciones del Staff:</b>`
+    `${SYM.ARROW} <b>Acusado:</b> <code>${targetId}</code>\n\n` +
+    `<b>Contexto:</b>\n${escapeHtml(context)}\n\n` +
+    `<b>Acciones del Staff:</b>`
   );
 }
 
-/**
- * Alerta broadcast cuando un estafador es quemado.
- */
 function burnAlertBroadcast(targetId) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.CROSS} <b>ALERTA DE ESTAFADOR QUEMADO</b> ${SYM.CROSS}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.CROSS} El usuario con ID <code>${targetId}</code> ha sido\n` +
-    `<b>baneado permanentemente</b> de todos los grupos oficiales.\n\n` +
-    `${SYM.STAR} <b>Motivo:</b> Estafa confirmada por el Staff.\n\n` +
-    `${SYM.ARROW} Si has tenido trato con esta persona,\n` +
-    `contacta al Staff inmediatamente.\n\n` +
-    `${SYM.DIVIDER}`
+    `${SYM.CROSS} <b>ESTAFADOR QUEMADO</b>\n\n` +
+    `ID <code>${targetId}</code> ha sido <b>baneado permanentemente</b> de todos los grupos.\n` +
+    `<b>Motivo:</b> Estafa confirmada por el Staff.\n\n` +
+    `Si tuviste trato con esta persona, contacta al Staff.`
   );
 }
 
-/**
- * Renderizado de la lista /staff con jerarquía y formato exacto.
- */
 function renderStaffList(groupedStaff) {
-  let output = (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.CROWN} <b>STAFF OFICIAL ⊱ VENTAS LIBRES PERÚ</b> ${SYM.BADGE}\n` +
-    `${SYM.DIVIDER}\n\n`
-  );
+  let output = `${SYM.CROWN} <b>STAFF OFICIAL — VENTAS LIBRES PERÚ</b> ${SYM.BADGE}\n\n`;
 
-  // 1. OWNER(s)
-  output += `<b>${SYM.CROWN} PROPIETARIOS (OWNERS)</b>\n`;
+  output += `<b>${SYM.CROWN} OWNERS</b>\n`;
   if (groupedStaff.owners.length > 0) {
     for (const m of groupedStaff.owners) {
-      const userTag = m.username ? `@${m.username}` : `(Sin username)`;
-      const name = m.first_name || m.username || 'Owner';
-      output += `${SYM.DIAMOND} ${userTag} ➜ <b>${escapeHtml(name)}</b> | <code>${m.user_id}</code>\n`;
+      const userTag = m.username ? `@${m.username}` : `(Sin @)`;
+      output += `${SYM.DIAMOND} ${userTag} — <b>${escapeHtml(m.first_name || 'Owner')}</b>\n`;
     }
-  } else {
-    output += `<i>No registrados</i>\n`;
-  }
+  } else output += `<i>No registrados</i>\n`;
   output += `\n`;
 
-  // 2. Co-Owner(s)
-  output += `<b>${SYM.FLOWER} CO-PROPIETARIOS (CO-OWNERS)</b>\n`;
+  output += `<b>${SYM.FLOWER} CO-OWNERS</b>\n`;
   if (groupedStaff.coowners.length > 0) {
     for (const m of groupedStaff.coowners) {
-      const userTag = m.username ? `@${m.username}` : `(Sin username)`;
-      const name = m.first_name || m.username || 'Co-Owner';
-      output += `${SYM.DIAMOND} ${userTag} ➜ <b>${escapeHtml(name)}</b> | <code>${m.user_id}</code>\n`;
+      const userTag = m.username ? `@${m.username}` : `(Sin @)`;
+      output += `${SYM.DIAMOND} ${userTag} — <b>${escapeHtml(m.first_name || 'Co-Owner')}</b>\n`;
     }
-  } else {
-    output += `<i>No registrados</i>\n`;
-  }
+  } else output += `<i>No registrados</i>\n`;
   output += `\n`;
 
-  // 3. ADMIN(s)
-  output += `<b>${SYM.SWORD} ADMINISTRADORES (ADMINS)</b>\n`;
+  output += `<b>${SYM.SWORD} ADMINS</b>\n`;
   if (groupedStaff.admins.length > 0) {
     for (const m of groupedStaff.admins) {
-      const userTag = m.username ? `@${m.username}` : `(Sin username)`;
-      const name = m.first_name || m.username || 'Admin';
-      output += `${SYM.DIAMOND} ${userTag} ➜ <b>${escapeHtml(name)}</b> | <code>${m.user_id}</code>\n`;
+      const userTag = m.username ? `@${m.username}` : `(Sin @)`;
+      output += `${SYM.DIAMOND} ${userTag} — <b>${escapeHtml(m.first_name || 'Admin')}</b>\n`;
     }
-  } else {
-    output += `<i>No registrados</i>\n`;
-  }
+  } else output += `<i>No registrados</i>\n`;
   output += `\n`;
 
-  // 4. TRATO ADMIN
-  output += `<b>${SYM.SEAL} MEDIADORES OFICIALES (TRATO ADMIN)</b>\n`;
+  output += `<b>${SYM.SEAL} TRATO ADMINS</b>\n`;
   if (groupedStaff.dealAdmins.length > 0) {
     for (const m of groupedStaff.dealAdmins) {
-      const userTag = m.username ? `@${m.username}` : `(Sin username)`;
-      const name = m.first_name || m.username || 'Trato Admin';
-      const score = m.avgRating ? `${m.avgRating}/5.0 ${SYM.STAR_FULL}` : `5.0/5.0 ${SYM.STAR_FULL}`;
-      output += `${SYM.DIAMOND} ${userTag} ➜ <b>${escapeHtml(name)}</b> | <code>${m.user_id}</code> | Rep: <b>${score}</b>\n`;
+      const userTag = m.username ? `@${m.username}` : `(Sin @)`;
+      const score = m.avgRating ? `${m.avgRating}/5 ${SYM.STAR_FULL}` : `5/5 ${SYM.STAR_FULL}`;
+      output += `${SYM.DIAMOND} ${userTag} — <b>${escapeHtml(m.first_name || 'Trato Admin')}</b> | ${score}\n`;
     }
-  } else {
-    output += `<i>No registrados</i>\n`;
-  }
+  } else output += `<i>No registrados</i>\n`;
 
-  output += `\n${SYM.THIN_LINE}\n`;
-  output += `${SYM.SHIELD} <b>RECOMENDACIÓN DE SEGURIDAD:</b>\n`;
-  output += `➜ Para garantizar una <b>compra y venta 100% segura</b> y evitar estafas, realiza siempre tus transacciones con <b>/tratoadm</b> con un mediador certificado del Staff.\n`;
-  output += `\n${SYM.DIVIDER}`;
+  output += `\n${SYM.SHIELD} Para compras/ventas seguras usa <b>/tratoadm</b>.`;
   return output;
 }
 
-/**
- * Log de moderación.
- */
 function modLogEntry(action, moderatorMention, targetId, chatTitle, reason) {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.PRINT} <b>REGISTRO DE MODERACIÓN ⊱ ${action}</b>\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} <b>Moderador:</b> ${moderatorMention}\n` +
-    `${SYM.ARROW} <b>Objetivo:</b> <code>${targetId}</code>\n` +
-    `${SYM.ARROW} <b>Grupo:</b> ${chatTitle || 'N/A'}\n` +
-    `${SYM.ARROW} <b>Razón:</b> ${reason || 'Sin especificar'}\n` +
-    `${SYM.ARROW} <b>Fecha:</b> <code>${new Date().toISOString()}</code>\n\n` +
-    `${SYM.THIN_LINE}`
+    `${SYM.PRINT} <b>LOG: ${action}</b>\n\n` +
+    `<b>Mod:</b> ${moderatorMention}\n` +
+    `<b>Objetivo:</b> <code>${targetId}</code>\n` +
+    `<b>Grupo:</b> ${chatTitle || 'N/A'}\n` +
+    `<b>Razón:</b> ${reason || 'Sin especificar'}\n` +
+    `<b>Fecha:</b> <code>${new Date().toISOString()}</code>`
   );
 }
 
-/**
- * Aviso de seguridad periódico para grupos oficiales (cada 20 min).
- */
 function periodicSecurityNotice() {
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.SEAL} <b>AVISO IMPORTANTE DE SEGURIDAD</b> ${SYM.BADGE}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `🛡️ <b>Garantía y Protección en tus Transacciones:</b>\n\n` +
-    `${SYM.ARROW} Para una mayor seguridad, te recomendamos realizar tus compras y ventas verificando a nuestro <b>/staff</b> oficial.\n\n` +
-    `${SYM.ARROW} Utiliza siempre <b>/tratoadm</b> para contar con un mediador certificado y garantizar una compra o venta 100% segura y sin riesgos de estafa.\n\n` +
-    `${SYM.CHECK} <b>Evita Estafas</b>\n` +
-    `${SYM.CHECK} <b>Evita Contratiempos</b>\n` +
-    `${SYM.CHECK} <b>Fondos y Cuentas 100% Protegidos</b>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.SWORD} <i>Atte: Staff Oficial de Ventas Libres Perú</i> 🇵🇪`
+    `${SYM.SEAL} <b>AVISO DE SEGURIDAD</b> ${SYM.BADGE}\n\n` +
+    `🛡️ Para compras y ventas 100% seguras:\n` +
+    `${SYM.BULLET} Verifica al <b>/staff</b> oficial.\n` +
+    `${SYM.BULLET} Usa <b>/tratoadm</b> con un mediador certificado.\n\n` +
+    `${SYM.CHECK} Fondos y cuentas protegidos.\n` +
+    `<i>— Staff Oficial, Ventas Libres Perú</i> 🇵🇪`
   );
 }
 
@@ -645,27 +380,20 @@ function periodicNoticeKeyboard(botUsername = 'ventas_libres_peru_Bot') {
   const { InlineKeyboard } = require('grammy');
   return new InlineKeyboard()
     .url(`${SYM.SWORD} Trato Admin`, `https://t.me/${botUsername}?start=tratoadm`)
-    .url(`${SYM.CROWN} Staff Oficial`, `https://t.me/${botUsername}?start=staff`)
+    .url(`${SYM.CROWN} Staff`, `https://t.me/${botUsername}?start=staff`)
     .row()
     .url(`${SYM.ALERT} Reportar Estafa`, `https://t.me/${botUsername}?start=quemar`);
 }
 
-/**
- * Plantilla de respuesta automática cuando un usuario menciona que fue estafado o quiere quemar/reportar.
- */
 function scamKeywordReply(firstName, username) {
   const userTag = username ? `@${username}` : (firstName ? `<b>${escapeHtml(firstName)}</b>` : 'Estimado usuario');
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.ALERT} <b>CENTRAL DE REPORTES Y ANTI-ESTAFAS</b> ${SYM.WARNING}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `Hola ${userTag}, si has sido víctima de una estafa o deseas quemar a un estafador:\n\n` +
-    `📌 <b>Pasos para reportar de forma segura:</b>\n` +
-    `${SYM.NUM_1} <b>Guarda las pruebas:</b> No borres capturas de pantalla, comprobantes de pago ni el chat.\n` +
-    `${SYM.NUM_2} <b>Inicia tu reporte privado:</b> Pulsa el botón de abajo o escribe <code>/quemar</code> directamente al bot.\n` +
-    `${SYM.NUM_3} <b>Evaluación del Staff:</b> Nuestro equipo revisará las pruebas y publicará la ficha oficial en el <b>Canal de Quemados</b> y la <b>Lista Negra</b>.\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.SHIELD} <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`
+    `${SYM.ALERT} <b>CENTRAL DE REPORTES</b>\n\n` +
+    `${userTag}, si fuiste víctima de estafa:\n\n` +
+    `① Guarda capturas y comprobantes.\n` +
+    `② Escribe <code>/quemar</code> al bot por privado.\n` +
+    `③ El Staff revisará tu caso.\n\n` +
+    `<i>${SYM.SHIELD} Tu seguridad es nuestra prioridad.</i>`
   );
 }
 

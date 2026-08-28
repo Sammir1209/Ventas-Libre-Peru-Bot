@@ -12,22 +12,38 @@ const { escapeHtml, mentionFromData } = require('../../utils/formatting');
 
 /**
  * Obtiene los canales/grupos requeridos para la verificación (desde BD o config).
+ * Cachea en memoria por 5 minutos para velocidad.
  */
+let _channelsCache = null;
+let _channelsCacheTime = 0;
+const CHANNELS_CACHE_TTL = 5 * 60 * 1000; // 5 min
+
 async function getChannelsToVerify() {
+  // Retornar cache si es reciente
+  if (_channelsCache && (Date.now() - _channelsCacheTime) < CHANNELS_CACHE_TTL) {
+    return _channelsCache;
+  }
+
   try {
     const saved = await db.getSetting('channels_to_verify');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        _channelsCache = parsed;
+        _channelsCacheTime = Date.now();
         return parsed;
       }
     }
   } catch {}
 
   if (Array.isArray(config.CHANNELS_TO_VERIFY) && config.CHANNELS_TO_VERIFY.length > 0) {
+    _channelsCache = config.CHANNELS_TO_VERIFY;
+    _channelsCacheTime = Date.now();
     return config.CHANNELS_TO_VERIFY;
   }
 
+  _channelsCache = [];
+  _channelsCacheTime = Date.now();
   return [];
 }
 
@@ -122,17 +138,16 @@ function register(bot) {
         );
       }
 
-      // Guardar lista en BD
+      // Guardar lista en BD e invalidar cache
       await db.setSetting('channels_to_verify', JSON.stringify(args));
       config.CHANNELS_TO_VERIFY = args;
+      _channelsCache = args;
+      _channelsCacheTime = Date.now();
 
       await ctx.reply(
-        `${SYM.DIVIDER}\n` +
-        `${SYM.CHECK} <b>CANALES DE VERIFICACIÓN GUARDADOS</b>\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.ARROW} <b>Canales configurados (${args.length}):</b>\n` +
+        `${SYM.CHECK} <b>CANALES GUARDADOS</b> (${args.length})\n\n` +
         args.map((ch, i) => `${SYM.BULLET} <b>${i + 1}.</b> <code>${escapeHtml(ch)}</code>`).join('\n') +
-        `\n\n${SYM.CHECK} <b>Persistencia:</b> Guardado en Base de Datos.`,
+        `\n\n<i>Guardado en Base de Datos.</i>`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
@@ -260,7 +275,7 @@ function register(bot) {
     if (cachedVerified) return;
     try {
       const u = await db.getUser(userId);
-      if (u && u.verified) {
+      if (u && (u.verified || u.is_verified)) {
         await redisDb.setCache(`verified_user:${userId}`, true, 86400 * 30);
         return;
       }

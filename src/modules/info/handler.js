@@ -60,7 +60,7 @@ async function buildUserProfile(ctx, targetUser) {
   let isVerifiedText = 'No verificado';
   try {
     const dbUser = await db.getUser(userId);
-    if (dbUser && dbUser.is_verified) {
+    if (dbUser && (dbUser.verified || dbUser.is_verified)) {
       isVerifiedText = 'Sí ✓';
     }
   } catch {}
