@@ -384,10 +384,10 @@ function periodicSecurityNotice() {
 function periodicNoticeKeyboard(botUsername = 'ventas_libres_peru_Bot') {
   const { InlineKeyboard } = require('grammy');
   return new InlineKeyboard()
-    .url(`${SYM.SWORD} Trato Admin`, `https://t.me/${botUsername}?start=tratoadm`)
-    .url(`${SYM.CROWN} Staff`, `https://t.me/${botUsername}?start=staff`)
+    .url('TRATO ADMIN', `https://t.me/${botUsername}?start=tratoadm`)
+    .url('STAFF', `https://t.me/${botUsername}?start=staff`)
     .row()
-    .url(`${SYM.ALERT} Reportar Estafa`, `https://t.me/${botUsername}?start=quemar`);
+    .url('REPORTAR ESTAFA', `https://t.me/${botUsername}?start=quemar`);
 }
 
 function scamKeywordReply(firstName, username) {

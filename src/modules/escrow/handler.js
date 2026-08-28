@@ -225,7 +225,7 @@ function register(bot) {
           {
             parse_mode: 'HTML',
             reply_markup: new InlineKeyboard().url(
-              `${SYM.DIAMOND} Iniciar Trato en Privado`,
+              'INICIAR TRATO EN PRIVADO',
               `https://t.me/${botUsername}?start=tratoadm`
             ),
           }
@@ -254,7 +254,7 @@ function register(bot) {
       await ctx.reply(templates.dealDetailedInfoMessage(), {
         parse_mode: 'HTML',
         reply_markup: new InlineKeyboard()
-          .url('🚀 Iniciar Trato Admin', `https://t.me/${botUsername}?start=tratoadm`),
+          .url('INICIAR TRATO ADMIN', `https://t.me/${botUsername}?start=tratoadm`),
       });
     } catch (err) {
       console.error('⟡ Escrow: Error en /guia_trato:', err.message);
@@ -840,9 +840,9 @@ function register(bot) {
 
       // 9. Actualizar mensaje del Admin con botón de acceso al hilo
       const adminKeyboard = new InlineKeyboard()
-        .url(`${SYM.DIAMOND} Entrar a la Sala Trato N°${dealId}`, topicLink)
+        .url(`ENTRAR A LA SALA #${dealId}`, topicLink)
         .row()
-        .text(`${SYM.CHECK} Finalizar Trato`, `${CB.DEAL_COMPLETE}${dealId}`).success();
+        .text('FINALIZAR TRATO', `${CB.DEAL_COMPLETE}${dealId}`).success();
 
       await ctx.editMessageText(
         `${SYM.DIVIDER}\n` +

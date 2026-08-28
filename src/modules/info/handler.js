@@ -83,8 +83,8 @@ async function buildUserProfile(ctx, targetUser) {
     `${SYM.STAR} <i>Consulta de antecedentes y registros de estafas:</i>`;
 
   const keyboard = new InlineKeyboard()
-    .text(`⛊ Antecedentes`, `info_check_burn:${userId}`).success()
-    .text(`✗ Cerrar`, 'info_close').danger();
+    .text('ANTECEDENTES', `info_check_burn:${userId}`).success()
+    .text('CERRAR', 'info_close').danger();
 
   return { text, keyboard };
 }
@@ -193,9 +193,9 @@ function register(bot) {
 
       const kb = new InlineKeyboard();
       if (groupInviteLink) {
-        kb.url(`🚀 Entrar al Grupo`, groupInviteLink);
+        kb.url('ENTRAR AL GRUPO', groupInviteLink);
       }
-      kb.url(`📁 Carpeta Oficial`, folderLink);
+      kb.url('CARPETA OFICIAL', folderLink);
 
       await ctx.reply(text, {
         parse_mode: 'HTML',
@@ -240,8 +240,8 @@ function register(bot) {
           `${SYM.THIN_LINE}`;
 
         const kb = new InlineKeyboard()
-          .text(`⟡ Volver`, `info_back:${targetId}`).primary()
-          .text(`✗ Cerrar`, 'info_close').danger();
+          .text('VOLVER', `info_back:${targetId}`).primary()
+          .text('CERRAR', 'info_close').danger();
 
         try {
           await ctx.editMessageText(cleanText, {
@@ -279,8 +279,8 @@ function register(bot) {
           `No realices transferencias, depósitos ni entregas de productos con este usuario bajo ninguna circunstancia.`;
 
         const kb = new InlineKeyboard()
-          .text(`⟡ Volver`, `info_back:${targetId}`).primary()
-          .text(`✗ Cerrar`, 'info_close').danger();
+          .text('VOLVER', `info_back:${targetId}`).primary()
+          .text('CERRAR', 'info_close').danger();
 
         try {
           await ctx.editMessageText(burnText, {

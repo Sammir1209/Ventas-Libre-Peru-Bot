@@ -16,13 +16,13 @@ function welcomeKeyboard(targetUserId = null) {
   const verifyData = targetUserId ? `verify:${targetUserId}` : CB.VERIFY;
   const cancelData = targetUserId ? `verify_cancel:${targetUserId}` : 'verify_cancel';
 
-  // Fila 1 (2 botones arriba): [ ⟡ Unirme ] | [ ✓ Verificar ]
-  kb.url(`⟡ Unirme`, folderLink);
-  kb.text(`✓ Verificar`, verifyData);
+  // Fila 1 (2 botones arriba): [ UNIRME ] | [ VERIFICAR ]
+  kb.url('UNIRME', folderLink);
+  kb.text('VERIFICAR', verifyData);
 
-  // Fila 2 (1 botón abajo centrado): [ ✗ Cancelar ]
+  // Fila 2 (1 botón abajo centrado): [ CANCELAR ]
   kb.row();
-  kb.text(`✗ Cancelar`, cancelData);
+  kb.text('CANCELAR', cancelData);
 
   return kb;
 }

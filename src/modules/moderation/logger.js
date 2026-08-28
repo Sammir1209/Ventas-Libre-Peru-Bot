@@ -14,16 +14,16 @@ function buildLogKeyboard(action, targetId) {
   const act = (action || '').toUpperCase();
 
   if (act === 'BAN' || act === 'GBAN' || act === 'ANTI_CLON_BAN') {
-    kb.text('🔓 Unban', `log_unban:${targetId}`);
-    kb.text('🔍 Info', `log_info:${targetId}`);
+    kb.text('UNBAN', `log_unban:${targetId}`).primary();
+    kb.text('INFO', `log_info:${targetId}`).primary();
   } else if (act === 'MUTE') {
-    kb.text('🔊 Unmute', `log_unmute:${targetId}`);
-    kb.text('🔍 Info', `log_info:${targetId}`);
+    kb.text('UNMUTE', `log_unmute:${targetId}`).primary();
+    kb.text('INFO', `log_info:${targetId}`).primary();
   } else if (act === 'WARN') {
-    kb.text('🔨 Ban', `log_ban:${targetId}`);
-    kb.text('🔍 Info', `log_info:${targetId}`);
+    kb.text('BAN', `log_ban:${targetId}`).danger();
+    kb.text('INFO', `log_info:${targetId}`).primary();
   } else {
-    kb.text('🔍 Info', `log_info:${targetId}`);
+    kb.text('INFO', `log_info:${targetId}`).primary();
   }
 
   return kb;

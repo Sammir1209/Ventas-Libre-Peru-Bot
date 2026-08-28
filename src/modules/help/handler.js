@@ -31,10 +31,10 @@ function buildOwnerHelp() {
     `${SYM.BULLET} <code>/verify</code> — Toggle verificación`;
 
   const kb = new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Protocolo Trato Admin`, 'help_view:trato_admin').primary()
-    .text(`${SYM.STAR} Manual Admin`, 'help_view:admin').primary()
+    .text('PROTOCOLO TRATO ADMIN', 'help_view:trato_admin').primary()
+    .text('MANUAL ADMIN', 'help_view:admin').primary()
     .row()
-    .text(`${SYM.CROSS} Cerrar`, 'help_close').danger();
+    .text('CERRAR', 'help_close').danger();
 
   return { text, kb };
 }
@@ -53,9 +53,9 @@ function buildTratoAdminHelp() {
     `<i>El bot pide calificación y respalda el chat automáticamente.</i>`;
 
   const kb = new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Mis Estadísticas`, 'help_view:my_stats').success()
+    .text('MIS ESTADISTICAS', 'help_view:my_stats').success()
     .row()
-    .text(`${SYM.CROSS} Cerrar`, 'help_close').danger();
+    .text('CERRAR', 'help_close').danger();
 
   return { text, kb };
 }
@@ -78,9 +78,9 @@ function buildAdminHelp() {
     `${SYM.BULLET} <code>/info</code> — Antecedentes`;
 
   const kb = new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Protocolo Trato Admin`, 'help_view:trato_admin').primary()
+    .text('PROTOCOLO TRATO ADMIN', 'help_view:trato_admin').primary()
     .row()
-    .text(`${SYM.CROSS} Cerrar`, 'help_close').danger();
+    .text('CERRAR', 'help_close').danger();
 
   return { text, kb };
 }
@@ -99,9 +99,9 @@ function buildUserHelp() {
     `${SYM.WARNING} Nunca transfieras dinero por DM. Usa <code>/tratoadm</code>.`;
 
   const kb = new InlineKeyboard()
-    .url(`${SYM.DIAMOND} Iniciar Trato Admin`, `https://t.me/${config.BOT_TOKEN.split(':')[0]}?start=tratoadm`).primary()
+    .url('INICIAR TRATO ADMIN', `https://t.me/${config.BOT_TOKEN.split(':')[0]}?start=tratoadm`).primary()
     .row()
-    .text(`${SYM.CROSS} Cerrar`, 'help_close').danger();
+    .text('CERRAR', 'help_close').danger();
 
   return { text, kb };
 }
@@ -160,11 +160,11 @@ function register(bot) {
           `Selecciona una opción:`;
 
         const kb = new InlineKeyboard()
-          .text(`${SYM.SWORD} Trato Admin`, 'start_tratoadm').success()
-          .text(`${SYM.ALERT} Quemar`, 'start_quemar').danger()
+          .text('TRATO ADMIN', 'start_tratoadm').success()
+          .text('QUEMAR', 'start_quemar').danger()
           .row()
-          .text(`${SYM.CROWN} Staff`, 'start_staff').primary()
-          .text(`${SYM.PRINT} Ayuda`, 'start_help').primary();
+          .text('STAFF', 'start_staff').primary()
+          .text('AYUDA', 'start_help').primary();
 
         return ctx.reply(startText, {
           parse_mode: 'HTML',
@@ -301,9 +301,9 @@ function register(bot) {
           `${SYM.STAR} <i>¡Sigue brindando una atención rápida y segura para mantener tu reputación alta!</i>`;
 
         const kb = new InlineKeyboard()
-          .text(`${SYM.DIAMOND} Volver al Protocolo`, 'help_view:trato_admin').primary()
+          .text('VOLVER AL PROTOCOLO', 'help_view:trato_admin').primary()
           .row()
-          .text(`${SYM.CROSS} Cerrar`, 'help_close').danger();
+          .text('CERRAR', 'help_close').danger();
 
         return ctx.editMessageText(statsText, {
           parse_mode: 'HTML',

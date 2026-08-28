@@ -276,8 +276,8 @@ function register(bot) {
       const targetMention = target.username ? `@${target.username}` : `<code>${target.userId}</code>`;
 
       const kb = new InlineKeyboard()
-        .text('🔥 Sí, Ejecutar GBan', `gban_confirm:${target.userId}`).danger()
-        .text('❌ Cancelar', 'gban_cancel').primary();
+        .text('EJECUTAR GBAN', `gban_confirm:${target.userId}`).danger()
+        .text('CANCELAR', 'gban_cancel').primary();
 
       await ctx.reply(
         `${SYM.DIVIDER}\n` +
@@ -590,8 +590,8 @@ function register(bot) {
       const userMention = mentionFromData(targetId, user.username, user.first_name);
 
       const kb = new InlineKeyboard()
-        .text('🔥 Sí, Banear / GBan', `gban_confirm:${targetId}`).danger()
-        .text('❌ Cancelar', 'gban_cancel').primary();
+        .text('BANEAR GBAN', `gban_confirm:${targetId}`).danger()
+        .text('CANCELAR', 'gban_cancel').primary();
 
       await ctx.reply(
         `${SYM.DIVIDER}\n` +
@@ -662,7 +662,7 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
         `✓ <b>Estado de la Comunidad:</b> Limpia.\n` +
         `✓ Actualmente no hay estafadores registrados en la lista negra.\n\n` +
         `${SYM.THIN_LINE}`,
-      keyboard: new InlineKeyboard().text(`${SYM.CROSS} Cerrar`, closePayload).danger(),
+      keyboard: new InlineKeyboard().text('CERRAR', closePayload).danger(),
     };
   }
 
@@ -700,16 +700,16 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
 
   // Fila 1: Paginación
   if (currentPage > 1) {
-    kb.text('« Anterior', prevPayload).primary();
+    kb.text('ANTERIOR', prevPayload).primary();
   }
   if (currentPage < totalPages) {
-    kb.text('Siguiente »', nextPayload).primary();
+    kb.text('SIGUIENTE', nextPayload).primary();
   }
 
   // Fila 2: Indicador y Cerrar
   kb.row();
-  kb.text(`📄 ${currentPage}/${totalPages}`, currPayload);
-  kb.text(`${SYM.CROSS} Cerrar`, closePayload).danger();
+  kb.text(`PAGINA ${currentPage}/${totalPages}`, currPayload);
+  kb.text('CERRAR', closePayload).danger();
 
   return { text, keyboard: kb };
 }

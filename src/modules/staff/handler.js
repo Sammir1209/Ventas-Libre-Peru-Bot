@@ -88,12 +88,12 @@ function register(bot) {
 
       for (let i = 0; i < higherRoles.length; i++) {
         const r = higherRoles[i];
-        kb.text(`${SYM.DIAMOND} ${r.label}`, `promote_to:${target.userId}:${r.key}`).primary();
+        kb.text(r.label.toUpperCase(), `promote_to:${target.userId}:${r.key}`).primary();
         if (i % 2 === 1 && i < higherRoles.length - 1) {
           kb.row();
         }
       }
-      kb.row().text(`${SYM.CROSS} Cancelar`, 'staff_cancel').danger();
+      kb.row().text('CANCELAR', 'staff_cancel').danger();
 
       const userMention = mentionFromData(target.userId, target.username, target.firstName);
       await ctx.reply(
@@ -168,13 +168,13 @@ function register(bot) {
 
       for (let i = 0; i < lowerRoles.length; i++) {
         const r = lowerRoles[i];
-        const btnText = r.level === 0 ? `${SYM.CROSS} Remover Staff` : `${SYM.ARROW} ${r.label}`;
+        const btnText = r.level === 0 ? 'REMOVER STAFF' : r.label.toUpperCase();
         kb.text(btnText, `demote_to:${target.userId}:${r.key}`).danger();
         if (i % 2 === 1 && i < lowerRoles.length - 1) {
           kb.row();
         }
       }
-      kb.row().text(`${SYM.CROSS} Cancelar`, 'staff_cancel');
+      kb.row().text('CANCELAR', 'staff_cancel');
 
       const userMention = mentionFromData(target.userId, target.username, target.firstName);
       await ctx.reply(

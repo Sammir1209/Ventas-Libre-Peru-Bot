@@ -81,7 +81,7 @@ function register(bot) {
       } catch {}
 
       const kb = new InlineKeyboard().url(
-        `⟡ Iniciar Trato Admin`,
+        'INICIAR TRATO ADMIN',
         `https://t.me/${botUsername}?start=tratoadm`
       ).primary();
 

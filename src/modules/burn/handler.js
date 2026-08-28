@@ -85,7 +85,7 @@ function register(bot) {
           {
             parse_mode: 'HTML',
             reply_markup: new InlineKeyboard().url(
-              `${SYM.DIAMOND} Iniciar Reporte en Privado`,
+              'INICIAR REPORTE EN PRIVADO',
               `https://t.me/${botUsername}?start=quemar`
             ).primary(),
           }
@@ -125,7 +125,7 @@ function register(bot) {
 
       await ctx.editMessageText(templates.burnAskIdPrompt(), {
         parse_mode: 'HTML',
-        reply_markup: new InlineKeyboard().text(`${SYM.CROSS} Cancelar`, 'burn_cancel').danger(),
+        reply_markup: new InlineKeyboard().text('CANCELAR', 'burn_cancel').danger(),
       });
     } catch (err) {
       console.error('⟡ Burn: Error en burn_type:id:', err.message);
@@ -142,7 +142,7 @@ function register(bot) {
 
       await ctx.editMessageText(templates.burnAskUsernamePrompt(), {
         parse_mode: 'HTML',
-        reply_markup: new InlineKeyboard().text(`${SYM.CROSS} Cancelar`, 'burn_cancel').danger(),
+        reply_markup: new InlineKeyboard().text('CANCELAR', 'burn_cancel').danger(),
       });
     } catch (err) {
       console.error('⟡ Burn: Error en burn_type:username:', err.message);
@@ -934,7 +934,7 @@ function register(bot) {
           } catch {}
 
           const kb = new InlineKeyboard().url(
-            `🚨 Iniciar Reporte Anti-Estafa`,
+            'REPORTAR ESTAFA',
             `https://t.me/${botUsername}?start=quemar`
           );
 

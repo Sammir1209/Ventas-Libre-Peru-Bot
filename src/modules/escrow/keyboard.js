@@ -11,10 +11,10 @@ const config = require('../../config/env');
  */
 function dealMainKeyboard() {
   return new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Trato Admin`, CB.START_DEAL).success()
-    .text(`${SYM.STAR} Inf. Trato Adm`, CB.DEAL_INFO).success()
+    .text('TRATO ADMIN', CB.START_DEAL).success()
+    .text('INFORMACION', CB.DEAL_INFO).success()
     .row()
-    .text(`${SYM.STAR} Cancelar`, CB.DEAL_CANCEL).danger();
+    .text('CANCELAR', CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -22,7 +22,7 @@ function dealMainKeyboard() {
  */
 function dealInfoKeyboard() {
   return new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Volver`, 'deal_back_to_main').success();
+    .text('VOLVER', 'deal_back_to_main').success();
 }
 
 /**
@@ -30,10 +30,10 @@ function dealInfoKeyboard() {
  */
 function dealRoleKeyboard() {
   return new InlineKeyboard()
-    .text(`${SYM.DIAMOND} Voy a Vender`, 'deal_role:VENDEDOR').success()
-    .text(`${SYM.STAR} Voy a Comprar`, 'deal_role:COMPRADOR').success()
+    .text('VOY A VENDER', 'deal_role:VENDEDOR').success()
+    .text('VOY A COMPRAR', 'deal_role:COMPRADOR').success()
     .row()
-    .text(`${SYM.CROSS} Cancelar`, CB.DEAL_CANCEL).danger();
+    .text('CANCELAR', CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -41,7 +41,7 @@ function dealRoleKeyboard() {
  */
 function dealCancelKeyboard() {
   return new InlineKeyboard()
-    .text(`${SYM.CROSS} Cancelar Solicitud`, CB.DEAL_CANCEL).danger();
+    .text('CANCELAR SOLICITUD', CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -49,8 +49,8 @@ function dealCancelKeyboard() {
  */
 function dealConfirmKeyboard() {
   return new InlineKeyboard()
-    .text(`✓ Confirmar`, 'deal_confirm').success()
-    .text(`✗ Cancelar`, CB.DEAL_CANCEL).danger();
+    .text('CONFIRMAR', 'deal_confirm').success()
+    .text('CANCELAR', CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -60,8 +60,8 @@ function dealWaitingKeyboard(dealId) {
   const kb = new InlineKeyboard();
 
   const channelUrl = config.GROUPS_FOLDER_LINK || 'https://t.me/+JSQRh7463MIzYmVh';
-  kb.url(`⟡ Canal`, channelUrl).primary();
-  kb.text(`✗ Cancelar`, `deal_cancel_pending:${dealId}`).danger();
+  kb.url('CANAL OFICIAL', channelUrl);
+  kb.text('CANCELAR', `deal_cancel_pending:${dealId}`).danger();
 
   return kb;
 }
@@ -71,8 +71,8 @@ function dealWaitingKeyboard(dealId) {
  */
 function dealAcceptKeyboard(dealId) {
   return new InlineKeyboard()
-    .text(`✓ Aceptar`, `${CB.DEAL_ACCEPT}${dealId}`).success()
-    .text(`✗ Rechazar`, `deal_reject:${dealId}`).danger();
+    .text('ACEPTAR', `${CB.DEAL_ACCEPT}${dealId}`).success()
+    .text('RECHAZAR', `deal_reject:${dealId}`).danger();
 }
 
 /**
@@ -80,8 +80,8 @@ function dealAcceptKeyboard(dealId) {
  */
 function dealCompleteKeyboard(dealId) {
   return new InlineKeyboard()
-    .text(`✓ Finalizar`, `${CB.DEAL_COMPLETE}${dealId}`).success()
-    .text(`✗ Cancelar`, `deal_force_cancel:${dealId}`).danger();
+    .text('FINALIZAR', `${CB.DEAL_COMPLETE}${dealId}`).success()
+    .text('CANCELAR', `deal_force_cancel:${dealId}`).danger();
 }
 
 /**
@@ -89,12 +89,12 @@ function dealCompleteKeyboard(dealId) {
  */
 function dealRatingKeyboard(dealId) {
   return new InlineKeyboard()
-    .text('1 ⭐', `${CB.DEAL_RATE}${dealId}:1`)
-    .text('2 ⭐', `${CB.DEAL_RATE}${dealId}:2`)
-    .text('3 ⭐', `${CB.DEAL_RATE}${dealId}:3`)
+    .text('1 ESTRELLA', `${CB.DEAL_RATE}${dealId}:1`)
+    .text('2 ESTRELLAS', `${CB.DEAL_RATE}${dealId}:2`)
+    .text('3 ESTRELLAS', `${CB.DEAL_RATE}${dealId}:3`)
     .row()
-    .text('4 ⭐', `${CB.DEAL_RATE}${dealId}:4`)
-    .text('5 ⭐', `${CB.DEAL_RATE}${dealId}:5`);
+    .text('4 ESTRELLAS', `${CB.DEAL_RATE}${dealId}:4`)
+    .text('5 ESTRELLAS', `${CB.DEAL_RATE}${dealId}:5`);
 }
 
 /**
@@ -102,8 +102,8 @@ function dealRatingKeyboard(dealId) {
  */
 function dealTopicKeyboard(dealId) {
   return new InlineKeyboard()
-    .text(`✓ Finalizar`, `${CB.DEAL_COMPLETE}${dealId}`).success()
-    .text(`✗ Cancelar`, `deal_force_cancel:${dealId}`).danger();
+    .text('FINALIZAR', `${CB.DEAL_COMPLETE}${dealId}`).success()
+    .text('CANCELAR', `deal_force_cancel:${dealId}`).danger();
 }
 
 module.exports = {
