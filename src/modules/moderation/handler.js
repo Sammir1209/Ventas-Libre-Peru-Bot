@@ -146,8 +146,10 @@ function register(bot) {
       const parts = text.split(/\s+/);
       const reason = parts.slice(2).join(' ') || 'Sin especificar';
 
-      await ctx.api.restrictChatMember(ctx.chat.id, target.userId, {
-        permissions: {
+      await ctx.api.restrictChatMember(
+        ctx.chat.id,
+        target.userId,
+        {
           can_send_messages: false,
           can_send_audios: false,
           can_send_documents: false,
@@ -163,7 +165,10 @@ function register(bot) {
           can_pin_messages: false,
           can_manage_topics: false,
         },
-      });
+        {
+          use_independent_chat_permissions: true,
+        }
+      );
 
       await ctx.reply(
         `${SYM.DIAMOND} <b>Usuario Silenciado</b>\n\n` +
@@ -198,8 +203,10 @@ function register(bot) {
         );
       }
 
-      await ctx.api.restrictChatMember(ctx.chat.id, target.userId, {
-        permissions: {
+      await ctx.api.restrictChatMember(
+        ctx.chat.id,
+        target.userId,
+        {
           can_send_messages: true,
           can_send_audios: true,
           can_send_documents: true,
@@ -210,12 +217,12 @@ function register(bot) {
           can_send_polls: true,
           can_send_other_messages: true,
           can_add_web_page_previews: true,
-          can_change_info: false,
           can_invite_users: true,
-          can_pin_messages: false,
-          can_manage_topics: false,
         },
-      });
+        {
+          use_independent_chat_permissions: true,
+        }
+      );
 
       await ctx.reply(
         `${SYM.DIAMOND} <b>Silencio Removido</b>\n\n` +

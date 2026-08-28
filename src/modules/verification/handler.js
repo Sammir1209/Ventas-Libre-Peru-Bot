@@ -285,8 +285,10 @@ function register(bot) {
 
     // 1. Mute preventivo inmediato estilo Group Help
     try {
-      await ctx.api.restrictChatMember(chatId, userId, {
-        permissions: {
+      await ctx.api.restrictChatMember(
+        chatId,
+        userId,
+        {
           can_send_messages: false,
           can_send_audios: false,
           can_send_documents: false,
@@ -297,9 +299,15 @@ function register(bot) {
           can_send_polls: false,
           can_send_other_messages: false,
           can_add_web_page_previews: false,
+          can_invite_users: false,
+          can_change_info: false,
+          can_pin_messages: false,
+          can_manage_topics: false,
         },
-        use_independent_chat_permissions: true,
-      });
+        {
+          use_independent_chat_permissions: true,
+        }
+      );
       console.log(`✓ Mute preventivo aplicado a ${userId} en ${chatId}`);
     } catch (muteErr) {
       console.warn('⟡ Verificación: Advertencia al mutear preventivamente:', muteErr.message);
@@ -525,8 +533,7 @@ async function unmuteMember(ctx, userId) {
 
   console.log(`⟡ Iniciando proceso de desmuteo para ${userId} en chat ${chatId}...`);
 
-  // Permisos normales de miembro estándar (sin incluir permisos administrativos que causan error 400 en Telegram)
-  const defaultMemberPerms = {
+  const fullMemberPerms = {
     can_send_messages: true,
     can_send_audios: true,
     can_send_documents: true,
@@ -540,50 +547,21 @@ async function unmuteMember(ctx, userId) {
     can_invite_users: true,
   };
 
-  let targetPermissions = { ...defaultMemberPerms };
-
-  // Intentar obtener permisos predeterminados del grupo si están configurados
-  try {
-    const chatInfo = await ctx.api.getChat(chatId);
-    if (chatInfo && chatInfo.permissions) {
-      const cp = chatInfo.permissions;
-      targetPermissions = {
-        can_send_messages: cp.can_send_messages !== false,
-        can_send_audios: cp.can_send_audios !== false,
-        can_send_documents: cp.can_send_documents !== false,
-        can_send_photos: cp.can_send_photos !== false,
-        can_send_videos: cp.can_send_videos !== false,
-        can_send_video_notes: cp.can_send_video_notes !== false,
-        can_send_voice_notes: cp.can_send_voice_notes !== false,
-        can_send_polls: cp.can_send_polls !== false,
-        can_send_other_messages: cp.can_send_other_messages !== false,
-        can_add_web_page_previews: cp.can_add_web_page_previews !== false,
-        can_invite_users: cp.can_invite_users !== false,
-      };
-    }
-  } catch (chatErr) {
-    console.warn(`⟡ Aviso al leer permisos de chat ${chatId}:`, chatErr.message);
-  }
-
   let unmutedSuccessfully = false;
 
   // 1. Intento principal: restrictChatMember con permisos independientes (Bot API 6.5+)
   try {
-    await ctx.api.restrictChatMember(chatId, userId, {
-      permissions: targetPermissions,
+    await ctx.api.restrictChatMember(chatId, userId, fullMemberPerms, {
       use_independent_chat_permissions: true,
     });
     unmutedSuccessfully = true;
-    console.log(`✓ [Intento 1] restrictChatMember exitoso (use_independent_chat_permissions) para ${userId} en ${chatId}`);
+    console.log(`✓ [Intento 1] restrictChatMember exitoso para ${userId} en ${chatId}`);
   } catch (err1) {
     console.warn(`⟡ Falló intento 1 de desmuteo (${err1.message}), probando modo estándar...`);
 
     // 2. Intento secundario: restrictChatMember estándar sin use_independent_chat_permissions
     try {
-      await ctx.api.restrictChatMember(chatId, userId, {
-        permissions: defaultMemberPerms,
-        use_independent_chat_permissions: false,
-      });
+      await ctx.api.restrictChatMember(chatId, userId, fullMemberPerms);
       unmutedSuccessfully = true;
       console.log(`✓ [Intento 2] restrictChatMember estándar exitoso para ${userId} en ${chatId}`);
     } catch (err2) {
@@ -591,9 +569,7 @@ async function unmuteMember(ctx, userId) {
 
       // 3. Intento terciario: únicamente can_send_messages
       try {
-        await ctx.api.restrictChatMember(chatId, userId, {
-          permissions: { can_send_messages: true },
-        });
+        await ctx.api.restrictChatMember(chatId, userId, { can_send_messages: true });
         unmutedSuccessfully = true;
         console.log(`✓ [Intento 3] restrictChatMember mínimo exitoso para ${userId} en ${chatId}`);
       } catch (err3) {
