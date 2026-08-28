@@ -158,6 +158,55 @@ function register(bot) {
     }
   });
 
+  // ── Comando /invite para obtener el enlace de invitación oficial ──
+  bot.command(['invite', 'invitacion', 'enlace', 'link'], async (ctx) => {
+    try {
+      const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
+      const folderLink = config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh';
+      let groupInviteLink = null;
+      let groupTitle = ctx.chat.title || 'Ventas Libres Perú';
+
+      if (isGroup) {
+        if (ctx.chat.username) {
+          groupInviteLink = `https://t.me/${ctx.chat.username}`;
+        } else {
+          try {
+            const created = await ctx.api.createChatInviteLink(ctx.chat.id, {
+              name: 'Invitación Bot',
+            });
+            groupInviteLink = created.invite_link;
+          } catch {
+            try {
+              groupInviteLink = await ctx.api.exportChatInviteLink(ctx.chat.id);
+            } catch {}
+          }
+        }
+      }
+
+      const finalLink = groupInviteLink || folderLink;
+
+      const text =
+        `${SYM.SEAL} <b>ENLACE DE INVITACIÓN</b> ${SYM.BADGE}\n\n` +
+        (isGroup ? `👥 <b>Grupo:</b> ${escapeHtml(groupTitle)}\n\n` : `🇵🇪 <b>Comunidad:</b> Ventas Libres Perú\n\n`) +
+        `🔗 <b>Enlace Oficial:</b>\n<code>${finalLink}</code>\n\n` +
+        `<i>Comparte este enlace para invitar a tus amigos y comerciantes a la comunidad.</i>`;
+
+      const kb = new InlineKeyboard();
+      if (groupInviteLink) {
+        kb.url(`🚀 Entrar al Grupo`, groupInviteLink);
+      }
+      kb.url(`📁 Carpeta Oficial`, folderLink);
+
+      await ctx.reply(text, {
+        parse_mode: 'HTML',
+        reply_markup: kb,
+      });
+    } catch (err) {
+      console.error('⟡ Info: Error en /invite:', err.message);
+      await ctx.reply(`${SYM.CROSS} Error al obtener enlace de invitación.`, { parse_mode: 'HTML' });
+    }
+  });
+
   // ── Callback: Verificar Antecedentes de Estafa (/info) ──
   bot.callbackQuery(/^info_check_burn:(\d+)$/, async (ctx) => {
     try {
