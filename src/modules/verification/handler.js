@@ -310,14 +310,16 @@ function register(bot) {
       await db.upsertUser(userId, username, firstName);
     } catch {}
 
-    // 3. Enviar mensaje de bienvenida con teclado interactivo
+    // 3. Enviar mensaje de bienvenida con teclado interactivo y registrar en pending_verifications
     try {
-      await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName), {
+      const welcomeMsg = await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName), {
         parse_mode: 'HTML',
         reply_markup: welcomeKeyboard(userId),
       });
+      await db.addPendingVerification(chatId, userId, username, firstName, welcomeMsg?.message_id);
     } catch (sendErr) {
       console.error('⟡ Verificación: No se pudo enviar bienvenida:', sendErr.message);
+      await db.addPendingVerification(chatId, userId, username, firstName, null);
     }
   }
 
@@ -610,11 +612,19 @@ async function unmuteMember(ctx, userId) {
     }
   } catch {}
 
-  // 5. Marcar como verificado en Redis y BD
+  // 5. Marcar como verificado en Redis y BD + Quitar de pending_verifications
+  let welcomeMsgId = ctx.callbackQuery?.message?.message_id || null;
   try {
+    const pending = await db.getPendingVerification(chatId, userId);
+    if (pending && pending.welcome_msg_id) {
+      welcomeMsgId = welcomeMsgId || pending.welcome_msg_id;
+    }
+    await db.removePendingVerification(chatId, userId);
     await redisDb.setCache(`verified_user:${userId}`, true, 86400 * 30);
     await db.verifyUser(userId);
-  } catch {}
+  } catch (dbErr) {
+    console.error('⟡ Error actualizando estado de verificación en BD:', dbErr.message);
+  }
 
   // 6. Mensaje de bienvenida y éxito en el chat
   try {
@@ -632,9 +642,9 @@ async function unmuteMember(ctx, userId) {
   }
 
   // 7. Limpiar mensaje de bienvenida original para mantener el grupo limpio
-  if (ctx.callbackQuery?.message?.message_id) {
+  if (welcomeMsgId) {
     try {
-      await ctx.api.deleteMessage(chatId, ctx.callbackQuery.message.message_id);
+      await ctx.api.deleteMessage(chatId, welcomeMsgId);
     } catch {}
   }
 

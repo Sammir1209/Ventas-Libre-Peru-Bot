@@ -92,6 +92,80 @@ async function verifyUser(userId) {
   }
 }
 
+// ══════════════════════════════════════════════════════
+// ⟡ CRUD — Verificaciones Pendientes (Nuevos Miembros)
+// ══════════════════════════════════════════════════════
+
+async function addPendingVerification(chatId, userId, username, firstName, welcomeMsgId = null) {
+  if (useSupabase && supabase) {
+    const { data, error } = await supabase
+      .from('pending_verifications')
+      .upsert(
+        {
+          chat_id: chatId,
+          user_id: userId,
+          username: username || null,
+          first_name: firstName || null,
+          welcome_msg_id: welcomeMsgId,
+          joined_at: new Date().toISOString(),
+        },
+        { onConflict: 'chat_id,user_id' }
+      )
+      .select()
+      .maybeSingle();
+    if (error) console.error('⟡ Supabase addPendingVerification error:', error.message);
+    return data;
+  }
+  if (pool) {
+    const res = await pool.query(
+      `INSERT INTO pending_verifications (chat_id, user_id, username, first_name, welcome_msg_id, joined_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())
+       ON CONFLICT (chat_id, user_id) DO UPDATE SET
+         username = $3, first_name = $4, welcome_msg_id = $5, joined_at = NOW()
+       RETURNING *`,
+      [chatId, userId, username, firstName, welcomeMsgId]
+    );
+    return res.rows[0];
+  }
+  return null;
+}
+
+async function removePendingVerification(chatId, userId) {
+  if (useSupabase && supabase) {
+    let q = supabase.from('pending_verifications').delete().eq('user_id', userId);
+    if (chatId) q = q.eq('chat_id', chatId);
+    const { error } = await q;
+    if (error) console.error('⟡ Supabase removePendingVerification error:', error.message);
+    return;
+  }
+  if (pool) {
+    if (chatId) {
+      await pool.query(`DELETE FROM pending_verifications WHERE chat_id = $1 AND user_id = $2`, [chatId, userId]);
+    } else {
+      await pool.query(`DELETE FROM pending_verifications WHERE user_id = $1`, [userId]);
+    }
+  }
+}
+
+async function getPendingVerification(chatId, userId) {
+  if (useSupabase && supabase) {
+    let q = supabase.from('pending_verifications').select('*').eq('user_id', userId);
+    if (chatId) q = q.eq('chat_id', chatId);
+    const { data, error } = await q.maybeSingle();
+    if (error) console.error('⟡ Supabase getPendingVerification error:', error.message);
+    return data || null;
+  }
+  if (pool) {
+    const query = chatId
+      ? `SELECT * FROM pending_verifications WHERE chat_id = $1 AND user_id = $2`
+      : `SELECT * FROM pending_verifications WHERE user_id = $1`;
+    const params = chatId ? [chatId, userId] : [userId];
+    const res = await pool.query(query, params);
+    return res.rows[0] || null;
+  }
+  return null;
+}
+
 async function getUser(userId) {
   if (useSupabase && supabase) {
     const { data, error } = await supabase
@@ -992,6 +1066,10 @@ module.exports = {
   getUser,
   getUserByUsername,
   searchUsers,
+  // Verificaciones Pendientes
+  addPendingVerification,
+  removePendingVerification,
+  getPendingVerification,
   // Staff
   setStaffRole,
   removeStaff,
