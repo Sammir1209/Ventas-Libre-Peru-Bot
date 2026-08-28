@@ -624,11 +624,11 @@ async function getAdminAvgRating(adminId) {
 // ⟡ CRUD — Grupos Oficiales
 // ══════════════════════════════════════════════════════
 
-async function registerGroup(chatId, title) {
+async function registerGroup(chatId, title, type = 'supergroup', username = null) {
   if (useSupabase && supabase) {
     const { data, error } = await supabase
       .from('official_groups')
-      .upsert({ chat_id: chatId, title }, { onConflict: 'chat_id' })
+      .upsert({ chat_id: chatId, title, type, username }, { onConflict: 'chat_id' })
       .select()
       .maybeSingle();
     if (error) console.error('⟡ Supabase registerGroup error:', error.message);
@@ -636,16 +636,18 @@ async function registerGroup(chatId, title) {
   }
   if (pool) {
     const res = await pool.query(
-      `INSERT INTO official_groups (chat_id, title)
-       VALUES ($1, $2)
-       ON CONFLICT (chat_id) DO UPDATE SET title = $2
+      `INSERT INTO official_groups (chat_id, title, type, username)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (chat_id) DO UPDATE SET title = $2, type = $3, username = $4
        RETURNING *`,
-      [chatId, title]
+      [chatId, title, type, username]
     );
     return res.rows[0];
   }
   return null;
 }
+
+const registerOfficialGroup = registerGroup;
 
 async function removeGroup(chatId) {
   if (useSupabase && supabase) {
@@ -1090,6 +1092,7 @@ module.exports = {
   getAdminAvgRating,
   // Groups
   registerGroup,
+  registerOfficialGroup,
   removeGroup,
   getAllGroups,
   setSetting,

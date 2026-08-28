@@ -302,13 +302,18 @@ function burnStaffReport(reportId, reporterMention, targetId, context) {
   );
 }
 
-function burnAlertBroadcast(targetId) {
-  return (
+function burnAlertBroadcast(targetId, context = null) {
+  let text =
     `${SYM.CROSS} <b>ESTAFADOR QUEMADO</b>\n\n` +
     `ID <code>${targetId}</code> ha sido <b>baneado permanentemente</b> de todos los grupos.\n` +
-    `<b>Motivo:</b> Estafa confirmada por el Staff.\n\n` +
-    `Si tuviste trato con esta persona, contacta al Staff.`
-  );
+    `<b>Motivo:</b> Estafa confirmada por el Staff.\n`;
+
+  if (context) {
+    text += `<b>Detalles:</b> <i>${escapeHtml(context.slice(0, 100))}</i>\n`;
+  }
+
+  text += `\nSi tuviste trato con esta persona, contacta al Staff.`;
+  return text;
 }
 
 function renderStaffList(groupedStaff) {
