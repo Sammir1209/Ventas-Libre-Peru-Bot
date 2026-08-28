@@ -27,14 +27,14 @@ async function buildUserProfile(ctx, targetUser) {
   }
 
   // 1. Obtener rol en el bot
-  let botRole = 'USUARIO (Sin Rango)';
+  let roleKey = 'USER';
   if (config.OWNER_IDS.includes(userId)) {
-    botRole = 'OWNER';
+    roleKey = 'OWNER';
   } else {
     try {
       const staff = await db.getStaffMember(userId);
       if (staff && staff.role) {
-        botRole = staff.role;
+        roleKey = staff.role.toUpperCase();
       }
     } catch {}
   }
@@ -45,42 +45,81 @@ async function buildUserProfile(ctx, targetUser) {
     dealsCount = await db.getUserDealsCount(userId);
   } catch {}
 
-  // 3. Obtener rating si es Trato Admin
-  let ratingText = '';
-  if (botRole === ROLES.DEAL_ADMIN) {
-    try {
-      const ratingData = await db.getAdminAvgRating(userId);
-      const avg = parseFloat(ratingData.avg_rating || 0);
-      const total = ratingData.total_ratings || 0;
-      ratingText = `\n${SYM.ARROW} <b>Reputación:</b> <b>${avg > 0 ? avg.toFixed(1) : '5.0'} / 5.0 ⭐</b> (${total} calificaciones)`;
-    } catch {}
-  }
-
-  // 4. Verificación en BD
-  let isVerifiedText = 'No verificado';
+  // 3. Verificación en BD
+  let isVerified = false;
   try {
     const dbUser = await db.getUser(userId);
     if (dbUser && (dbUser.verified || dbUser.is_verified)) {
-      isVerifiedText = 'Sí ✓';
+      isVerified = true;
     }
   } catch {}
 
-  const userMention = mentionFromData(userId, username, firstName);
+  const userTag = username ? `<code>@${username}</code>` : '<i>Sin @username</i>';
+  const nameFormatted = escapeHtml(firstName || 'Usuario');
+  let text = '';
 
-  const text =
-    `${SYM.DIVIDER}\n` +
-    `${SYM.CROWN} <b>PERFIL OFICIAL DE USUARIO</b> ${SYM.BADGE}\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `${SYM.ARROW} <b>Nombre:</b> <b>${escapeHtml(firstName || 'Usuario')}</b>\n` +
-    `${SYM.ARROW} <b>Usuario:</b> ${username ? `@${username}` : '<i>Sin @username</i>'}\n` +
-    `${SYM.ARROW} <b>ID:</b> <code>${userId}</code>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `${SYM.ARROW} <b>Rango en el Bot:</b> <b>${botRole}</b>\n` +
-    `${SYM.ARROW} <b>Tratos Realizados:</b> <b>${dealsCount} Trato(s)</b>` +
-    ratingText + '\n' +
-    `${SYM.ARROW} <b>Verificado en Canales:</b> <b>${isVerifiedText}</b>\n` +
-    `${SYM.THIN_LINE}\n\n` +
-    `${SYM.STAR} <i>Consulta de antecedentes y registros de estafas:</i>`;
+  if (roleKey === 'OWNER') {
+    text =
+      `👑 <b>PERFIL OFICIAL — PROPIETARIO (OWNER)</b> 👑\n\n` +
+      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
+      `• <b>Usuario:</b> ${userTag}\n` +
+      `• <b>ID:</b> <code>${userId}</code>\n\n` +
+      `⚜️ <b>Rango:</b> <b>Owner / Fundador Principal</b>\n` +
+      `⚡ <b>Jerarquía:</b> <b>Máxima Autoridad Oficial</b>\n` +
+      `🟢 <b>Estado:</b> <b>Directiva General</b>\n\n` +
+      `🛡️ <i>Ventas Libres Perú — Equipo Fundador</i>`;
+  } else if (roleKey === 'CO-OWNER' || roleKey === 'COOWNER') {
+    text =
+      `⚜️ <b>PERFIL OFICIAL — CO-OWNER</b> ⚜️\n\n` +
+      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
+      `• <b>Usuario:</b> ${userTag}\n` +
+      `• <b>ID:</b> <code>${userId}</code>\n\n` +
+      `⚜️ <b>Rango:</b> <b>Co-Propietario</b>\n` +
+      `⚡ <b>Jerarquía:</b> <b>Nivel Superior / Gestión Global</b>\n` +
+      `🟢 <b>Estado:</b> <b>Directiva Oficial</b>\n\n` +
+      `🛡️ <i>Ventas Libres Perú — Equipo Directivo</i>`;
+  } else if (roleKey === 'ADMIN' || roleKey === 'ADMINISTRADOR') {
+    text =
+      `🛡️ <b>PERFIL OFICIAL — ADMINISTRADOR</b> 🛡️\n\n` +
+      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
+      `• <b>Usuario:</b> ${userTag}\n` +
+      `• <b>ID:</b> <code>${userId}</code>\n\n` +
+      `⚔️ <b>Rango:</b> <b>Administrador Oficial</b>\n` +
+      `⚖️ <b>Autoridad:</b> <b>Moderación y Sanciones</b>\n` +
+      `🟢 <b>Estado:</b> <b>Staff Activo</b>\n\n` +
+      `🛡️ <i>Ventas Libres Perú — Equipo de Moderación</i>`;
+  } else if (roleKey === 'TRATO ADMIN' || roleKey === 'TRATOADMIN' || roleKey === ROLES.DEAL_ADMIN) {
+    let rating = '5.0';
+    let totalRatings = 0;
+    try {
+      const rData = await db.getAdminAvgRating(userId);
+      if (rData && rData.avg_rating) rating = parseFloat(rData.avg_rating).toFixed(1);
+      if (rData && rData.total_ratings) totalRatings = rData.total_ratings;
+    } catch {}
+
+    text =
+      `🤝 <b>PERFIL OFICIAL — TRATO ADMIN</b> 🤝\n\n` +
+      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
+      `• <b>Usuario:</b> ${userTag}\n` +
+      `• <b>ID:</b> <code>${userId}</code>\n\n` +
+      `💼 <b>Rango:</b> <b>Mediador Certificado (Escrow)</b>\n` +
+      `📦 <b>Tratos Mediados:</b> <b>${dealsCount} caso(s)</b>\n` +
+      `⭐ <b>Reputación:</b> <b>${rating} / 5.0</b> (${totalRatings} reseñas)\n` +
+      `🟢 <b>Estado:</b> <b>Mediador Verificado</b>\n\n` +
+      `🛡️ <i>Garantía oficial en compras y ventas.</i>`;
+  } else {
+    // USUARIO NORMAL (Limpio, estético y nada recargado)
+    const verifiedStatus = isVerified ? 'Verificado 🟢' : 'Pendiente ⚪';
+    text =
+      `👤 <b>PERFIL DE USUARIO</b>\n\n` +
+      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
+      `• <b>Usuario:</b> ${userTag}\n` +
+      `• <b>ID:</b> <code>${userId}</code>\n\n` +
+      `• <b>Rango:</b> <b>Usuario de la Comunidad</b>\n` +
+      `• <b>Canales:</b> <b>${verifiedStatus}</b>\n` +
+      `• <b>Tratos Realizados:</b> <b>${dealsCount} completado(s)</b>\n\n` +
+      `<i>Consulta de antecedentes y registros de seguridad:</i>`;
+  }
 
   const keyboard = new InlineKeyboard()
     .text('ANTECEDENTES', `info_check_burn:${userId}`).success()

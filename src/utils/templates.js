@@ -107,43 +107,43 @@ function dealDescriptionStepMessage(role, counterpart) {
 function dealSummaryMessage(role, counterpart, description) {
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   return (
-    `${SYM.DIAMOND} <b>CONFIRMAR SOLICITUD</b>\n\n` +
-    `${SYM.ARROW} <b>Rol:</b> ${role}\n` +
-    `${SYM.ARROW} <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart)}</code>\n` +
-    `${SYM.ARROW} <b>Detalles:</b> ${escapeHtml(description)}\n\n` +
-    `¿Enviar solicitud a los Trato Admins?`
+    `${SYM.DIAMOND} <b>CONFIRMAR SOLICITUD DE TRATO</b>\n\n` +
+    `• <b>Tu Rol:</b> ${role}\n` +
+    `• <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart)}</code>\n` +
+    `• <b>Detalles:</b> <i>${escapeHtml(description)}</i>\n\n` +
+    `¿Deseas enviar la solicitud al equipo de mediadores?`
   );
 }
 
 function dealWaitingMessage(dealId, role, counterpart, description) {
   return (
-    `${SYM.DIAMOND} <b>SOLICITUD EN COLA</b> #${dealId}\n\n` +
-    `${SYM.CHECK} ¡Enviada con éxito!\n\n` +
-    `${SYM.ARROW} <b>Rol:</b> ${role}\n` +
-    `${SYM.ARROW} <b>Contraparte:</b> <code>${escapeHtml(counterpart)}</code>\n` +
-    `${SYM.ARROW} <b>Detalles:</b> ${escapeHtml(description)}\n\n` +
-    `Los <b>Trato Admins</b> han sido notificados. Espera a que tomen tu caso.`
+    `${SYM.DIAMOND} <b>SOLICITUD EN COLA #${dealId}</b>\n\n` +
+    `${SYM.CHECK} ¡Solicitud creada con éxito!\n\n` +
+    `• <b>Tu Rol:</b> ${role}\n` +
+    `• <b>Contraparte:</b> <code>${escapeHtml(counterpart)}</code>\n` +
+    `• <b>Detalles:</b> <i>${escapeHtml(description)}</i>\n\n` +
+    `Los <b>Trato Admins</b> han sido notificados. Espera a que un mediador tome tu caso.`
   );
 }
 
 function dealNotifyAdmin(dealId, creatorUsername, creatorId, role, counterpart, description) {
-  const mention = creatorUsername ? `@${creatorUsername}` : `ID: <code>${creatorId}</code>`;
+  const userTag = creatorUsername ? `<code>@${creatorUsername}</code>` : `<code>${creatorId}</code>`;
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   return (
-    `${SYM.DIAMOND} <b>SOLICITUD DE TRATO #${dealId}</b>\n\n` +
-    `${SYM.ARROW} <b>Solicitante:</b> ${mention} (${role || 'N/A'})\n` +
-    `${SYM.ARROW} <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
-    `${SYM.ARROW} <b>Descripción:</b> ${escapeHtml(description || 'Sin especificar')}\n\n` +
-    `Pulsa <b>[ Aceptar Trato ]</b> para tomar este caso.`
+    `${SYM.DIAMOND} <b>NUEVA SOLICITUD DE TRATO #${dealId}</b>\n\n` +
+    `• <b>Solicitante:</b> ${userTag} (${role || 'N/A'})\n` +
+    `• <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
+    `• <b>Descripción:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `<i>Selecciona una opción para gestionar este caso:</i>`
   );
 }
 
 function dealAcceptedGroup(dealId, adminUsername) {
-  const mention = adminUsername ? `@${adminUsername}` : 'Admin';
+  const adminTag = adminUsername ? `<code>@${adminUsername}</code>` : 'un Administrador';
   return (
-    `${SYM.DIAMOND} <b>Trato #${dealId} Aceptado</b>\n\n` +
-    `${SYM.CHECK} <b>${mention}</b> ha tomado este caso.\n` +
-    `Preparando grupo privado...`
+    `${SYM.DIAMOND} <b>TRATO #${dealId} ACEPTADO</b>\n\n` +
+    `${SYM.CHECK} <b>${adminTag}</b> ha tomado la mediación de este caso.\n` +
+    `Preparando sala privada de negociación...`
   );
 }
 
@@ -151,38 +151,40 @@ function dealInviteMessage(dealId, inviteLink, topicLink, counterpart, role, des
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   const cleanCounterpart = (counterpart || 'N/A').startsWith('@') ? counterpart : `@${counterpart}`;
   return (
-    `${SYM.DIAMOND} <b>SALA DE TRATO #${dealId} LISTA</b>\n\n` +
-    `${SYM.ARROW} <b>Rol:</b> ${role}\n` +
-    `${SYM.ARROW} <b>${counterpartRole}:</b> ${cleanCounterpart}\n` +
-    `${SYM.ARROW} <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `${SYM.DIAMOND} <b>SALA DE MEDIACIÓN #${dealId} LISTA</b>\n\n` +
+    `• <b>Tu Rol:</b> ${role}\n` +
+    `• <b>${counterpartRole}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
+    `• <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
     `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala #${dealId} ]</b></a>\n\n` +
-    `El Trato Admin supervisará la entrega y el pago.`
+    `<i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo.</i>`
   );
 }
 
 function dealCounterpartInviteMessage(dealId, inviteLink, creatorMention, myRole, creatorRole, description) {
   return (
-    `${SYM.DIAMOND} <b>SALA DE TRATO #${dealId} LISTA</b>\n\n` +
-    `${SYM.ARROW} <b>Tu Rol:</b> ${myRole}\n` +
-    `${SYM.ARROW} <b>${creatorRole}:</b> ${creatorMention}\n` +
-    `${SYM.ARROW} <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `${SYM.DIAMOND} <b>SALA DE MEDIACIÓN #${dealId} LISTA</b>\n\n` +
+    `• <b>Tu Rol:</b> ${myRole}\n` +
+    `• <b>${creatorRole}:</b> ${creatorMention}\n` +
+    `• <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
     `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala #${dealId} ]</b></a>\n\n` +
-    `El Trato Admin supervisará la entrega y el pago.`
+    `<i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo.</i>`
   );
 }
 
 function dealTopicWelcomeBanner(dealId, creatorMention, counterpart, adminMention, description, role) {
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   return (
-    `${SYM.DIAMOND} <b>SALA DE MEDIACIÓN — TRATO #${dealId}</b>\n\n` +
-    `${SYM.ARROW} <b>${role}:</b> ${creatorMention}\n` +
-    `${SYM.ARROW} <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
-    `${SYM.ARROW} <b>Admin:</b> ${adminMention}\n` +
-    `${SYM.ARROW} <b>Descripción:</b> ${escapeHtml(description || 'Sin especificar')}\n\n` +
-    `<b>Reglas:</b>\n` +
-    `${SYM.BULLET} Toda evidencia va en este hilo.\n` +
-    `${SYM.BULLET} Comprador paga al Admin, vendedor entrega tras confirmación.\n` +
-    `${SYM.BULLET} Al finalizar, el Admin cierra el hilo.`
+    `${SYM.DIAMOND} <b>SALA OFICIAL DE MEDIACIÓN — TRATO #${dealId}</b>\n\n` +
+    `• <b>${role}:</b> ${creatorMention}\n` +
+    `• <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
+    `• <b>Mediador:</b> ${adminMention}\n` +
+    `• <b>Detalles del Trato:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `${SYM.THIN_LINE}\n` +
+    `📌 <b>Protocolo de Seguridad:</b>\n` +
+    `1. Toda comunicación y comprobantes deben enviarse en este hilo.\n` +
+    `2. El Comprador paga directamente al Mediador (Trato Admin).\n` +
+    `3. El Vendedor entrega el producto únicamente tras confirmación del Mediador.\n` +
+    `4. Al finalizar con éxito, el Mediador libera los fondos y cierra el hilo.`
   );
 }
 
@@ -218,12 +220,12 @@ function escrowGroupNoPermissionError() {
 }
 
 function dealRatingMessage(dealId, adminUsername) {
-  const mention = adminUsername ? `@${adminUsername}` : 'el Trato Admin';
+  const adminTag = adminUsername ? `<code>@${adminUsername}</code>` : 'el Trato Admin';
   return (
     `${SYM.DIAMOND} <b>CALIFICAR SERVICIO</b> — Trato #${dealId}\n\n` +
-    `${SYM.CHECK} Trato completado con éxito.\n` +
-    `<b>Mediador:</b> ${mention}\n\n` +
-    `¿Cómo calificarías la atención?`
+    `${SYM.CHECK} <b>¡Trato completado con éxito!</b>\n` +
+    `<b>Mediador:</b> ${adminTag}\n\n` +
+    `¿Cómo calificarías la atención del mediador?`
   );
 }
 
