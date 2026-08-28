@@ -67,11 +67,12 @@ function dealWaitingKeyboard(dealId) {
 }
 
 /**
- * Teclado para que un admin acepte un trato.
+ * Teclado para que un admin acepte o rechace un trato.
  */
 function dealAcceptKeyboard(dealId) {
   return new InlineKeyboard()
-    .text(`⟡ Aceptar Trato`, `${CB.DEAL_ACCEPT}${dealId}`).success();
+    .text(`✓ Aceptar`, `${CB.DEAL_ACCEPT}${dealId}`).success()
+    .text(`✗ Rechazar`, `deal_reject:${dealId}`).danger();
 }
 
 /**

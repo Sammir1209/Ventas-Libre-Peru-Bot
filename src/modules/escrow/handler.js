@@ -242,6 +242,25 @@ function register(bot) {
     }
   });
 
+  // ── Comando /guia_trato /infotrato /guiatrato (Explicación detallada del Trato Admin) ──
+  bot.command(['guia_trato', 'guiatrato', 'infotrato', 'comotrato', 'como_funciona_trato'], async (ctx) => {
+    try {
+      let botUsername = 'ventas_libres_peru_Bot';
+      try {
+        const me = await ctx.api.getMe();
+        if (me?.username) botUsername = me.username;
+      } catch {}
+
+      await ctx.reply(templates.dealDetailedInfoMessage(), {
+        parse_mode: 'HTML',
+        reply_markup: new InlineKeyboard()
+          .url('🚀 Iniciar Trato Admin', `https://t.me/${botUsername}?start=tratoadm`),
+      });
+    } catch (err) {
+      console.error('⟡ Escrow: Error en /guia_trato:', err.message);
+    }
+  });
+
   // ── Callback: Info del Trato Admin (Edición in-place) ──
   bot.callbackQuery(CB.DEAL_INFO, async (ctx) => {
     try {
@@ -331,6 +350,28 @@ function register(bot) {
           return ctx.reply(`${SYM.CROSS} Ingresa un @usuario o ID válido.`, { parse_mode: 'HTML' });
         }
 
+        // 🚨 Verificar si la contraparte es un estafador registrado en Lista Negra
+        const cleanTarget = text.replace(/^@/, '').trim();
+        const isNumeric = /^\d+$/.test(cleanTarget);
+        let isBurned = false;
+        try {
+          if (isNumeric) {
+            isBurned = await db.isUserBurned(Number(cleanTarget), null);
+          } else {
+            isBurned = await db.isUserBurned(null, cleanTarget);
+          }
+        } catch {}
+
+        if (isBurned) {
+          await clearDealForm(userId);
+          return ctx.reply(
+            `${SYM.CROSS} <b>ALERTA DE ESTAFADOR DETECTADO</b>\n\n` +
+            `El usuario <code>${escapeHtml(text)}</code> está registrado en la <b>Lista Negra Oficial de Estafadores</b>.\n\n` +
+            `${SYM.WARNING} <i>Por tu seguridad, no puedes iniciar tratos con esta persona. Solicitud cancelada.</i>`,
+            { parse_mode: 'HTML' }
+          );
+        }
+
         form.counterpart = text;
         form.step = 'AWAIT_DESCRIPTION';
         await setDealForm(userId, form);
@@ -374,6 +415,14 @@ function register(bot) {
         if (!text || text.length < 5) {
           return ctx.reply(
             `${SYM.CROSS} La descripción debe tener al menos <b>5 caracteres</b>.`,
+            { parse_mode: 'HTML' }
+          );
+        }
+
+        if (text.length > 150) {
+          return ctx.reply(
+            `${SYM.CROSS} La descripción es muy larga (máximo <b>150 caracteres</b>). Tu texto tiene ${text.length} caracteres.\n\n` +
+            `<i>Por favor escribe un resumen más corto:</i>`,
             { parse_mode: 'HTML' }
           );
         }
@@ -545,6 +594,62 @@ function register(bot) {
       });
     } catch (err) {
       console.error('⟡ Escrow: Error en deal_cancel_pending:', err.message);
+    }
+  });
+
+  // ── Callback: Staff rechaza trato ──
+  bot.callbackQuery(/^deal_reject:(\d+)$/, async (ctx) => {
+    try {
+      const dealId = parseInt(ctx.match[1]);
+      const adminId = ctx.from.id;
+      const adminName = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Admin');
+
+      // 1. Verificar que sea Staff autorizado
+      const isStaff = await isStaffMember(adminId);
+      if (!isStaff) {
+        return ctx.answerCallbackQuery({
+          text: '✗ Solo los miembros del Staff pueden rechazar este trato.',
+          show_alert: true,
+        });
+      }
+
+      // 2. Verificar que el trato esté pendiente
+      const deal = await db.getDeal(dealId);
+      if (!deal || deal.status !== 'PENDING') {
+        return ctx.answerCallbackQuery({
+          text: '✗ Este trato ya fue procesado o no existe.',
+          show_alert: true,
+        });
+      }
+
+      // 3. Cancelar trato en BD y Redis
+      await dealQueue.cancelDeal(dealId);
+      await db.updateDealStatus(dealId, 'CANCELLED');
+
+      await ctx.answerCallbackQuery({ text: '✗ Trato rechazado.' });
+
+      // 4. Editar mensaje en el canal/grupo de Staff
+      try {
+        await ctx.editMessageText(
+          `${SYM.CROSS} <b>Trato #${dealId} Rechazado</b>\n\n` +
+          `${SYM.ARROW} <b>Rechazado por:</b> ${adminName}\n` +
+          `${SYM.ARROW} <b>Estado:</b> 🔴 Cancelado`,
+          { parse_mode: 'HTML' }
+        );
+      } catch {}
+
+      // 5. Notificar al creador del trato por privado
+      try {
+        await ctx.api.sendMessage(
+          deal.creator_id,
+          `${SYM.CROSS} <b>TU SOLICITUD DE TRATO #${dealId} HA SIDO RECHAZADA</b>\n\n` +
+          `El Staff no puede intermediar este trato en este momento.\n\n` +
+          `<i>Si consideras que fue un error, consulta con el /staff oficial.</i>`,
+          { parse_mode: 'HTML' }
+        );
+      } catch {}
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_reject:', err.message);
     }
   });
 
