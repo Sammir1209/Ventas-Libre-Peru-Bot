@@ -3,10 +3,11 @@ const db = require('../../database/postgres');
 const supabaseStorage = require('../../database/supabase');
 const config = require('../../config/env');
 const templates = require('../../utils/templates');
-const { escapeHtml } = require('../../utils/formatting');
+const { escapeHtml, mentionFromData } = require('../../utils/formatting');
 const { CB, SYM } = require('../../config/constants');
 const {
   burnTargetTypeKeyboard,
+  burnCancelOnlyKeyboard,
   burnProofUploadKeyboard,
   burnSummaryKeyboard,
   burnEditMenuKeyboard,
@@ -61,6 +62,42 @@ function getMimeType(filePath) {
   return mimeMap[ext] || 'image/jpeg';
 }
 
+/**
+ * Edita el mensaje maestro in-place para no generar spam ni múltiples mensajes en el chat.
+ */
+async function updateMasterMessage(ctx, state, text, keyboard) {
+  const chatId = ctx.chat.id;
+  const messageId = state?.masterMessageId;
+
+  if (messageId) {
+    try {
+      await ctx.api.editMessageText(chatId, messageId, text, {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      });
+      return messageId;
+    } catch (err) {
+      if (!err.message?.includes('message is not modified')) {
+        console.warn('⟡ Error editando master message de quemar:', err.message);
+      } else {
+        return messageId;
+      }
+    }
+  }
+
+  const newMsg = await ctx.reply(text, {
+    parse_mode: 'HTML',
+    reply_markup: keyboard,
+  });
+
+  if (state) {
+    state.masterMessageId = newMsg.message_id;
+    await redisDb.setBurnState(ctx.from.id, state);
+  }
+
+  return newMsg.message_id;
+}
+
 function register(bot) {
   // ── Comando /quemar (Chat Privado o Redirección) ──
   bot.command('quemar', async (ctx) => {
@@ -77,7 +114,7 @@ function register(bot) {
 
         return ctx.reply(
           `${SYM.DIVIDER}\n` +
-          `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFADORES (/QUEMAR)</b> ${SYM.DIAMOND}\n` +
+          `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS (/QUEMAR)</b> ${SYM.DIAMOND}\n` +
           `${SYM.DIVIDER}\n\n` +
           `${SYM.ARROW} Por motivos de <b>seguridad y confidencialidad</b>, los reportes de estafa se realizan <b>exclusivamente por mensaje privado (DM)</b> con el bot.\n\n` +
           `${SYM.THIN_LINE}\n` +
@@ -94,20 +131,23 @@ function register(bot) {
 
       const userId = ctx.from.id;
 
-      // Iniciar estado en Redis
+      const initialMsg = await ctx.reply(templates.burnInitialPrompt(), {
+        parse_mode: 'HTML',
+        reply_markup: burnTargetTypeKeyboard(),
+      });
+
+      // Iniciar estado en Redis guardando el ID del mensaje maestro
       await redisDb.setBurnState(userId, {
         step: BURN_STATES.CHOOSE_TYPE,
         targetId: null,
         targetUsername: null,
+        targetName: null,
         targetLabel: null,
         context: null,
         proofs: [],
         proofUrls: [],
-      });
-
-      await ctx.reply(templates.burnInitialPrompt(), {
-        parse_mode: 'HTML',
-        reply_markup: burnTargetTypeKeyboard(),
+        masterMessageId: initialMsg.message_id,
+        chatId: ctx.chat.id,
       });
     } catch (err) {
       console.error('⟡ Burn: Error en /quemar:', err.message);
@@ -121,12 +161,10 @@ function register(bot) {
       const userId = ctx.from.id;
       const state = (await redisDb.getBurnState(userId)) || {};
       state.step = BURN_STATES.AWAIT_ID;
+      state.masterMessageId = ctx.callbackQuery.message?.message_id || state.masterMessageId;
       await redisDb.setBurnState(userId, state);
 
-      await ctx.editMessageText(templates.burnAskIdPrompt(), {
-        parse_mode: 'HTML',
-        reply_markup: new InlineKeyboard().text('CANCELAR', 'burn_cancel').danger(),
-      });
+      await updateMasterMessage(ctx, state, templates.burnAskIdPrompt(), burnCancelOnlyKeyboard());
     } catch (err) {
       console.error('⟡ Burn: Error en burn_type:id:', err.message);
     }
@@ -138,12 +176,10 @@ function register(bot) {
       const userId = ctx.from.id;
       const state = (await redisDb.getBurnState(userId)) || {};
       state.step = BURN_STATES.AWAIT_USERNAME;
+      state.masterMessageId = ctx.callbackQuery.message?.message_id || state.masterMessageId;
       await redisDb.setBurnState(userId, state);
 
-      await ctx.editMessageText(templates.burnAskUsernamePrompt(), {
-        parse_mode: 'HTML',
-        reply_markup: new InlineKeyboard().text('CANCELAR', 'burn_cancel').danger(),
-      });
+      await updateMasterMessage(ctx, state, templates.burnAskUsernamePrompt(), burnCancelOnlyKeyboard());
     } catch (err) {
       console.error('⟡ Burn: Error en burn_type:username:', err.message);
     }
@@ -155,19 +191,24 @@ function register(bot) {
       const userId = ctx.from.id;
       await redisDb.clearBurnState(userId);
       await ctx.answerCallbackQuery({ text: 'Reporte cancelado.' });
-      await ctx.editMessageText(
+
+      const cancelText =
         `${SYM.DIVIDER}\n` +
-        `${SYM.CROSS} <b>REPORTE CANCELADO</b> ${SYM.CROSS}\n` +
+        `${SYM.CROSS} <b>REPORTE CANCELADO</b>\n` +
         `${SYM.DIVIDER}\n\n` +
-        `${SYM.STAR} La operación fue cancelada. Puedes iniciar una nueva en cualquier momento con <code>/quemar</code>.`,
-        { parse_mode: 'HTML' }
-      );
+        `La operación fue cancelada. Puedes iniciar un nuevo reporte cuando gustes con <code>/quemar</code>.`;
+
+      try {
+        await ctx.editMessageText(cancelText, { parse_mode: 'HTML' });
+      } catch {
+        await ctx.reply(cancelText, { parse_mode: 'HTML' });
+      }
     } catch (err) {
       console.error('⟡ Burn: Error en burn_cancel:', err.message);
     }
   });
 
-  // ── Listener de Mensajes de Texto y Fotos (Flujo Conversacional) ──
+  // ── Listener de Mensajes de Texto y Fotos (Flujo Conversacional con Auto-Limpieza) ──
   bot.on('message', async (ctx, next) => {
     if (ctx.chat.type !== 'private') return next();
 
@@ -180,22 +221,31 @@ function register(bot) {
     }
     if (!state) return next();
 
+    // Borrar el mensaje del usuario de inmediato para mantener limpio el chat
+    try {
+      await ctx.deleteMessage();
+    } catch {}
+
     try {
       switch (state.step) {
         // ── Paso 1A: Recibir ID Numérico ──
         case BURN_STATES.AWAIT_ID: {
           const text = ctx.message.text?.trim();
           if (!text || !/^\d+$/.test(text)) {
-            return ctx.reply(
-              `${SYM.CROSS} El ID debe contener <b>únicamente números</b>.\n` +
-              `<i>Ejemplo: <code>8579513055</code></i>`,
-              { parse_mode: 'HTML' }
-            );
+            const errPrompt =
+              `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+              `⚠️ <b>Error:</b> El ID debe contener <b>únicamente números</b>.\n` +
+              `<i>Ejemplo: <code>8579513055</code></i>`;
+            return updateMasterMessage(ctx, state, errPrompt, burnCancelOnlyKeyboard());
           }
 
           const targetId = parseInt(text);
           if (targetId === userId) {
-            return ctx.reply(`${SYM.CROSS} No puedes reportarte a ti mismo.`, { parse_mode: 'HTML' });
+            const errSelf =
+              `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+              `⚠️ No puedes reportarte a ti mismo.\n` +
+              `Ingresa el ID del usuario acusado:`;
+            return updateMasterMessage(ctx, state, errSelf, burnCancelOnlyKeyboard());
           }
 
           // Resolver automáticamente username y nombre asociado al ID
@@ -221,7 +271,7 @@ function register(bot) {
 
           const targetLabel = targetUsername
             ? `@${targetUsername} (<code>${targetId}</code>)`
-            : (targetName ? `<code>${targetId}</code> (${targetName})` : `<code>${targetId}</code>`);
+            : (targetName ? `<code>${targetId}</code> (${escapeHtml(targetName)})` : `<code>${targetId}</code>`);
 
           state.targetId = targetId;
           state.targetUsername = targetUsername;
@@ -230,9 +280,12 @@ function register(bot) {
           state.step = BURN_STATES.AWAIT_CONTEXT;
           await redisDb.setBurnState(userId, state);
 
-          await ctx.reply(templates.burnContextPrompt(state.targetLabel), {
-            parse_mode: 'HTML',
-          });
+          await updateMasterMessage(
+            ctx,
+            state,
+            templates.burnContextPrompt(state.targetLabel),
+            burnCancelOnlyKeyboard()
+          );
           break;
         }
 
@@ -240,7 +293,10 @@ function register(bot) {
         case BURN_STATES.AWAIT_USERNAME: {
           const text = ctx.message.text?.trim();
           if (!text) {
-            return ctx.reply(`${SYM.CROSS} Por favor, ingresa el <b>@Username</b> del acusado.`, { parse_mode: 'HTML' });
+            const errUser =
+              `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+              `⚠️ Por favor, ingresa el <b>@Username</b> del acusado:`;
+            return updateMasterMessage(ctx, state, errUser, burnCancelOnlyKeyboard());
           }
 
           const cleanUser = text.replace(/^@/, '');
@@ -267,7 +323,11 @@ function register(bot) {
           } catch {}
 
           if (targetId && targetId === userId) {
-            return ctx.reply(`${SYM.CROSS} No puedes reportarte a ti mismo.`, { parse_mode: 'HTML' });
+            const errSelf =
+              `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+              `⚠️ No puedes reportarte a ti mismo.\n` +
+              `Ingresa el @Username del acusado:`;
+            return updateMasterMessage(ctx, state, errSelf, burnCancelOnlyKeyboard());
           }
 
           const targetLabel = targetId
@@ -281,9 +341,12 @@ function register(bot) {
           state.step = BURN_STATES.AWAIT_CONTEXT;
           await redisDb.setBurnState(userId, state);
 
-          await ctx.reply(templates.burnContextPrompt(state.targetLabel), {
-            parse_mode: 'HTML',
-          });
+          await updateMasterMessage(
+            ctx,
+            state,
+            templates.burnContextPrompt(state.targetLabel),
+            burnCancelOnlyKeyboard()
+          );
           break;
         }
 
@@ -291,21 +354,24 @@ function register(bot) {
         case BURN_STATES.AWAIT_CONTEXT: {
           const text = ctx.message.text?.trim();
           if (!text || text.length < 15) {
-            return ctx.reply(
-              `${SYM.CROSS} La descripción debe tener al menos <b>15 caracteres</b>.\n` +
-              `${SYM.ARROW} Por favor, explica lo sucedido con claridad.`,
-              { parse_mode: 'HTML' }
-            );
+            const errLen =
+              `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+              `👤 <b>Acusado:</b> ${state.targetLabel}\n\n` +
+              `⚠️ <b>Texto demasiado corto.</b> La descripción debe tener al menos <b>15 caracteres</b>.\n\n` +
+              `Describe detalladamente qué sucedió (monto, método de pago, engaño):`;
+            return updateMasterMessage(ctx, state, errLen, burnCancelOnlyKeyboard());
           }
 
-          state.context = text;
+          state.context = text.slice(0, 400);
           state.step = BURN_STATES.AWAIT_PROOF;
           await redisDb.setBurnState(userId, state);
 
-          await ctx.reply(templates.burnProofPrompt(state.targetLabel, state.proofs?.length || 0), {
-            parse_mode: 'HTML',
-            reply_markup: burnProofUploadKeyboard(),
-          });
+          await updateMasterMessage(
+            ctx,
+            state,
+            templates.burnProofPrompt(state.targetLabel, state.context, state.proofs?.length || 0),
+            burnProofUploadKeyboard(state.proofs?.length > 0)
+          );
           break;
         }
 
@@ -316,18 +382,21 @@ function register(bot) {
           if (ctx.message.photo) {
             const photo = ctx.message.photo[ctx.message.photo.length - 1];
             fileId = photo.file_id;
-          } else if (ctx.message.document) {
+          } else if (ctx.message.document && ctx.message.document.mime_type?.startsWith('image/')) {
             fileId = ctx.message.document.file_id;
           }
 
           if (!fileId) {
-            return ctx.reply(
-              `${SYM.CROSS} Debes enviar una <b>imagen / captura de pantalla</b>.\n` +
-              `» Cuando termines de enviar todas tus capturas, presiona el botón <b>[ Listo, revisar reporte ]</b>.`,
-              {
-                parse_mode: 'HTML',
-                reply_markup: burnProofUploadKeyboard(),
-              }
+            const errPhoto =
+              `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+              `👤 <b>Acusado:</b> ${state.targetLabel}\n\n` +
+              `⚠️ Por favor, envía una <b>imagen o captura de pantalla</b> válida.\n` +
+              `📸 <b>Capturas subidas:</b> <b>${state.proofs?.length || 0}</b>`;
+            return updateMasterMessage(
+              ctx,
+              state,
+              errPhoto,
+              burnProofUploadKeyboard(state.proofs?.length > 0)
             );
           }
 
@@ -351,13 +420,11 @@ function register(bot) {
 
           await redisDb.setBurnState(userId, state);
 
-          await ctx.reply(
-            `${SYM.CHECK} <b>Captura #${state.proofs.length} recibida con éxito ✓</b>\n\n` +
-            `${SYM.ARROW} Puedes enviar más capturas o presionar <b>[ Listo, revisar reporte ]</b>.`,
-            {
-              parse_mode: 'HTML',
-              reply_markup: burnProofUploadKeyboard(),
-            }
+          await updateMasterMessage(
+            ctx,
+            state,
+            templates.burnProofPrompt(state.targetLabel, state.context, state.proofs.length),
+            burnProofUploadKeyboard(true)
           );
           break;
         }
@@ -371,7 +438,7 @@ function register(bot) {
     }
   });
 
-  // ── Callback: Revisar Reporte (Genera el Resumen con botones Editar, Cancelar, Quemar) ──
+  // ── Callback: Revisar Reporte (Resumen Final In-Place) ──
   bot.callbackQuery('burn_review', async (ctx) => {
     try {
       const userId = ctx.from.id;
@@ -384,45 +451,44 @@ function register(bot) {
         });
       }
 
-      // Validar que tenga al menos 1 prueba
       const proofCount = state.proofs?.length || 0;
       if (proofCount === 0) {
         return ctx.answerCallbackQuery({
-          text: '⚠️ Es obligatorio adjuntar al menos 1 imagen o captura de prueba antes de continuar.',
+          text: '⚠️ Es obligatorio adjuntar al menos 1 captura de prueba antes de continuar.',
           show_alert: true,
         });
       }
 
       await ctx.answerCallbackQuery();
       state.step = BURN_STATES.SUMMARY;
+      state.masterMessageId = ctx.callbackQuery.message?.message_id || state.masterMessageId;
       await redisDb.setBurnState(userId, state);
 
-      await ctx.reply(
+      await updateMasterMessage(
+        ctx,
+        state,
         templates.burnSummaryMessage(state.targetLabel, state.context, proofCount),
-        {
-          parse_mode: 'HTML',
-          reply_markup: burnSummaryKeyboard(),
-        }
+        burnSummaryKeyboard()
       );
     } catch (err) {
       console.error('⟡ Burn: Error en burn_review:', err.message);
     }
   });
 
-  // ── Callback: Menú de Edición ──
+  // ── Callback: Menú de Edición In-Place ──
   bot.callbackQuery('burn_edit_menu', async (ctx) => {
     try {
       await ctx.answerCallbackQuery();
-      await ctx.editMessageText(
+      const userId = ctx.from.id;
+      const state = (await redisDb.getBurnState(userId)) || {};
+
+      const editMenuText =
         `${SYM.DIVIDER}\n` +
-        `${SYM.DIAMOND} <b>MENÚ DE EDICIÓN DEL REPORTE</b> ${SYM.DIAMOND}\n` +
+        `${SYM.DIAMOND} <b>EDICIÓN DEL REPORTE</b> ${SYM.DIAMOND}\n` +
         `${SYM.DIVIDER}\n\n` +
-        `${SYM.STAR} ¿Qué campo deseas modificar?`,
-        {
-          parse_mode: 'HTML',
-          reply_markup: burnEditMenuKeyboard(),
-        }
-      );
+        `Selecciona el dato que deseas modificar:`;
+
+      await updateMasterMessage(ctx, state, editMenuText, burnEditMenuKeyboard());
     } catch (err) {
       console.error('⟡ Burn: Error en burn_edit_menu:', err.message);
     }
@@ -436,16 +502,7 @@ function register(bot) {
       state.step = BURN_STATES.CHOOSE_TYPE;
       await redisDb.setBurnState(userId, state);
 
-      await ctx.editMessageText(
-        `${SYM.DIVIDER}\n` +
-        `${SYM.DIAMOND} <b>EDITAR ACUSADO</b> ${SYM.DIAMOND}\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.STAR} Selecciona el nuevo método de identificación:`,
-        {
-          parse_mode: 'HTML',
-          reply_markup: burnTargetTypeKeyboard(),
-        }
-      );
+      await updateMasterMessage(ctx, state, templates.burnInitialPrompt(), burnTargetTypeKeyboard());
     } catch (err) {
       console.error('⟡ Burn: Error en burn_edit:target:', err.message);
     }
@@ -459,9 +516,12 @@ function register(bot) {
       state.step = BURN_STATES.AWAIT_CONTEXT;
       await redisDb.setBurnState(userId, state);
 
-      await ctx.editMessageText(templates.burnContextPrompt(state.targetLabel || 'Acusado'), {
-        parse_mode: 'HTML',
-      });
+      await updateMasterMessage(
+        ctx,
+        state,
+        templates.burnContextPrompt(state.targetLabel || 'Acusado'),
+        burnCancelOnlyKeyboard()
+      );
     } catch (err) {
       console.error('⟡ Burn: Error en burn_edit:context:', err.message);
     }
@@ -477,16 +537,17 @@ function register(bot) {
       state.step = BURN_STATES.AWAIT_PROOF;
       await redisDb.setBurnState(userId, state);
 
-      await ctx.editMessageText(
-        `${SYM.DIVIDER}\n` +
-        `${SYM.DIAMOND} <b>REEMPLAZAR PRUEBAS</b> ${SYM.DIAMOND}\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.STAR} Las capturas anteriores fueron borradas.\n` +
-        `${SYM.ARROW} Envía las nuevas imágenes o capturas ahora:`,
-        {
-          parse_mode: 'HTML',
-          reply_markup: burnProofUploadKeyboard(),
-        }
+      const resetProofPrompt =
+        `${SYM.DIAMOND} <b>REEMPLAZAR CAPTURAS</b>\n\n` +
+        `Las capturas anteriores fueron eliminadas.\n` +
+        `Envía las nuevas imágenes ahora:\n\n` +
+        `📸 <b>Capturas subidas:</b> <b>0</b>`;
+
+      await updateMasterMessage(
+        ctx,
+        state,
+        resetProofPrompt,
+        burnProofUploadKeyboard(false)
       );
     } catch (err) {
       console.error('⟡ Burn: Error en burn_edit:proofs:', err.message);
@@ -503,12 +564,11 @@ function register(bot) {
       state.step = BURN_STATES.SUMMARY;
       await redisDb.setBurnState(userId, state);
 
-      await ctx.editMessageText(
+      await updateMasterMessage(
+        ctx,
+        state,
         templates.burnSummaryMessage(state.targetLabel, state.context, state.proofs?.length || 0),
-        {
-          parse_mode: 'HTML',
-          reply_markup: burnSummaryKeyboard(),
-        }
+        burnSummaryKeyboard()
       );
     } catch (err) {
       console.error('⟡ Burn: Error en burn_edit:back:', err.message);
@@ -548,13 +608,13 @@ function register(bot) {
         report = { id: Date.now() };
       }
 
-      // Limpiar estado
+      // Limpiar estado en Redis
       await redisDb.clearBurnState(userId);
 
-      // Confirmar al usuario en DM
-      await ctx.editMessageText(templates.burnSentMessage(), { parse_mode: 'HTML' });
+      // Confirmar al usuario en DM actualizando su mensaje maestro
+      await updateMasterMessage(ctx, state, templates.burnSentMessage(report.id), undefined);
 
-      // Enviar al canal/hilo de Staff / Quemar
+      // Enviar al canal/hilo de Staff
       const burnDestChat = config.BURN_CHAT_ID || config.STAFF_CHAT_ID;
       const burnDestThread = config.BURN_THREAD_ID || (burnDestChat === config.STAFF_CHAT_ID ? config.STAFF_THREAD_ID : null);
 
@@ -571,10 +631,16 @@ function register(bot) {
           });
         }
 
-        const reportCaption = templates.burnStaffReport(report.id, reporterMention, state.targetLabel, state.context) + extraProofUrls;
+        const reportCaption = templates.burnStaffReport(
+          report.id,
+          reporterMention,
+          state.targetLabel,
+          state.context,
+          proofFileIds.length
+        ) + extraProofUrls;
+
         const staffKb = burnStaffKeyboard(report.id);
 
-        // Envío Inteligente: Si hay 1 sola captura, enviamos 1 ÚNICO mensaje fotográfico con caption y botones
         if (proofFileIds.length === 1) {
           try {
             await ctx.api.sendPhoto(burnDestChat, proofFileIds[0], {
@@ -584,7 +650,7 @@ function register(bot) {
               ...(burnDestThread ? { message_thread_id: burnDestThread } : {}),
             });
           } catch (pErr) {
-            console.warn('⟡ Error enviando foto con caption a staff, usando texto:', pErr.message);
+            console.warn('⟡ Error enviando foto a staff, usando texto:', pErr.message);
             await ctx.api.sendMessage(burnDestChat, reportCaption, {
               parse_mode: 'HTML',
               reply_markup: staffKb,
@@ -592,7 +658,6 @@ function register(bot) {
             });
           }
         } else if (proofFileIds.length > 1) {
-          // Si hay varias capturas, enviamos el álbum primero y el panel de control abajo
           const mediaGroup = proofFileIds.slice(0, 10).map((fId) => ({
             type: 'photo',
             media: fId,
@@ -616,212 +681,7 @@ function register(bot) {
     }
   });
 
-  // ── Callbacks de Moderación para el Staff ──
-  bot.callbackQuery(/^burn_approve:(\d+)$/, async (ctx) => {
-    try {
-      const reportId = parseInt(ctx.match[1]);
-      const reviewerId = ctx.from.id;
-
-      // Verificar que sea Staff u Owner
-      const isOwner = config.OWNER_IDS.includes(reviewerId);
-      const staffMember = await db.getStaffMember(reviewerId);
-      if (!isOwner && !staffMember) {
-        return ctx.answerCallbackQuery({ text: '✗ No tienes permisos.', show_alert: true });
-      }
-
-      await ctx.answerCallbackQuery({ text: '🔥 Aprobando reporte y quemando estafador...' });
-
-      const report = await db.getBurnReport(reportId);
-      if (!report || report.status !== 'PENDING') {
-        return ctx.editMessageText('⚠️ Este reporte ya fue procesado.', { parse_mode: 'HTML' });
-      }
-
-      await db.updateBurnReportStatus(reportId, 'APPROVED', reviewerId);
-
-      // ── Generar Banner Visual de Perfil del Estafador y Publicar ──
-      (async () => {
-        try {
-          let targetName = 'Estafador';
-          let targetUsername = null;
-          let targetBio = null;
-          let avatarBuffer = null;
-
-          if (report.target_id) {
-            try {
-              const chatInfo = await ctx.api.getChat(report.target_id);
-              targetName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ') || 'Estafador';
-              targetUsername = chatInfo.username || null;
-              targetBio = chatInfo.bio || null;
-            } catch {}
-
-            try {
-              const userPhotos = await ctx.api.getUserProfilePhotos(report.target_id, { limit: 1 });
-              if (userPhotos && userPhotos.total_count > 0) {
-                const largestPhoto = userPhotos.photos[0][userPhotos.photos[0].length - 1];
-                const { buffer } = await downloadTelegramFile(ctx.api, largestPhoto.file_id);
-                avatarBuffer = buffer;
-              }
-            } catch {}
-
-            // Guardar en burned_users con username y nombre
-            await db.burnUser(report.target_id, report.reporter_id, report.context, reviewerId, targetUsername, targetName);
-          }
-
-          // Generar Tarjeta Visual de Perfil
-          const { generateScammerCard } = require('../../utils/scammerCard');
-          const cardBuffer = await generateScammerCard({
-            name: targetName,
-            username: targetUsername,
-            id: report.target_id,
-            bio: targetBio,
-            avatarBuffer: avatarBuffer,
-          });
-
-          // Texto de Publicación Oficial
-          const publicCaption =
-            `${SYM.DIVIDER}\n` +
-            `🚨 <b>NUEVO ESTAFADOR QUEMADO Y REGISTRADO</b> 🚨\n` +
-            `${SYM.DIVIDER}\n\n` +
-            `👤 <b>Nombre:</b> <b>${escapeHtml(targetName)}</b>\n` +
-            (targetUsername ? `🔗 <b>Username:</b> @${targetUsername}\n` : '') +
-            `🆔 <b>ID de Telegram:</b> <code>${report.target_id}</code>\n\n` +
-            `📝 <b>Motivo / Hechos:</b>\n` +
-            `<i>${escapeHtml(report.context || 'Estafa comprobada')}</i>\n\n` +
-            `${SYM.THIN_LINE}\n` +
-            `⚖️ <b>Sanción:</b> Baneo Permanente y Registro en Lista Negra Oficial.\n` +
-            `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`;
-
-          let pubChannel = config.PUBLIC_BURN_CHANNEL_ID;
-          let pubThread = config.PUBLIC_BURN_THREAD_ID;
-
-          if (!pubChannel) {
-            try {
-              const savedChan = await db.getSetting('public_burn_channel_id');
-              if (savedChan) pubChannel = Number(savedChan);
-              const savedTh = await db.getSetting('public_burn_thread_id');
-              if (savedTh) pubThread = Number(savedTh);
-            } catch {}
-          }
-
-          // Publicar en Canal Oficial de Quemados
-          if (pubChannel) {
-            try {
-              const cardFile = new InputFile(cardBuffer, 'perfil_estafador.png');
-              const targetChannelId = Number(pubChannel);
-
-              if (report.proof_file_ids && report.proof_file_ids.length > 0) {
-                const media = [
-                  InputMediaBuilder.photo(cardFile, { caption: publicCaption, parse_mode: 'HTML' }),
-                  ...report.proof_file_ids.slice(0, 9).map(fId => InputMediaBuilder.photo(fId)),
-                ];
-
-                await ctx.api.sendMediaGroup(targetChannelId, media, {
-                  ...(pubThread ? { message_thread_id: Number(pubThread) } : {}),
-                });
-              } else {
-                await ctx.api.sendPhoto(targetChannelId, cardFile, {
-                  caption: publicCaption,
-                  parse_mode: 'HTML',
-                  ...(pubThread ? { message_thread_id: Number(pubThread) } : {}),
-                });
-              }
-              console.log(`✓ Reporte #${reportId} publicado con Banner de Perfil en canal oficial de quemados (${pubChannel}).`);
-            } catch (pubErr) {
-              console.warn('⟡ Error publicando en canal de quemados:', pubErr.message);
-            }
-          }
-        } catch (cardErr) {
-          console.error('⟡ Error en background scammer card generator:', cardErr.message);
-        }
-      })();
-
-      const approvedBanner =
-        `${SYM.DIVIDER}\n` +
-        `🔥 <b>ESTAFADOR QUEMADO Y REGISTRADO EN LISTA NEGRA</b> 🔥\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.CHECK} <b>Reporte:</b> #${reportId}\n` +
-        `${SYM.CHECK} <b>Aprobado por:</b> @${ctx.from.username || ctx.from.first_name}\n` +
-        `${SYM.ARROW} <b>Estado:</b> Baneo global, banner de perfil generado y publicado en el canal oficial.\n\n` +
-        `${SYM.THIN_LINE}`;
-
-      try {
-        await ctx.editMessageCaption({ caption: approvedBanner, parse_mode: 'HTML' });
-      } catch {
-        try {
-          await ctx.editMessageText(approvedBanner, { parse_mode: 'HTML' });
-        } catch {}
-      }
-    } catch (err) {
-      console.error('⟡ Error en burn_approve:', err.message);
-    }
-  });
-
-  bot.callbackQuery(/^burn_reject:(\d+)$/, async (ctx) => {
-    try {
-      const reportId = parseInt(ctx.match[1]);
-      const reviewerId = ctx.from.id;
-
-      const isOwner = config.OWNER_IDS.includes(reviewerId);
-      const staffMember = await db.getStaffMember(reviewerId);
-      if (!isOwner && !staffMember) {
-        return ctx.answerCallbackQuery({ text: '✗ No tienes permisos.', show_alert: true });
-      }
-
-      await ctx.answerCallbackQuery({ text: 'Reporte rechazado.' });
-      await db.updateBurnReportStatus(reportId, 'REJECTED', reviewerId);
-
-      const rejectedBanner =
-        `${SYM.DIVIDER}\n` +
-        `✗ <b>REPORTE DE ESTAFA RECHAZADO</b> ✗\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.ARROW} <b>Reporte:</b> #${reportId}\n` +
-        `${SYM.ARROW} <b>Revisado por:</b> @${ctx.from.username || ctx.from.first_name}\n` +
-        `${SYM.ARROW} <b>Motivo:</b> Pruebas insuficientes o caso no verificado.\n\n` +
-        `${SYM.THIN_LINE}`;
-
-      try {
-        await ctx.editMessageCaption({ caption: rejectedBanner, parse_mode: 'HTML' });
-      } catch {
-        try {
-          await ctx.editMessageText(rejectedBanner, { parse_mode: 'HTML' });
-        } catch {}
-      }
-    } catch (err) {
-      console.error('⟡ Error en burn_reject:', err.message);
-    }
-  });
-
-  bot.callbackQuery(/^burn_ban_reporter:(\d+)$/, async (ctx) => {
-    try {
-      const reportId = parseInt(ctx.match[1]);
-      const reviewerId = ctx.from.id;
-
-      const isOwner = config.OWNER_IDS.includes(reviewerId);
-      if (!isOwner) {
-        return ctx.answerCallbackQuery({ text: '✗ Solo Owners pueden sancionar reportantes.', show_alert: true });
-      }
-
-      const report = await db.getBurnReport(reportId);
-      if (!report) return ctx.answerCallbackQuery({ text: 'Reporte no encontrado.' });
-
-      await db.updateBurnReportStatus(reportId, 'REJECTED', reviewerId);
-      await db.burnUser(report.reporter_id, reviewerId, 'Falso reporte / intento de desprestigio', reviewerId);
-
-      await ctx.answerCallbackQuery({ text: 'Reportante sancionado y quemado.' });
-      const bannedBanner = `⚠️ <b>Reportante sancionado por reporte falso.</b>`;
-      try {
-        await ctx.editMessageCaption({ caption: bannedBanner, parse_mode: 'HTML' });
-      } catch {
-        try {
-          await ctx.editMessageText(bannedBanner, { parse_mode: 'HTML' });
-        } catch {}
-      }
-    } catch (err) {
-      console.error('⟡ Error en burn_ban_reporter:', err.message);
-    }
-  });
-
-  // ── /banner [ID / @username / Responder] (Previsualizar banner de prueba de estafador) ──
+  // ── /banner /canvas (Previsualizar banner de prueba de estafador) ──
   bot.command(['banner', 'canvas', 'card', 'perfil'], async (ctx) => {
     try {
       const { resolveTarget } = require('../../utils/helpers');
@@ -829,7 +689,6 @@ function register(bot) {
 
       let targetUser = await resolveTarget(ctx);
 
-      // Si no especificó argumento ni respondió, usar el propio usuario que ejecutó el comando
       if (!targetUser || !targetUser.userId) {
         targetUser = {
           userId: ctx.from.id,
@@ -881,7 +740,7 @@ function register(bot) {
           (targetUsername ? `🔗 <b>Username:</b> @${targetUsername}\n` : '') +
           `🆔 <b>ID:</b> <code>${targetUser.userId}</code>\n` +
           (targetBio ? `📝 <b>Bio:</b> <i>${escapeHtml(targetBio)}</i>\n` : '') +
-          `\n${SYM.STAR} <i>Este es el formato exacto con el que se publica en el canal oficial de quemados.</i>`,
+          `\n${SYM.STAR} <i>Este es el formato oficial con el que se publica en el canal de quemados.</i>`,
         parse_mode: 'HTML',
       });
 
@@ -908,21 +767,18 @@ function register(bot) {
         return next();
       }
 
-      // Si es un comando (/...), dejar que lo manejen los handlers de comandos
       if (text.startsWith('/')) {
         return next();
       }
 
-      // Normalizar texto sin acentos para coincidencia precisa
       const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-
       const matched = SCAM_PATTERNS.some((pattern) => pattern.test(normalized));
+
       if (matched) {
         const userId = ctx.from.id;
         const chatId = ctx.chat.id;
         const cooldownKey = `scam_reply_cd:${chatId}:${userId}`;
 
-        // Cooldown de 60 segundos por usuario en el grupo para evitar saturación
         const inCooldown = await redisDb.getCache(cooldownKey);
         if (!inCooldown) {
           await redisDb.setCache(cooldownKey, true, 60);

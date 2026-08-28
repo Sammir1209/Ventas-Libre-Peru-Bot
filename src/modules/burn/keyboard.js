@@ -13,12 +13,22 @@ function burnTargetTypeKeyboard() {
 }
 
 /**
+ * Teclado durante la espera de ID o Username o Contexto.
+ */
+function burnCancelOnlyKeyboard() {
+  return new InlineKeyboard().text('CANCELAR', 'burn_cancel').danger();
+}
+
+/**
  * Teclado durante la subida de pruebas/capturas.
  */
-function burnProofUploadKeyboard() {
-  return new InlineKeyboard()
-    .text('REVISAR', 'burn_review').primary()
-    .text('CANCELAR', 'burn_cancel').danger();
+function burnProofUploadKeyboard(hasProofs = false) {
+  const kb = new InlineKeyboard();
+  if (hasProofs) {
+    kb.text('CONTINUAR', 'burn_review').primary();
+  }
+  kb.text('CANCELAR', 'burn_cancel').danger();
+  return kb;
 }
 
 /**
@@ -26,7 +36,7 @@ function burnProofUploadKeyboard() {
  */
 function burnSummaryKeyboard() {
   return new InlineKeyboard()
-    .text('QUEMAR', 'burn_confirm_send').success()
+    .text('QUEMAR', 'burn_confirm_send').danger()
     .text('EDITAR', 'burn_edit_menu').primary()
     .row()
     .text('CANCELAR', 'burn_cancel').danger();
@@ -59,6 +69,7 @@ function burnStaffKeyboard(reportId) {
 
 module.exports = {
   burnTargetTypeKeyboard,
+  burnCancelOnlyKeyboard,
   burnProofUploadKeyboard,
   burnSummaryKeyboard,
   burnEditMenuKeyboard,

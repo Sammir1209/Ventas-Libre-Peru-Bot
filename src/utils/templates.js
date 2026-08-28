@@ -233,72 +233,77 @@ function dealCancelledMessage(dealId) {
 
 function burnInitialPrompt() {
   return (
-    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFADORES</b>\n\n` +
-    `${SYM.WARNING} El uso falso resulta en <b>Baneo Global Permanente</b>.\n` +
-    `Solo procede con <b>pruebas reales</b>.\n\n` +
-    `<b>Paso 1/3:</b> ¿Cómo identificar al acusado?`
+    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+    `<i>El uso indebido o reportes falsos resultan en Baneo Global Permanente.</i>\n\n` +
+    `<b>Paso 1/3:</b> Selecciona cómo identificar al acusado:`
   );
 }
 
 function burnAskIdPrompt() {
   return (
-    `${SYM.DIAMOND} <b>IDENTIFICAR POR ID</b>\n\n` +
-    `Envía el <b>ID numérico</b> del acusado:\n` +
-    `<i>Ej: <code>8579513055</code></i>`
+    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+    `<b>Paso 1/3:</b> Envía el <b>ID numérico</b> del acusado.\n` +
+    `<i>Ejemplo: <code>8579513055</code></i>`
   );
 }
 
 function burnAskUsernamePrompt() {
   return (
-    `${SYM.DIAMOND} <b>IDENTIFICAR POR @USERNAME</b>\n\n` +
-    `Envía el <b>@Username</b> del acusado:\n` +
-    `<i>Ej: <code>@usuario_estafador</code></i>`
+    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+    `<b>Paso 1/3:</b> Envía el <b>@Username</b> del acusado.\n` +
+    `<i>Ejemplo: <code>@usuario_estafador</code></i>`
   );
 }
 
 function burnContextPrompt(targetLabel) {
   return (
-    `${SYM.DIAMOND} <b>DETALLES DE LA ESTAFA</b>\n\n` +
-    `${SYM.CHECK} <b>Acusado:</b> ${targetLabel}\n\n` +
-    `<b>Paso 2/3:</b> Describe lo que sucedió (monto, cómo fue el engaño, datos extra).\n\n` +
-    `<i>Escribe todo en un solo mensaje.</i>`
+    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+    `👤 <b>Acusado:</b> ${targetLabel}\n\n` +
+    `<b>Paso 2/3:</b> Describe detalladamente lo sucedido (monto, método de engaño, fechas).\n` +
+    `<i>(Mínimo 15 caracteres | Máximo 400 caracteres)</i>`
   );
 }
 
-function burnProofPrompt(targetLabel, proofsCount = 0) {
+function burnProofPrompt(targetLabel, contextSnippet, proofsCount = 0) {
   return (
-    `${SYM.DIAMOND} <b>EVIDENCIAS (OBLIGATORIO)</b>\n\n` +
-    `<b>Acusado:</b> ${targetLabel} | <b>Capturas:</b> ${proofsCount}\n\n` +
-    `<b>Paso 3/3:</b> Envía capturas de comprobantes de pago y conversaciones.\n` +
-    `<b>Mínimo 1 captura obligatoria.</b>`
+    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
+    `👤 <b>Acusado:</b> ${targetLabel}\n` +
+    `📝 <b>Hechos:</b> <i>${escapeHtml(contextSnippet.slice(0, 80))}${contextSnippet.length > 80 ? '...' : ''}</i>\n\n` +
+    `<b>Paso 3/3:</b> Envía tus capturas o comprobantes de pago como imagen.\n` +
+    `📸 <b>Capturas subidas:</b> <b>${proofsCount}</b> <i>(Mínimo 1 obligatoria)</i>\n\n` +
+    `<i>Cuando termines de enviar todas tus capturas, presiona <b>[ CONTINUAR ]</b>.</i>`
   );
 }
 
 function burnSummaryMessage(targetLabel, context, proofsCount) {
   return (
-    `${SYM.DIAMOND} <b>RESUMEN DEL REPORTE</b>\n\n` +
+    `${SYM.DIAMOND} <b>RESUMEN DEL REPORTE ANTI-ESTAFAS</b>\n\n` +
     `👤 <b>Acusado:</b> ${targetLabel}\n` +
-    `📸 <b>Pruebas:</b> ${proofsCount} captura(s)\n\n` +
-    `📝 <b>Hechos:</b>\n<i>${escapeHtml(context)}</i>\n\n` +
-    `Si todo es correcto, pulsa <b>[ Quemar ]</b>.`
+    `📸 <b>Evidencias:</b> <b>${proofsCount} captura(s)</b>\n\n` +
+    `📝 <b>Descripción de los Hechos:</b>\n<i>${escapeHtml(context)}</i>\n\n` +
+    `${SYM.THIN_LINE}\n` +
+    `⚠️ <i>Al presionar <b>[ QUEMAR ]</b>, el reporte se enviará al equipo de moderación para su investigación y baneo global.</i>`
   );
 }
 
-function burnSentMessage() {
+function burnSentMessage(reportId = '') {
+  const idText = reportId ? ` #${reportId}` : '';
   return (
-    `${SYM.CHECK} <b>REPORTE ENVIADO</b>\n\n` +
-    `Tu denuncia y pruebas fueron enviadas al Staff.\n` +
-    `<i>Gracias por mantener segura la comunidad.</i>`
+    `${SYM.CHECK} <b>REPORTE ENVIADO AL STAFF${idText}</b>\n\n` +
+    `Tu denuncia y pruebas han sido recibidas por los moderadores de <b>Ventas Libres Perú</b>.\n\n` +
+    `<i>Revisaremos tu caso a la brevedad. Gracias por mantener segura la comunidad. 🇵🇪</i>`
   );
 }
 
-function burnStaffReport(reportId, reporterMention, targetId, context) {
+function burnStaffReport(reportId, reporterMention, targetLabel, context, proofsCount = 0) {
   return (
-    `${SYM.DIAMOND} <b>REPORTE DE ESTAFA</b> #${reportId}\n\n` +
+    `${SYM.DIAMOND} <b>REPORTE DE ESTAFA #${reportId}</b>\n\n` +
     `${SYM.ARROW} <b>Reportante:</b> ${reporterMention}\n` +
-    `${SYM.ARROW} <b>Acusado:</b> <code>${targetId}</code>\n\n` +
-    `<b>Contexto:</b>\n${escapeHtml(context)}\n\n` +
-    `<b>Acciones del Staff:</b>`
+    `${SYM.ARROW} <b>Acusado:</b> ${targetLabel}\n` +
+    `${SYM.ARROW} <b>Evidencias:</b> <code>${proofsCount} captura(s)</code>\n\n` +
+    `📝 <b>Contexto / Hechos:</b>\n<i>${escapeHtml(context)}</i>\n\n` +
+    `${SYM.THIN_LINE}\n` +
+    `<b>Acciones de Moderación:</b>`
   );
 }
 
