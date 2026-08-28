@@ -3,6 +3,7 @@ const config = require('../../config/env');
 const { generateAiResponse } = require('./service');
 const { getSessionHistory, addMessageToSession, clearSession } = require('./memory');
 const redisDb = require('../../database/redis');
+const db = require('../../database/postgres');
 
 // ── Mensajes Variados y Dinámicos de Espera (Estilo Barrio / Comunidad) ──
 const THINKING_MESSAGES = [
@@ -18,6 +19,52 @@ function getRandomThinkingMessage() {
   return THINKING_MESSAGES[Math.floor(Math.random() * THINKING_MESSAGES.length)];
 }
 
+/**
+ * Verifica si el mensaje actual proviene de un grupo o hilo de Trato Admin (Escrow) o Staff.
+ * La IA queda completamente DESACTIVADA en estos espacios para no interrumpir negociaciones.
+ */
+async function isEscrowOrStaffContext(ctx) {
+  const chatId = ctx.chat?.id;
+  const threadId = ctx.message?.message_thread_id;
+
+  if (!chatId) return false;
+
+  // 1. Grupo oficial de Escrow / Tratos
+  if (config.ESCROW_GROUP_ID && chatId === config.ESCROW_GROUP_ID) {
+    return true;
+  }
+
+  // 2. Chat configurado en base de datos como grupo de tratos
+  try {
+    const savedEscrowId = (await redisDb.getCache('escrow_group_id')) || (await db.getSetting('escrow_group_id'));
+    if (savedEscrowId && Number(savedEscrowId) === chatId) {
+      return true;
+    }
+  } catch {}
+
+  // 3. Hilo específico registrado como sala de un trato activo
+  if (threadId) {
+    try {
+      const dealId = await redisDb.getCache(`thread_deal:${threadId}`);
+      if (dealId) return true;
+    } catch {}
+  }
+
+  // 4. Grupo o Hilos de Staff
+  if (config.STAFF_CHAT_ID && chatId === config.STAFF_CHAT_ID) {
+    return true;
+  }
+
+  try {
+    const savedStaffChat = await db.getSetting('staff_chat_id');
+    if (savedStaffChat && Number(savedStaffChat) === chatId) {
+      return true;
+    }
+  } catch {}
+
+  return false;
+}
+
 function register(bot) {
   let botUsername = 'ventas_libres_peru_Bot';
   bot.api.getMe().then((me) => {
@@ -26,6 +73,11 @@ function register(bot) {
 
   // ── Función Central para Procesar Consultas de IA ──
   async function handleAiQuery(ctx, promptText) {
+    // 0. Bloqueo estricto: silenciar IA si se encuentra en un hilo/grupo de Trato Admin o Staff
+    if (await isEscrowOrStaffContext(ctx)) {
+      return;
+    }
+
     const userId = ctx.from.id;
     const cleanPrompt = promptText.trim();
     if (!cleanPrompt) return;
@@ -211,6 +263,11 @@ function register(bot) {
     }
 
     // 2. En grupos: responder si mencionan al bot o responden a un mensaje del bot
+    // Ignorar si el mensaje se envió dentro de un grupo o hilo de Trato Admin o Staff
+    if (await isEscrowOrStaffContext(ctx)) {
+      return next();
+    }
+
     const isBotMentioned = text.toLowerCase().includes(`@${botUsername.toLowerCase()}`);
     const isReplyToBot = ctx.message.reply_to_message?.from?.is_bot && ctx.message.reply_to_message?.from?.username?.toLowerCase() === botUsername.toLowerCase();
 
