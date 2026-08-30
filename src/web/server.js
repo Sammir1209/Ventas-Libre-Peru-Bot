@@ -39,6 +39,16 @@ function createWebApp() {
   // Servir archivos estáticos del panel web
   app.use(express.static(path.join(__dirname, 'public')));
 
+  // ── Health Check Endpoint (Render & UptimeRobot) ──
+  app.get('/health', (req, res) => {
+    res.json({
+      status: 'ok',
+      bot: 'Ventas Libres Perú SaaS',
+      uptime: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   // ── API: Probar Token con Telegram ──
   app.post('/api/test-token', async (req, res) => {
     try {
