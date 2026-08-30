@@ -319,21 +319,21 @@ async function unburnUser(userId) {
 // ⟡ CRUD — Staff
 // ══════════════════════════════════════════════════════
 
-async function setStaffRole(userId, username, firstName, role, assignedBy) {
+async function setStaffRole(userId, username, firstName, role, assignedBy, customTitle = null) {
   if (useSupabase && supabase) {
+    const payload = {
+      user_id: userId,
+      username: username || null,
+      first_name: firstName || null,
+      role,
+      assigned_by: assignedBy,
+      assigned_at: new Date().toISOString(),
+    };
+    if (customTitle) payload.custom_title = customTitle;
+
     const { data, error } = await supabase
       .from('staff')
-      .upsert(
-        {
-          user_id: userId,
-          username: username || null,
-          first_name: firstName || null,
-          role,
-          assigned_by: assignedBy,
-          assigned_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
+      .upsert(payload, { onConflict: 'user_id' })
       .select()
       .maybeSingle();
     if (error) console.error('⟡ Supabase setStaffRole error:', error.message);
@@ -341,12 +341,12 @@ async function setStaffRole(userId, username, firstName, role, assignedBy) {
   }
   if (pool) {
     const res = await pool.query(
-      `INSERT INTO staff (user_id, username, first_name, role, assigned_by, assigned_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
+      `INSERT INTO staff (user_id, username, first_name, role, custom_title, assigned_by, assigned_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
        ON CONFLICT (user_id) DO UPDATE SET
-         username = $2, first_name = $3, role = $4, assigned_by = $5, assigned_at = NOW()
+         username = $2, first_name = $3, role = $4, custom_title = COALESCE($5, staff.custom_title), assigned_by = $6, assigned_at = NOW()
        RETURNING *`,
-      [userId, username, firstName, role, assignedBy]
+      [userId, username, firstName, role, customTitle, assignedBy]
     );
     return res.rows[0];
   }

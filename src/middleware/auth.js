@@ -7,19 +7,29 @@ const { ROLES } = require('../config/constants');
 // ══════════════════════════════════════════════════════
 
 /**
- * Verifica que el usuario sea Owner del bot.
+ * Verifica que el usuario sea Owner del bot (por .env o en base de datos).
  */
 function requireOwner() {
   return async (ctx, next) => {
     const userId = ctx.from?.id;
-    if (!userId || !config.OWNER_IDS.includes(userId)) {
-      return ctx.reply(
-        '⟡ <b>Acceso Denegado</b>\n\n' +
-        '✧ Este comando es exclusivo para <b>Owners</b> del bot.',
-        { parse_mode: 'HTML' }
-      );
+    if (!userId) return;
+
+    if (config.OWNER_IDS.includes(userId)) return next();
+
+    const member = await db.getStaffMember(userId);
+    if (member && member.role) {
+      const rolesUpper = member.role.toUpperCase();
+      if (rolesUpper.includes('OWNER') && !rolesUpper.includes('CO-OWNER') && !rolesUpper.includes('COOWNER')) {
+        ctx.staffRole = member.role;
+        return next();
+      }
     }
-    return next();
+
+    return ctx.reply(
+      '⟡ <b>Acceso Denegado</b>\n\n' +
+      '✧ Este comando es exclusivo para <b>Owners</b> del bot.',
+      { parse_mode: 'HTML' }
+    );
   };
 }
 
@@ -31,11 +41,10 @@ function requireStaff() {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    // Owners siempre pasan
     if (config.OWNER_IDS.includes(userId)) return next();
 
     const member = await db.getStaffMember(userId);
-    if (!member) {
+    if (!member || !member.role) {
       return ctx.reply(
         '⟡ <b>Acceso Denegado</b>\n\n' +
         '✧ Este comando requiere permisos de <b>Staff</b>.',
@@ -56,20 +65,22 @@ function requireDealAdmin() {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    // Owners siempre pasan
     if (config.OWNER_IDS.includes(userId)) return next();
 
     const member = await db.getStaffMember(userId);
-    if (!member || member.role !== ROLES.DEAL_ADMIN) {
-      return ctx.reply(
-        '⟡ <b>Acceso Denegado</b>\n\n' +
-        '✧ Este comando requiere el rol de <b>Trato Admin</b>.',
-        { parse_mode: 'HTML' }
-      );
+    if (member && member.role) {
+      const r = member.role.toUpperCase();
+      if (r.includes('TRATO ADMIN') || r.includes('TRATOADMIN') || r.includes(ROLES.DEAL_ADMIN) || r.includes('OWNER')) {
+        ctx.staffRole = member.role;
+        return next();
+      }
     }
 
-    ctx.staffRole = member.role;
-    return next();
+    return ctx.reply(
+      '⟡ <b>Acceso Denegado</b>\n\n' +
+      '✧ Este comando requiere el rol de <b>Trato Admin</b>.',
+      { parse_mode: 'HTML' }
+    );
   };
 }
 
@@ -84,16 +95,19 @@ function requireOwnerOrCoOwner() {
     if (config.OWNER_IDS.includes(userId)) return next();
 
     const member = await db.getStaffMember(userId);
-    if (!member || (member.role !== ROLES.CO_OWNER && member.role !== ROLES.OWNER)) {
-      return ctx.reply(
-        '⟡ <b>Acceso Denegado</b>\n\n' +
-        '✧ Este comando requiere permisos de <b>Owner</b> o <b>Co-Owner</b>.',
-        { parse_mode: 'HTML' }
-      );
+    if (member && member.role) {
+      const r = member.role.toUpperCase();
+      if (r.includes('OWNER') || r.includes('CO-OWNER') || r.includes('COOWNER')) {
+        ctx.staffRole = member.role;
+        return next();
+      }
     }
 
-    ctx.staffRole = member.role;
-    return next();
+    return ctx.reply(
+      '⟡ <b>Acceso Denegado</b>\n\n' +
+      '✧ Este comando requiere permisos de <b>Owner</b> o <b>Co-Owner</b>.',
+      { parse_mode: 'HTML' }
+    );
   };
 }
 

@@ -26,18 +26,20 @@ async function buildUserProfile(ctx, targetUser) {
     } catch {}
   }
 
-  // 1. Obtener rol en el bot
-  let roleKey = 'USER';
+  // 1. Obtener rol y custom title en BD
+  let rolesList = [];
+  let customTitle = null;
   if (config.OWNER_IDS.includes(userId)) {
-    roleKey = 'OWNER';
-  } else {
-    try {
-      const staff = await db.getStaffMember(userId);
-      if (staff && staff.role) {
-        roleKey = staff.role.toUpperCase();
-      }
-    } catch {}
+    rolesList = ['OWNER'];
   }
+  try {
+    const staff = await db.getStaffMember(userId);
+    if (staff && staff.role) {
+      const parsed = staff.role.split(',').map((r) => r.trim().toUpperCase());
+      rolesList = Array.from(new Set([...rolesList, ...parsed]));
+      customTitle = staff.custom_title || null;
+    }
+  } catch {}
 
   // 2. Obtener conteo de tratos
   let dealsCount = 0;
@@ -45,7 +47,19 @@ async function buildUserProfile(ctx, targetUser) {
     dealsCount = await db.getUserDealsCount(userId);
   } catch {}
 
-  // 3. Verificación en BD
+  // 3. Rating si es trato admin
+  let rating = '5.0';
+  let totalRatings = 0;
+  const isDealAdmin = rolesList.some((r) => r.includes('TRATO ADMIN') || r.includes('TRATOADMIN'));
+  if (isDealAdmin) {
+    try {
+      const rData = await db.getAdminAvgRating(userId);
+      if (rData && rData.avg_rating) rating = parseFloat(rData.avg_rating).toFixed(1);
+      if (rData && rData.total_ratings) totalRatings = rData.total_ratings;
+    } catch {}
+  }
+
+  // 4. Verificación en BD
   let isVerified = false;
   try {
     const dbUser = await db.getUser(userId);
@@ -58,55 +72,47 @@ async function buildUserProfile(ctx, targetUser) {
   const nameFormatted = escapeHtml(firstName || 'Usuario');
   let text = '';
 
-  if (roleKey === 'OWNER') {
-    text =
-      `👑 <b>PERFIL OFICIAL — PROPIETARIO (OWNER)</b> 👑\n\n` +
-      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
-      `• <b>Usuario:</b> ${userTag}\n` +
-      `• <b>ID:</b> <code>${userId}</code>\n\n` +
-      `⚜️ <b>Rango:</b> <b>Owner / Fundador Principal</b>\n` +
-      `⚡ <b>Jerarquía:</b> <b>Máxima Autoridad Oficial</b>\n` +
-      `🟢 <b>Estado:</b> <b>Directiva General</b>\n\n` +
-      `🛡️ <i>Ventas Libres Perú — Equipo Fundador</i>`;
-  } else if (roleKey === 'CO-OWNER' || roleKey === 'COOWNER') {
-    text =
-      `⚜️ <b>PERFIL OFICIAL — CO-OWNER</b> ⚜️\n\n` +
-      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
-      `• <b>Usuario:</b> ${userTag}\n` +
-      `• <b>ID:</b> <code>${userId}</code>\n\n` +
-      `⚜️ <b>Rango:</b> <b>Co-Propietario</b>\n` +
-      `⚡ <b>Jerarquía:</b> <b>Nivel Superior / Gestión Global</b>\n` +
-      `🟢 <b>Estado:</b> <b>Directiva Oficial</b>\n\n` +
-      `🛡️ <i>Ventas Libres Perú — Equipo Directivo</i>`;
-  } else if (roleKey === 'ADMIN' || roleKey === 'ADMINISTRADOR') {
-    text =
-      `🛡️ <b>PERFIL OFICIAL — ADMINISTRADOR</b> 🛡️\n\n` +
-      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
-      `• <b>Usuario:</b> ${userTag}\n` +
-      `• <b>ID:</b> <code>${userId}</code>\n\n` +
-      `⚔️ <b>Rango:</b> <b>Administrador Oficial</b>\n` +
-      `⚖️ <b>Autoridad:</b> <b>Moderación y Sanciones</b>\n` +
-      `🟢 <b>Estado:</b> <b>Staff Activo</b>\n\n` +
-      `🛡️ <i>Ventas Libres Perú — Equipo de Moderación</i>`;
-  } else if (roleKey === 'TRATO ADMIN' || roleKey === 'TRATOADMIN' || roleKey === ROLES.DEAL_ADMIN) {
-    let rating = '5.0';
-    let totalRatings = 0;
-    try {
-      const rData = await db.getAdminAvgRating(userId);
-      if (rData && rData.avg_rating) rating = parseFloat(rData.avg_rating).toFixed(1);
-      if (rData && rData.total_ratings) totalRatings = rData.total_ratings;
-    } catch {}
+  if (rolesList.length > 0) {
+    // Es Staff (Puede tener 1 o múltiples roles)
+    const isOwner = rolesList.includes('OWNER');
+    const isCoOwner = rolesList.includes('CO-OWNER') || rolesList.includes('COOWNER');
+    const isAdmin = rolesList.includes('ADMIN') || rolesList.includes('ADMINISTRADOR');
+
+    let headerIcon = '🛡️';
+    let headerTitle = 'STAFF OFICIAL';
+    if (isOwner) {
+      headerIcon = '👑';
+      headerTitle = 'PROPIETARIO (OWNER)';
+    } else if (isCoOwner) {
+      headerIcon = '⚜️';
+      headerTitle = 'CO-OWNER';
+    } else if (isDealAdmin && !isAdmin) {
+      headerIcon = '🤝';
+      headerTitle = 'TRATO ADMIN OFICIAL';
+    } else if (isAdmin) {
+      headerIcon = '⚔️';
+      headerTitle = 'ADMINISTRADOR OFICIAL';
+    }
 
     text =
-      `🤝 <b>PERFIL OFICIAL — TRATO ADMIN</b> 🤝\n\n` +
+      `${headerIcon} <b>PERFIL OFICIAL — ${headerTitle}</b> ${headerIcon}\n\n` +
       `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
       `• <b>Usuario:</b> ${userTag}\n` +
       `• <b>ID:</b> <code>${userId}</code>\n\n` +
-      `💼 <b>Rango:</b> <b>Mediador Certificado (Escrow)</b>\n` +
-      `📦 <b>Tratos Mediados:</b> <b>${dealsCount} caso(s)</b>\n` +
-      `⭐ <b>Reputación:</b> <b>${rating} / 5.0</b> (${totalRatings} reseñas)\n` +
-      `🟢 <b>Estado:</b> <b>Mediador Verificado</b>\n\n` +
-      `🛡️ <i>Garantía oficial en compras y ventas.</i>`;
+      `⚜️ <b>Roles Asignados:</b> <b>${rolesList.join(' + ')}</b>\n` +
+      (customTitle ? `🏷️ <b>Tag en Grupos:</b> <code>${escapeHtml(customTitle)}</code>\n` : '');
+
+    if (isDealAdmin) {
+      text +=
+        `💼 <b>Mediaciones Realizadas:</b> <b>${dealsCount} caso(s)</b>\n` +
+        `⭐ <b>Reputación de Mediador:</b> <b>${rating} / 5.0</b> (${totalRatings} reseñas)\n`;
+    } else {
+      text += `📦 <b>Tratos Realizados:</b> <b>${dealsCount} caso(s)</b>\n`;
+    }
+
+    text +=
+      `🟢 <b>Estado:</b> <b>Miembro del Staff Activo</b>\n\n` +
+      `🛡️ <i>Ventas Libres Perú — Equipo Oficial</i>`;
   } else {
     // USUARIO NORMAL (Limpio, estético y nada recargado)
     const verifiedStatus = isVerified ? 'Verificado 🟢' : 'Pendiente ⚪';
