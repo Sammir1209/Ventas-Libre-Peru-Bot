@@ -29,3 +29,16 @@ CREATE TABLE IF NOT EXISTS sub_bots (
 -- Índices para búsqueda rápida
 CREATE INDEX IF NOT EXISTS idx_sub_bots_status ON sub_bots(plan_status);
 CREATE INDEX IF NOT EXISTS idx_sub_bots_bot_username ON sub_bots(bot_username);
+
+-- Aislamiento Multi-Tenant en Tablas Principales (Cada Sub-Bot tiene sus propios datos)
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+ALTER TABLE deals ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+ALTER TABLE admin_ratings ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+ALTER TABLE bot_settings ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+ALTER TABLE user_warnings ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+
+-- Índices Multi-Tenant
+CREATE INDEX IF NOT EXISTS idx_staff_tenant ON staff(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_deals_tenant ON deals(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_groups_tenant ON groups(tenant_id);

@@ -6,17 +6,26 @@ const { ROLES } = require('../config/constants');
 // ⟡ Middleware de Autenticación y Roles
 // ══════════════════════════════════════════════════════
 
+function getEffectiveOwners(ctx) {
+  if (ctx.tenant && Array.isArray(ctx.tenant.owner_ids) && ctx.tenant.owner_ids.length > 0) {
+    return ctx.tenant.owner_ids;
+  }
+  return config.OWNER_IDS;
+}
+
 /**
- * Verifica que el usuario sea Owner del bot (por .env o en base de datos).
+ * Verifica que el usuario sea Owner del bot (por tenant.owner_ids, .env o en base de datos).
  */
 function requireOwner() {
   return async (ctx, next) => {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    if (config.OWNER_IDS.includes(userId)) return next();
+    const owners = getEffectiveOwners(ctx);
+    if (owners.includes(userId)) return next();
 
-    const member = await db.getStaffMember(userId);
+    const tenantId = ctx.tenant?.id || null;
+    const member = await db.getStaffMember(userId, tenantId);
     if (member && member.role) {
       const rolesUpper = member.role.toUpperCase();
       if (rolesUpper.includes('OWNER') && !rolesUpper.includes('CO-OWNER') && !rolesUpper.includes('COOWNER')) {
@@ -41,9 +50,11 @@ function requireStaff() {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    if (config.OWNER_IDS.includes(userId)) return next();
+    const owners = getEffectiveOwners(ctx);
+    if (owners.includes(userId)) return next();
 
-    const member = await db.getStaffMember(userId);
+    const tenantId = ctx.tenant?.id || null;
+    const member = await db.getStaffMember(userId, tenantId);
     if (!member || !member.role) {
       return ctx.reply(
         '⟡ <b>Acceso Denegado</b>\n\n' +
@@ -65,9 +76,11 @@ function requireDealAdmin() {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    if (config.OWNER_IDS.includes(userId)) return next();
+    const owners = getEffectiveOwners(ctx);
+    if (owners.includes(userId)) return next();
 
-    const member = await db.getStaffMember(userId);
+    const tenantId = ctx.tenant?.id || null;
+    const member = await db.getStaffMember(userId, tenantId);
     if (member && member.role) {
       const r = member.role.toUpperCase();
       if (r.includes('TRATO ADMIN') || r.includes('TRATOADMIN') || r.includes(ROLES.DEAL_ADMIN) || r.includes('OWNER')) {
@@ -92,9 +105,11 @@ function requireOwnerOrCoOwner() {
     const userId = ctx.from?.id;
     if (!userId) return;
 
-    if (config.OWNER_IDS.includes(userId)) return next();
+    const owners = getEffectiveOwners(ctx);
+    if (owners.includes(userId)) return next();
 
-    const member = await db.getStaffMember(userId);
+    const tenantId = ctx.tenant?.id || null;
+    const member = await db.getStaffMember(userId, tenantId);
     if (member && member.role) {
       const r = member.role.toUpperCase();
       if (r.includes('OWNER') || r.includes('CO-OWNER') || r.includes('COOWNER')) {

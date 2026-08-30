@@ -319,7 +319,7 @@ async function unburnUser(userId) {
 // ⟡ CRUD — Staff
 // ══════════════════════════════════════════════════════
 
-async function setStaffRole(userId, username, firstName, role, assignedBy, customTitle = null) {
+async function setStaffRole(userId, username, firstName, role, assignedBy, customTitle = null, tenantId = null) {
   if (useSupabase && supabase) {
     const basePayload = {
       user_id: userId,
@@ -328,6 +328,7 @@ async function setStaffRole(userId, username, firstName, role, assignedBy, custo
       role,
       assigned_by: assignedBy,
       assigned_at: new Date().toISOString(),
+      tenant_id: tenantId || null,
     };
 
     let res = await supabase
@@ -336,10 +337,12 @@ async function setStaffRole(userId, username, firstName, role, assignedBy, custo
       .select()
       .maybeSingle();
 
-    if (res.error && res.error.message.includes('custom_title')) {
+    if (res.error && (res.error.message.includes('custom_title') || res.error.message.includes('tenant_id'))) {
+      const fallbackPayload = { ...basePayload };
+      delete fallbackPayload.tenant_id;
       res = await supabase
         .from('staff')
-        .upsert(basePayload, { onConflict: 'user_id' })
+        .upsert(fallbackPayload, { onConflict: 'user_id' })
         .select()
         .maybeSingle();
     }
@@ -349,74 +352,113 @@ async function setStaffRole(userId, username, firstName, role, assignedBy, custo
   }
   if (pool) {
     const res = await pool.query(
-      `INSERT INTO staff (user_id, username, first_name, role, assigned_by, assigned_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
+      `INSERT INTO staff (user_id, username, first_name, role, assigned_by, tenant_id, assigned_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
        ON CONFLICT (user_id) DO UPDATE SET
-         username = $2, first_name = $3, role = $4, assigned_by = $5, assigned_at = NOW()
+         username = $2, first_name = $3, role = $4, assigned_by = $5, tenant_id = $6, assigned_at = NOW()
        RETURNING *`,
-      [userId, username, firstName, role, assignedBy]
+      [userId, username, firstName, role, assignedBy, tenantId]
     );
     return res.rows[0];
   }
   return null;
 }
 
-async function removeStaff(userId) {
+async function removeStaff(userId, tenantId = null) {
   if (useSupabase && supabase) {
-    const { error } = await supabase.from('staff').delete().eq('user_id', userId);
+    let query = supabase.from('staff').delete().eq('user_id', userId);
+    if (tenantId) query = query.eq('tenant_id', tenantId);
+    else query = query.is('tenant_id', null);
+    const { error } = await query;
     if (error) console.error('⟡ Supabase removeStaff error:', error.message);
     return;
   }
   if (pool) {
-    await pool.query(`DELETE FROM staff WHERE user_id = $1`, [userId]);
+    if (tenantId) {
+      await pool.query(`DELETE FROM staff WHERE user_id = $1 AND tenant_id = $2`, [userId, tenantId]);
+    } else {
+      await pool.query(`DELETE FROM staff WHERE user_id = $1 AND tenant_id IS NULL`, [userId]);
+    }
   }
 }
 
-async function getStaffMember(userId) {
+async function getStaffMember(userId, tenantId = null) {
   if (useSupabase && supabase) {
-    const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error) console.error('⟡ Supabase getStaffMember error:', error.message);
+    let query = supabase.from('staff').select('*').eq('user_id', userId);
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    } else {
+      query = query.is('tenant_id', null);
+    }
+    const { data, error } = await query.maybeSingle();
+    if (error && !error.message.includes('tenant_id')) {
+      console.error('⟡ Supabase getStaffMember error:', error.message);
+    }
+    if (!data && !tenantId) {
+      // Fallback si la columna tenant_id no se ha migrado aún
+      const fb = await supabase.from('staff').select('*').eq('user_id', userId).maybeSingle();
+      return fb.data || null;
+    }
     return data || null;
   }
   if (pool) {
-    const res = await pool.query(`SELECT * FROM staff WHERE user_id = $1`, [userId]);
+    let res;
+    if (tenantId) {
+      res = await pool.query(`SELECT * FROM staff WHERE user_id = $1 AND tenant_id = $2`, [userId, tenantId]);
+    } else {
+      res = await pool.query(`SELECT * FROM staff WHERE user_id = $1 AND tenant_id IS NULL`, [userId]);
+    }
     return res.rows[0] || null;
   }
   return null;
 }
 
-async function getAllStaff() {
+async function getAllStaff(tenantId = null) {
   if (useSupabase && supabase) {
-    const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .order('role')
-      .order('username');
-    if (error) console.error('⟡ Supabase getAllStaff error:', error.message);
+    let query = supabase.from('staff').select('*').order('role').order('username');
+    if (tenantId) {
+      query = query.eq('tenant_id', tenantId);
+    } else {
+      query = query.is('tenant_id', null);
+    }
+    const { data, error } = await query;
+    if (error && !error.message.includes('tenant_id')) {
+      console.error('⟡ Supabase getAllStaff error:', error.message);
+    }
+    if (!data && !tenantId) {
+      const fb = await supabase.from('staff').select('*').order('role').order('username');
+      return fb.data || [];
+    }
     return data || [];
   }
   if (pool) {
-    const res = await pool.query(`SELECT * FROM staff ORDER BY role, username`);
+    let res;
+    if (tenantId) {
+      res = await pool.query(`SELECT * FROM staff WHERE tenant_id = $1 ORDER BY role, username`, [tenantId]);
+    } else {
+      res = await pool.query(`SELECT * FROM staff WHERE tenant_id IS NULL ORDER BY role, username`);
+    }
     return res.rows;
   }
   return [];
 }
 
-async function getStaffByRole(role) {
+async function getStaffByRole(role, tenantId = null) {
   if (useSupabase && supabase) {
-    const { data, error } = await supabase
-      .from('staff')
-      .select('*')
-      .eq('role', role);
+    let query = supabase.from('staff').select('*').eq('role', role);
+    if (tenantId) query = query.eq('tenant_id', tenantId);
+    else query = query.is('tenant_id', null);
+    const { data, error } = await query;
     if (error) console.error('⟡ Supabase getStaffByRole error:', error.message);
     return data || [];
   }
   if (pool) {
-    const res = await pool.query(`SELECT * FROM staff WHERE role = $1`, [role]);
+    let res;
+    if (tenantId) {
+      res = await pool.query(`SELECT * FROM staff WHERE role = $1 AND tenant_id = $2`, [role, tenantId]);
+    } else {
+      res = await pool.query(`SELECT * FROM staff WHERE role = $1 AND tenant_id IS NULL`, [role]);
+    }
     return res.rows;
   }
   return [];

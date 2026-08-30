@@ -502,15 +502,16 @@ function register(bot) {
     try {
       const targetId = parseInt(ctx.match[1]);
       const adminId = ctx.from.id;
+      const tenantId = ctx.tenant?.id || null;
 
       await ctx.answerCallbackQuery({ text: 'Removiendo del Staff...' });
 
-      // 1. Eliminar de base de datos
-      await db.removeStaff(targetId);
+      // 1. Eliminar de base de datos aislada
+      await db.removeStaff(targetId, tenantId);
 
-      // 2. Revocar permisos de Administrador en grupos registrados
+      // 2. Revocar permisos de Administrador en grupos registrados de este bot
       try {
-        const groups = await db.getAllGroups();
+        const groups = await db.getAllGroups(tenantId);
         for (const grp of groups) {
           if (grp.chat_id && grp.type !== 'channel') {
             await revokeTelegramAdminRights(ctx.api, grp.chat_id, targetId);
@@ -612,13 +613,14 @@ function register(bot) {
 async function finishStaffAssignment(ctx, targetId, username, firstName, selectedRoles, customTag, customMasterId = null) {
   const adminId = ctx.from.id;
   const rolesStr = selectedRoles.join(', ');
+  const tenantId = ctx.tenant?.id || null;
 
-  // 1. Guardar en Base de Datos
-  await db.setStaffRole(targetId, username, firstName, rolesStr, adminId, customTag);
+  // 1. Guardar en Base de Datos aislada por tenant
+  await db.setStaffRole(targetId, username, firstName, rolesStr, adminId, customTag, tenantId);
 
-  // 2. Aplicar permisos en grupos registrados
+  // 2. Aplicar permisos en grupos registrados de este tenant
   try {
-    const groups = await db.getAllGroups();
+    const groups = await db.getAllGroups(tenantId);
     for (const grp of groups) {
       if (grp.chat_id && grp.type !== 'channel') {
         await applyTelegramAdminRights(ctx.api, grp.chat_id, targetId, customTag);

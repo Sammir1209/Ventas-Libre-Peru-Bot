@@ -330,8 +330,8 @@ function formatStaffUser(username, userId) {
   return `${userTag} | ${idTag}`;
 }
 
-function renderStaffList(groupedStaff) {
-  let output = `👑 <b>STAFF OFICIAL — VENTAS LIBRES PERÚ</b>\n\n`;
+function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
+  let output = `👑 <b>STAFF OFICIAL — ${escapeHtml(communityName.toUpperCase())}</b>\n\n`;
 
   output += `<b>OWNERS</b>\n`;
   if (groupedStaff.owners && groupedStaff.owners.length > 0) {

@@ -18,10 +18,14 @@ function register(bot) {
         dealAdmins: [],
       };
 
-      const ownerIdSet = new Set(config.OWNER_IDS);
+      const isSubBot = !!ctx.tenant;
+      const effectiveOwnerIds = isSubBot ? (ctx.tenant.owner_ids || []) : config.OWNER_IDS;
+      const ownerIdSet = new Set(effectiveOwnerIds);
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const tenantId = ctx.tenant?.id || null;
 
-      // 1. Cargar Owners del .env garantizados
-      for (const ownerId of config.OWNER_IDS) {
+      // 1. Cargar Owners garantizados (de la comunidad correspondiente)
+      for (const ownerId of effectiveOwnerIds) {
         let username = null;
         let firstName = 'Owner';
         try {
@@ -37,10 +41,10 @@ function register(bot) {
         });
       }
 
-      // 2. Cargar Staff de Supabase / BD
+      // 2. Cargar Staff de Supabase / BD (Aislado por tenant_id)
       let staffMembers = [];
       try {
-        staffMembers = await db.getAllStaff();
+        staffMembers = await db.getAllStaff(tenantId);
       } catch (dbErr) {
         console.error('⟡ Staff list: Error leyendo BD:', dbErr.message);
       }
@@ -76,7 +80,7 @@ function register(bot) {
         }
       }
 
-      const message = templates.renderStaffList(grouped);
+      const message = templates.renderStaffList(grouped, communityName);
       const { InlineKeyboard } = require('grammy');
       let botUsername = 'ventas_libres_peru_Bot';
       try {
