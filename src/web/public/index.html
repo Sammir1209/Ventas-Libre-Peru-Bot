@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SaaS Sub-Bots Dashboard — Ventas Libres Perú</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">👑</div>
+        <div class="brand-text">
+          <h2>BOT MANAGER</h2>
+          <span>Plataforma SaaS Multi-Tenant</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <a href="#dashboard" class="nav-item active" id="nav-dash">
+          <span class="nav-icon">📊</span>
+          <span>Panel Principal</span>
+        </a>
+        <a href="#bots" class="nav-item" id="nav-bots">
+          <span class="nav-icon">🤖</span>
+          <span>Mis Sub-Bots</span>
+        </a>
+        <a href="#new" class="nav-item" id="nav-create">
+          <span class="nav-icon">⚡</span>
+          <span>Crear Sub-Bot</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="system-badge">
+          <div class="pulse-dot"></div>
+          <span>Servidor Activo (Render)</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="top-header">
+        <div class="header-title">
+          <h1>Gestor de Sub-Bots Oficiales</h1>
+          <p>Crea, monetiza y administra instancias independientes de bots con su propia marca y salas de trato.</p>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-primary" id="btn-open-modal">
+            <span class="btn-icon">➕</span>
+            <span>NUEVO SUB-BOT</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Stats Grid -->
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon purple">🤖</div>
+          <div class="stat-details">
+            <span class="stat-label">Sub-Bots Totales</span>
+            <h3 id="stat-total">0</h3>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon green">🟢</div>
+          <div class="stat-details">
+            <span class="stat-label">Instancias Online</span>
+            <h3 id="stat-online">0</h3>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon blue">🛡️</div>
+          <div class="stat-details">
+            <span class="stat-label">Comunidades Conectadas</span>
+            <h3 id="stat-communities">0</h3>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon gold">👑</div>
+          <div class="stat-details">
+            <span class="stat-label">Suscripciones Activas</span>
+            <h3 id="stat-active">0</h3>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sub-Bots Section -->
+      <section class="bots-section">
+        <div class="section-header">
+          <div class="section-title">
+            <h2>Instancias de Sub-Bots Registradas</h2>
+            <span class="badge badge-purple" id="bots-count-badge">0 Bots</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btn-refresh">
+            <span>🔄 Actualizar</span>
+          </button>
+        </div>
+
+        <div class="bots-grid" id="bots-container">
+          <!-- Dinámico -->
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Cargando sub-bots en tiempo real...</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal: Crear Nuevo Sub-Bot -->
+  <div class="modal-overlay" id="modal-create">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="modal-icon">⚡</span>
+          <h3>Crear y Desplegar Nuevo Sub-Bot</h3>
+        </div>
+        <button class="modal-close" id="btn-close-modal">&times;</button>
+      </div>
+
+      <form id="form-create-bot" class="modal-form">
+        <div class="form-group">
+          <label for="bot_token">Token del Bot (de @BotFather) <span class="required">*</span></label>
+          <div class="input-with-action">
+            <input type="text" id="bot_token" name="bot_token" placeholder="1234567890:ABCdefGhIJKlmNoPQRsTUVwxyZ" required autocomplete="off">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-verify-token">Verificar</button>
+          </div>
+          <small class="token-status" id="token-status-msg"></small>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="community_name">Nombre de la Comunidad <span class="required">*</span></label>
+            <input type="text" id="community_name" name="community_name" placeholder="Ej: Black Market Perú, Store VIP" required>
+          </div>
+
+          <div class="form-group">
+            <label for="owner_id">ID del Owner Principal <span class="required">*</span></label>
+            <input type="number" id="owner_id" name="owner_id" placeholder="Ej: 7849224682" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="duration_days">Duración del Plan (Días)</label>
+            <input type="number" id="duration_days" name="duration_days" value="30" min="1" max="365">
+          </div>
+
+          <div class="form-group">
+            <label for="channels_to_verify">Canales Obligatorios (Separados por coma)</label>
+            <input type="text" id="channels_to_verify" name="channels_to_verify" placeholder="@canal1, @canal2">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="escrow_group_id">ID Grupo de Tratos Admin (Opcional)</label>
+            <input type="text" id="escrow_group_id" name="escrow_group_id" placeholder="Ej: -1001234567890">
+          </div>
+
+          <div class="form-group">
+            <label for="staff_chat_id">ID Grupo de Staff (Opcional)</label>
+            <input type="text" id="staff_chat_id" name="staff_chat_id" placeholder="Ej: -1009876543210">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-bot">
+            <span>🚀 DESPLEGAR SUB-BOT</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

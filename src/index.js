@@ -134,6 +134,10 @@ async function main() {
     return next();
   });
 
+  const setupHandler = require('./modules/setup/handler');
+  const botManager = require('./core/botManager');
+  const { createWebApp } = require('./web/server');
+
   // ── Registrar módulos ──
   verificationHandler.register(bot);
   escrowHandler.register(bot);
@@ -147,6 +151,7 @@ async function main() {
   infoHandler.register(bot);
   aiHandler.register(bot);
   searchHandler.register(bot);
+  setupHandler.register(bot);
 
   // ── Temporizador Periódico: Avisos de Seguridad cada 20 min ──
   const { startPeriodicNoticeScheduler } = require('./modules/moderation/scheduler');
@@ -157,24 +162,21 @@ async function main() {
     console.error('⟡ Bot Catch Error:', err.message);
   });
 
-  // 6. Servidor HTTP de Mantención 24/7 para Render y UptimeRobot
-  const httpServer = http.createServer((req, res) => {
-    res.writeHead(200, {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    });
-    res.end(JSON.stringify({
-      status: 'ok',
-      bot: 'Ventas Libres Perú',
-      uptime: Math.floor(process.uptime()),
-      timestamp: new Date().toISOString(),
-      userbot: userbot.isConnected() ? 'connected' : 'disconnected',
-    }));
-  });
+  // 6. Iniciar Motor Multi-Tenant de Sub-Bots en Segundo Plano
+  (async () => {
+    try {
+      await botManager.initAllActiveSubBots();
+    } catch (mgrErr) {
+      console.warn('⟡ Error iniciando sub-bots:', mgrErr.message);
+    }
+  })();
 
+  // 7. Servidor Web Express: Dashboard SaaS + Health 24/7
+  const webApp = createWebApp();
   const port = process.env.PORT || config.PORT || 10000;
-  httpServer.listen(port, '0.0.0.0', () => {
-    console.log(`✓ Servidor HTTP activo en puerto ${port} (UptimeRobot / Health OK).`);
+
+  webApp.listen(port, '0.0.0.0', () => {
+    console.log(`✓ [SaaS Dashboard] Servidor Web y API activo en puerto ${port}`);
   });
 
   // Self-ping preventivo cada 10 minutos
@@ -183,7 +185,7 @@ async function main() {
     setInterval(() => {
       try {
         const client = renderUrl.startsWith('https') ? https : http;
-        client.get(`${renderUrl}/health`, () => {}).on('error', () => {});
+        client.get(`${renderUrl}/api/subbots`, () => {}).on('error', () => {});
       } catch {}
     }, 10 * 60 * 1000);
   }
