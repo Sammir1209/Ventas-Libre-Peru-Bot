@@ -151,8 +151,9 @@ function register(bot) {
       // 3. Menú Principal de Bienvenida en DM (/start)
       if (isPrivate) {
         const name = ctx.from.first_name || 'Usuario';
+        const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
         const startText =
-          `${SYM.SEAL} <b>VENTAS LIBRES PERÚ</b> ${SYM.BADGE}\n\n` +
+          `${SYM.SEAL} <b>${escapeHtml(communityName.toUpperCase())}</b> ${SYM.BADGE}\n\n` +
           `¡Hola, <b>${escapeHtml(name)}</b>! 🇵🇪\n\n` +
           `${SYM.SWORD} <b>Trato Admin</b> — Mediación segura\n` +
           `${SYM.ALERT} <b>Quemar</b> — Reportar estafadores\n` +
@@ -212,9 +213,13 @@ function register(bot) {
   bot.callbackQuery('start_staff', async (ctx) => {
     try {
       await ctx.answerCallbackQuery();
-      // Mostrar lista staff
+      const isSubBot = !!ctx.tenant;
+      const effectiveOwnerIds = isSubBot ? (ctx.tenant.owner_ids || []) : config.OWNER_IDS;
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const tenantId = ctx.tenant?.id || null;
+
       const grouped = { owners: [], coowners: [], admins: [], dealAdmins: [] };
-      for (const ownerId of config.OWNER_IDS) {
+      for (const ownerId of effectiveOwnerIds) {
         let username = null;
         let firstName = 'Owner';
         try {
@@ -225,15 +230,26 @@ function register(bot) {
         grouped.owners.push({ user_id: ownerId, username, first_name: firstName });
       }
       try {
-        const staffMembers = await db.getAllStaff();
+        const staffMembers = await db.getAllStaff(tenantId);
+        const ownerIdSet = new Set(effectiveOwnerIds);
+
         for (const member of staffMembers) {
-          const role = (member.role || '').toUpperCase();
-          if (role === ROLES.CO_OWNER) grouped.coowners.push(member);
-          else if (role === 'ADMIN') grouped.admins.push(member);
-          else if (role === ROLES.DEAL_ADMIN) grouped.dealAdmins.push({ ...member, avgRating: '5.0' });
+          const roles = (member.role || '').split(',').map((r) => r.trim().toUpperCase());
+          if (roles.includes('OWNER') && !ownerIdSet.has(member.user_id)) {
+            grouped.owners.push(member);
+          }
+          if (roles.includes('CO-OWNER') || roles.includes('COOWNER')) {
+            grouped.coowners.push(member);
+          }
+          if (roles.includes('ADMIN') || roles.includes('ADMINISTRADOR')) {
+            grouped.admins.push(member);
+          }
+          if (roles.includes('TRATO ADMIN') || roles.includes('TRATOADMIN')) {
+            grouped.dealAdmins.push({ ...member, avgRating: '5.0' });
+          }
         }
       } catch {}
-      await ctx.reply(templates.renderStaffList(grouped), { parse_mode: 'HTML' });
+      await ctx.reply(templates.renderStaffList(grouped, communityName), { parse_mode: 'HTML' });
     } catch {}
   });
 

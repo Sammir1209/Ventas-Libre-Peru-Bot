@@ -29,11 +29,15 @@ async function buildUserProfile(ctx, targetUser) {
   // 1. Obtener rol y custom title en BD
   let rolesList = [];
   let customTitle = null;
-  if (config.OWNER_IDS.includes(userId)) {
+  const effectiveOwners = ctx.tenant?.owner_ids || config.OWNER_IDS;
+  const tenantId = ctx.tenant?.id || null;
+  const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+
+  if (effectiveOwners.includes(userId)) {
     rolesList = ['OWNER'];
   }
   try {
-    const staff = await db.getStaffMember(userId);
+    const staff = await db.getStaffMember(userId, tenantId);
     if (staff && staff.role) {
       const parsed = staff.role.split(',').map((r) => r.trim().toUpperCase());
       rolesList = Array.from(new Set([...rolesList, ...parsed]));
@@ -112,7 +116,7 @@ async function buildUserProfile(ctx, targetUser) {
 
     text +=
       `🟢 <b>Estado:</b> <b>Miembro del Staff Activo</b>\n\n` +
-      `🛡️ <i>Ventas Libres Perú — Equipo Oficial</i>`;
+      `🛡️ <i>${escapeHtml(communityName)} — Equipo Oficial</i>`;
   } else {
     // USUARIO NORMAL (Limpio, estético y nada recargado)
     const verifiedStatus = isVerified ? 'Verificado 🟢' : 'Pendiente ⚪';
