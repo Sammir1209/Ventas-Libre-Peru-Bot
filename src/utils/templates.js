@@ -323,15 +323,19 @@ function burnAlertBroadcast(targetId, context = null) {
   return text;
 }
 
+function formatAntiPingUser(username, userId) {
+  const userTag = username ? `@\u200B${escapeHtml(username.replace(/^@/, ''))}` : `(Sin @)`;
+  const idTag = userId ? `<code>${userId}</code>` : '';
+  return `${userTag} | ${idTag}`;
+}
+
 function renderStaffList(groupedStaff) {
   let output = `👑 <b>STAFF OFICIAL — VENTAS LIBRES PERÚ</b>\n\n`;
 
   output += `<b>OWNERS</b>\n`;
   if (groupedStaff.owners && groupedStaff.owners.length > 0) {
     for (const m of groupedStaff.owners) {
-      const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
-      const idTag = m.user_id ? `<code>${m.user_id}</code>` : '';
-      output += `• ${userTag} | ${idTag}\n`;
+      output += `• ${formatAntiPingUser(m.username, m.user_id)}\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -341,9 +345,7 @@ function renderStaffList(groupedStaff) {
   output += `<b>CO-OWNERS</b>\n`;
   if (groupedStaff.coowners && groupedStaff.coowners.length > 0) {
     for (const m of groupedStaff.coowners) {
-      const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
-      const idTag = m.user_id ? `<code>${m.user_id}</code>` : '';
-      output += `• ${userTag} | ${idTag}\n`;
+      output += `• ${formatAntiPingUser(m.username, m.user_id)}\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -353,9 +355,7 @@ function renderStaffList(groupedStaff) {
   output += `<b>ADMINISTRADORES</b>\n`;
   if (groupedStaff.admins && groupedStaff.admins.length > 0) {
     for (const m of groupedStaff.admins) {
-      const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
-      const idTag = m.user_id ? `<code>${m.user_id}</code>` : '';
-      output += `• ${userTag} | ${idTag}\n`;
+      output += `• ${formatAntiPingUser(m.username, m.user_id)}\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -365,10 +365,8 @@ function renderStaffList(groupedStaff) {
   output += `<b>TRATO ADMINS (MEDIADORES)</b>\n`;
   if (groupedStaff.dealAdmins && groupedStaff.dealAdmins.length > 0) {
     for (const m of groupedStaff.dealAdmins) {
-      const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
-      const idTag = m.user_id ? `<code>${m.user_id}</code>` : '';
       const score = m.avgRating ? `${m.avgRating}/5.0 ⭐` : `5.0/5.0 ⭐`;
-      output += `• ${userTag} | ${idTag} (${score})\n`;
+      output += `• ${formatAntiPingUser(m.username, m.user_id)} (${score})\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
