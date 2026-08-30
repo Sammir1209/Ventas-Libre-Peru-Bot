@@ -184,9 +184,9 @@
 
         <!-- 2. Grupo Oficial Chat -->
         <div class="form-group">
-          <label for="official_chat_id">Grupo Oficial Chat (ID)</label>
+          <label for="official_chat_id">Grupo Oficial Chat (ID o Enlace de Invitación)</label>
           <div class="input-with-action">
-            <input type="text" id="official_chat_id" name="official_chat_id" placeholder="Ej: -1001234567890">
+            <input type="text" id="official_chat_id" name="official_chat_id" placeholder="ID (ej: -100...) o Enlace (ej: https://t.me/+...)">
             <button type="button" class="btn btn-secondary btn-sm" id="btn-verify-chat">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               <span>Verificar Chat</span>
@@ -195,7 +195,35 @@
           <div class="verify-feedback" id="chat-feedback"></div>
         </div>
 
-        <!-- 3. Canales de Verificación 1 por 1 -->
+        <div class="form-row">
+          <!-- 3. Grupo de Tratos Admin (Escrow) -->
+          <div class="form-group">
+            <label for="escrow_group_id">Grupo de Tratos Admin (ID o Enlace)</label>
+            <div class="input-with-action">
+              <input type="text" id="escrow_group_id" name="escrow_group_id" placeholder="ID (ej: -100...) o https://t.me/+...">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-verify-escrow">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Verificar</span>
+              </button>
+            </div>
+            <div class="verify-feedback" id="escrow-feedback"></div>
+          </div>
+
+          <!-- 4. Grupo Oficial de Staff (Reportes / Moderación) -->
+          <div class="form-group">
+            <label for="staff_chat_id">Grupo de Staff Oficial (ID o Enlace)</label>
+            <div class="input-with-action">
+              <input type="text" id="staff_chat_id" name="staff_chat_id" placeholder="ID (ej: -100...) o https://t.me/+...">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-verify-staff">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                <span>Verificar</span>
+              </button>
+            </div>
+            <div class="verify-feedback" id="staff-feedback"></div>
+          </div>
+        </div>
+
+        <!-- 5. Canales de Verificación 1 por 1 -->
         <div class="form-group">
           <label>Canales Obligatorios de Verificación (1 por 1)</label>
           <div class="input-with-action">
@@ -213,16 +241,9 @@
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="duration_days">Duración del Plan (Días)</label>
-            <input type="number" id="duration_days" name="duration_days" value="30" min="1" max="365">
-          </div>
-
-          <div class="form-group">
-            <label for="escrow_group_id">Grupo de Tratos Admin (Opcional)</label>
-            <input type="text" id="escrow_group_id" name="escrow_group_id" placeholder="Ej: -1004243437464">
-          </div>
+        <div class="form-group">
+          <label for="duration_days">Duración del Plan (Días)</label>
+          <input type="number" id="duration_days" name="duration_days" value="30" min="1" max="365">
         </div>
 
         <div class="form-actions">

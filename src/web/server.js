@@ -216,43 +216,94 @@ function createWebApp() {
     }
   });
 
-  // ── Verificar Grupo Oficial Chat con Telegram API ──
+  // ── Verificar Grupo Oficial Chat con Telegram API (por ID, @username o Enlace de Invitación https://t.me/+...) ──
   app.post(`${apiPrefix}/verify-chat`, requireAdminAuth, async (req, res) => {
     try {
       const { token, chatId } = req.body;
       const botToken = token?.trim() || config.BOT_TOKEN;
-      const targetChatId = Number(chatId);
 
-      if (!targetChatId || isNaN(targetChatId)) {
-        return res.status(400).json({ ok: false, error: 'ID de grupo inválido.' });
+      if (!chatId) {
+        return res.status(400).json({ ok: false, error: 'ID o enlace del grupo requerido.' });
       }
 
+      let input = String(chatId).trim();
       const botInfo = await telegramApiCall(botToken, 'getMe');
-      const chatInfo = await telegramApiCall(botToken, 'getChat', { chat_id: targetChatId });
-      const memberInfo = await telegramApiCall(botToken, 'getChatMember', {
-        chat_id: targetChatId,
-        user_id: botInfo.id,
-      });
 
-      const isAdm = memberInfo.status === 'administrator' || memberInfo.status === 'creator';
+      let chatInfo = null;
+      let isAdm = false;
+      let memberInfo = null;
+
+      // 1. Si es enlace de invitación privado (https://t.me/+... o https://t.me/joinchat/...)
+      if (input.includes('t.me/+') || input.includes('t.me/joinchat/') || input.startsWith('+')) {
+        let fullLink = input;
+        if (!fullLink.startsWith('http')) {
+          fullLink = `https://t.me/${input.replace(/^\//, '')}`;
+        }
+
+        try {
+          const inviteData = await telegramApiCall(botToken, 'checkChatInviteLink', { invite_link: fullLink });
+          if (inviteData && inviteData.chat) {
+            chatInfo = inviteData.chat;
+          } else if (inviteData && inviteData.title) {
+            chatInfo = {
+              id: inviteData.chat?.id || null,
+              title: inviteData.title,
+              type: inviteData.type || 'supergroup',
+              member_count: inviteData.member_count,
+            };
+          }
+        } catch (inviteErr) {
+          throw new Error(`Enlace de invitación inválido o expirado: ${inviteErr.message}`);
+        }
+      }
+      // 2. Si es enlace público https://t.me/username
+      else if (input.includes('t.me/')) {
+        const parts = input.split('t.me/');
+        const cleanUser = `@${parts[1].replace('/', '')}`;
+        chatInfo = await telegramApiCall(botToken, 'getChat', { chat_id: cleanUser });
+      }
+      // 3. Si es @username o ID numérico
+      else {
+        let target = input;
+        if (!target.startsWith('@') && !isNaN(Number(target))) {
+          target = Number(target);
+        }
+        chatInfo = await telegramApiCall(botToken, 'getChat', { chat_id: target });
+      }
+
+      if (!chatInfo) {
+        return res.status(400).json({ ok: false, error: 'No se pudo obtener información del chat.' });
+      }
+
+      // Si tenemos chat.id, consultar permisos del bot
+      if (chatInfo.id) {
+        try {
+          memberInfo = await telegramApiCall(botToken, 'getChatMember', {
+            chat_id: chatInfo.id,
+            user_id: botInfo.id,
+          });
+          isAdm = memberInfo.status === 'administrator' || memberInfo.status === 'creator';
+        } catch {}
+      }
 
       res.json({
         ok: true,
         chat: {
           id: chatInfo.id,
           title: chatInfo.title || 'Grupo',
-          type: chatInfo.type,
+          type: chatInfo.type || 'group',
           username: chatInfo.username ? `@${chatInfo.username}` : null,
+          memberCount: chatInfo.member_count || null,
           isBotAdmin: isAdm,
-          botStatus: memberInfo.status,
-          canRestrictMembers: isAdm ? memberInfo.can_restrict_members !== false : false,
-          canDeleteMessages: isAdm ? memberInfo.can_delete_messages !== false : false,
+          botStatus: memberInfo?.status || 'desconocido',
+          canRestrictMembers: isAdm ? memberInfo?.can_restrict_members !== false : false,
+          canDeleteMessages: isAdm ? memberInfo?.can_delete_messages !== false : false,
         },
       });
     } catch (err) {
       res.status(400).json({
         ok: false,
-        error: `No se pudo verificar el grupo: ${err.message}. Asegúrate de que el bot haya sido añadido al grupo.`,
+        error: `No se pudo verificar el grupo: ${err.message}. Asegúrate de que el enlace o ID sea válido y que el bot esté en el chat.`,
       });
     }
   });

@@ -196,13 +196,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── 2. Verificar Grupo Oficial Chat ──
+  // ── 2. Verificar Grupo Oficial Chat (por ID o Enlace https://t.me/+...) ──
   btnVerifyChat.addEventListener('click', async () => {
     const chatId = officialChatIdInput.value.trim();
     const token = botTokenInput.value.trim();
 
     if (!chatId) {
-      chatFeedback.textContent = 'Ingresa el ID del grupo (ej: -1001234567890).';
+      chatFeedback.textContent = 'Ingresa el ID (ej: -100...) o enlace (ej: https://t.me/+...).';
       chatFeedback.className = 'verify-feedback error';
       return;
     }
@@ -221,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.ok && data.chat) {
         const c = data.chat;
         const admText = c.isBotAdmin ? '✓ Bot es Administrador' : '⚠️ Bot es Miembro (Recomendado hacerlo Admin)';
-        chatFeedback.textContent = `✓ Grupo: "${c.title}" (${c.type}) — ${admText}`;
+        chatFeedback.textContent = `✓ "${c.title}" (${c.type}) — ${admText}`;
         chatFeedback.className = 'verify-feedback success';
       } else {
         chatFeedback.textContent = `✗ ${data.error || 'Grupo no encontrado'}`;
@@ -230,6 +230,88 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       chatFeedback.textContent = `✗ Error: ${err.message}`;
       chatFeedback.className = 'verify-feedback error';
+    }
+  });
+
+  // ── 3. Verificar Grupo de Tratos Admin (Escrow) ──
+  const escrowGroupInput = document.getElementById('escrow_group_id');
+  const btnVerifyEscrow = document.getElementById('btn-verify-escrow');
+  const escrowFeedback = document.getElementById('escrow-feedback');
+
+  btnVerifyEscrow.addEventListener('click', async () => {
+    const chatId = escrowGroupInput.value.trim();
+    const token = botTokenInput.value.trim();
+
+    if (!chatId) {
+      escrowFeedback.textContent = 'Ingresa el ID o enlace del grupo de tratos.';
+      escrowFeedback.className = 'verify-feedback error';
+      return;
+    }
+
+    escrowFeedback.textContent = 'Verificando grupo de tratos...';
+    escrowFeedback.className = 'verify-feedback';
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/verify-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, chatId }),
+      });
+      const data = await res.json();
+
+      if (data.ok && data.chat) {
+        const c = data.chat;
+        const admText = c.isBotAdmin ? '✓ Bot es Administrador' : '⚠️ Bot no es Administrador';
+        escrowFeedback.textContent = `✓ "${c.title}" — ${admText}`;
+        escrowFeedback.className = 'verify-feedback success';
+      } else {
+        escrowFeedback.textContent = `✗ ${data.error || 'Grupo no encontrado'}`;
+        escrowFeedback.className = 'verify-feedback error';
+      }
+    } catch (err) {
+      escrowFeedback.textContent = `✗ Error: ${err.message}`;
+      escrowFeedback.className = 'verify-feedback error';
+    }
+  });
+
+  // ── 4. Verificar Grupo Oficial de Staff ──
+  const staffChatInput = document.getElementById('staff_chat_id');
+  const btnVerifyStaff = document.getElementById('btn-verify-staff');
+  const staffFeedback = document.getElementById('staff-feedback');
+
+  btnVerifyStaff.addEventListener('click', async () => {
+    const chatId = staffChatInput.value.trim();
+    const token = botTokenInput.value.trim();
+
+    if (!chatId) {
+      staffFeedback.textContent = 'Ingresa el ID o enlace del grupo de staff.';
+      staffFeedback.className = 'verify-feedback error';
+      return;
+    }
+
+    staffFeedback.textContent = 'Verificando grupo de staff...';
+    staffFeedback.className = 'verify-feedback';
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/verify-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, chatId }),
+      });
+      const data = await res.json();
+
+      if (data.ok && data.chat) {
+        const c = data.chat;
+        const admText = c.isBotAdmin ? '✓ Bot es Administrador' : '⚠️ Bot no es Administrador';
+        staffFeedback.textContent = `✓ "${c.title}" — ${admText}`;
+        staffFeedback.className = 'verify-feedback success';
+      } else {
+        staffFeedback.textContent = `✗ ${data.error || 'Grupo no encontrado'}`;
+        staffFeedback.className = 'verify-feedback error';
+      }
+    } catch (err) {
+      staffFeedback.textContent = `✗ Error: ${err.message}`;
+      staffFeedback.className = 'verify-feedback error';
     }
   });
 
