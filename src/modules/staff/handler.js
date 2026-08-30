@@ -52,10 +52,16 @@ function buildRolesKeyboard(targetId, selectedRoles) {
 function buildTagKeyboard(targetId, selectedRoles) {
   const kb = new InlineKeyboard();
 
-  selectedRoles.forEach((r) => {
+  selectedRoles.forEach((r, idx) => {
     kb.text(`TAG: ${r}`, `staff_set_preset_tag:${targetId}:${r}`).primary();
-    kb.row();
+    if (idx % 2 === 1) {
+      kb.row();
+    }
   });
+
+  if (selectedRoles.length % 2 !== 0) {
+    kb.row();
+  }
 
   kb.text('PERSONALIZAR TAG', `staff_custom_tag_prompt:${targetId}`).primary();
   kb.row();
