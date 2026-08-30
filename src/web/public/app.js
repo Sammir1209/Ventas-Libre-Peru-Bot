@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════
-// ⟡ SaaS Sub-Bots Dashboard — Client Application
+// ⟡ SaaS Sub-Bots Dashboard — Secure Client Application
 // ══════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -14,12 +14,66 @@ document.addEventListener('DOMContentLoaded', () => {
   const botTokenInput = document.getElementById('bot_token');
   const tokenStatusMsg = document.getElementById('token-status-msg');
 
+  // Auth Elements
+  const modalAuth = document.getElementById('modal-auth');
+  const formAuth = document.getElementById('form-auth');
+  const adminKeyInput = document.getElementById('admin_key_input');
+  const authErrorMsg = document.getElementById('auth-error-msg');
+
   // Stats Elements
   const statTotal = document.getElementById('stat-total');
   const statOnline = document.getElementById('stat-online');
   const statCommunities = document.getElementById('stat-communities');
   const statActive = document.getElementById('stat-active');
   const botsCountBadge = document.getElementById('bots-count-badge');
+
+  // Key Storage
+  let adminKey = localStorage.getItem('vlp_admin_key') || '';
+
+  // Check initial Auth
+  if (!adminKey) {
+    modalAuth.classList.add('active');
+  } else {
+    fetchBots();
+  }
+
+  // ── Formulario de Login / Clave de Seguridad ──
+  formAuth.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const key = adminKeyInput.value.trim();
+    if (!key) return;
+
+    authErrorMsg.textContent = 'Validando clave...';
+    try {
+      const res = await fetch('/api/auth-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        adminKey = key;
+        localStorage.setItem('vlp_admin_key', key);
+        modalAuth.classList.remove('active');
+        authErrorMsg.textContent = '';
+        await fetchBots();
+      } else {
+        authErrorMsg.textContent = '✗ Clave de seguridad incorrecta.';
+      }
+    } catch (err) {
+      authErrorMsg.textContent = `✗ Error de conexión: ${err.message}`;
+    }
+  });
+
+  // Helper para Fetch Seguro con Headers
+  function secureFetch(url, options = {}) {
+    options.headers = {
+      ...options.headers,
+      'x-admin-key': adminKey,
+    };
+    return fetch(url, options);
+  }
 
   // Modal Controls
   btnOpenModal.addEventListener('click', () => modalCreate.classList.add('active'));
@@ -40,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tokenStatusMsg.className = 'token-status';
 
     try {
-      const res = await fetch('/api/test-token', {
+      const res = await secureFetch('/api/test-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
@@ -62,6 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Cargar Lista de Sub-Bots ──
   async function fetchBots() {
+    if (!adminKey) return;
+
     botsContainer.innerHTML = `
       <div class="loading-state">
         <div class="spinner"></div>
@@ -70,7 +126,15 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     try {
-      const res = await fetch('/api/subbots');
+      const res = await secureFetch('/api/subbots');
+
+      if (res.status === 401) {
+        localStorage.removeItem('vlp_admin_key');
+        modalAuth.classList.add('active');
+        authErrorMsg.textContent = 'Sesión expirada o clave inválida.';
+        return;
+      }
+
       const data = await res.json();
 
       if (!data.ok || !data.bots) {
@@ -106,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (bots.length === 0) {
       botsContainer.innerHTML = `
         <div class="empty-state">
-          <p>Aún no has creado ningún sub-bot. ¡Crea el primero haciendo clic en "Nuevo Sub-Bot"!</p>
+          <p>Aún no has creado ningún sub-bot. ¡Crea el primero haciendo clic en "NUEVO SUB-BOT"!</p>
         </div>
       `;
       return;
@@ -124,6 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Ilimitado';
 
         const ownersList = bot.owner_ids && bot.owner_ids.length > 0 ? bot.owner_ids.join(', ') : 'No asignado';
+        const maskedToken = bot.bot_token_masked || '••••••••••';
 
         return `
           <div class="bot-card" data-id="${bot.id}">
@@ -136,6 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <div class="bot-card-body">
+              <div class="bot-info-row">
+                <span>Token:</span>
+                <strong><code>${maskedToken}</code></strong>
+              </div>
               <div class="bot-info-row">
                 <span>Owner ID:</span>
                 <strong><code>${ownersList}</code></strong>
@@ -175,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = Object.fromEntries(formData.entries());
 
     try {
-      const res = await fetch('/api/subbots', {
+      const res = await secureFetch('/api/subbots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -201,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Funciones Globales para Control de Instancias ──
   window.toggleBot = async (id, action) => {
     try {
-      const res = await fetch(`/api/subbots/${id}/${action}`, { method: 'POST' });
+      const res = await secureFetch(`/api/subbots/${id}/${action}`, { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
         await fetchBots();
@@ -216,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.deleteBot = async (id) => {
     if (!confirm('¿Estás seguro de eliminar este sub-bot? Se detendrá la instancia y se borrará su configuración.')) return;
     try {
-      const res = await fetch(`/api/subbots/${id}`, { method: 'DELETE' });
+      const res = await secureFetch(`/api/subbots/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.ok) {
         await fetchBots();
@@ -232,7 +301,4 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!text) return '';
     return String(text).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   }
-
-  // Inicial
-  fetchBots();
 });

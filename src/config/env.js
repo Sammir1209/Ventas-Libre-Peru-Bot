@@ -57,8 +57,10 @@ const config = {
   PUBLIC_BURN_THREAD_ID: process.env.PUBLIC_BURN_THREAD_ID ? Number(process.env.PUBLIC_BURN_THREAD_ID) : null,
   ESCROW_GROUP_ID: process.env.ESCROW_GROUP_ID ? Number(process.env.ESCROW_GROUP_ID) : null,
 
-  // Render HTTP
+  // Render HTTP & Web Security
   PORT: parseInt(process.env.PORT) || 10000,
+  ADMIN_KEY: process.env.ADMIN_KEY || 'vlp_admin_secret_key_2026',
+  DASHBOARD_PATH: process.env.DASHBOARD_PATH || '/portal-admin-vlp',
 
   // Supabase
   SUPABASE_URL: process.env.SUPABASE_URL || '',

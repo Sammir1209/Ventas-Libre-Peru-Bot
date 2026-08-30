@@ -185,6 +185,33 @@
     </div>
   </div>
 
+  <!-- Modal: Autenticación de Acceso de Administrador -->
+  <div class="modal-overlay" id="modal-auth">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="modal-icon">🔒</span>
+          <h3>Acceso de Seguridad Requerido</h3>
+        </div>
+      </div>
+      <form id="form-auth" class="modal-form">
+        <p style="color: var(--text-muted); font-size: 0.88rem;">
+          Este panel está protegido contra accesos no autorizados. Ingresa tu Clave Maestra de Administrador para desbloquear la gestión de sub-bots.
+        </p>
+        <div class="form-group">
+          <label for="admin_key_input">Clave de Seguridad (Master Key)</label>
+          <input type="password" id="admin_key_input" placeholder="••••••••••••••••" required autocomplete="current-password">
+          <small class="token-status error" id="auth-error-msg"></small>
+        </div>
+        <div class="form-actions" style="justify-content: stretch;">
+          <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;" id="btn-submit-auth">
+            <span>🔑 DESBLOQUEAR PANEL</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
