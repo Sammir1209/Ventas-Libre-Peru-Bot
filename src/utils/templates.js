@@ -324,45 +324,53 @@ function burnAlertBroadcast(targetId, context = null) {
 }
 
 function renderStaffList(groupedStaff) {
-  let output = `${SYM.CROWN} <b>STAFF OFICIAL — VENTAS LIBRES PERÚ</b> ${SYM.BADGE}\n\n`;
+  let output = `👑 <b>STAFF OFICIAL — VENTAS LIBRES PERÚ</b>\n\n`;
 
-  output += `<b>${SYM.CROWN} OWNERS</b>\n`;
-  if (groupedStaff.owners.length > 0) {
+  output += `<b>OWNERS</b>\n`;
+  if (groupedStaff.owners && groupedStaff.owners.length > 0) {
     for (const m of groupedStaff.owners) {
-      const userTag = m.username ? `@${m.username}` : `(Sin @)`;
-      output += `${SYM.DIAMOND} ${userTag} — <b>${escapeHtml(m.first_name || 'Owner')}</b>\n`;
+      const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
+      output += `• ${userTag} — <b>${escapeHtml(m.first_name || 'Owner')}</b>\n`;
     }
-  } else output += `<i>No registrados</i>\n`;
+  } else {
+    output += `<i>No registrados</i>\n`;
+  }
   output += `\n`;
 
-  output += `<b>${SYM.FLOWER} CO-OWNERS</b>\n`;
-  if (groupedStaff.coowners.length > 0) {
+  output += `<b>CO-OWNERS</b>\n`;
+  if (groupedStaff.coowners && groupedStaff.coowners.length > 0) {
     for (const m of groupedStaff.coowners) {
-      const userTag = m.username ? `@${m.username}` : `(Sin @)`;
-      output += `${SYM.DIAMOND} ${userTag} — <b>${escapeHtml(m.first_name || 'Co-Owner')}</b>\n`;
+      const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
+      output += `• ${userTag} — <b>${escapeHtml(m.first_name || 'Co-Owner')}</b>\n`;
     }
-  } else output += `<i>No registrados</i>\n`;
+  } else {
+    output += `<i>No registrados</i>\n`;
+  }
   output += `\n`;
 
-  output += `<b>${SYM.SWORD} ADMINS</b>\n`;
-  if (groupedStaff.admins.length > 0) {
+  output += `<b>ADMINISTRADORES</b>\n`;
+  if (groupedStaff.admins && groupedStaff.admins.length > 0) {
     for (const m of groupedStaff.admins) {
-      const userTag = m.username ? `@${m.username}` : `(Sin @)`;
-      output += `${SYM.DIAMOND} ${userTag} — <b>${escapeHtml(m.first_name || 'Admin')}</b>\n`;
+      const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
+      output += `• ${userTag} — <b>${escapeHtml(m.first_name || 'Admin')}</b>\n`;
     }
-  } else output += `<i>No registrados</i>\n`;
+  } else {
+    output += `<i>No registrados</i>\n`;
+  }
   output += `\n`;
 
-  output += `<b>${SYM.SEAL} TRATO ADMINS</b>\n`;
-  if (groupedStaff.dealAdmins.length > 0) {
+  output += `<b>TRATO ADMINS (MEDIADORES)</b>\n`;
+  if (groupedStaff.dealAdmins && groupedStaff.dealAdmins.length > 0) {
     for (const m of groupedStaff.dealAdmins) {
-      const userTag = m.username ? `@${m.username}` : `(Sin @)`;
-      const score = m.avgRating ? `${m.avgRating}/5 ${SYM.STAR_FULL}` : `5/5 ${SYM.STAR_FULL}`;
-      output += `${SYM.DIAMOND} ${userTag} — <b>${escapeHtml(m.first_name || 'Trato Admin')}</b> | ${score}\n`;
+      const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
+      const score = m.avgRating ? `${m.avgRating}/5.0 ⭐` : `5.0/5.0 ⭐`;
+      output += `• ${userTag} — <b>${escapeHtml(m.first_name || 'Trato Admin')}</b> (${score})\n`;
     }
-  } else output += `<i>No registrados</i>\n`;
+  } else {
+    output += `<i>No registrados</i>\n`;
+  }
 
-  output += `\n${SYM.SHIELD} Para compras/ventas seguras usa <b>/tratoadm</b>.`;
+  output += `\n🛡️ <i>Para compras y ventas 100% seguras usa <code>/tratoadm</code>.</i>`;
   return output;
 }
 

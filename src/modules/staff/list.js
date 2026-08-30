@@ -46,18 +46,22 @@ function register(bot) {
       }
 
       for (const member of staffMembers) {
-        const role = (member.role || '').toUpperCase();
+        const roles = (member.role || '')
+          .split(',')
+          .map((r) => r.trim().toUpperCase());
 
-        if (role === ROLES.OWNER) {
-          // Evitar duplicar con los del env
+        if (roles.includes('OWNER')) {
           if (!ownerIdSet.has(member.user_id)) {
             grouped.owners.push(member);
           }
-        } else if (role === ROLES.CO_OWNER || role === 'CO-OWNER' || role === 'COOWNER') {
+        }
+        if (roles.includes('CO-OWNER') || roles.includes('COOWNER')) {
           grouped.coowners.push(member);
-        } else if (role === 'ADMIN' || role === 'ADMINISTRADOR') {
+        }
+        if (roles.includes('ADMIN') || roles.includes('ADMINISTRADOR')) {
           grouped.admins.push(member);
-        } else if (role === ROLES.DEAL_ADMIN || role === 'TRATO ADMIN' || role === 'TRATOADMIN') {
+        }
+        if (roles.includes('TRATO ADMIN') || roles.includes('TRATOADMIN') || roles.includes(ROLES.DEAL_ADMIN)) {
           let avgRating = '5.0';
           try {
             const rep = await getReputation(member.user_id);
