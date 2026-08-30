@@ -330,7 +330,8 @@ function renderStaffList(groupedStaff) {
   if (groupedStaff.owners && groupedStaff.owners.length > 0) {
     for (const m of groupedStaff.owners) {
       const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
-      output += `• ${userTag} — <b>${escapeHtml(m.first_name || 'Owner')}</b>\n`;
+      const idTag = m.user_id ? `<code>${m.user_id}</code>` : '';
+      output += `• ${userTag} | ${idTag}\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -341,7 +342,8 @@ function renderStaffList(groupedStaff) {
   if (groupedStaff.coowners && groupedStaff.coowners.length > 0) {
     for (const m of groupedStaff.coowners) {
       const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
-      output += `• ${userTag} — <b>${escapeHtml(m.first_name || 'Co-Owner')}</b>\n`;
+      const idTag = m.user_id ? `<code>${m.user_id}</code>` : '';
+      output += `• ${userTag} | ${idTag}\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -352,7 +354,8 @@ function renderStaffList(groupedStaff) {
   if (groupedStaff.admins && groupedStaff.admins.length > 0) {
     for (const m of groupedStaff.admins) {
       const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
-      output += `• ${userTag} — <b>${escapeHtml(m.first_name || 'Admin')}</b>\n`;
+      const idTag = m.user_id ? `<code>${m.user_id}</code>` : '';
+      output += `• ${userTag} | ${idTag}\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
@@ -363,8 +366,9 @@ function renderStaffList(groupedStaff) {
   if (groupedStaff.dealAdmins && groupedStaff.dealAdmins.length > 0) {
     for (const m of groupedStaff.dealAdmins) {
       const userTag = m.username ? `<code>@${m.username}</code>` : `<code>(Sin @)</code>`;
+      const idTag = m.user_id ? `<code>${m.user_id}</code>` : '';
       const score = m.avgRating ? `${m.avgRating}/5.0 ⭐` : `5.0/5.0 ⭐`;
-      output += `• ${userTag} — <b>${escapeHtml(m.first_name || 'Trato Admin')}</b> (${score})\n`;
+      output += `• ${userTag} | ${idTag} (${score})\n`;
     }
   } else {
     output += `<i>No registrados</i>\n`;
