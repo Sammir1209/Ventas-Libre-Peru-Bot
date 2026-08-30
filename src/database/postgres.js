@@ -321,7 +321,7 @@ async function unburnUser(userId) {
 
 async function setStaffRole(userId, username, firstName, role, assignedBy, customTitle = null) {
   if (useSupabase && supabase) {
-    const payload = {
+    const basePayload = {
       user_id: userId,
       username: username || null,
       first_name: firstName || null,
@@ -329,24 +329,32 @@ async function setStaffRole(userId, username, firstName, role, assignedBy, custo
       assigned_by: assignedBy,
       assigned_at: new Date().toISOString(),
     };
-    if (customTitle) payload.custom_title = customTitle;
 
-    const { data, error } = await supabase
+    let res = await supabase
       .from('staff')
-      .upsert(payload, { onConflict: 'user_id' })
+      .upsert(customTitle ? { ...basePayload, custom_title: customTitle } : basePayload, { onConflict: 'user_id' })
       .select()
       .maybeSingle();
-    if (error) console.error('⟡ Supabase setStaffRole error:', error.message);
-    return data;
+
+    if (res.error && res.error.message.includes('custom_title')) {
+      res = await supabase
+        .from('staff')
+        .upsert(basePayload, { onConflict: 'user_id' })
+        .select()
+        .maybeSingle();
+    }
+
+    if (res.error) console.error('⟡ Supabase setStaffRole error:', res.error.message);
+    return res.data;
   }
   if (pool) {
     const res = await pool.query(
-      `INSERT INTO staff (user_id, username, first_name, role, custom_title, assigned_by, assigned_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      `INSERT INTO staff (user_id, username, first_name, role, assigned_by, assigned_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())
        ON CONFLICT (user_id) DO UPDATE SET
-         username = $2, first_name = $3, role = $4, custom_title = COALESCE($5, staff.custom_title), assigned_by = $6, assigned_at = NOW()
+         username = $2, first_name = $3, role = $4, assigned_by = $5, assigned_at = NOW()
        RETURNING *`,
-      [userId, username, firstName, role, customTitle, assignedBy]
+      [userId, username, firstName, role, assignedBy]
     );
     return res.rows[0];
   }
