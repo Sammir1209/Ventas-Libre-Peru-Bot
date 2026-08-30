@@ -6,7 +6,7 @@ const config = require('../config/env');
 const https = require('https');
 
 // ══════════════════════════════════════════════════════
-// ⟡ Servidor Web y API REST — SaaS Dashboard Seguro
+// ⟡ Servidor Web y API REST Blindada — SaaS Dashboard
 // ══════════════════════════════════════════════════════
 
 function testTelegramToken(token) {
@@ -39,16 +39,44 @@ function maskToken(token) {
   return `${prefix}...${suffix}`;
 }
 
+// ── Rate Limiter Simple en Memoria (Anti-Bruteforce) ──
+const ipAttempts = new Map();
+function rateLimiter(req, res, next) {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowMs = 60 * 1000; // 1 minuto
+  const maxRequests = 40;
+
+  let record = ipAttempts.get(ip);
+  if (!record || now - record.startTime > windowMs) {
+    record = { count: 1, startTime: now };
+    ipAttempts.set(ip, record);
+  } else {
+    record.count++;
+    if (record.count > maxRequests) {
+      return res.status(429).json({
+        ok: false,
+        error: 'Demasiadas peticiones. Bloqueo temporal por seguridad.',
+      });
+    }
+  }
+  next();
+}
+
 function createWebApp() {
   const app = express();
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(rateLimiter);
 
-  // ── Middleware de Autenticación de Admin (Anti-Dumpeo / Anti-Intrusos) ──
+  const dashboardPath = config.DASHBOARD_PATH || '/vlp-master-portal-7849';
+  const apiPrefix = config.API_SECRET_PREFIX || '/api-sec-vlp';
+
+  // ── Middleware de Autenticación de Admin (Anti-Dumpeo) ──
   const requireAdminAuth = (req, res, next) => {
     const key = req.headers['x-admin-key'] || req.query.key || req.body?.admin_key;
-    const expectedKey = config.ADMIN_KEY || 'vlp_admin_secret_key_2026';
+    const expectedKey = config.ADMIN_KEY || 'vlp_master_key_99x_2026_sec';
 
     if (!key || key !== expectedKey) {
       return res.status(401).json({
@@ -59,7 +87,7 @@ function createWebApp() {
     next();
   };
 
-  // ── 1. Ruta Pública Raíz: Cloaking / Anti-Escaneo (Oculta el Dashboard) ──
+  // ── 1. Ruta Pública Raíz: Cloaking / Anti-Escaneo ──
   app.get('/', (req, res) => {
     res.json({
       status: 'ok',
@@ -80,27 +108,58 @@ function createWebApp() {
   });
 
   // ── 3. Servir Panel Web Exclusivamente en Ruta Secreta ──
-  const dashboardPath = config.DASHBOARD_PATH || '/portal-admin-vlp';
-
-  // Servir archivos estáticos bajo la ruta secreta
   app.use(dashboardPath, express.static(path.join(__dirname, 'public')));
 
   app.get(dashboardPath, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
   });
 
-  // ── API: Validar Clave de Acceso ──
-  app.post('/api/auth-check', (req, res) => {
+  // ── 4. Endpoints de la API Secreta ──
+
+  // Configuración de frontend
+  app.get(`${apiPrefix}/config`, (req, res) => {
+    res.json({
+      ok: true,
+      apiPrefix: apiPrefix,
+    });
+  });
+
+  // Validar Clave de Acceso
+  app.post(`${apiPrefix}/auth-check`, (req, res) => {
     const { key } = req.body;
-    const expectedKey = config.ADMIN_KEY || 'vlp_admin_secret_key_2026';
+    const expectedKey = config.ADMIN_KEY || 'vlp_master_key_99x_2026_sec';
     if (key && key === expectedKey) {
       return res.json({ ok: true, message: 'Autenticación correcta' });
     }
     res.status(401).json({ ok: false, error: 'Clave de seguridad incorrecta' });
   });
 
-  // ── API: Probar Token con Telegram (Protegido) ──
-  app.post('/api/test-token', requireAdminAuth, async (req, res) => {
+  // Métricas y Estadísticas del Sistema
+  app.get(`${apiPrefix}/system-stats`, requireAdminAuth, async (req, res) => {
+    try {
+      const bots = await db.getAllSubBots();
+      const burnedCount = await db.getBurnedUsersCount();
+      const groups = await db.getAllGroups();
+      const live = botManager.getLiveStatus();
+
+      res.json({
+        ok: true,
+        stats: {
+          totalSubBots: bots.length,
+          onlineSubBots: live.length,
+          totalGroups: groups.length,
+          totalBurnedScammers: burnedCount,
+          uptimeSeconds: Math.floor(process.uptime()),
+          memoryUsageMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Probar Token con Telegram
+  app.post(`${apiPrefix}/test-token`, requireAdminAuth, async (req, res) => {
     try {
       const { token } = req.body;
       if (!token) return res.status(400).json({ ok: false, error: 'Token requerido' });
@@ -112,8 +171,8 @@ function createWebApp() {
     }
   });
 
-  // ── API: Listar Sub-Bots con Tokens Ocultos/Enmascarados (Protegido) ──
-  app.get('/api/subbots', requireAdminAuth, async (req, res) => {
+  // Listar Sub-Bots con Tokens Enmascarados (Protección de Datos)
+  app.get(`${apiPrefix}/subbots`, requireAdminAuth, async (req, res) => {
     try {
       const bots = await db.getAllSubBots();
       const liveStatus = botManager.getLiveStatus();
@@ -132,7 +191,7 @@ function createWebApp() {
           groups_folder_link: b.groups_folder_link,
           escrow_group_id: b.escrow_group_id,
           staff_chat_id: b.staff_chat_id,
-          bot_token_masked: maskToken(b.bot_token), // NUNCA exponemos el token real en la API
+          bot_token_masked: maskToken(b.bot_token), // NUNCA exponemos el token real
           isOnline: !!live,
           liveStatus: live ? live.status : 'OFFLINE',
           startedAt: live ? live.startedAt : null,
@@ -146,8 +205,8 @@ function createWebApp() {
     }
   });
 
-  // ── API: Crear Nuevo Sub-Bot (Protegido) ──
-  app.post('/api/subbots', requireAdminAuth, async (req, res) => {
+  // Crear Nuevo Sub-Bot
+  app.post(`${apiPrefix}/subbots`, requireAdminAuth, async (req, res) => {
     try {
       const {
         bot_token,
@@ -223,8 +282,8 @@ function createWebApp() {
     }
   });
 
-  // ── API: Iniciar Sub-Bot (Protegido) ──
-  app.post('/api/subbots/:id/start', requireAdminAuth, async (req, res) => {
+  // Iniciar Sub-Bot
+  app.post(`${apiPrefix}/subbots/:id/start`, requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
       const subBot = await db.getSubBotById(id);
@@ -239,8 +298,8 @@ function createWebApp() {
     }
   });
 
-  // ── API: Detener Sub-Bot (Protegido) ──
-  app.post('/api/subbots/:id/stop', requireAdminAuth, async (req, res) => {
+  // Detener Sub-Bot
+  app.post(`${apiPrefix}/subbots/:id/stop`, requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
       await botManager.stopSubBot(id);
@@ -252,8 +311,21 @@ function createWebApp() {
     }
   });
 
-  // ── API: Eliminar Sub-Bot (Protegido) ──
-  app.delete('/api/subbots/:id', requireAdminAuth, async (req, res) => {
+  // Reiniciar Sub-Bot
+  app.post(`${apiPrefix}/subbots/:id/restart`, requireAdminAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await botManager.restartSubBot(id);
+      await db.updateSubBot(id, { plan_status: 'ACTIVE' });
+
+      res.json({ ok: true, message: 'Sub-bot reiniciado.' });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Eliminar Sub-Bot
+  app.delete(`${apiPrefix}/subbots/:id`, requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
       await botManager.stopSubBot(id);

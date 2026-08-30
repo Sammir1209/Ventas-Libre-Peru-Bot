@@ -27,8 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const statActive = document.getElementById('stat-active');
   const botsCountBadge = document.getElementById('bots-count-badge');
 
-  // Key Storage
+  // Key Storage & Dynamic API Prefix
   let adminKey = localStorage.getItem('vlp_admin_key') || '';
+  let API_PREFIX = '/api-sec-vlp';
 
   // Check initial Auth
   if (!adminKey) {
@@ -45,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     authErrorMsg.textContent = 'Validando clave...';
     try {
-      const res = await fetch('/api/auth-check', {
+      const res = await fetch(`${API_PREFIX}/auth-check`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key }),
@@ -94,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tokenStatusMsg.className = 'token-status';
 
     try {
-      const res = await secureFetch('/api/test-token', {
+      const res = await secureFetch(`${API_PREFIX}/test-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
@@ -126,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     try {
-      const res = await secureFetch('/api/subbots');
+      const res = await secureFetch(`${API_PREFIX}/subbots`);
 
       if (res.status === 401) {
         localStorage.removeItem('vlp_admin_key');
@@ -244,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = Object.fromEntries(formData.entries());
 
     try {
-      const res = await secureFetch('/api/subbots', {
+      const res = await secureFetch(`${API_PREFIX}/subbots`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -270,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Funciones Globales para Control de Instancias ──
   window.toggleBot = async (id, action) => {
     try {
-      const res = await secureFetch(`/api/subbots/${id}/${action}`, { method: 'POST' });
+      const res = await secureFetch(`${API_PREFIX}/subbots/${id}/${action}`, { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
         await fetchBots();
@@ -285,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.deleteBot = async (id) => {
     if (!confirm('¿Estás seguro de eliminar este sub-bot? Se detendrá la instancia y se borrará su configuración.')) return;
     try {
-      const res = await secureFetch(`/api/subbots/${id}`, { method: 'DELETE' });
+      const res = await secureFetch(`${API_PREFIX}/subbots/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.ok) {
         await fetchBots();
