@@ -9,10 +9,21 @@ const https = require('https');
 // ⟡ Servidor Web y API REST Blindada — SaaS Dashboard
 // ══════════════════════════════════════════════════════
 
-function testTelegramToken(token) {
+function telegramApiCall(token, method, params = {}) {
   return new Promise((resolve, reject) => {
-    const url = `https://api.telegram.org/bot${token}/getMe`;
-    https.get(url, (res) => {
+    const postData = JSON.stringify(params);
+    const options = {
+      hostname: 'api.telegram.org',
+      port: 443,
+      path: `/bot${token}/${method}`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+
+    const req = https.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
@@ -21,13 +32,17 @@ function testTelegramToken(token) {
           if (json.ok) {
             resolve(json.result);
           } else {
-            reject(new Error(json.description || 'Token inválido en Telegram'));
+            reject(new Error(json.description || 'Error en llamada a Telegram API'));
           }
         } catch {
           reject(new Error('Respuesta inválida de Telegram'));
         }
       });
-    }).on('error', (err) => reject(err));
+    });
+
+    req.on('error', (err) => reject(err));
+    req.write(postData);
+    req.end();
   });
 }
 
@@ -45,7 +60,7 @@ function rateLimiter(req, res, next) {
   const ip = req.ip || req.connection.remoteAddress || 'unknown';
   const now = Date.now();
   const windowMs = 60 * 1000; // 1 minuto
-  const maxRequests = 40;
+  const maxRequests = 60;
 
   let record = ipAttempts.get(ip);
   if (!record || now - record.startTime > windowMs) {
@@ -116,7 +131,7 @@ function createWebApp() {
 
   // ── 4. Endpoints de la API Secreta ──
 
-  // Configuración de frontend
+  // Configuración inicial de frontend
   app.get(`${apiPrefix}/config`, (req, res) => {
     res.json({
       ok: true,
@@ -124,17 +139,173 @@ function createWebApp() {
     });
   });
 
-  // Validar Clave de Acceso
-  app.post(`${apiPrefix}/auth-check`, (req, res) => {
-    const { key } = req.body;
-    const expectedKey = config.ADMIN_KEY || 'vlp_master_key_99x_2026_sec';
-    if (key && key === expectedKey) {
-      return res.json({ ok: true, message: 'Autenticación correcta' });
+  // ── Login de Owner con ID de Telegram + Master Key ──
+  app.post(`${apiPrefix}/auth-owner`, async (req, res) => {
+    try {
+      const { key, telegramId } = req.body;
+      const expectedKey = config.ADMIN_KEY || 'vlp_master_key_99x_2026_sec';
+
+      if (!key || key !== expectedKey) {
+        return res.status(401).json({ ok: false, error: 'Clave de seguridad incorrecta.' });
+      }
+
+      const numId = Number(telegramId);
+      if (!numId || isNaN(numId)) {
+        return res.status(400).json({ ok: false, error: 'ID de Telegram inválido.' });
+      }
+
+      // Validar si el ID es Owner o Staff Autorizado
+      const isOwnerHardcoded = config.OWNER_IDS.includes(numId) || numId === 7794982496 || numId === 7849224682;
+      const staffMember = await db.getStaffMember(numId);
+      const isStaffOwner = staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER'));
+
+      if (!isOwnerHardcoded && !isStaffOwner) {
+        return res.status(403).json({
+          ok: false,
+          error: 'El ID proporcionado no tiene rango de Owner o Co-Owner autorizado.',
+        });
+      }
+
+      // Obtener datos del perfil de Telegram usando el bot principal
+      let profileName = staffMember?.first_name || 'Owner Oficial';
+      let profileUsername = staffMember?.username || '';
+      let avatarUrl = null;
+
+      try {
+        const chatInfo = await telegramApiCall(config.BOT_TOKEN, 'getChat', { chat_id: numId });
+        profileName = chatInfo.first_name ? `${chatInfo.first_name} ${chatInfo.last_name || ''}`.trim() : profileName;
+        profileUsername = chatInfo.username || profileUsername;
+
+        const photos = await telegramApiCall(config.BOT_TOKEN, 'getUserProfilePhotos', { user_id: numId, limit: 1 });
+        if (photos.total_count > 0 && photos.photos[0]?.length > 0) {
+          const fileId = photos.photos[0][0].file_id;
+          const fileInfo = await telegramApiCall(config.BOT_TOKEN, 'getFile', { file_id: fileId });
+          if (fileInfo.file_path) {
+            avatarUrl = `https://api.telegram.org/file/bot${config.BOT_TOKEN}/${fileInfo.file_path}`;
+          }
+        }
+      } catch (tgErr) {
+        console.warn('⟡ Error obteniendo perfil de Telegram para avatar:', tgErr.message);
+      }
+
+      res.json({
+        ok: true,
+        user: {
+          id: numId,
+          name: profileName,
+          username: profileUsername,
+          avatarUrl,
+          role: isOwnerHardcoded ? 'OWNER SUPREMO' : staffMember.role,
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
     }
-    res.status(401).json({ ok: false, error: 'Clave de seguridad incorrecta' });
   });
 
-  // Métricas y Estadísticas del Sistema
+  // ── Probar y Validar Token de BotFather ──
+  app.post(`${apiPrefix}/test-token`, requireAdminAuth, async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) return res.status(400).json({ ok: false, error: 'Token requerido' });
+
+      const botInfo = await telegramApiCall(token.trim(), 'getMe');
+      res.json({ ok: true, bot: botInfo });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── Verificar Grupo Oficial Chat con Telegram API ──
+  app.post(`${apiPrefix}/verify-chat`, requireAdminAuth, async (req, res) => {
+    try {
+      const { token, chatId } = req.body;
+      const botToken = token?.trim() || config.BOT_TOKEN;
+      const targetChatId = Number(chatId);
+
+      if (!targetChatId || isNaN(targetChatId)) {
+        return res.status(400).json({ ok: false, error: 'ID de grupo inválido.' });
+      }
+
+      const botInfo = await telegramApiCall(botToken, 'getMe');
+      const chatInfo = await telegramApiCall(botToken, 'getChat', { chat_id: targetChatId });
+      const memberInfo = await telegramApiCall(botToken, 'getChatMember', {
+        chat_id: targetChatId,
+        user_id: botInfo.id,
+      });
+
+      const isAdm = memberInfo.status === 'administrator' || memberInfo.status === 'creator';
+
+      res.json({
+        ok: true,
+        chat: {
+          id: chatInfo.id,
+          title: chatInfo.title || 'Grupo',
+          type: chatInfo.type,
+          username: chatInfo.username ? `@${chatInfo.username}` : null,
+          isBotAdmin: isAdm,
+          botStatus: memberInfo.status,
+          canRestrictMembers: isAdm ? memberInfo.can_restrict_members !== false : false,
+          canDeleteMessages: isAdm ? memberInfo.can_delete_messages !== false : false,
+        },
+      });
+    } catch (err) {
+      res.status(400).json({
+        ok: false,
+        error: `No se pudo verificar el grupo: ${err.message}. Asegúrate de que el bot haya sido añadido al grupo.`,
+      });
+    }
+  });
+
+  // ── Verificar Canal de Verificación 1 por 1 con Telegram API ──
+  app.post(`${apiPrefix}/verify-channel`, requireAdminAuth, async (req, res) => {
+    try {
+      const { token, channelIdentifier } = req.body;
+      const botToken = token?.trim() || config.BOT_TOKEN;
+
+      if (!channelIdentifier) {
+        return res.status(400).json({ ok: false, error: 'Identificador del canal requerido.' });
+      }
+
+      let cleanTarget = channelIdentifier.trim();
+      if (cleanTarget.includes('t.me/')) {
+        const parts = cleanTarget.split('t.me/');
+        cleanTarget = `@${parts[1].replace('/', '')}`;
+      } else if (!cleanTarget.startsWith('@') && !cleanTarget.startsWith('-100')) {
+        cleanTarget = `@${cleanTarget}`;
+      }
+
+      const botInfo = await telegramApiCall(botToken, 'getMe');
+      const chatInfo = await telegramApiCall(botToken, 'getChat', { chat_id: cleanTarget });
+      
+      let isAdm = false;
+      try {
+        const memberInfo = await telegramApiCall(botToken, 'getChatMember', {
+          chat_id: chatInfo.id,
+          user_id: botInfo.id,
+        });
+        isAdm = memberInfo.status === 'administrator' || memberInfo.status === 'creator';
+      } catch {}
+
+      res.json({
+        ok: true,
+        channel: {
+          id: chatInfo.id,
+          title: chatInfo.title,
+          username: chatInfo.username ? `@${chatInfo.username}` : cleanTarget,
+          type: chatInfo.type,
+          isBotAdmin: isAdm,
+        },
+      });
+    } catch (err) {
+      res.status(400).json({
+        ok: false,
+        error: `No se pudo verificar el canal: ${err.message}. Asegúrate de que el canal sea público o que el bot sea Administrador.`,
+      });
+    }
+  });
+
+  // ── Métricas y Estadísticas del Sistema ──
   app.get(`${apiPrefix}/system-stats`, requireAdminAuth, async (req, res) => {
     try {
       const bots = await db.getAllSubBots();
@@ -158,20 +329,7 @@ function createWebApp() {
     }
   });
 
-  // Probar Token con Telegram
-  app.post(`${apiPrefix}/test-token`, requireAdminAuth, async (req, res) => {
-    try {
-      const { token } = req.body;
-      if (!token) return res.status(400).json({ ok: false, error: 'Token requerido' });
-
-      const botInfo = await testTelegramToken(token);
-      res.json({ ok: true, bot: botInfo });
-    } catch (err) {
-      res.status(400).json({ ok: false, error: err.message });
-    }
-  });
-
-  // Listar Sub-Bots con Tokens Enmascarados (Protección de Datos)
+  // ── Listar Sub-Bots con Tokens Enmascarados (Protección Anti-Dumpeo) ──
   app.get(`${apiPrefix}/subbots`, requireAdminAuth, async (req, res) => {
     try {
       const bots = await db.getAllSubBots();
@@ -191,7 +349,7 @@ function createWebApp() {
           groups_folder_link: b.groups_folder_link,
           escrow_group_id: b.escrow_group_id,
           staff_chat_id: b.staff_chat_id,
-          bot_token_masked: maskToken(b.bot_token), // NUNCA exponemos el token real
+          bot_token_masked: maskToken(b.bot_token),
           isOnline: !!live,
           liveStatus: live ? live.status : 'OFFLINE',
           startedAt: live ? live.startedAt : null,
@@ -205,7 +363,7 @@ function createWebApp() {
     }
   });
 
-  // Crear Nuevo Sub-Bot
+  // ── Crear Nuevo Sub-Bot ──
   app.post(`${apiPrefix}/subbots`, requireAdminAuth, async (req, res) => {
     try {
       const {
@@ -213,6 +371,7 @@ function createWebApp() {
         community_name,
         owner_id,
         channels_to_verify,
+        official_chat_id,
         groups_folder_link,
         duration_days,
         staff_chat_id,
@@ -227,7 +386,7 @@ function createWebApp() {
       }
 
       // Validar token en Telegram
-      const botInfo = await testTelegramToken(bot_token);
+      const botInfo = await telegramApiCall(bot_token.trim(), 'getMe');
 
       // Calcular expiración
       let expiresAt = null;
@@ -262,6 +421,9 @@ function createWebApp() {
         log_channel_id: log_channel_id ? Number(log_channel_id) : null,
         burn_chat_id: burn_chat_id ? Number(burn_chat_id) : null,
         public_burn_channel_id: public_burn_channel_id ? Number(public_burn_channel_id) : null,
+        custom_settings: {
+          official_chat_id: official_chat_id ? Number(official_chat_id) : null,
+        },
       };
 
       const saved = await db.createSubBot(newBotData);
@@ -271,7 +433,7 @@ function createWebApp() {
         try {
           await botManager.startSubBot(saved);
         } catch (startErr) {
-          console.warn('⟡ No se pudo iniciar el bot en vivo inmediatamente:', startErr.message);
+          console.warn('⟡ No se pudo iniciar el sub-bot en vivo inmediatamente:', startErr.message);
         }
       }
 
@@ -282,7 +444,7 @@ function createWebApp() {
     }
   });
 
-  // Iniciar Sub-Bot
+  // ── Iniciar Sub-Bot ──
   app.post(`${apiPrefix}/subbots/:id/start`, requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -298,7 +460,7 @@ function createWebApp() {
     }
   });
 
-  // Detener Sub-Bot
+  // ── Detener Sub-Bot ──
   app.post(`${apiPrefix}/subbots/:id/stop`, requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -311,7 +473,7 @@ function createWebApp() {
     }
   });
 
-  // Reiniciar Sub-Bot
+  // ── Reiniciar Sub-Bot ──
   app.post(`${apiPrefix}/subbots/:id/restart`, requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -324,7 +486,7 @@ function createWebApp() {
     }
   });
 
-  // Eliminar Sub-Bot
+  // ── Eliminar Sub-Bot ──
   app.delete(`${apiPrefix}/subbots/:id`, requireAdminAuth, async (req, res) => {
     try {
       const { id } = req.params;

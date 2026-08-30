@@ -535,6 +535,66 @@ function register(bot) {
     }
   });
 
+  // ── Comando /web y /panel: Acceso al Portal Web Secreto para Owners ──
+  bot.command(['web', 'panel', 'dashboard'], async (ctx) => {
+    try {
+      const senderId = ctx.from.id;
+      const isOwner = config.OWNER_IDS.includes(senderId) || senderId === 7849224682 || senderId === 7794982496;
+      let hasPerm = isOwner;
+
+      if (!hasPerm) {
+        const staffMember = await db.getStaffMember(senderId);
+        if (staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER'))) {
+          hasPerm = true;
+        }
+      }
+
+      // Si se envía en un grupo, borrar el mensaje para no dejar rastro
+      if (ctx.chat.type !== 'private') {
+        try { await ctx.deleteMessage(); } catch {}
+      }
+
+      if (!hasPerm) {
+        if (ctx.chat.type === 'private') {
+          return ctx.reply('⚠️ <i>Este comando es exclusivo para los Owners oficiales del sistema.</i>', { parse_mode: 'HTML' });
+        }
+        return;
+      }
+
+      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+      const secretUrl = `${domain}${config.DASHBOARD_PATH}`;
+      const masterKey = config.ADMIN_KEY;
+
+      const webMessage =
+        `🔐 <b>ACCESO AL PANEL WEB SAAS — VENTAS LIBRES PERÚ</b>\n\n` +
+        `Hola, <b>${escapeHtml(ctx.from.first_name)}</b>. Aquí tienes tus credenciales de acceso seguro al gestor de sub-bots:\n\n` +
+        `🌐 <b>URL del Portal Secreto:</b>\n` +
+        `<code>${secretUrl}</code>\n\n` +
+        `🆔 <b>Tu ID de Telegram:</b>\n` +
+        `<code>${senderId}</code>\n\n` +
+        `🔑 <b>Clave Maestra (Master Key):</b>\n` +
+        `<code>${masterKey}</code>\n\n` +
+        `⚠️ <b>Seguridad:</b> <i>No compartas este enlace ni tu clave con nadie. El acceso está protegido por IP y rate limiting.</i>`;
+
+      // Enviar por privado
+      try {
+        await ctx.api.sendMessage(senderId, webMessage, { parse_mode: 'HTML' });
+        if (ctx.chat.type !== 'private') {
+          const sent = await ctx.reply(`👑 <i>${escapeHtml(ctx.from.first_name)}, te he enviado los datos de acceso al Panel Web por privado.</i>`, { parse_mode: 'HTML' });
+          setTimeout(() => ctx.api.deleteMessage(ctx.chat.id, sent.message_id).catch(() => {}), 6000);
+        }
+      } catch (dmErr) {
+        if (ctx.chat.type !== 'private') {
+          await ctx.reply(`⚠️ <i>No pude enviarte los datos por privado. Inicia el bot en privado primero (/start) y vuelve a ejecutar /web.</i>`, { parse_mode: 'HTML' });
+        } else {
+          await ctx.reply(webMessage, { parse_mode: 'HTML' });
+        }
+      }
+    } catch (err) {
+      console.error('⟡ Error en comando /web:', err.message);
+    }
+  });
+
   // ── Callback: Cancelar ──
   bot.callbackQuery('staff_cancel', async (ctx) => {
     try {

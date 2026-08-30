@@ -1,8 +1,11 @@
 // ══════════════════════════════════════════════════════
-// ⟡ SaaS Sub-Bots Dashboard — Secure Client Application
+// ⟡ VLP SaaS Dashboard — Client Application
 // ══════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
+  const API_PREFIX = '/api-sec-vlp';
+
+  // Containers
   const botsContainer = document.getElementById('bots-container');
   const btnRefresh = document.getElementById('btn-refresh');
   const btnOpenModal = document.getElementById('btn-open-modal');
@@ -10,64 +13,131 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCancelModal = document.getElementById('btn-cancel-modal');
   const modalCreate = document.getElementById('modal-create');
   const formCreate = document.getElementById('form-create-bot');
-  const btnVerifyToken = document.getElementById('btn-verify-token');
-  const botTokenInput = document.getElementById('bot_token');
-  const tokenStatusMsg = document.getElementById('token-status-msg');
 
   // Auth Elements
   const modalAuth = document.getElementById('modal-auth');
   const formAuth = document.getElementById('form-auth');
+  const adminTgIdInput = document.getElementById('admin_tg_id');
   const adminKeyInput = document.getElementById('admin_key_input');
   const authErrorMsg = document.getElementById('auth-error-msg');
+
+  // User Profile in Sidebar
+  const sidebarUserBox = document.getElementById('sidebar-user-box');
+  const userAvatarImg = document.getElementById('user-avatar-img');
+  const userAvatarInitials = document.getElementById('user-avatar-initials');
+  const userDisplayName = document.getElementById('user-display-name');
+  const userDisplayRole = document.getElementById('user-display-role');
+  const btnLogout = document.getElementById('btn-logout');
+
+  // Form Fields & Verifiers
+  const botTokenInput = document.getElementById('bot_token');
+  const btnVerifyToken = document.getElementById('btn-verify-token');
+  const tokenFeedback = document.getElementById('token-feedback');
+
+  const officialChatIdInput = document.getElementById('official_chat_id');
+  const btnVerifyChat = document.getElementById('btn-verify-chat');
+  const chatFeedback = document.getElementById('chat-feedback');
+
+  const channelInput = document.getElementById('channel_input');
+  const btnAddChannel = document.getElementById('btn-add-channel');
+  const channelFeedback = document.getElementById('channel-feedback');
+  const channelsChipsContainer = document.getElementById('channels-chips-container');
 
   // Stats Elements
   const statTotal = document.getElementById('stat-total');
   const statOnline = document.getElementById('stat-online');
-  const statCommunities = document.getElementById('stat-communities');
-  const statActive = document.getElementById('stat-active');
+  const statGroups = document.getElementById('stat-groups');
+  const statBurned = document.getElementById('stat-burned');
   const botsCountBadge = document.getElementById('bots-count-badge');
 
-  // Key Storage & Dynamic API Prefix
+  // State
+  let verifiedChannelsList = [];
+  let currentVerifiedBot = null;
   let adminKey = localStorage.getItem('vlp_admin_key') || '';
-  let API_PREFIX = '/api-sec-vlp';
+  let storedUser = null;
 
-  // Check initial Auth
-  if (!adminKey) {
+  try {
+    storedUser = JSON.parse(localStorage.getItem('vlp_admin_user') || 'null');
+  } catch {}
+
+  // Initial Auth Check
+  if (!adminKey || !storedUser) {
     modalAuth.classList.add('active');
   } else {
+    displayUserHeader(storedUser);
     fetchBots();
+    fetchStats();
   }
 
-  // ── Formulario de Login / Clave de Seguridad ──
+  // ── Logout ──
+  btnLogout.addEventListener('click', () => {
+    localStorage.removeItem('vlp_admin_key');
+    localStorage.removeItem('vlp_admin_user');
+    location.reload();
+  });
+
+  // ── Login con ID de Telegram + Master Key ──
   formAuth.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const telegramId = adminTgIdInput.value.trim();
     const key = adminKeyInput.value.trim();
-    if (!key) return;
 
-    authErrorMsg.textContent = 'Validando clave...';
+    if (!telegramId || !key) return;
+
+    authErrorMsg.textContent = 'Verificando con Telegram API...';
+    authErrorMsg.className = 'verify-feedback';
+
     try {
-      const res = await fetch(`${API_PREFIX}/auth-check`, {
+      const res = await fetch(`${API_PREFIX}/auth-owner`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ telegramId, key }),
       });
       const data = await res.json();
 
-      if (data.ok) {
+      if (data.ok && data.user) {
         adminKey = key;
         localStorage.setItem('vlp_admin_key', key);
+        localStorage.setItem('vlp_admin_user', JSON.stringify(data.user));
+
+        displayUserHeader(data.user);
         modalAuth.classList.remove('active');
         authErrorMsg.textContent = '';
         await fetchBots();
+        await fetchStats();
       } else {
-        authErrorMsg.textContent = '✗ Clave de seguridad incorrecta.';
+        authErrorMsg.textContent = `✗ ${data.error || 'Acceso denegado'}`;
+        authErrorMsg.className = 'verify-feedback error';
       }
     } catch (err) {
       authErrorMsg.textContent = `✗ Error de conexión: ${err.message}`;
+      authErrorMsg.className = 'verify-feedback error';
     }
   });
 
-  // Helper para Fetch Seguro con Headers
+  function displayUserHeader(user) {
+    sidebarUserBox.style.display = 'flex';
+    userDisplayName.textContent = user.name || `ID: ${user.id}`;
+    userDisplayRole.textContent = user.role || 'OWNER SUPREMO';
+
+    if (user.avatarUrl) {
+      userAvatarImg.src = user.avatarUrl;
+      userAvatarImg.style.display = 'block';
+      userAvatarInitials.style.display = 'none';
+    } else {
+      userAvatarImg.style.display = 'none';
+      userAvatarInitials.style.display = 'block';
+      const initials = (user.name || 'OW')
+        .split(' ')
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase();
+      userAvatarInitials.textContent = initials || 'OW';
+    }
+  }
+
+  // Helper para Fetch Seguro
   function secureFetch(url, options = {}) {
     options.headers = {
       ...options.headers,
@@ -77,22 +147,32 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Modal Controls
-  btnOpenModal.addEventListener('click', () => modalCreate.classList.add('active'));
+  btnOpenModal.addEventListener('click', () => {
+    verifiedChannelsList = [];
+    renderChannelChips();
+    tokenFeedback.textContent = '';
+    chatFeedback.textContent = '';
+    channelFeedback.textContent = '';
+    modalCreate.classList.add('active');
+  });
   btnCloseModal.addEventListener('click', () => modalCreate.classList.remove('active'));
   btnCancelModal.addEventListener('click', () => modalCreate.classList.remove('active'));
-  btnRefresh.addEventListener('click', fetchBots);
+  btnRefresh.addEventListener('click', () => {
+    fetchBots();
+    fetchStats();
+  });
 
-  // ── Probar Token con Telegram ──
+  // ── 1. Verificar Token de BotFather ──
   btnVerifyToken.addEventListener('click', async () => {
     const token = botTokenInput.value.trim();
     if (!token) {
-      tokenStatusMsg.textContent = 'Ingresa un token para verificar.';
-      tokenStatusMsg.className = 'token-status error';
+      tokenFeedback.textContent = 'Ingresa un token para verificar.';
+      tokenFeedback.className = 'verify-feedback error';
       return;
     }
 
-    tokenStatusMsg.textContent = 'Verificando con Telegram API...';
-    tokenStatusMsg.className = 'token-status';
+    tokenFeedback.textContent = 'Consultando Telegram API...';
+    tokenFeedback.className = 'verify-feedback';
 
     try {
       const res = await secureFetch(`${API_PREFIX}/test-token`, {
@@ -103,36 +183,152 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
 
       if (data.ok) {
-        tokenStatusMsg.textContent = `✓ Bot Válido: @${data.bot.username} (${data.bot.first_name})`;
-        tokenStatusMsg.className = 'token-status success';
+        currentVerifiedBot = data.bot;
+        tokenFeedback.textContent = `✓ Bot Válido: @${data.bot.username} (${data.bot.first_name})`;
+        tokenFeedback.className = 'verify-feedback success';
       } else {
-        tokenStatusMsg.textContent = `✗ Error: ${data.error}`;
-        tokenStatusMsg.className = 'token-status error';
+        tokenFeedback.textContent = `✗ Error: ${data.error}`;
+        tokenFeedback.className = 'verify-feedback error';
       }
     } catch (err) {
-      tokenStatusMsg.textContent = `✗ Error de conexión: ${err.message}`;
-      tokenStatusMsg.className = 'token-status error';
+      tokenFeedback.textContent = `✗ Error: ${err.message}`;
+      tokenFeedback.className = 'verify-feedback error';
     }
   });
 
-  // ── Cargar Lista de Sub-Bots ──
+  // ── 2. Verificar Grupo Oficial Chat ──
+  btnVerifyChat.addEventListener('click', async () => {
+    const chatId = officialChatIdInput.value.trim();
+    const token = botTokenInput.value.trim();
+
+    if (!chatId) {
+      chatFeedback.textContent = 'Ingresa el ID del grupo (ej: -1001234567890).';
+      chatFeedback.className = 'verify-feedback error';
+      return;
+    }
+
+    chatFeedback.textContent = 'Verificando pertenencia y permisos del bot...';
+    chatFeedback.className = 'verify-feedback';
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/verify-chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, chatId }),
+      });
+      const data = await res.json();
+
+      if (data.ok && data.chat) {
+        const c = data.chat;
+        const admText = c.isBotAdmin ? '✓ Bot es Administrador' : '⚠️ Bot es Miembro (Recomendado hacerlo Admin)';
+        chatFeedback.textContent = `✓ Grupo: "${c.title}" (${c.type}) — ${admText}`;
+        chatFeedback.className = 'verify-feedback success';
+      } else {
+        chatFeedback.textContent = `✗ ${data.error || 'Grupo no encontrado'}`;
+        chatFeedback.className = 'verify-feedback error';
+      }
+    } catch (err) {
+      chatFeedback.textContent = `✗ Error: ${err.message}`;
+      chatFeedback.className = 'verify-feedback error';
+    }
+  });
+
+  // ── 3. Verificar y Agregar Canal 1 por 1 ──
+  btnAddChannel.addEventListener('click', async () => {
+    const channelRaw = channelInput.value.trim();
+    const token = botTokenInput.value.trim();
+
+    if (!channelRaw) {
+      channelFeedback.textContent = 'Escribe el @canal o enlace.';
+      channelFeedback.className = 'verify-feedback error';
+      return;
+    }
+
+    channelFeedback.textContent = 'Verificando canal...';
+    channelFeedback.className = 'verify-feedback';
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/verify-channel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, channelIdentifier: channelRaw }),
+      });
+      const data = await res.json();
+
+      if (data.ok && data.channel) {
+        const ch = data.channel;
+        if (!verifiedChannelsList.includes(ch.username)) {
+          verifiedChannelsList.push(ch.username);
+          renderChannelChips();
+          channelInput.value = '';
+          channelFeedback.textContent = `✓ Canal agregado: ${ch.title} (${ch.username})`;
+          channelFeedback.className = 'verify-feedback success';
+        } else {
+          channelFeedback.textContent = 'Este canal ya está en la lista.';
+          channelFeedback.className = 'verify-feedback error';
+        }
+      } else {
+        channelFeedback.textContent = `✗ ${data.error || 'Canal no encontrado'}`;
+        channelFeedback.className = 'verify-feedback error';
+      }
+    } catch (err) {
+      channelFeedback.textContent = `✗ Error: ${err.message}`;
+      channelFeedback.className = 'verify-feedback error';
+    }
+  });
+
+  function renderChannelChips() {
+    if (verifiedChannelsList.length === 0) {
+      channelsChipsContainer.innerHTML = `<span style="color: var(--text-dim); font-size: 0.75rem;">Sin canales agregados aún.</span>`;
+      return;
+    }
+
+    channelsChipsContainer.innerHTML = verifiedChannelsList
+      .map(
+        (ch, idx) => `
+        <div class="channel-chip">
+          <span>${escapeHtml(ch)}</span>
+          <span class="channel-chip-remove" onclick="removeChannel(${idx})">&times;</span>
+        </div>
+      `
+      )
+      .join('');
+  }
+
+  window.removeChannel = (index) => {
+    verifiedChannelsList.splice(index, 1);
+    renderChannelChips();
+  };
+
+  // ── Cargar Métricas y Sub-Bots ──
+  async function fetchStats() {
+    try {
+      const res = await secureFetch(`${API_PREFIX}/system-stats`);
+      const data = await res.json();
+      if (data.ok && data.stats) {
+        statGroups.textContent = data.stats.totalGroups || 0;
+        statBurned.textContent = data.stats.totalBurnedScammers || 0;
+      }
+    } catch {}
+  }
+
   async function fetchBots() {
     if (!adminKey) return;
 
     botsContainer.innerHTML = `
       <div class="loading-state">
         <div class="spinner"></div>
-        <p>Cargando sub-bots en tiempo real...</p>
+        <p>Cargando instancias en tiempo real...</p>
       </div>
     `;
 
     try {
       const res = await secureFetch(`${API_PREFIX}/subbots`);
 
-      if (res.status === 401) {
+      if (res.status === 401 || res.status === 403) {
         localStorage.removeItem('vlp_admin_key');
+        localStorage.removeItem('vlp_admin_user');
         modalAuth.classList.add('active');
-        authErrorMsg.textContent = 'Sesión expirada o clave inválida.';
         return;
       }
 
@@ -147,31 +343,26 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       botsContainer.innerHTML = `
         <div class="empty-state">
-          <p>⚠️ Error al cargar los sub-bots: ${err.message}</p>
+          <p>Error al cargar sub-bots: ${escapeHtml(err.message)}</p>
         </div>
       `;
     }
   }
 
-  // ── Renderizar Métricas ──
   function renderStats(bots) {
     const total = bots.length;
     const online = bots.filter((b) => b.isOnline).length;
-    const active = bots.filter((b) => b.plan_status === 'ACTIVE').length;
 
     statTotal.textContent = total;
     statOnline.textContent = online;
-    statCommunities.textContent = total;
-    statActive.textContent = active;
     botsCountBadge.textContent = `${total} Sub-Bots`;
   }
 
-  // ── Renderizar Tarjetas de Sub-Bots ──
   function renderBots(bots) {
     if (bots.length === 0) {
       botsContainer.innerHTML = `
         <div class="empty-state">
-          <p>Aún no has creado ningún sub-bot. ¡Crea el primero haciendo clic en "NUEVO SUB-BOT"!</p>
+          <p>No tienes ningún sub-bot registrado. Haz clic en "NUEVO SUB-BOT" para desplegar el primero.</p>
         </div>
       `;
       return;
@@ -181,15 +372,15 @@ document.addEventListener('DOMContentLoaded', () => {
       .map((bot) => {
         const isOnline = bot.isOnline;
         const statusBadge = isOnline
-          ? '<span class="badge badge-green">🟢 ONLINE</span>'
-          : '<span class="badge badge-red">🔴 DETENIDO</span>';
+          ? '<span class="badge badge-green">ONLINE</span>'
+          : '<span class="badge badge-red">DETENIDO</span>';
 
         const expiresFormatted = bot.expires_at
           ? new Date(bot.expires_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
           : 'Ilimitado';
 
         const ownersList = bot.owner_ids && bot.owner_ids.length > 0 ? bot.owner_ids.join(', ') : 'No asignado';
-        const maskedToken = bot.bot_token_masked || '••••••••••';
+        const channelsCount = Array.isArray(bot.channels_to_verify) ? bot.channels_to_verify.length : 0;
 
         return `
           <div class="bot-card" data-id="${bot.id}">
@@ -204,18 +395,18 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="bot-card-body">
               <div class="bot-info-row">
                 <span>Token:</span>
-                <strong><code>${maskedToken}</code></strong>
+                <strong><code>${escapeHtml(bot.bot_token_masked || '••••••••')}</code></strong>
               </div>
               <div class="bot-info-row">
                 <span>Owner ID:</span>
-                <strong><code>${ownersList}</code></strong>
+                <strong><code>${escapeHtml(ownersList)}</code></strong>
               </div>
               <div class="bot-info-row">
-                <span>Estado Plan:</span>
-                <strong>${bot.plan_status}</strong>
+                <span>Canales a Verificar:</span>
+                <strong>${channelsCount} canales</strong>
               </div>
               <div class="bot-info-row">
-                <span>Vence:</span>
+                <span>Vencimiento:</span>
                 <strong>${expiresFormatted}</strong>
               </div>
             </div>
@@ -223,10 +414,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="bot-card-actions">
               ${
                 isOnline
-                  ? `<button class="btn btn-secondary btn-sm" onclick="toggleBot('${bot.id}', 'stop')">⏸️ Pausar</button>`
-                  : `<button class="btn btn-primary btn-sm" onclick="toggleBot('${bot.id}', 'start')">▶️ Iniciar</button>`
+                  ? `<button class="btn btn-secondary btn-sm" onclick="toggleBot('${bot.id}', 'stop')">Pausar</button>`
+                  : `<button class="btn btn-primary btn-sm" onclick="toggleBot('${bot.id}', 'start')">Iniciar</button>`
               }
-              <button class="btn btn-danger btn-sm" onclick="deleteBot('${bot.id}')">🗑️ Eliminar</button>
+              <button class="btn btn-secondary btn-sm" onclick="toggleBot('${bot.id}', 'restart')">Reiniciar</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteBot('${bot.id}')">Eliminar</button>
             </div>
           </div>
         `;
@@ -243,6 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formData = new FormData(formCreate);
     const payload = Object.fromEntries(formData.entries());
+    payload.channels_to_verify = verifiedChannelsList;
 
     try {
       const res = await secureFetch(`${API_PREFIX}/subbots`, {
@@ -255,8 +448,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.ok) {
         modalCreate.classList.remove('active');
         formCreate.reset();
-        tokenStatusMsg.textContent = '';
+        verifiedChannelsList = [];
+        renderChannelChips();
+        tokenFeedback.textContent = '';
+        chatFeedback.textContent = '';
         await fetchBots();
+        await fetchStats();
       } else {
         alert(`Error al crear sub-bot: ${data.error}`);
       }
@@ -264,11 +461,11 @@ document.addEventListener('DOMContentLoaded', () => {
       alert(`Error de red: ${err.message}`);
     } finally {
       btnSubmit.disabled = false;
-      btnSubmit.textContent = '🚀 DESPLEGAR SUB-BOT';
+      btnSubmit.textContent = 'DESPLEGAR SUB-BOT';
     }
   });
 
-  // ── Funciones Globales para Control de Instancias ──
+  // ── Control de Sub-Bots ──
   window.toggleBot = async (id, action) => {
     try {
       const res = await secureFetch(`${API_PREFIX}/subbots/${id}/${action}`, { method: 'POST' });
@@ -284,12 +481,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   window.deleteBot = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este sub-bot? Se detendrá la instancia y se borrará su configuración.')) return;
+    if (!confirm('¿Deseas eliminar este sub-bot? Se detendrá la instancia y se borrará la configuración.')) return;
     try {
       const res = await secureFetch(`${API_PREFIX}/subbots/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.ok) {
         await fetchBots();
+        await fetchStats();
       } else {
         alert(`Error: ${data.error}`);
       }
