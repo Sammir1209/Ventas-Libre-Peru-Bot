@@ -9,21 +9,30 @@ const { DEAL_STATUS } = require('../../config/constants');
 /**
  * Crea un nuevo trato y lo añade a la cola con datos enriquecidos.
  */
-async function enqueueDeal(creatorId, creatorUsername, role, counterpart, description) {
+async function enqueueDeal(creatorId, creatorUsername, role, counterpart, description, tenantId = null) {
   // Crear en PostgreSQL / Supabase
-  const deal = await db.createDeal(creatorId);
+  const deal = await db.createDeal(creatorId, {
+    role,
+    counterpart,
+    description,
+    creatorUsername,
+    tenantId,
+  });
 
-  // Añadir a cola Redis
-  await redisDb.addDealToQueue(deal.id, {
+  const dealPayload = {
     id: deal.id,
     creatorId,
-    creatorUsername,
-    role: role || 'N/A',
-    counterpart: counterpart || 'N/A',
-    description: description || 'Sin descripción',
+    creatorUsername: creatorUsername || null,
+    role: role || 'Solicitante',
+    counterpart: counterpart || 'Sin especificar',
+    description: description || 'Sin especificar',
     status: DEAL_STATUS.PENDING,
     createdAt: new Date().toISOString(),
-  });
+  };
+
+  // Añadir a cola Redis y guardar estado persistente
+  await redisDb.addDealToQueue(deal.id, dealPayload);
+  await redisDb.setCache(`deal_full_info:${deal.id}`, dealPayload, 86400 * 7);
 
   return deal;
 }

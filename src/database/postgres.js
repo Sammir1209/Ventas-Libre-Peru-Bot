@@ -474,24 +474,65 @@ async function getStaffByRole(role, tenantId = null) {
 // ⟡ CRUD — Tratos (Deals)
 // ══════════════════════════════════════════════════════
 
-async function createDeal(creatorId) {
+async function createDeal(creatorId, dealInfo = {}) {
+  const role = dealInfo.role || null;
+  const counterpart = dealInfo.counterpart || null;
+  const description = dealInfo.description || null;
+  const creatorUsername = dealInfo.creatorUsername || null;
+  const tenantId = dealInfo.tenantId || null;
+
   if (useSupabase && supabase) {
-    const { data, error } = await supabase
+    const payload = { creator_id: creatorId };
+    if (role) payload.role = role;
+    if (counterpart) payload.counterpart = counterpart;
+    if (description) payload.description = description;
+    if (creatorUsername) payload.creator_username = creatorUsername;
+    if (tenantId) payload.tenant_id = tenantId;
+
+    let { data, error } = await supabase
       .from('deals')
-      .insert({ creator_id: creatorId })
+      .insert(payload)
       .select()
-      .single();
-    if (error) console.error('⟡ Supabase createDeal error:', error.message);
-    return data;
+      .maybeSingle();
+
+    if (error) {
+      console.warn('⟡ Supabase createDeal full payload warning:', error.message);
+      const fbPayload = { creator_id: creatorId };
+      if (tenantId) fbPayload.tenant_id = tenantId;
+      const fb = await supabase.from('deals').insert(fbPayload).select().maybeSingle();
+      data = fb.data || { id: Date.now(), creator_id: creatorId, status: 'PENDING' };
+    }
+    return {
+      ...data,
+      role: data?.role || role,
+      counterpart: data?.counterpart || counterpart,
+      description: data?.description || description,
+      creator_username: data?.creator_username || creatorUsername,
+    };
   }
   if (pool) {
-    const res = await pool.query(
-      `INSERT INTO deals (creator_id) VALUES ($1) RETURNING *`,
-      [creatorId]
-    );
-    return res.rows[0];
+    try {
+      const res = await pool.query(
+        `INSERT INTO deals (creator_id, role, counterpart, description, creator_username, tenant_id)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [creatorId, role, counterpart, description, creatorUsername, tenantId]
+      );
+      return res.rows[0];
+    } catch {
+      const res = await pool.query(
+        `INSERT INTO deals (creator_id) VALUES ($1) RETURNING *`,
+        [creatorId]
+      );
+      return {
+        ...res.rows[0],
+        role,
+        counterpart,
+        description,
+        creator_username: creatorUsername,
+      };
+    }
   }
-  return { id: Date.now(), creator_id: creatorId, status: 'PENDING' };
+  return { id: Date.now(), creator_id: creatorId, role, counterpart, description, creator_username: creatorUsername, status: 'PENDING' };
 }
 
 async function getDeal(dealId) {

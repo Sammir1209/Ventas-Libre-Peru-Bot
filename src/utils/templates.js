@@ -148,11 +148,16 @@ function dealAcceptedGroup(dealId, adminUsername) {
 }
 
 function dealInviteMessage(dealId, inviteLink, topicLink, counterpart, role, description) {
-  const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
-  const cleanCounterpart = (counterpart || 'N/A').startsWith('@') ? counterpart : `@${counterpart}`;
+  const cleanRole = (role || '').toUpperCase();
+  const myRole = cleanRole === 'VENDEDOR' ? 'Vendedor' : (cleanRole === 'COMPRADOR' ? 'Comprador' : (role || 'Solicitante'));
+  const counterpartRole = cleanRole === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
+  const cleanCounterpart = (!counterpart || counterpart === 'N/A' || counterpart === 'Sin especificar')
+    ? 'No especificado'
+    : (counterpart.startsWith('@') || /^\d+$/.test(counterpart) ? counterpart : `@${counterpart}`);
+
   return (
     `${SYM.DIAMOND} <b>SALA DE MEDIACIÓN #${dealId} LISTA</b>\n\n` +
-    `• <b>Tu Rol:</b> ${role}\n` +
+    `• <b>Tu Rol:</b> ${myRole}\n` +
     `• <b>${counterpartRole}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
     `• <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
     `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala #${dealId} ]</b></a>\n\n` +
@@ -163,8 +168,8 @@ function dealInviteMessage(dealId, inviteLink, topicLink, counterpart, role, des
 function dealCounterpartInviteMessage(dealId, inviteLink, creatorMention, myRole, creatorRole, description) {
   return (
     `${SYM.DIAMOND} <b>SALA DE MEDIACIÓN #${dealId} LISTA</b>\n\n` +
-    `• <b>Tu Rol:</b> ${myRole}\n` +
-    `• <b>${creatorRole}:</b> ${creatorMention}\n` +
+    `• <b>Tu Rol:</b> ${myRole || 'Participante'}\n` +
+    `• <b>${creatorRole || 'Solicitante'}:</b> ${creatorMention}\n` +
     `• <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
     `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala #${dealId} ]</b></a>\n\n` +
     `<i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo.</i>`
@@ -172,11 +177,17 @@ function dealCounterpartInviteMessage(dealId, inviteLink, creatorMention, myRole
 }
 
 function dealTopicWelcomeBanner(dealId, creatorMention, counterpart, adminMention, description, role) {
-  const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
+  const cleanRole = (role || '').toUpperCase();
+  const creatorRoleName = cleanRole === 'VENDEDOR' ? 'Vendedor' : (cleanRole === 'COMPRADOR' ? 'Comprador' : (role || 'Solicitante'));
+  const counterpartRoleName = cleanRole === 'VENDEDOR' ? 'Comprador' : (cleanRole === 'COMPRADOR' ? 'Vendedor' : 'Contraparte');
+  const cleanCounterpart = (!counterpart || counterpart === 'N/A' || counterpart === 'Sin especificar')
+    ? 'No especificado'
+    : (counterpart.startsWith('@') || /^\d+$/.test(counterpart) ? counterpart : `@${counterpart}`);
+
   return (
     `${SYM.DIAMOND} <b>SALA OFICIAL DE MEDIACIÓN — TRATO #${dealId}</b>\n\n` +
-    `• <b>${role}:</b> ${creatorMention}\n` +
-    `• <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
+    `• <b>${creatorRoleName}:</b> ${creatorMention}\n` +
+    `• <b>${counterpartRoleName}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
     `• <b>Mediador:</b> ${adminMention}\n` +
     `• <b>Detalles del Trato:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
     `${SYM.THIN_LINE}\n` +

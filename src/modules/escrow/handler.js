@@ -521,7 +521,8 @@ function register(bot) {
         username,
         form.role,
         form.counterpart,
-        form.description
+        form.description,
+        ctx.tenant?.id
       );
 
       // Limpiar formulario temporal
@@ -723,7 +724,18 @@ function register(bot) {
 
       // 4. Asignar admin en BD y Redis
       await dealQueue.assignDealToAdmin(dealId, adminId);
-      const dealData = (await redisDb.getDealState(dealId)) || {};
+      const redisState = (await redisDb.getDealState(dealId)) || (await redisDb.getCache(`deal_full_info:${dealId}`)) || {};
+      
+      const dealRole = redisState.role || deal.role || 'Solicitante';
+      const dealCounterpart = redisState.counterpart || deal.counterpart || 'No especificado';
+      const dealDescription = redisState.description || deal.description || 'Sin especificar';
+      const dealCreatorUsername = redisState.creatorUsername || deal.creator_username || null;
+      const dealData = {
+        role: dealRole,
+        counterpart: dealCounterpart,
+        description: dealDescription,
+        creatorUsername: dealCreatorUsername,
+      };
 
       // 5. Crear el Hilo / Forum Topic en el Supergrupo
       let threadId;
@@ -768,7 +780,7 @@ function register(bot) {
 
       // Resolver ID de la contraparte si es posible
       let counterpartTargetId = null;
-      const rawCounterpart = (dealData.counterpart || '').trim();
+      const rawCounterpart = (dealCounterpart || '').trim();
       if (/^\d+$/.test(rawCounterpart)) {
         counterpartTargetId = Number(rawCounterpart);
       } else {
@@ -797,8 +809,8 @@ function register(bot) {
       await redisDb.setCache(`deal_invites:${dealId}`, [creatorJoinLink, counterpartJoinLink], 86400);
 
       // 7. Enviar banner de bienvenida fijado en el Hilo/Topic
-      const creatorMention = dealData.creatorUsername
-        ? `@${dealData.creatorUsername}`
+      const creatorMention = dealCreatorUsername
+        ? `@${dealCreatorUsername}`
         : `ID: <code>${deal.creator_id}</code>`;
 
       const adminMention = adminUsername
@@ -810,10 +822,10 @@ function register(bot) {
         templates.dealTopicWelcomeBanner(
           dealId,
           creatorMention,
-          dealData.counterpart,
+          dealCounterpart,
           adminMention,
-          dealData.description,
-          dealData.role
+          dealDescription,
+          dealRole
         ),
         {
           message_thread_id: threadId,
@@ -836,7 +848,7 @@ function register(bot) {
       try {
         await ctx.api.sendMessage(
           deal.creator_id,
-          templates.dealInviteMessage(dealId, creatorJoinLink, topicLink, dealData.counterpart, dealData.role, dealData.description),
+          templates.dealInviteMessage(dealId, creatorJoinLink, topicLink, dealCounterpart, dealRole, dealDescription),
           { parse_mode: 'HTML' }
         );
       } catch {
@@ -845,7 +857,7 @@ function register(bot) {
 
       // 8.1. Enviar mensaje DM a la contraparte con su enlace único
       try {
-        const counterpartRole = dealData.role === 'VENDEDOR' ? 'COMPRADOR' : 'VENDEDOR';
+        const counterpartRole = (dealRole || '').toUpperCase() === 'VENDEDOR' ? 'COMPRADOR' : 'VENDEDOR';
         if (counterpartTargetId && counterpartTargetId !== deal.creator_id) {
           await ctx.api.sendMessage(
             counterpartTargetId,
@@ -854,8 +866,8 @@ function register(bot) {
               counterpartJoinLink,
               creatorMention,
               counterpartRole,
-              dealData.role,
-              dealData.description
+              dealRole,
+              dealDescription
             ),
             { parse_mode: 'HTML' }
           );
