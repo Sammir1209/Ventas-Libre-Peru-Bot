@@ -97,6 +97,55 @@ async function isDealAdmin(userId, tenantId = null) {
   );
 }
 
+/**
+ * Expulsa a los participantes invitados de un trato del grupo de tratos (protegiendo siempre al Staff).
+ */
+async function expelDealParticipants(api, escrowGroupId, dealId) {
+  if (!escrowGroupId || !dealId) return;
+  try {
+    const participants = await redisDb.getCache(`deal_participants:${dealId}`);
+    const deal = await db.getDeal(dealId);
+
+    const uids = new Set();
+    if (participants?.creatorId) uids.add(Number(participants.creatorId));
+    if (participants?.counterpartId) uids.add(Number(participants.counterpartId));
+    if (deal?.creator_id) uids.add(Number(deal.creator_id));
+    if (deal?.counterpart && /^\d+$/.test(deal.counterpart)) uids.add(Number(deal.counterpart));
+
+    for (const uid of uids) {
+      if (!uid) continue;
+      const isStaff = await isStaffMember(uid);
+      if (!isStaff) {
+        try {
+          await api.banChatMember(escrowGroupId, uid);
+          await api.unbanChatMember(escrowGroupId, uid, { only_if_banned: true });
+          console.log(`✓ Usuario invitado ${uid} expulsado del grupo de tratos (Trato #${dealId}).`);
+        } catch (kErr) {
+          console.warn(`⟡ Error expulsando participante ${uid}:`, kErr.message);
+        }
+      } else {
+        console.log(`🛡️ Miembro del Staff ${uid} protegido de expulsión.`);
+      }
+      await redisDb.clearCache(`user_deal_link:${uid}`);
+      await redisDb.clearCache(`user_active_deal:${uid}`);
+    }
+
+    // Revocar cualquier enlace de invitación pendiente del trato
+    const invites = await redisDb.getCache(`deal_invites:${dealId}`);
+    if (Array.isArray(invites)) {
+      for (const inv of invites) {
+        if (inv) {
+          try {
+            await api.revokeChatInviteLink(escrowGroupId, inv);
+          } catch {}
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`⟡ Error en expelDealParticipants(#${dealId}):`, err.message);
+  }
+}
+
 function register(bot) {
   // ── Listener: Revocar enlace en cuanto el usuario entra al grupo ──
   bot.on('chat_member', async (ctx, next) => {
@@ -124,25 +173,78 @@ function register(bot) {
     return next();
   });
 
-  // ── Listener para guardar en memoria/redis todos los mensajes del Hilo ──
+  // ── Listener: Si un topic es cerrado manualmente por un admin en Telegram ──
+  bot.on(['message:forum_topic_closed', 'message:forum_topic_edited'], async (ctx, next) => {
+    try {
+      const escrowGroupId = await getEscrowGroupId();
+      const threadId = ctx.message?.message_thread_id;
+      if (escrowGroupId && ctx.chat?.id === escrowGroupId && threadId) {
+        const dealId = await redisDb.getCache(`thread_deal:${threadId}`);
+        if (dealId) {
+          console.log(`⟡ Hilo #${threadId} (Trato #${dealId}) cerrado/modificado manualmente. Expulsando participantes...`);
+          await expelDealParticipants(ctx.api, escrowGroupId, dealId);
+        }
+      }
+    } catch {}
+    return next();
+  });
+
+  // ── Listener: Control de privacidad y guardado de historial del Hilo ──
   bot.on('message', async (ctx, next) => {
     try {
       const escrowGroupId = await getEscrowGroupId();
       const threadId = ctx.message?.message_thread_id;
+      const chatId = ctx.chat?.id;
 
-      if (escrowGroupId && ctx.chat?.id === escrowGroupId && threadId) {
-        const dealId = await redisDb.getCache(`thread_deal:${threadId}`);
-        if (dealId) {
-          const chatHistory = (await redisDb.getCache(`deal_chat:${dealId}`)) || [];
-          chatHistory.push({
-            sender_id: ctx.from.id,
-            sender_name: ctx.from.first_name || 'Usuario',
-            username: ctx.from.username || null,
-            date: new Date().toISOString(),
-            text: ctx.message.text || ctx.message.caption || '[Archivo / Multimedia]',
-            type: ctx.message.photo ? 'photo' : ctx.message.document ? 'document' : 'text',
-          });
-          await redisDb.setCache(`deal_chat:${dealId}`, chatHistory, 86400 * 7);
+      if (escrowGroupId && chatId === escrowGroupId) {
+        const userId = ctx.from?.id;
+        const isStaff = await isStaffMember(userId);
+
+        // Si NO es Staff:
+        if (!isStaff && userId) {
+          // 1. Si escribe en el Chat General (sin thread o thread principal), borrarlo
+          if (!threadId) {
+            try {
+              await ctx.deleteMessage();
+              console.log(`🛡️ Mensaje de usuario no-staff ${userId} eliminado del chat general de tratos.`);
+            } catch {}
+            return;
+          }
+
+          // 2. Si escribe en un hilo, verificar que pertenezca a su trato asignado
+          const dealId = await redisDb.getCache(`thread_deal:${threadId}`);
+          if (dealId) {
+            const participants = await redisDb.getCache(`deal_participants:${dealId}`);
+            const deal = await db.getDeal(dealId);
+            const isAllowed =
+              (participants && (String(participants.creatorId) === String(userId) || String(participants.counterpartId) === String(userId))) ||
+              (deal && (String(deal.creator_id) === String(userId) || String(deal.counterpart) === String(userId)));
+
+            if (!isAllowed) {
+              try {
+                await ctx.deleteMessage();
+                console.log(`🛡️ Mensaje de usuario ${userId} eliminado de un hilo que no le pertenece (${threadId}).`);
+              } catch {}
+              return;
+            }
+          }
+        }
+
+        // Guardar en memoria/redis todos los mensajes del Hilo del trato
+        if (threadId) {
+          const dealId = await redisDb.getCache(`thread_deal:${threadId}`);
+          if (dealId) {
+            const chatHistory = (await redisDb.getCache(`deal_chat:${dealId}`)) || [];
+            chatHistory.push({
+              sender_id: ctx.from.id,
+              sender_name: ctx.from.first_name || 'Usuario',
+              username: ctx.from.username || null,
+              date: new Date().toISOString(),
+              text: ctx.message.text || ctx.message.caption || '[Archivo / Multimedia]',
+              type: ctx.message.photo ? 'photo' : ctx.message.document ? 'document' : 'text',
+            });
+            await redisDb.setCache(`deal_chat:${dealId}`, chatHistory, 86400 * 7);
+          }
         }
       }
     } catch {}
@@ -1096,6 +1198,9 @@ function register(bot) {
         }
       }
 
+      // Expulsar participantes no-staff de inmediato
+      await expelDealParticipants(ctx.api, escrowGroupId, dealId);
+
       await ctx.answerCallbackQuery({ text: '⟡ Trato cancelado.' });
       try {
         await ctx.editMessageText(templates.dealCancelledMessage(dealId), {
@@ -1163,29 +1268,10 @@ function register(bot) {
           }
 
           // Retirar exclusivamente a participantes invitados que NO sean del Staff
-          try {
-            const participants = await redisDb.getCache(`deal_participants:${dealId}`);
-            if (participants) {
-              const uids = [participants.creatorId, participants.counterpartId].filter(Boolean);
-              for (const uid of uids) {
-                const isStaff = await isStaffMember(uid);
-                if (!isStaff) {
-                  try {
-                    await ctx.api.banChatMember(escrowGroupId, uid);
-                    await ctx.api.unbanChatMember(escrowGroupId, uid, { only_if_banned: true });
-                    console.log(`✓ Usuario invitado ${uid} retirado del grupo de tratos.`);
-                  } catch (kErr) {
-                    console.warn(`⟡ Error retirando invitado ${uid}:`, kErr.message);
-                  }
-                } else {
-                  console.log(`🛡️ Miembro del Staff ${uid} protegido de expulsión.`);
-                }
-              }
-            }
-          } catch (pErr) {
-            console.warn('⟡ Error procesando salida de participantes:', pErr.message);
-          }
+          await expelDealParticipants(ctx.api, escrowGroupId, dealId);
         }, 6000);
+      } else {
+        await expelDealParticipants(ctx.api, escrowGroupId, dealId);
       }
     } catch (err) {
       console.error('⟡ Escrow: Error en deal_rate:', err.message);
