@@ -936,8 +936,8 @@ function register(bot) {
         }
       );
 
-      // Guardar mapeos de hilos y deals en Redis
-      await dealQueue.setDealInProgress(dealId, escrowGroupId, creatorJoinLink);
+      // Guardar mapeos de hilos y deals en Redis y BD
+      await dealQueue.setDealInProgress(dealId, escrowGroupId, creatorJoinLink, threadId);
       await redisDb.setCache(`deal_thread:${dealId}`, threadId, 86400 * 7);
       await redisDb.setCache(`thread_deal:${threadId}`, dealId, 86400 * 7);
       await redisDb.setCache(`deal_chat:${dealId}`, [], 86400 * 7);
@@ -1157,7 +1157,7 @@ function register(bot) {
         `✓ El trato ha sido finalizado.\n` +
         `✓ Solicitud de calificación publicada en el hilo y enviada al solicitante.\n` +
         `✓ Respaldo <code>.json</code> guardado en Supabase.\n` +
-        `✓ El hilo se cerrará automáticamente al recibir la calificación.`;
+        `✓ La sala de negociación se eliminará automáticamente en unos segundos.`;
 
       try {
         await ctx.editMessageText(summaryMsg, { parse_mode: 'HTML' });
@@ -1165,6 +1165,22 @@ function register(bot) {
         try {
           await ctx.api.sendMessage(ctx.from.id, summaryMsg, { parse_mode: 'HTML' });
         } catch {}
+      }
+
+      // 6. Eliminar completamente el Topic/Hilo de Telegram y expulsar a los 2 usuarios
+      const targetThreadId = threadId || deal.thread_id;
+      if (escrowGroupId && targetThreadId) {
+        setTimeout(async () => {
+          try {
+            await ctx.api.deleteForumTopic(escrowGroupId, Number(targetThreadId));
+            console.log(`✓ Forum topic ${targetThreadId} para Trato #${dealId} eliminado automáticamente.`);
+          } catch (delErr) {
+            console.warn(`⟡ Error eliminando forum topic ${targetThreadId}:`, delErr.message);
+          }
+          await expelDealParticipants(ctx.api, escrowGroupId, dealId);
+        }, 5000);
+      } else {
+        await expelDealParticipants(ctx.api, escrowGroupId, dealId);
       }
     } catch (err) {
       console.error('⟡ Escrow: Error en deal_complete:', err.message);

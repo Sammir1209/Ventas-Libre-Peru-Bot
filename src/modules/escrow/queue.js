@@ -56,14 +56,15 @@ async function assignDealToAdmin(dealId, adminId) {
 /**
  * Marca un trato como en progreso (grupo creado).
  */
-async function setDealInProgress(dealId, groupChatId, inviteLink) {
-  await db.updateDealGroup(dealId, groupChatId, inviteLink);
+async function setDealInProgress(dealId, groupChatId, inviteLink, threadId = null) {
+  await db.updateDealGroup(dealId, groupChatId, inviteLink, threadId);
 
   const dealState = await redisDb.getDealState(dealId);
   if (dealState) {
     dealState.status = DEAL_STATUS.IN_PROGRESS;
     dealState.groupChatId = groupChatId;
     dealState.inviteLink = inviteLink;
+    dealState.threadId = threadId;
     await redisDb.updateDealState(dealId, dealState);
   }
 }

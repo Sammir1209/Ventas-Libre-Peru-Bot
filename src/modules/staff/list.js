@@ -50,22 +50,56 @@ function register(bot) {
       }
 
       for (const member of staffMembers) {
-        const roles = (member.role || '')
-          .split(',')
-          .map((r) => r.trim().toUpperCase());
+        let username = member.username || null;
+        let firstName = member.first_name || null;
 
-        if (roles.includes('OWNER')) {
-          if (!ownerIdSet.has(member.user_id)) {
-            grouped.owners.push(member);
+        // Si el username no está en la tabla staff, buscarlo en users o en Telegram API
+        if (!username) {
+          const u = await db.getUser(member.user_id);
+          if (u && u.username) {
+            username = u.username;
+            firstName = firstName || u.first_name;
+          } else {
+            try {
+              const chat = await ctx.api.getChat(member.user_id);
+              if (chat) {
+                username = chat.username || null;
+                firstName = firstName || chat.first_name;
+                if (username) {
+                  await db.upsertStaffMember(member.user_id, username, member.role, tenantId);
+                }
+              }
+            } catch {}
           }
         }
-        if (roles.includes('CO-OWNER') || roles.includes('COOWNER')) {
-          grouped.coowners.push(member);
+
+        const enrichedMember = {
+          ...member,
+          username,
+          first_name: firstName,
+        };
+
+        const roleStr = String(member.role || '').toUpperCase();
+        const roles = roleStr.split(/[,/|]+/).map((r) => r.trim());
+
+        if (roles.includes('OWNER') || roles.includes('DUENO') || roles.includes('DUEÑO')) {
+          if (!ownerIdSet.has(member.user_id)) {
+            grouped.owners.push(enrichedMember);
+          }
         }
-        if (roles.includes('ADMIN') || roles.includes('ADMINISTRADOR')) {
-          grouped.admins.push(member);
+        if (roles.includes('CO-OWNER') || roles.includes('COOWNER') || roles.includes('CO OWNER')) {
+          grouped.coowners.push(enrichedMember);
         }
-        if (roles.includes('TRATO ADMIN') || roles.includes('TRATOADMIN') || roles.includes(ROLES.DEAL_ADMIN)) {
+        if (roles.includes('ADMIN') || roles.includes('ADMINISTRADOR') || roles.includes('ADMINS')) {
+          grouped.admins.push(enrichedMember);
+        }
+        if (
+          roles.includes('TRATO ADMIN') ||
+          roles.includes('TRATOADMIN') ||
+          roles.includes('TRATO_ADMIN') ||
+          roles.includes(ROLES.DEAL_ADMIN) ||
+          roleStr.includes('TRATO')
+        ) {
           let avgRating = '5.0';
           try {
             const rep = await getReputation(member.user_id);
@@ -74,7 +108,7 @@ function register(bot) {
             }
           } catch {}
           grouped.dealAdmins.push({
-            ...member,
+            ...enrichedMember,
             avgRating,
           });
         }

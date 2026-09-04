@@ -589,25 +589,40 @@ async function updateDealStatus(dealId, status) {
   }
 }
 
-async function updateDealGroup(dealId, groupChatId, inviteLink) {
+async function updateDealGroup(dealId, groupChatId, inviteLink, threadId = null) {
   if (useSupabase && supabase) {
+    const updateObj = {
+      group_chat_id: groupChatId,
+      invite_link: inviteLink,
+      status: 'IN_PROGRESS',
+    };
+    if (threadId) updateObj.thread_id = threadId;
+
     const { error } = await supabase
       .from('deals')
-      .update({
-        group_chat_id: groupChatId,
-        invite_link: inviteLink,
-        status: 'IN_PROGRESS',
-      })
+      .update(updateObj)
       .eq('id', dealId);
-    if (error) console.error('⟡ Supabase updateDealGroup error:', error.message);
+
+    if (error) {
+      console.warn('⟡ Supabase updateDealGroup warning:', error.message);
+      await supabase.from('deals').update({ group_chat_id: groupChatId, invite_link: inviteLink, status: 'IN_PROGRESS' }).eq('id', dealId);
+    }
     return;
   }
   if (pool) {
-    await pool.query(
-      `UPDATE deals SET group_chat_id = $1, invite_link = $2, status = 'IN_PROGRESS'
-       WHERE id = $3`,
-      [groupChatId, inviteLink, dealId]
-    );
+    try {
+      await pool.query(
+        `UPDATE deals SET group_chat_id = $1, invite_link = $2, thread_id = $3, status = 'IN_PROGRESS'
+         WHERE id = $4`,
+        [groupChatId, inviteLink, threadId, dealId]
+      );
+    } catch {
+      await pool.query(
+        `UPDATE deals SET group_chat_id = $1, invite_link = $2, status = 'IN_PROGRESS'
+         WHERE id = $3`,
+        [groupChatId, inviteLink, dealId]
+      );
+    }
   }
 }
 
