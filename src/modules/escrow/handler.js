@@ -63,11 +63,38 @@ async function getEscrowGroupId() {
 /**
  * Verifica si un usuario pertenece al Staff (Owner, Co-Owner, Admin, Trato Admin).
  */
-async function isStaffMember(userId) {
+async function isStaffMember(userId, tenantId = null) {
   if (!userId) return false;
-  if (config.OWNER_IDS.includes(userId)) return true;
-  const staff = await db.getStaffMember(userId);
-  return !!staff && ['OWNER', 'CO-OWNER', 'ADMIN', 'TRATO ADMIN'].includes(staff.role);
+  if (config.OWNER_IDS.includes(userId) || config.OWNER_IDS.includes(Number(userId))) return true;
+  const staff = await db.getStaffMember(userId, tenantId);
+  if (!staff || !staff.role) return false;
+  const r = String(staff.role).toUpperCase();
+  return (
+    r.includes('OWNER') ||
+    r.includes('CO-OWNER') ||
+    r.includes('ADMIN') ||
+    r.includes('TRATO ADMIN') ||
+    r.includes('TRATOADMIN')
+  );
+}
+
+/**
+ * Verifica si un usuario tiene permisos de Trato Admin u Owner para aceptar / gestionar tratos.
+ */
+async function isDealAdmin(userId, tenantId = null) {
+  if (!userId) return false;
+  if (config.OWNER_IDS.includes(userId) || config.OWNER_IDS.includes(Number(userId))) return true;
+  const staff = await db.getStaffMember(userId, tenantId);
+  if (!staff || !staff.role) return false;
+  const r = String(staff.role).toUpperCase();
+  return (
+    r.includes('TRATO ADMIN') ||
+    r.includes('TRATOADMIN') ||
+    r.includes('DEAL_ADMIN') ||
+    r.includes('OWNER') ||
+    r.includes('CO-OWNER') ||
+    r.includes('ADMIN')
+  );
 }
 
 function register(bot) {
@@ -534,14 +561,18 @@ function register(bot) {
       }
 
       // Notificar a todos los Trato Admins y Owners por DM
-      const dealAdmins = await db.getStaffByRole(ROLES.DEAL_ADMIN);
+      const allStaff = await db.getAllStaff(ctx.tenant?.id);
+      const dealAdmins = (allStaff || []).filter(s => {
+        const r = String(s.role || '').toUpperCase();
+        return r.includes('TRATO ADMIN') || r.includes('TRATOADMIN') || r.includes('DEAL_ADMIN') || r.includes('OWNER');
+      });
       const allOwners = config.OWNER_IDS;
 
       const notifyIds = [
-        ...dealAdmins.map(a => a.user_id),
-        ...allOwners,
+        ...dealAdmins.map(a => Number(a.user_id)),
+        ...allOwners.map(o => Number(o)),
       ];
-      const uniqueIds = [...new Set(notifyIds)];
+      const uniqueIds = [...new Set(notifyIds.filter(Boolean))];
 
       for (const adminId of uniqueIds) {
         try {
@@ -605,7 +636,7 @@ function register(bot) {
       const adminName = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Admin');
 
       // 1. Verificar que sea Staff autorizado
-      const isStaff = await isStaffMember(adminId);
+      const isStaff = await isStaffMember(adminId, ctx.tenant?.id);
       if (!isStaff) {
         return ctx.answerCallbackQuery({
           text: '✗ Solo los miembros del Staff pueden rechazar este trato.',
@@ -660,13 +691,8 @@ function register(bot) {
       const adminId = ctx.from.id;
       const adminUsername = ctx.from.username;
 
-      // 1. Verificar permisos: ÚNICAMENTE Owners y Trato Admins (No Co-Owners ni Admins)
-      const isOwner = config.OWNER_IDS.includes(adminId);
-      const staffMember = await db.getStaffMember(adminId);
-      const isAuthorized = isOwner || (staffMember && (
-        staffMember.role === ROLES.OWNER ||
-        staffMember.role === ROLES.DEAL_ADMIN
-      ));
+      // 1. Verificar permisos: Trato Admins y Owners autorizados
+      const isAuthorized = await isDealAdmin(adminId, ctx.tenant?.id);
 
       if (!isAuthorized) {
         return ctx.answerCallbackQuery({
@@ -872,8 +898,9 @@ function register(bot) {
         return ctx.answerCallbackQuery({ text: '✗ Trato no encontrado.', show_alert: true });
       }
 
-      const isOwner = config.OWNER_IDS.includes(ctx.from.id);
-      if (deal.admin_id && deal.admin_id !== ctx.from.id && !isOwner) {
+      const isOwner = config.OWNER_IDS.includes(ctx.from.id) || config.OWNER_IDS.includes(Number(ctx.from.id));
+      const isAssignedAdmin = deal.admin_id && (String(deal.admin_id) === String(ctx.from.id));
+      if (!isAssignedAdmin && !isOwner) {
         return ctx.answerCallbackQuery({
           text: '⚠️ Estos botones no te pertenecen. Solo el Trato Admin asignado o un Owner pueden finalizar este caso.',
           show_alert: true,
@@ -887,7 +914,7 @@ function register(bot) {
       const dealData = (await redisDb.getDealState(dealId)) || {};
       const chatHistory = (await redisDb.getCache(`deal_chat:${dealId}`)) || [];
 
-      const adminMember = await db.getStaffMember(deal.admin_id);
+      const adminMember = await db.getStaffMember(deal.admin_id, ctx.tenant?.id);
       const adminUsername = adminMember?.username || ctx.from.username || 'Admin';
 
       const escrowGroupId = await getEscrowGroupId();
@@ -1034,6 +1061,14 @@ function register(bot) {
   bot.callbackQuery(/^deal_force_cancel:(\d+)$/, async (ctx) => {
     try {
       const dealId = parseInt(ctx.match[1]);
+      const isAuthorized = await isDealAdmin(ctx.from.id, ctx.tenant?.id);
+      if (!isAuthorized) {
+        return ctx.answerCallbackQuery({
+          text: '✗ Solo los Trato Admins y Owners autorizados pueden cancelar este caso.',
+          show_alert: true,
+        });
+      }
+
       await dealQueue.cancelDeal(dealId);
 
       const escrowGroupId = await getEscrowGroupId();
@@ -1075,7 +1110,7 @@ function register(bot) {
         return ctx.answerCallbackQuery({ text: '✗ Trato no encontrado.', show_alert: true });
       }
 
-      if (deal.creator_id !== ctx.from.id) {
+      if (String(deal.creator_id) !== String(ctx.from.id)) {
         return ctx.answerCallbackQuery({
           text: '⚠️ Estos botones no te pertenecen. Solo el usuario solicitante puede calificar este trato.',
           show_alert: true,

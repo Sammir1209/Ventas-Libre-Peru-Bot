@@ -445,19 +445,25 @@ async function getAllStaff(tenantId = null) {
 
 async function getStaffByRole(role, tenantId = null) {
   if (useSupabase && supabase) {
-    let query = supabase.from('staff').select('*').eq('role', role);
+    let query = supabase.from('staff').select('*').ilike('role', `%${role}%`);
     if (tenantId) query = query.eq('tenant_id', tenantId);
     else query = query.is('tenant_id', null);
     const { data, error } = await query;
-    if (error) console.error('⟡ Supabase getStaffByRole error:', error.message);
+    if (error && !error.message.includes('tenant_id')) {
+      console.error('⟡ Supabase getStaffByRole error:', error.message);
+    }
+    if (!data && !tenantId) {
+      const fb = await supabase.from('staff').select('*').ilike('role', `%${role}%`);
+      return fb.data || [];
+    }
     return data || [];
   }
   if (pool) {
     let res;
     if (tenantId) {
-      res = await pool.query(`SELECT * FROM staff WHERE role = $1 AND tenant_id = $2`, [role, tenantId]);
+      res = await pool.query(`SELECT * FROM staff WHERE role ILIKE $1 AND tenant_id = $2`, [`%${role}%`, tenantId]);
     } else {
-      res = await pool.query(`SELECT * FROM staff WHERE role = $1 AND tenant_id IS NULL`, [role]);
+      res = await pool.query(`SELECT * FROM staff WHERE role ILIKE $1 AND (tenant_id IS NULL OR tenant_id = '')`, [`%${role}%`]);
     }
     return res.rows;
   }
