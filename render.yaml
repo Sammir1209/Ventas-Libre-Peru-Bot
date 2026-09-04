@@ -3,9 +3,11 @@ services:
     name: bot-ventas-libres-peru
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install --omit=dev --no-audit --no-fund
     startCommand: node src/index.js
     envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
       - key: PORT
         value: 10000
       - key: BOT_TOKEN
