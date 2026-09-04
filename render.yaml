@@ -7,7 +7,7 @@ services:
     startCommand: node src/index.js
     envVars:
       - key: NODE_VERSION
-        value: 20.18.0
+        value: 22.14.0
       - key: PORT
         value: 10000
       - key: BOT_TOKEN
