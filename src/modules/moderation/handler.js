@@ -649,11 +649,24 @@ function register(bot) {
     }
   });
 
-  // ── /listanegra / /blacklist / /quemados / /estafadores ──
-  bot.command(['listanegra', 'blacklist', 'quemados', 'estafadores', 'burned'], async (ctx) => {
+  // ── /gbanlist / /gbans / /listagban / /listanegra / /blacklist / /quemados ──
+  bot.command(['gbanlist', 'gbans', 'listagban', 'panelgban', 'listanegra', 'blacklist', 'quemados', 'estafadores', 'burned'], async (ctx) => {
     try {
       const text = ctx.message.text || '';
       const parts = text.trim().split(/\s+/);
+
+      // Si se pasa un @user o ID como argumento: /gbanlist 12345 o /gbanlist @user
+      if (parts[1] && (!/^\d+$/.test(parts[1]) || parts[1].length > 4)) {
+        const query = parts[1];
+        const burnInfo = await db.getBurnedUserInfo(query);
+        if (burnInfo) {
+          const { buildUserProfile } = require('../info/handler');
+          const { text: profileText, keyboard } = await buildUserProfile(ctx, { userId: Number(burnInfo.user_id), username: burnInfo.username });
+          return ctx.reply(profileText, { parse_mode: 'HTML', reply_markup: keyboard });
+        } else {
+          return ctx.reply(`${SYM.CHECK} <b>No se encontraron registros de GBAN / Lista Negra para <code>${escapeHtml(query)}</code>.</b>`, { parse_mode: 'HTML' });
+        }
+      }
 
       let targetPage = 1;
       if (parts[1] && /^\d+$/.test(parts[1])) {
@@ -666,7 +679,7 @@ function register(bot) {
         reply_markup: keyboard,
       });
     } catch (err) {
-      console.error('⟡ Mod: Error en /listanegra:', err.message);
+      console.error('⟡ Mod: Error en /gbanlist:', err.message);
       await ctx.reply(`${SYM.CROSS} Error al consultar la lista negra: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
@@ -679,7 +692,7 @@ function register(bot) {
 
       if (ownerId && ctx.from.id !== ownerId) {
         return ctx.answerCallbackQuery({
-          text: '⚠️ Este panel fue abierto por otro usuario. Ejecuta /listanegra para abrir el tuyo.',
+          text: '⚠️ Este panel fue abierto por otro usuario. Ejecuta /gbanlist para abrir el tuyo.',
           show_alert: true,
         });
       }
@@ -704,7 +717,7 @@ function register(bot) {
 
       if (ownerId && ctx.from.id !== ownerId) {
         return ctx.answerCallbackQuery({
-          text: '⚠️ Este panel fue abierto por otro usuario. Ejecuta /listanegra para abrir el tuyo.',
+          text: '⚠️ Este panel fue abierto por otro usuario. Ejecuta /gbanlist para abrir el tuyo.',
           show_alert: true,
         });
       }
@@ -713,7 +726,7 @@ function register(bot) {
       try {
         await ctx.deleteMessage();
       } catch {
-        await ctx.editMessageText('🔒 <i>Panel de lista negra cerrado.</i>', { parse_mode: 'HTML' });
+        await ctx.editMessageText('🔒 <i>Panel de Lista Negra cerrado.</i>', { parse_mode: 'HTML' });
       }
     } catch (err) {
       console.error('⟡ Mod: Error en callback blacklist_close:', err.message);
@@ -863,11 +876,21 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
 
   const kb = new InlineKeyboard();
 
+  // Fila 1: Botones de inspección directa para cada estafador de la página
+  if (users.length > 0) {
+    for (let i = 0; i < users.length; i++) {
+      const u = users[i];
+      const itemNum = offset + i + 1;
+      kb.text(`👁️ #${itemNum}`, `info_profile:${u.user_id}`);
+    }
+    kb.row();
+  }
+
   const prevPayload = ownerId ? `blacklist_page:${currentPage - 1}:${ownerId}` : `blacklist_page:${currentPage - 1}`;
   const currPayload = ownerId ? `blacklist_page:${currentPage}:${ownerId}` : `blacklist_page:${currentPage}`;
   const nextPayload = ownerId ? `blacklist_page:${currentPage + 1}:${ownerId}` : `blacklist_page:${currentPage + 1}`;
 
-  // Fila 1: Paginación
+  // Fila 2: Paginación
   if (currentPage > 1) {
     kb.text('ANTERIOR', prevPayload).primary();
   }
@@ -875,9 +898,9 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
     kb.text('SIGUIENTE', nextPayload).primary();
   }
 
-  // Fila 2: Indicador y Cerrar
+  // Fila 3: Indicador y Cerrar
   kb.row();
-  kb.text(`PAGINA ${currentPage}/${totalPages}`, currPayload);
+  kb.text(`PÁGINA ${currentPage} / ${totalPages}`, currPayload);
   kb.text('CERRAR', closePayload).danger();
 
   return { text, keyboard: kb };

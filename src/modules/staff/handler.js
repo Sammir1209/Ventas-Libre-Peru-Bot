@@ -409,6 +409,8 @@ function register(bot) {
 
       const wizard = (await redisDb.getCache(`staff_wizard:${adminId}`)) || {};
       wizard.step = 'INPUT_CUSTOM_TAG';
+      wizard.masterMessageId = ctx.callbackQuery?.message?.message_id || wizard.masterMessageId;
+      wizard.chatId = ctx.chat?.id || wizard.chatId;
       await redisDb.setCache(`staff_wizard:${adminId}`, wizard, 600);
 
       await ctx.answerCallbackQuery();
@@ -419,7 +421,7 @@ function register(bot) {
       const cardText =
         `✍️ <b>ESCRIBE EL TAG PERSONALIZADO</b>\n\n` +
         `• <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
-        `• <b>Roles:</b> <b>${wizard.selectedRoles.join(', ')}</b>\n\n` +
+        `• <b>Roles:</b> <b>${(wizard.selectedRoles || []).join(', ')}</b>\n\n` +
         `Envía por este chat el texto del tag para los grupos (máximo 16 caracteres, ej: <code>Co-Owner & Mediador</code> o <code>Trato Admin</code>).\n\n` +
         `<i>(Tu mensaje será eliminado automáticamente para mantener limpio el chat).</i>`;
 
@@ -434,11 +436,11 @@ function register(bot) {
     }
   });
 
-  // ── Listener de Texto para Tag Personalizado (Con Auto-Limpieza) ──
+  // ── Listener de Texto para Tag Personalizado (Con Auto-Limpieza en Grupos y Privado) ──
   bot.on('message:text', async (ctx, next) => {
     try {
       const adminId = ctx.from?.id;
-      if (!adminId || ctx.chat.type !== 'private') return next();
+      if (!adminId) return next();
 
       const wizard = await redisDb.getCache(`staff_wizard:${adminId}`);
       if (!wizard || wizard.step !== 'INPUT_CUSTOM_TAG') return next();
