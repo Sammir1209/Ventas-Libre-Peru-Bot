@@ -283,6 +283,16 @@ function register(bot) {
 
     console.log(`⟡ Verificación: Nuevo miembro por verificar en ${chat.title || chatId} -> @${username || userId}`);
 
+    // ── 🛡️ Concurrency / Debounce Lock para evitar duplicados ──
+    const joinLockKey = `join_proc:${chatId}:${userId}`;
+    const alreadyProcessing = await redisDb.getCache(joinLockKey);
+    if (alreadyProcessing) {
+      console.log(`⟡ Verificación: Ignorando evento duplicado de ingreso para ${userId} en ${chatId}`);
+      return;
+    }
+    // Lock de 25 segundos para asegurar que no se disparen múltiples bienvenidas en paralelo
+    await redisDb.setCache(joinLockKey, true, 25);
+
     // 1. Mute preventivo inmediato estilo Group Help
     try {
       await ctx.api.restrictChatMember(
@@ -318,7 +328,17 @@ function register(bot) {
       await db.upsertUser(userId, username, firstName);
     } catch {}
 
-    // 3. Enviar mensaje de bienvenida con teclado interactivo y registrar en pending_verifications
+    // 3. Eliminar mensaje de verificación previo si existiese alguno colgado
+    try {
+      const existingPending = await db.getPendingVerification(chatId, userId);
+      if (existingPending && existingPending.welcome_msg_id) {
+        try {
+          await ctx.api.deleteMessage(chatId, existingPending.welcome_msg_id);
+        } catch {}
+      }
+    } catch {}
+
+    // 4. Enviar mensaje de bienvenida con teclado interactivo y registrar en pending_verifications
     try {
       const welcomeMsg = await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName), {
         parse_mode: 'HTML',
@@ -349,15 +369,17 @@ function register(bot) {
       const update = ctx.chatMember;
       if (!update) return;
 
+      // Si el cambio de estado fue provocado por el propio bot (ej. cuando el bot mutea), no reprocesar
+      const botId = ctx.me?.id;
+      if (update.from && botId && update.from.id === botId) return;
+
       const oldStatus = update.old_chat_member?.status;
       const newStatus = update.new_chat_member?.status;
       const user = update.new_chat_member?.user;
 
-      // SOLO procesar si el usuario REALMENTE ingresó de afuera
-      if (oldStatus === 'left' || oldStatus === 'kicked' || !oldStatus) {
-        if (newStatus === 'member' || newStatus === 'restricted') {
-          await handleNewMember(ctx, update.chat, user);
-        }
+      // SOLO procesar si el usuario REALMENTE ingresó de afuera ('left' o 'kicked') hacia 'member'
+      if ((oldStatus === 'left' || oldStatus === 'kicked' || !oldStatus) && newStatus === 'member') {
+        await handleNewMember(ctx, update.chat, user);
       }
     } catch (err) {
       console.error('⟡ Verificación: Error en chat_member:', err.message);
