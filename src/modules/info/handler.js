@@ -128,8 +128,7 @@ async function buildUserProfile(ctx, targetUser) {
       `🛡️ <i>${escapeHtml(communityName)} — Escudo de Protección</i>`;
 
     const keyboard = new InlineKeyboard()
-      .text('VER ANTECEDENTES', `info_check_burn:${userId}`).danger()
-      .text('CERRAR', 'info_close').primary();
+      .text('VER ANTECEDENTES', `info_check_burn:${userId}`).danger();
 
     return { text, keyboard };
   }
@@ -189,9 +188,9 @@ async function buildUserProfile(ctx, targetUser) {
       `<i>Consulta de antecedentes y registros de seguridad:</i>`;
   }
 
+  // Botón único permanente para consultar antecedentes sin botón de cerrar (así queda registro permanente en el buscador)
   const keyboard = new InlineKeyboard()
-    .text('ANTECEDENTES', `info_check_burn:${userId}`).success()
-    .text('CERRAR', 'info_close').danger();
+    .text('VER ANTECEDENTES', `info_check_burn:${userId}`).success();
 
   return { text, keyboard };
 }
@@ -521,8 +520,7 @@ function register(bot) {
           `${SYM.THIN_LINE}`;
 
         const kb = new InlineKeyboard()
-          .text('VOLVER', `info_back:${targetId}`).primary()
-          .text('CERRAR', 'info_close').danger();
+          .text('VOLVER', `info_back:${targetId}`).primary();
 
         try {
           await ctx.editMessageText(cleanText, {
@@ -565,8 +563,7 @@ function register(bot) {
           `No realices transferencias, depósitos ni entregas de productos con este usuario bajo ninguna circunstancia.`;
 
         const kb = new InlineKeyboard()
-          .text('VOLVER', `info_back:${targetId}`).primary()
-          .text('CERRAR', 'info_close').danger();
+          .text('VOLVER', `info_back:${targetId}`).primary();
 
         try {
           await ctx.editMessageText(burnText, {
