@@ -73,7 +73,12 @@ function register(bot) {
 
   // ── Función Central para Procesar Consultas de IA ──
   async function handleAiQuery(ctx, promptText) {
-    // 0. Bloqueo estricto: silenciar IA si se encuentra en un hilo/grupo de Trato Admin o Staff
+    // 0. Bloqueo exclusivo: La IA no está disponible para Sub-Bots (SaaS)
+    if (ctx.tenant) {
+      return;
+    }
+
+    // 0.1 Bloqueo estricto: silenciar IA si se encuentra en un hilo/grupo de Trato Admin o Staff
     if (await isEscrowOrStaffContext(ctx)) {
       return;
     }
@@ -238,6 +243,11 @@ function register(bot) {
     const text = ctx.message?.text || '';
     const userId = ctx.from?.id;
     const isPrivate = ctx.chat.type === 'private';
+
+    // 0. Bloqueo exclusivo: La IA no está disponible para Sub-Bots (SaaS)
+    if (ctx.tenant) {
+      return next();
+    }
 
     // Ignorar si es un comando que empieza con '/'
     if (text.startsWith('/')) {
