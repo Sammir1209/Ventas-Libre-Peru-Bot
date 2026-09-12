@@ -312,24 +312,37 @@
       min-width: 0;
     }
 
-    .channel-icon {
-      width: 46px;
-      height: 46px;
+    .channel-icon,
+    .channel-avatar {
+      width: 52px;
+      height: 52px;
       border-radius: var(--radius-md);
       background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1.5px solid rgba(255, 255, 255, 0.12);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.35rem;
       flex-shrink: 0;
       transition: var(--transition);
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
     }
 
-    .channel-card:hover .channel-icon {
-      background: rgba(255, 107, 0, 0.15);
+    .channel-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      border-radius: calc(var(--radius-md) - 1.5px);
+    }
+
+    .channel-card:hover .channel-icon,
+    .channel-card:hover .channel-avatar {
+      background: rgba(255, 107, 0, 0.18);
       border-color: var(--border-orange);
-      transform: scale(1.05);
+      transform: scale(1.06);
+      box-shadow: 0 6px 20px rgba(255, 107, 0, 0.28);
     }
 
     .channel-meta {
@@ -565,19 +578,21 @@
     <section>
       <div class="channels-header">
         <h2>
-          <span>Canales Oficiales Obligatorios</span>
+          <span>Comunidades y Canales Oficiales</span>
         </h2>
-        <span class="badge-count" id="channels-count">2 Obligatorios</span>
+        <span class="badge-count" id="channels-count">4 Accesos Oficiales</span>
       </div>
 
       <div class="cards-stack">
-        <!-- Canal 1: Madre de las Ventas TV2 -->
-        <a href="https://t.me/+3My6QWWVjMw2Mzc8" target="_blank" rel="noopener noreferrer" class="channel-card">
+        <!-- 1. GRUPO PRINCIPAL (Donde funciona el sistema de verificación) -->
+        <a href="https://t.me/+hbIoqDOFBFFkMTM1" target="_blank" rel="noopener noreferrer" class="channel-card">
           <div class="channel-left">
-            <div class="channel-icon">📢</div>
+            <div class="channel-avatar">
+              <img src="/assets/channels/principal.jpg" alt="Ventas Libre Perú" loading="lazy">
+            </div>
             <div class="channel-meta">
-              <div class="channel-name">Madre de las Ventas TV2</div>
-              <div class="channel-desc">Canal principal de avisos oficiales y novedades</div>
+              <div class="channel-name">Ventas Libre Perú 🇵🇪</div>
+              <div class="channel-desc">Grupo principal oficial de comercio y verificación</div>
             </div>
           </div>
           <button class="btn-action" type="button">
@@ -586,13 +601,15 @@
           </button>
         </a>
 
-        <!-- Canal 2: Quemando Ventas Libres Perú -->
+        <!-- 2. QUEMANDO ESTAFADORES (Lista Negra Oficial) -->
         <a href="https://t.me/quemando_ventaslibreperu" target="_blank" rel="noopener noreferrer" class="channel-card">
           <div class="channel-left">
-            <div class="channel-icon">🔥</div>
+            <div class="channel-avatar">
+              <img src="/assets/channels/quemando.jpg" alt="Quemando VLP" loading="lazy">
+            </div>
             <div class="channel-meta">
               <div class="channel-name">Quemando VLP (Lista Negra)</div>
-              <div class="channel-desc">Base de datos de estafadores y prevención oficial</div>
+              <div class="channel-desc">Canal oficial de reportes, alertas y estafadores</div>
             </div>
           </div>
           <button class="btn-action" type="button">
@@ -600,26 +617,16 @@
             <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </a>
-      </div>
-    </section>
 
-    <!-- Red de Grupos y Respaldos de la Comunidad (Carpeta Oficial Integrada) -->
-    <section>
-      <div class="channels-header">
-        <h2>
-          <span>Red de Grupos y Respaldos Oficiales</span>
-        </h2>
-        <span class="badge-count">Comunidad VLP</span>
-      </div>
-
-      <div class="cards-stack">
-        <!-- Grupo 1: Respaldo VentasLibrePeru -->
-        <a href="https://t.me/+f0Qy9T6dY5Q1NjMx" target="_blank" rel="noopener noreferrer" class="channel-card">
+        <!-- 3. CANAL DE RESPALDO -->
+        <a href="https://t.me/+UgS0Xk9d-8k4Yzlh" target="_blank" rel="noopener noreferrer" class="channel-card">
           <div class="channel-left">
-            <div class="channel-icon">🛡️</div>
+            <div class="channel-avatar">
+              <img src="/assets/channels/respaldo.svg" alt="Respaldo VentasLibrePeru" loading="lazy">
+            </div>
             <div class="channel-meta">
               <div class="channel-name">Respaldo VentasLibrePeru</div>
-              <div class="channel-desc">Canal de seguridad y contingencia de la comunidad</div>
+              <div class="channel-desc">Canal oficial de respaldo y contingencia de la red</div>
             </div>
           </div>
           <button class="btn-action" type="button">
@@ -628,28 +635,15 @@
           </button>
         </a>
 
-        <!-- Grupo 2: Referencias AgarMaker! -->
-        <a href="https://t.me/+B1FkQ_zV7t8yODRh" target="_blank" rel="noopener noreferrer" class="channel-card">
+        <!-- 4. GRUPO / CANAL MADRE DE LAS VENTAS -->
+        <a href="https://t.me/+3My6QWWVjMw2Mzc8" target="_blank" rel="noopener noreferrer" class="channel-card">
           <div class="channel-left">
-            <div class="channel-icon">⭐</div>
-            <div class="channel-meta">
-              <div class="channel-name">Referencias AgarMaker!</div>
-              <div class="channel-desc">Comprobantes y referencias oficiales de tratos</div>
+            <div class="channel-avatar">
+              <img src="/assets/channels/madre_ventas.jpg" alt="Madre de las Ventas TV2" loading="lazy">
             </div>
-          </div>
-          <button class="btn-action" type="button">
-            <span>Unirme</span>
-            <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-          </button>
-        </a>
-
-        <!-- Grupo 3: Grupo Oficial de Tratos -->
-        <a href="https://t.me/+IEooR3P_yHVhZTc0" target="_blank" rel="noopener noreferrer" class="channel-card">
-          <div class="channel-left">
-            <div class="channel-icon">🤝</div>
             <div class="channel-meta">
-              <div class="channel-name">Trato Admin | Ventas Libres Perú</div>
-              <div class="channel-desc">Grupo de mediación segura y soporte con Staff</div>
+              <div class="channel-name">Madre de las Ventas TV2</div>
+              <div class="channel-desc">Canal principal de novedades, eventos y difusión</div>
             </div>
           </div>
           <button class="btn-action" type="button">
