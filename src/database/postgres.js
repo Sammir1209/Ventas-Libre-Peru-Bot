@@ -1513,6 +1513,7 @@ module.exports = {
   isUserBurned,
   getBurnedUserInfo,
   getAllBurnedUsers,
+  getBurnedUsersCount,
   // Logs & Warnings
   addModLog,
   addWarning,
