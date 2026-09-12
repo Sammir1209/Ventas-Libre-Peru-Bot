@@ -138,13 +138,17 @@ function register(bot) {
       // 6. Generar Banner Visual y Publicar en Canal Oficial de Quemados
       (async () => {
         try {
-          const { generateScammerCard } = require('../../utils/scammerCard');
-          const cardBuffer = await generateScammerCard({
+          const { generateTelegramProfileModal } = require('../../utils/telegramProfileModal');
+
+          const cardBuffer = await generateTelegramProfileModal({
             name: targetName,
             username: targetUsername,
             id: report.target_id,
-            bio: targetBio,
+            bio: `🚨 ESTAFADOR QUEMADO\nMotivo: ${report.context || 'Estafa comprobada'}\nID: ${report.target_id}`,
             avatarBuffer: avatarBuffer,
+            isOnline: false,
+            isBurned: true,
+            burnReason: report.context || 'Estafa comprobada / Falta grave',
           });
 
           const publicCaption =

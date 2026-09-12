@@ -681,11 +681,11 @@ function register(bot) {
     }
   });
 
-  // ── /banner /canvas (Previsualizar banner de prueba de estafador) ──
-  bot.command(['banner', 'canvas', 'card', 'perfil'], async (ctx) => {
+  // ── /banner /canvas (Previsualizar banner de perfil y advertencia) ──
+  bot.command(['banner', 'canvas', 'card'], async (ctx) => {
     try {
       const { resolveTarget } = require('../../utils/helpers');
-      const { generateScammerCard } = require('../../utils/scammerCard');
+      const { generateProfileCard } = require('../../utils/profileCard');
 
       let targetUser = await resolveTarget(ctx);
 
@@ -701,7 +701,6 @@ function register(bot) {
 
       let targetName = targetUser.firstName || 'Usuario';
       let targetUsername = targetUser.username || null;
-      let targetBio = null;
       let avatarBuffer = null;
 
       try {
@@ -710,7 +709,6 @@ function register(bot) {
           const fullName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ');
           if (fullName) targetName = fullName;
           if (chatInfo.username) targetUsername = chatInfo.username;
-          if (chatInfo.bio) targetBio = chatInfo.bio;
         }
       } catch {}
 
@@ -723,24 +721,38 @@ function register(bot) {
         }
       } catch {}
 
-      const cardBuffer = await generateScammerCard({
+      // Comprobar si es quemado para mostrar banner temático
+      let burnInfo = null;
+      try {
+        burnInfo = await db.getBurnedUserInfo(targetUser.userId) || (targetUsername ? await db.getBurnedUserInfo(targetUsername) : null);
+      } catch {}
+
+      const isBurned = !!burnInfo;
+
+      const { generateTelegramProfileModal } = require('../../utils/telegramProfileModal');
+      const cardBuffer = await generateTelegramProfileModal({
         name: targetName,
         username: targetUsername,
         id: targetUser.userId,
-        bio: targetBio,
+        bio: isBurned ? `🚨 LISTA NEGRA: ${burnInfo.context || 'Estafa comprobada'}` : 'Usuario de la Comunidad Ventas Libres Perú',
         avatarBuffer: avatarBuffer,
+        isOnline: !isBurned,
+        isBurned: isBurned,
+        burnReason: isBurned ? (burnInfo.context || 'Estafa comprobada') : null,
       });
 
       const cardFile = new InputFile(cardBuffer, 'preview_perfil.png');
 
       await ctx.replyWithPhoto(cardFile, {
         caption:
-          `🖼️ <b>VISTA PREVIA DEL BANNER DE PERFIL</b>\n\n` +
+          `🖼️ <b>VISTA PREVIA DEL PERFIL (CAPTURA TELEGRAM NATIVA)</b>\n\n` +
           `👤 <b>Usuario:</b> <b>${escapeHtml(targetName)}</b>\n` +
           (targetUsername ? `🔗 <b>Username:</b> @${targetUsername}\n` : '') +
           `🆔 <b>ID:</b> <code>${targetUser.userId}</code>\n` +
-          (targetBio ? `📝 <b>Bio:</b> <i>${escapeHtml(targetBio)}</i>\n` : '') +
-          `\n${SYM.STAR} <i>Este es el formato oficial con el que se publica en el canal de quemados.</i>`,
+          (isBurned ? `\n🚨 <b>ESTADO:</b> <b>LISTA NEGRA (QUEMADO)</b>\n` : '') +
+          `\n${SYM.STAR} <i>Captura nativa de Telegram Desktop / Móvil en Ultra HD.</i>`,
+        parse_mode: 'HTML',
+      });
         parse_mode: 'HTML',
       });
 
