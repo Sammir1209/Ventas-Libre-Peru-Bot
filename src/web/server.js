@@ -54,36 +54,87 @@ function maskToken(token) {
   return `${prefix}...${suffix}`;
 }
 
-// ── Rate Limiter Simple en Memoria (Anti-Bruteforce) ──
-const ipAttempts = new Map();
-function rateLimiter(req, res, next) {
-  const ip = req.ip || req.connection.remoteAddress || 'unknown';
-  const now = Date.now();
-  const windowMs = 60 * 1000; // 1 minuto
-  const maxRequests = 60;
+// ── Rate Limiter Avanzado en Memoria con Ventana Deslizante y Blacklist de IPs Maliciosas ──
+const ipRecords = new Map();
+const blockedIps = new Map(); // IP -> timestamp expira
 
-  let record = ipAttempts.get(ip);
+function securityFirewall(req, res, next) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+
+  // 1. Comprobar si la IP está bloqueada por conducta abusiva
+  const blockExpiry = blockedIps.get(ip);
+  if (blockExpiry) {
+    if (now < blockExpiry) {
+      return res.status(403).json({
+        ok: false,
+        error: 'Tu dirección IP ha sido temporalmente restringida por actividad sospechosa.',
+      });
+    } else {
+      blockedIps.delete(ip);
+    }
+  }
+
+  // 2. Bloqueo de scanners automáticos (wp-admin, .env, phpmyadmin, etc.)
+  const suspiciousPaths = [
+    /\.env/i, /\.git/i, /wp-admin/i, /phpmyadmin/i, /shell/i,
+    /\/api\/v1\/pods/i, /actuator/i, /swagger/i, /\/console/i,
+    /\/admin\.php/i, /\/config\.json/i, /\/\.aws/i
+  ];
+  if (suspiciousPaths.some(pattern => pattern.test(req.originalUrl))) {
+    console.warn(`🛡️ [Web Firewall] Intento de escaneo malicioso bloqueado desde IP ${ip}: ${req.originalUrl}`);
+    blockedIps.set(ip, now + 15 * 60 * 1000); // 15 min ban
+    return res.status(404).end();
+  }
+
+  // 3. Rate limiting por IP: máximo 120 peticiones por minuto en general, 20 peticiones para endpoints auth
+  const windowMs = 60 * 1000;
+  let record = ipRecords.get(ip);
   if (!record || now - record.startTime > windowMs) {
-    record = { count: 1, startTime: now };
-    ipAttempts.set(ip, record);
+    record = { count: 1, authCount: 0, startTime: now };
+    ipRecords.set(ip, record);
   } else {
     record.count++;
-    if (record.count > maxRequests) {
+    if (req.path.includes('/auth') || req.path.includes('/login')) {
+      record.authCount++;
+      if (record.authCount > 10) {
+        blockedIps.set(ip, now + 10 * 60 * 1000); // 10 min ban para fuerza bruta
+        return res.status(429).json({
+          ok: false,
+          error: 'Demasiados intentos de acceso. IP bloqueada temporalmente.',
+        });
+      }
+    }
+    if (record.count > 150) {
+      blockedIps.set(ip, now + 5 * 60 * 1000);
       return res.status(429).json({
         ok: false,
-        error: 'Demasiadas peticiones. Bloqueo temporal por seguridad.',
+        error: 'Demasiadas solicitudes por minuto. Por favor espera antes de volver a intentarlo.',
       });
     }
   }
+
+  // 4. Inyección de Cabeceras de Seguridad Extremas (Helmet / OWASP Top 10)
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=()');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.removeHeader('X-Powered-By');
+
   next();
 }
 
 function createWebApp() {
   const app = express();
 
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
-  app.use(rateLimiter);
+  // Limitar tamaño de payloads para prevenir ataques de denegación de servicio por memoria
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+  app.use(securityFirewall);
 
   const dashboardPath = config.DASHBOARD_PATH || '/vlp-master-portal-7849';
   const apiPrefix = config.API_SECRET_PREFIX || '/api-sec-vlp';
