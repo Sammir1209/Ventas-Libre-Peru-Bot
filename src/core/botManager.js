@@ -89,15 +89,33 @@ class BotManager {
       throw new Error(`Token inválido en Telegram: ${apiErr.message}`);
     }
 
-    // Iniciar long-polling en segundo plano
-    bot.start({
-      onStart: (info) => {
-        console.log(`✓ [SaaS Sub-Bot] @${info.username} iniciado para "${tenant.community_name}"`);
-      },
-    }).catch((pollErr) => {
-      console.error(`⟡ [SaaS Sub-Bot] Error en polling de @${botInfo.username}:`, pollErr.message);
-      this.instances.delete(subBotId);
-    });
+    // Iniciar long-polling en segundo plano con reintento ante 409 (rolling deploys)
+    const startPollingWithBackoff = async () => {
+      while (this.instances.has(subBotId)) {
+        try {
+          await bot.start({
+            drop_pending_updates: true,
+            allowed_updates: ['message', 'callback_query', 'chat_member', 'my_chat_member', 'channel_post', 'chat_join_request'],
+            onStart: (info) => {
+              console.log(`✓ [SaaS Sub-Bot] @${info.username} iniciado para "${tenant.community_name}"`);
+            },
+          });
+          break;
+        } catch (pollErr) {
+          const isConflict = pollErr.error_code === 409 || pollErr.message?.includes('409') || pollErr.message?.includes('Conflict');
+          if (isConflict) {
+            console.warn(`⟡ [SaaS Sub-Bot] @${botInfo.username}: Relevo de instancia detectado (409). Esperando 4s...`);
+            await new Promise((r) => setTimeout(r, 4000));
+          } else {
+            console.error(`⟡ [SaaS Sub-Bot] Error en polling de @${botInfo.username}:`, pollErr.message);
+            this.instances.delete(subBotId);
+            break;
+          }
+        }
+      }
+    };
+
+    startPollingWithBackoff();
 
     this.instances.set(subBotId, {
       bot,
@@ -112,6 +130,20 @@ class BotManager {
       botUsername: botInfo.username,
       status: 'ONLINE',
     };
+  }
+
+  /**
+   * Detiene todas las instancias de sub-bots activas (para apagado limpio en Render).
+   */
+  async stopAll() {
+    console.log(`⟡ [SaaS Sub-Bot] Deteniendo ${this.instances.size} sub-bots activos...`);
+    const stopPromises = [];
+    for (const [id] of this.instances.entries()) {
+      stopPromises.push(this.stopSubBot(id));
+    }
+    await Promise.allSettled(stopPromises);
+    this.instances.clear();
+    console.log('✓ [SaaS Sub-Bot] Todos los sub-bots fueron detenidos.');
   }
 
   /**

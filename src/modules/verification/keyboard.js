@@ -17,15 +17,11 @@ function welcomeKeyboard(targetUserId = null) {
   const verifyData = targetUserId ? `verify:${targetUserId}` : CB.VERIFY;
   const cancelData = targetUserId ? `verify_cancel:${targetUserId}` : 'verify_cancel';
 
-  // Fila 1 (2 botones arriba): [ UNIRME ] | [ VERIFICAR ]
-  kb.url('UNIRME', folderLink);
+  // Fila 1: [ UNIRME ] (Lleva a la web/carpeta oficial de canales) | [ VERIFICAR ] (Evalúa si ya se unió)
+  kb.url('UNIRME', webPortalUrl);
   kb.text('VERIFICAR', verifyData);
 
-  // Fila 2: [ 🌐 VER CANALES (WEB) ]
-  kb.row();
-  kb.url('🌐 VER CANALES (WEB)', webPortalUrl);
-
-  // Fila 3: [ CANCELAR ]
+  // Fila 2: [ CANCELAR ]
   kb.row();
   kb.text('CANCELAR', cancelData);
 

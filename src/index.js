@@ -277,7 +277,11 @@ async function runPermissionsDiagnostics(bot, botInfo) {
 
 // ── Manejo de señales de cierre ──
 process.on('SIGINT', async () => {
-  console.log('\n⟡ Cerrando bot...');
+  console.log('\n⟡ Cerrando bot y servicios...');
+  try {
+    await botManager.stopAll();
+    await bot.stop();
+  } catch {}
   await db.close();
   await redisDb.close();
   await userbot.close();
@@ -285,7 +289,11 @@ process.on('SIGINT', async () => {
 });
 
 process.on('SIGTERM', async () => {
-  console.log('\n⟡ SIGTERM recibido. Cerrando...');
+  console.log('\n⟡ SIGTERM recibido. Cerrando bot y liberando sub-bots...');
+  try {
+    await botManager.stopAll();
+    await bot.stop();
+  } catch {}
   await db.close();
   await redisDb.close();
   await userbot.close();
