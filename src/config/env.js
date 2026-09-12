@@ -29,8 +29,9 @@ const config = {
   OWNER_IDS: parseJsonArray(process.env.OWNER_IDS, [7849224682, 7794982496]),
 
   // Verificación
-  CHANNELS_TO_VERIFY: parseJsonArray(process.env.CHANNELS_TO_VERIFY, []),
+  CHANNELS_TO_VERIFY: parseJsonArray(process.env.CHANNELS_TO_VERIFY, ['@quemando_ventaslibreperu', 'https://t.me/+3My6QWWVjMw2Mzc8']),
   GROUPS_FOLDER_LINK: process.env.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh',
+  VERIFY_WEB_URL: process.env.VERIFY_WEB_URL || 'https://ventas-libre-peru-bot.onrender.com/verificar',
 
   // PostgreSQL
   POSTGRES_URL: process.env.POSTGRES_URL || 'postgresql://localhost:5432/ventas_libres',

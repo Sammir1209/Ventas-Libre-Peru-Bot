@@ -31,15 +31,27 @@ function verificationSuccess(username, firstName) {
 
 function verificationFailed(missingChannels) {
   const list = missingChannels.map(ch => {
-    if (ch.startsWith('http')) return `${SYM.BULLET} <a href="${ch}">${ch}</a>`;
-    if (ch.startsWith('@')) return `${SYM.BULLET} <a href="https://t.me/${ch.replace('@', '')}">${ch}</a>`;
-    return `${SYM.BULLET} <code>${ch}</code>`;
+    const raw = String(ch).trim();
+    if (raw.includes('3My6QWWVjMw2Mzc8') || raw === '-1002561445231' || raw.includes('MADRE')) {
+      return `${SYM.BULLET} 📢 <a href="https://t.me/+3My6QWWVjMw2Mzc8"><b>Madre de las Ventas TV2</b></a>`;
+    }
+    if (raw.includes('quemando_ventaslibreperu')) {
+      return `${SYM.BULLET} 🔥 <a href="https://t.me/quemando_ventaslibreperu"><b>Quemando VLP (Lista Negra)</b></a>`;
+    }
+    if (raw.startsWith('http')) return `${SYM.BULLET} <a href="${raw}">${raw}</a>`;
+    if (raw.startsWith('@')) return `${SYM.BULLET} <a href="https://t.me/${raw.replace('@', '')}"><b>${raw}</b></a>`;
+    return `${SYM.BULLET} <code>${raw}</code>`;
   }).join('\n');
 
   return (
-    `${SYM.WARNING} <b>VERIFICACIÓN INCOMPLETA</b>\n\n` +
-    `Te faltan canales:\n${list}\n\n` +
-    `Únete y pulsa <b>[ ✓ Verificar ]</b> de nuevo.`
+    `${SYM.DIVIDER}\n` +
+    `${SYM.WARNING} <b>VERIFICACIÓN INCOMPLETA</b>\n` +
+    `${SYM.DIVIDER}\n\n` +
+    `Aún te falta unirte a los siguientes canales requeridos:\n\n${list}\n\n` +
+    `${SYM.THIN_LINE}\n` +
+    `🌐 <i>También puedes ver la lista completa en la web oficial:</i>\n` +
+    `👉 <a href="https://ventas-libre-peru-bot.onrender.com/verificar">Portal Web de Verificación</a>\n\n` +
+    `<i>Una vez unido(a), vuelve aquí y pulsa nuevamente <b>[ ✓ VERIFICAR ]</b>.</i>`
   );
 }
 

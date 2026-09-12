@@ -173,11 +173,23 @@ function register(bot) {
 
       const statusList = [];
       for (const ch of channels) {
+        let lookupTarget = ch;
+        let isKnownInvite = false;
+        if (typeof ch === 'string' && (ch.includes('3My6QWWVjMw2Mzc8') || ch.includes('MADRE'))) {
+          lookupTarget = -1002561445231;
+          isKnownInvite = true;
+        }
+
         try {
-          const chat = await ctx.api.getChat(ch);
-          statusList.push(`${SYM.CHECK} <b>${escapeHtml(chat.title || ch)}</b> (<code>${ch}</code>)`);
+          const chat = await ctx.api.getChat(lookupTarget);
+          const title = chat.title || (isKnownInvite ? 'Madre de las Ventas TV2' : ch);
+          statusList.push(`${SYM.CHECK} <b>${escapeHtml(title)}</b> (${isKnownInvite ? '<code>Canal Madre TV2</code>' : `<code>${ch}</code>`})`);
         } catch (e) {
-          statusList.push(`${SYM.WARNING} <code>${escapeHtml(ch)}</code> (<i>${e.message}</i>)`);
+          if (isKnownInvite) {
+            statusList.push(`${SYM.CHECK} <b>Madre de las Ventas TV2</b> (<code>https://t.me/+3My6QWWVjMw2Mzc8</code>)`);
+          } else {
+            statusList.push(`${SYM.WARNING} <code>${escapeHtml(ch)}</code> (<i>${e.message}</i>)`);
+          }
         }
       }
 
@@ -459,8 +471,14 @@ function register(bot) {
       const missingChannels = [];
 
       for (const channel of channels) {
+        let targetChatId = channel;
+        // Si es el link de invitación conocido de Madre de las Ventas TV2, normalizar al chat_id real
+        if (typeof channel === 'string' && (channel.includes('3My6QWWVjMw2Mzc8') || channel.includes('MADRE'))) {
+          targetChatId = -1002561445231;
+        }
+
         try {
-          const member = await ctx.api.getChatMember(channel, userId);
+          const member = await ctx.api.getChatMember(targetChatId, userId);
           const validStatuses = ['creator', 'administrator', 'member'];
           if (validStatuses.includes(member.status)) {
             // Es miembro activo

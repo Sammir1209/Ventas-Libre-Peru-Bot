@@ -122,6 +122,11 @@ function createWebApp() {
     });
   });
 
+  // ── 2.5. Mini-Web Pública de Verificación Responsive ──
+  app.get(['/verificar', '/verify', '/canales'], (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'verify.html'));
+  });
+
   // ── 3. Servir Panel Web Exclusivamente en Ruta Secreta ──
   app.use(dashboardPath, express.static(path.join(__dirname, 'public')));
 

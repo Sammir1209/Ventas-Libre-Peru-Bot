@@ -13,6 +13,7 @@ function welcomeKeyboard(targetUserId = null) {
   const kb = new InlineKeyboard();
 
   const folderLink = config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh';
+  const webPortalUrl = config.VERIFY_WEB_URL || 'https://ventas-libre-peru-bot.onrender.com/verificar';
   const verifyData = targetUserId ? `verify:${targetUserId}` : CB.VERIFY;
   const cancelData = targetUserId ? `verify_cancel:${targetUserId}` : 'verify_cancel';
 
@@ -20,7 +21,11 @@ function welcomeKeyboard(targetUserId = null) {
   kb.url('UNIRME', folderLink);
   kb.text('VERIFICAR', verifyData);
 
-  // Fila 2 (1 botón abajo centrado): [ CANCELAR ]
+  // Fila 2: [ 🌐 VER CANALES (WEB) ]
+  kb.row();
+  kb.url('🌐 VER CANALES (WEB)', webPortalUrl);
+
+  // Fila 3: [ CANCELAR ]
   kb.row();
   kb.text('CANCELAR', cancelData);
 
