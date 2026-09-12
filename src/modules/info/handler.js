@@ -76,6 +76,45 @@ async function buildUserProfile(ctx, targetUser) {
   const nameFormatted = escapeHtml(firstName || 'Usuario');
   let text = '';
 
+  // 0. Comprobar si el usuario está en la Lista Negra (Quemado / GBAN)
+  let burnInfo = null;
+  try {
+    burnInfo = await db.getBurnedUserInfo(userId) || (username ? await db.getBurnedUserInfo(username) : null);
+  } catch {}
+
+  if (burnInfo) {
+    const dateFormatted = burnInfo.burned_at || burnInfo.created_at
+      ? new Date(burnInfo.burned_at || burnInfo.created_at).toLocaleString('es-PE', {
+          timeZone: 'America/Lima',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        })
+      : 'Fecha no registrada';
+
+    text =
+      `🚨 <b>ALERTA DE SEGURIDAD — USUARIO QUEMADO</b> 🚨\n\n` +
+      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
+      `• <b>Usuario:</b> ${userTag}\n` +
+      `• <b>ID:</b> <code>${userId}</code>\n\n` +
+      `🔴 <b>ESTADO OFICIAL:</b> <b>QUEMADO / LISTA NEGRA (GBAN)</b>\n` +
+      `📝 <b>Motivo:</b> <i>${escapeHtml(burnInfo.context || 'Estafa comprobada / Infracción grave')}</i>\n` +
+      `📅 <b>Fecha de Sanción:</b> <code>${dateFormatted}</code>\n` +
+      (burnInfo.reported_by ? `👮 <b>Sancionado por:</b> <code>${burnInfo.reported_by}</code>\n\n` : '\n') +
+      `⛔ <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
+      `Este usuario se encuentra registrado en la <b>Lista Negra Oficial</b> por conducta fraudulenta o infracción crítica. Queda prohibido comerciar con él.\n\n` +
+      `🛡️ <i>${escapeHtml(communityName)} — Escudo de Protección</i>`;
+
+    const keyboard = new InlineKeyboard()
+      .text('VER ANTECEDENTES', `info_check_burn:${userId}`).danger()
+      .text('CERRAR', 'info_close').primary();
+
+    return { text, keyboard };
+  }
+
   if (rolesList.length > 0) {
     // Es Staff (Puede tener 1 o múltiples roles)
     const isOwner = rolesList.includes('OWNER');
@@ -304,11 +343,16 @@ function register(bot) {
         }
       } else {
         // USUARIO QUEMADO (ESTAFADOR)
-        const dateStr = burnInfo.created_at
-          ? new Date(burnInfo.created_at).toLocaleDateString('es-PE', {
+        const dateRaw = burnInfo.burned_at || burnInfo.created_at;
+        const dateStr = dateRaw
+          ? new Date(dateRaw).toLocaleString('es-PE', {
+              timeZone: 'America/Lima',
               year: 'numeric',
               month: 'long',
               day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
             })
           : 'Fecha no registrada';
 

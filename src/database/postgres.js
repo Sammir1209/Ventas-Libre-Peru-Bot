@@ -949,15 +949,58 @@ async function updateBurnReportStatus(reportId, status, reviewerId) {
   }
 }
 
-async function burnUser(userId, reportedBy, context, approvedBy, username = null, firstName = null) {
-  let finalUsername = username;
-  let finalFirstName = firstName;
-  if (!finalUsername || !finalFirstName) {
+async function burnUser(target, reportedBy = null, context = null, approvedBy = null, username = null, firstName = null) {
+  let userId, rBy, ctxText, aBy, uName, fName;
+
+  if (typeof target === 'object' && target !== null && !Array.isArray(target) && (target.userId !== undefined || target.user_id !== undefined)) {
+    // Objeto estructurado
+    userId = Number(target.userId || target.user_id);
+    uName = target.username || null;
+    fName = target.firstName || target.first_name || null;
+    ctxText = target.context || target.reason || 'Sancionado en lista negra / GBAN';
+    rBy = target.reportedBy || target.reported_by || target.moderatorId || null;
+    aBy = target.approvedBy || target.approved_by || target.moderatorId || null;
+  } else {
+    // Argumentos posicionales
+    userId = Number(target);
+
+    const isNum = (v) => v !== null && v !== undefined && /^\d+$/.test(String(v).trim());
+
+    // Si reportedBy no es numérico (ej: username o string), ajustarlo
+    if (!isNum(reportedBy) && typeof reportedBy === 'string' && reportedBy.length > 0 && !uName) {
+      uName = reportedBy.replace(/^@/, '');
+    }
+
+    if (typeof context === 'string') {
+      ctxText = context;
+    } else if (typeof approvedBy === 'string') {
+      ctxText = approvedBy;
+    } else {
+      ctxText = 'Sanción oficial de lista negra / GBAN';
+    }
+
+    const parseNumericId = (val) => {
+      if (!val) return null;
+      if (typeof val === 'number') return val;
+      const digits = String(val).replace(/\D/g, '');
+      return digits.length > 0 ? parseInt(digits, 10) : null;
+    };
+
+    rBy = parseNumericId(reportedBy) || parseNumericId(approvedBy) || userId || 0;
+    aBy = parseNumericId(approvedBy) || parseNumericId(reportedBy) || userId || 0;
+    if (!uName && typeof username === 'string') uName = username.replace(/^@/, '');
+    if (!fName && typeof firstName === 'string') fName = firstName;
+  }
+
+  if (uName) uName = uName.replace(/^@/, '').trim();
+
+  // Si faltan datos de usuario, resolverlos desde users
+  if (!uName || !fName) {
     try {
       const u = await getUser(userId);
       if (u) {
-        if (!finalUsername) finalUsername = u.username;
-        if (!finalFirstName) finalFirstName = u.first_name;
+        if (!uName) uName = u.username;
+        if (!fName) fName = u.first_name;
       }
     } catch {}
   }
@@ -965,11 +1008,11 @@ async function burnUser(userId, reportedBy, context, approvedBy, username = null
   if (useSupabase && supabase) {
     const payload = {
       user_id: userId,
-      username: finalUsername,
-      first_name: finalFirstName,
-      reported_by: reportedBy,
-      context,
-      approved_by: approvedBy,
+      username: uName || null,
+      first_name: fName || null,
+      reported_by: Number(rBy) || 0,
+      context: ctxText || 'Sancionado en lista negra / GBAN',
+      approved_by: Number(aBy) || Number(rBy) || 0,
       burned_at: new Date().toISOString(),
     };
 
@@ -993,19 +1036,20 @@ async function burnUser(userId, reportedBy, context, approvedBy, username = null
     if (error) console.error('⟡ Supabase burnUser error:', error.message);
     return data;
   }
+
   if (pool) {
     const res = await pool.query(
       `INSERT INTO burned_users (user_id, username, first_name, reported_by, context, approved_by, burned_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())
        ON CONFLICT (user_id) DO UPDATE SET
-         username = EXCLUDED.username,
-         first_name = EXCLUDED.first_name,
+         username = COALESCE(EXCLUDED.username, burned_users.username),
+         first_name = COALESCE(EXCLUDED.first_name, burned_users.first_name),
          context = EXCLUDED.context,
          reported_by = EXCLUDED.reported_by,
          approved_by = EXCLUDED.approved_by,
          burned_at = NOW()
        RETURNING *`,
-      [userId, finalUsername, finalFirstName, reportedBy, context, approvedBy]
+      [userId, uName, fName, Number(rBy) || 0, ctxText, Number(aBy) || 0]
     );
     return res.rows[0];
   }
@@ -1013,35 +1057,129 @@ async function burnUser(userId, reportedBy, context, approvedBy, username = null
 }
 
 async function isBurned(userId) {
-  if (useSupabase && supabase) {
-    const { data, error } = await supabase
-      .from('burned_users')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle();
-    return !!data;
-  }
-  if (pool) {
-    const res = await pool.query(`SELECT 1 FROM burned_users WHERE user_id = $1`, [userId]);
-    return res.rows.length > 0;
-  }
-  return false;
+  return isUserBurned(userId);
 }
 
-async function getBurnedUserInfo(userId) {
+async function getBurnedUserInfo(identifier) {
+  if (!identifier) return null;
+  const isNumeric = /^\d+$/.test(String(identifier).trim());
+
+  if (isNumeric) {
+    const userId = parseInt(String(identifier).trim(), 10);
+    if (useSupabase && supabase) {
+      const { data } = await supabase
+        .from('burned_users')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (data) return data;
+    }
+    if (pool) {
+      const res = await pool.query(`SELECT * FROM burned_users WHERE user_id = $1`, [userId]);
+      if (res.rows.length > 0) return res.rows[0];
+    }
+  }
+
+  // Buscar por username
+  const cleanUsername = String(identifier).replace(/^@/, '').toLowerCase().trim();
+  if (cleanUsername) {
+    if (useSupabase && supabase) {
+      const { data } = await supabase
+        .from('burned_users')
+        .select('*')
+        .ilike('username', cleanUsername)
+        .maybeSingle();
+      if (data) return data;
+    }
+    if (pool) {
+      const res = await pool.query(`SELECT * FROM burned_users WHERE LOWER(username) = LOWER($1)`, [cleanUsername]);
+      if (res.rows.length > 0) return res.rows[0];
+    }
+  }
+
+  return null;
+}
+
+// ── Gestión de Advertencias (Warnings) ──
+async function addWarning(userId, chatId, moderatorId, reason) {
   if (useSupabase && supabase) {
-    const { data } = await supabase
-      .from('burned_users')
-      .select('*')
-      .eq('user_id', userId)
+    const { data, error } = await supabase
+      .from('warnings')
+      .insert({
+        user_id: userId,
+        chat_id: chatId,
+        moderator_id: moderatorId,
+        reason: reason || 'Advertencia del Staff',
+        created_at: new Date().toISOString(),
+      })
+      .select()
       .maybeSingle();
-    return data || null;
+    if (!error && data) return data;
   }
   if (pool) {
-    const res = await pool.query(`SELECT * FROM burned_users WHERE user_id = $1`, [userId]);
-    return res.rows[0] || null;
+    try {
+      const res = await pool.query(
+        `INSERT INTO warnings (user_id, chat_id, moderator_id, reason, created_at)
+         VALUES ($1, $2, $3, $4, NOW()) RETURNING *`,
+        [userId, chatId, moderatorId, reason || 'Advertencia del Staff']
+      );
+      return res.rows[0];
+    } catch {}
   }
-  return null;
+  // Fallback con mod_logs
+  return addModLog('WARN', moderatorId, userId, chatId, reason);
+}
+
+async function getWarnings(userId, chatId = null) {
+  if (useSupabase && supabase) {
+    let query = supabase.from('warnings').select('*').eq('user_id', userId);
+    if (chatId) query = query.eq('chat_id', chatId);
+    const { data, error } = await query.order('created_at', { ascending: false });
+    if (!error && data) return data;
+  }
+  if (pool) {
+    try {
+      let q = `SELECT * FROM warnings WHERE user_id = $1`;
+      const params = [userId];
+      if (chatId) {
+        q += ` AND chat_id = $2`;
+        params.push(chatId);
+      }
+      q += ` ORDER BY created_at DESC`;
+      const res = await pool.query(q, params);
+      if (res.rows.length > 0) return res.rows;
+    } catch {}
+  }
+  // Fallback con mod_logs
+  if (useSupabase && supabase) {
+    const { data } = await supabase
+      .from('mod_logs')
+      .select('*')
+      .eq('target_id', userId)
+      .eq('action', 'WARN');
+    return data || [];
+  }
+  return [];
+}
+
+async function clearWarnings(userId, chatId = null) {
+  if (useSupabase && supabase) {
+    let query = supabase.from('warnings').delete().eq('user_id', userId);
+    if (chatId) query = query.eq('chat_id', chatId);
+    await query;
+    return true;
+  }
+  if (pool) {
+    try {
+      if (chatId) {
+        await pool.query(`DELETE FROM warnings WHERE user_id = $1 AND chat_id = $2`, [userId, chatId]);
+      } else {
+        await pool.query(`DELETE FROM warnings WHERE user_id = $1`, [userId]);
+      }
+      return true;
+    } catch {}
+  }
+  return true;
 }
 
 async function getAllBurnedUsers(limit = 50, offset = 0) {
@@ -1375,9 +1513,11 @@ module.exports = {
   isUserBurned,
   getBurnedUserInfo,
   getAllBurnedUsers,
-  getBurnedUsersCount,
-  // Logs
+  // Logs & Warnings
   addModLog,
+  addWarning,
+  getWarnings,
+  clearWarnings,
   // SaaS Multi-Tenant Sub-Bots
   createSubBot,
   getAllSubBots,

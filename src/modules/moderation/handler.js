@@ -2,21 +2,26 @@ const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { requireStaff } = require('../../middleware/auth');
-const { extractTarget } = require('../../utils/helpers');
 const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 const logger = require('./logger');
+const sentinel = require('./sentinel');
+const { resolveTargetAndArgs, parseDuration } = sentinel;
 
 // ══════════════════════════════════════════════════════
-// ⟡ Módulo 5: Comandos de Moderación Base
+// ⟡ Módulo: Comandos de Moderación Universal y Seguridad
 // ══════════════════════════════════════════════════════
 
 function register(bot) {
+  // Registrar subsistema Centinela
+  sentinel.register(bot);
+
   // ── 🛡️ CAPA 2 BLACKLIST DINÁMICO: Interceptor en Tiempo Real de Mensajes ──
   bot.on('message', async (ctx, next) => {
     try {
       if (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group') {
         const sender = ctx.from;
+        if (sender) {
           // 1. Blacklist Dinámico
           const isBurned = await db.isUserBurned(sender.id, sender.username);
           if (isBurned) {
@@ -27,10 +32,10 @@ function register(bot) {
             try {
               await ctx.api.banChatMember(ctx.chat.id, sender.id);
             } catch {}
-            return; // Cortar el flujo por completo
+            return; // Cortar el flujo
           }
 
-          // 2. Anti-Impersonator / Guardián Anti-Clones en Tiempo Real
+          // 2. Anti-Impersonator en Tiempo Real
           try {
             const { checkImpersonation, handleImpersonator } = require('./antiImpersonator');
             const cloneDetection = await checkImpersonation(sender, ctx.api);
@@ -44,44 +49,53 @@ function register(bot) {
           } catch (impErr) {
             console.error('⟡ Error en checkImpersonation en mensaje:', impErr.message);
           }
+        }
       }
     } catch {}
     return next();
   });
 
-  // ── /ban ──
+  // ── /ban [@user / ID / Responder] [Motivo] ──
   bot.command('ban', requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
+        return ctx.reply(`${SYM.CROSS} Este comando solo funciona en grupos o comunidades.`, { parse_mode: 'HTML' });
+      }
+
+      const { target, reason, error } = await resolveTargetAndArgs(ctx, { hasDuration: false });
+
+      if (!target || target.unresolved) {
         return ctx.reply(
-          `${SYM.CROSS} Este comando solo funciona en grupos.`,
+          `${SYM.DIAMOND} <b>Uso:</b> <code>/ban [@usuario / ID / Responder] [Motivo]</code>\n\n` +
+          `Ejemplos:\n` +
+          `• <code>/ban @usuario Spam masivo</code>\n` +
+          `• <code>/ban 12345678 Conducta inapropiada</code>\n` +
+          `• Respondiendo a un mensaje: <code>/ban Estafador</code>`,
           { parse_mode: 'HTML' }
         );
       }
 
-      const target = extractTarget(ctx);
-      if (!target || !target.userId) {
-        return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> <code>/ban [ID o responder a mensaje]</code>`,
-          { parse_mode: 'HTML' }
-        );
+      if (config.OWNER_IDS.includes(target.userId)) {
+        return ctx.reply(`${SYM.CROSS} No se puede sancionar a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
       }
-
-      // Extraer razón (todo después del primer argumento)
-      const text = ctx.message.text || '';
-      const parts = text.split(/\s+/);
-      const reason = parts.slice(2).join(' ') || 'Sin especificar';
 
       await ctx.api.banChatMember(ctx.chat.id, target.userId);
 
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
+
       await ctx.reply(
-        `${SYM.DIAMOND} <b>Usuario Baneado</b>\n\n` +
-        `${SYM.ARROW} ID: ${formatId(target.userId)}\n` +
-        `${SYM.ARROW} Razón: ${reason}`,
+        `${SYM.DIVIDER}\n` +
+        `⛔ <b>USUARIO BANEADO DEL GRUPO</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Usuario:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `➜ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `➜ <b>Moderador:</b> ${adminMention}\n\n` +
+        `${SYM.THIN_LINE}`,
         { parse_mode: 'HTML' }
       );
 
-      // Log en BD y canal
       await db.addModLog('BAN', ctx.from.id, target.userId, ctx.chat.id, reason);
       await logger.sendLog(ctx.api, 'BAN', ctx.from, target.userId, ctx.chat.title, reason);
     } catch (err) {
@@ -90,29 +104,34 @@ function register(bot) {
     }
   });
 
-  // ── /unban ──
+  // ── /unban [@user / ID / Responder] ──
   bot.command('unban', requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
-        return ctx.reply(
-          `${SYM.CROSS} Este comando solo funciona en grupos.`,
-          { parse_mode: 'HTML' }
-        );
+        return ctx.reply(`${SYM.CROSS} Este comando solo funciona en grupos o comunidades.`, { parse_mode: 'HTML' });
       }
 
-      const target = extractTarget(ctx);
-      if (!target || !target.userId) {
+      const { target } = await resolveTargetAndArgs(ctx, { hasDuration: false });
+
+      if (!target || target.unresolved) {
         return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> <code>/unban [ID o responder a mensaje]</code>`,
+          `${SYM.DIAMOND} <b>Uso:</b> <code>/unban [@usuario / ID / Responder]</code>`,
           { parse_mode: 'HTML' }
         );
       }
 
       await ctx.api.unbanChatMember(ctx.chat.id, target.userId, { only_if_banned: true });
 
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+
       await ctx.reply(
-        `${SYM.DIAMOND} <b>Usuario Desbaneado</b>\n\n` +
-        `${SYM.CHECK} ${formatId(target.userId)} puede volver a unirse.`,
+        `${SYM.DIVIDER}\n` +
+        `🔓 <b>USUARIO DESBANEADO</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Usuario:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `✓ El usuario puede volver a unirse al grupo.\n\n` +
+        `${SYM.THIN_LINE}`,
         { parse_mode: 'HTML' }
       );
 
@@ -124,27 +143,37 @@ function register(bot) {
     }
   });
 
-  // ── /mute ──
+  // ── /mute [@user/id/reply] [tiempo / 1s, 1m, 1h, 1d, 1w, 1y] [motivo] ──
   bot.command('mute', requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
+        return ctx.reply(`${SYM.CROSS} Este comando solo funciona en grupos o comunidades.`, { parse_mode: 'HTML' });
+      }
+
+      const { target, duration, reason } = await resolveTargetAndArgs(ctx, { hasDuration: true });
+
+      if (!target || target.unresolved) {
         return ctx.reply(
-          `${SYM.CROSS} Este comando solo funciona en grupos.`,
+          `${SYM.DIAMOND} <b>Uso:</b> <code>/mute [@usuario / ID / Responder] [Tiempo] [Motivo]</code>\n\n` +
+          `⏱️ <b>Formatos de Tiempo Soportados:</b>\n` +
+          `• <code>1s</code>, <code>30s</code> (Segundos)\n` +
+          `• <code>1m</code>, <code>10m</code> (Minutos)\n` +
+          `• <code>1h</code>, <code>12h</code> (Horas)\n` +
+          `• <code>1d</code>, <code>7d</code> (Días)\n` +
+          `• <code>1w</code> (Semanas) | <code>1y</code> (Años)\n\n` +
+          `Ejemplos:\n` +
+          `• <code>/mute @usuario 1h Spam en el chat</code>\n` +
+          `• <code>/mute 12345678 1d Faltas de respeto</code>\n` +
+          `• Respondiendo a mensaje: <code>/mute 10m Flood</code>`,
           { parse_mode: 'HTML' }
         );
       }
 
-      const target = extractTarget(ctx);
-      if (!target || !target.userId) {
-        return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> <code>/mute [ID o responder a mensaje]</code>`,
-          { parse_mode: 'HTML' }
-        );
+      if (config.OWNER_IDS.includes(target.userId)) {
+        return ctx.reply(`${SYM.CROSS} No se puede silenciar a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
       }
 
-      const text = ctx.message.text || '';
-      const parts = text.split(/\s+/);
-      const reason = parts.slice(2).join(' ') || 'Sin especificar';
+      const durationInfo = duration || parseDuration('1d');
 
       await ctx.api.restrictChatMember(
         ctx.chat.id,
@@ -166,39 +195,47 @@ function register(bot) {
           can_manage_topics: false,
         },
         {
+          until_date: durationInfo.untilDate,
           use_independent_chat_permissions: true,
         }
       );
 
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
+
       await ctx.reply(
-        `${SYM.DIAMOND} <b>Usuario Silenciado</b>\n\n` +
-        `${SYM.ARROW} ID: ${formatId(target.userId)}\n` +
-        `${SYM.ARROW} Razón: ${reason}`,
+        `${SYM.DIVIDER}\n` +
+        `🔇 <b>USUARIO SILENCIADO (MUTE)</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Usuario:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `➜ <b>Duración:</b> <b>${durationInfo.humanReadable}</b>\n` +
+        `➜ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `➜ <b>Moderador:</b> ${adminMention}\n\n` +
+        `${SYM.THIN_LINE}`,
         { parse_mode: 'HTML' }
       );
 
-      await db.addModLog('MUTE', ctx.from.id, target.userId, ctx.chat.id, reason);
-      await logger.sendLog(ctx.api, 'MUTE', ctx.from, target.userId, ctx.chat.title, reason);
+      await db.addModLog('MUTE', ctx.from.id, target.userId, ctx.chat.id, `[${durationInfo.humanReadable}] ${reason}`);
+      await logger.sendLog(ctx.api, 'MUTE', ctx.from, target.userId, ctx.chat.title, `[${durationInfo.humanReadable}] ${reason}`);
     } catch (err) {
       console.error('⟡ Mod: Error en /mute:', err.message);
       await ctx.reply(`${SYM.CROSS} Error al silenciar: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 
-  // ── /unmute ──
+  // ── /unmute [@user / ID / Responder] ──
   bot.command('unmute', requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
-        return ctx.reply(
-          `${SYM.CROSS} Este comando solo funciona en grupos.`,
-          { parse_mode: 'HTML' }
-        );
+        return ctx.reply(`${SYM.CROSS} Este comando solo funciona en grupos o comunidades.`, { parse_mode: 'HTML' });
       }
 
-      const target = extractTarget(ctx);
-      if (!target || !target.userId) {
+      const { target } = await resolveTargetAndArgs(ctx, { hasDuration: false });
+
+      if (!target || target.unresolved) {
         return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> <code>/unmute [ID o responder a mensaje]</code>`,
+          `${SYM.DIAMOND} <b>Uso:</b> <code>/unmute [@usuario / ID / Responder]</code>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -224,9 +261,16 @@ function register(bot) {
         }
       );
 
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+
       await ctx.reply(
-        `${SYM.DIAMOND} <b>Silencio Removido</b>\n\n` +
-        `${SYM.CHECK} ${formatId(target.userId)} puede escribir nuevamente.`,
+        `${SYM.DIVIDER}\n` +
+        `🔊 <b>SILENCIO REMOVIDO (UNMUTE)</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Usuario:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `✓ El usuario puede enviar mensajes nuevamente.\n\n` +
+        `${SYM.THIN_LINE}`,
         { parse_mode: 'HTML' }
       );
 
@@ -238,42 +282,223 @@ function register(bot) {
     }
   });
 
-  // ── /gban (Baneo Global Permanente de todos los grupos y lista negra) ──
-  bot.command('gban', requireStaff(), async (ctx) => {
+  // ── /kick [@user / ID / Responder] [Motivo] ──
+  bot.command('kick', requireStaff(), async (ctx) => {
     try {
-      const { resolveTarget } = require('../../utils/helpers');
-      const target = await resolveTarget(ctx);
+      if (ctx.chat.type === 'private') {
+        return ctx.reply(`${SYM.CROSS} Este comando solo funciona en grupos o comunidades.`, { parse_mode: 'HTML' });
+      }
 
-      if (!target || !target.userId) {
+      const { target, reason } = await resolveTargetAndArgs(ctx, { hasDuration: false });
+
+      if (!target || target.unresolved) {
         return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> <code>/gban [ID / @username / Responder] [Motivo]</code>\n\n` +
-          `${SYM.ARROW} Banea al usuario <b>permanentemente de todos los grupos oficiales</b> y lo añade a la lista negra.`,
+          `${SYM.DIAMOND} <b>Uso:</b> <code>/kick [@usuario / ID / Responder] [Motivo]</code>`,
           { parse_mode: 'HTML' }
         );
       }
 
-      // Evitar auto-gban y gban a Owners
       if (config.OWNER_IDS.includes(target.userId)) {
-        return ctx.reply(`${SYM.CROSS} No se puede aplicar baneo global a un Owner del sistema.`, {
+        return ctx.reply(`${SYM.CROSS} No se puede expulsar a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
+      }
+
+      await ctx.api.banChatMember(ctx.chat.id, target.userId);
+      await ctx.api.unbanChatMember(ctx.chat.id, target.userId, { only_if_banned: true });
+
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
+
+      await ctx.reply(
+        `${SYM.DIVIDER}\n` +
+        `👢 <b>USUARIO EXPULSADO (KICK)</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Usuario:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `➜ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `➜ <b>Moderador:</b> ${adminMention}\n\n` +
+        `${SYM.THIN_LINE}`,
+        { parse_mode: 'HTML' }
+      );
+
+      await db.addModLog('KICK', ctx.from.id, target.userId, ctx.chat.id, reason);
+      await logger.sendLog(ctx.api, 'KICK', ctx.from, target.userId, ctx.chat.title, reason);
+    } catch (err) {
+      console.error('⟡ Mod: Error en /kick:', err.message);
+      await ctx.reply(`${SYM.CROSS} Error al expulsar: ${err.message}`, { parse_mode: 'HTML' });
+    }
+  });
+
+  // ── /warn [@user / ID / Responder] [Motivo] ──
+  bot.command('warn', requireStaff(), async (ctx) => {
+    try {
+      const { target, reason } = await resolveTargetAndArgs(ctx, { hasDuration: false });
+
+      if (!target || target.unresolved) {
+        return ctx.reply(
+          `${SYM.DIAMOND} <b>Uso:</b> <code>/warn [@usuario / ID / Responder] [Motivo]</code>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      if (config.OWNER_IDS.includes(target.userId)) {
+        return ctx.reply(`${SYM.CROSS} No se puede advertir a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
+      }
+
+      await db.addWarning(target.userId, ctx.chat.id, ctx.from.id, reason);
+      const warns = await db.getWarnings(target.userId, ctx.chat.id);
+      const warnCount = warns.length;
+
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
+
+      let text =
+        `${SYM.DIVIDER}\n` +
+        `⚠️ <b>ADVERTENCIA APLICADA (WARN)</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Usuario:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `➜ <b>Advertencias:</b> <b>${warnCount} / 3</b>\n` +
+        `➜ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `➜ <b>Moderador:</b> ${adminMention}\n\n`;
+
+      if (warnCount >= 3 && (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group')) {
+        text += `🚨 <b>Límite alcanzado (3/3):</b> El usuario ha sido silenciado automáticamente por 24 horas.\n\n`;
+        try {
+          const muteDuration = parseDuration('1d');
+          await ctx.api.restrictChatMember(
+            ctx.chat.id,
+            target.userId,
+            {
+              can_send_messages: false,
+              can_send_audios: false,
+              can_send_documents: false,
+              can_send_photos: false,
+              can_send_videos: false,
+              can_send_video_notes: false,
+              can_send_voice_notes: false,
+              can_send_polls: false,
+              can_send_other_messages: false,
+              can_add_web_page_previews: false,
+            },
+            { until_date: muteDuration.untilDate, use_independent_chat_permissions: true }
+          );
+        } catch {}
+      }
+
+      text += `${SYM.THIN_LINE}`;
+
+      await ctx.reply(text, { parse_mode: 'HTML' });
+      await db.addModLog('WARN', ctx.from.id, target.userId, ctx.chat.id, `Warn #${warnCount}: ${reason}`);
+      await logger.sendLog(ctx.api, 'WARN', ctx.from, target.userId, ctx.chat.title, `Warn #${warnCount}: ${reason}`);
+    } catch (err) {
+      console.error('⟡ Mod: Error en /warn:', err.message);
+      await ctx.reply(`${SYM.CROSS} Error al aplicar advertencia: ${err.message}`, { parse_mode: 'HTML' });
+    }
+  });
+
+  // ── /unwarn o /clearwarns [@user / ID / Responder] ──
+  bot.command(['unwarn', 'clearwarns', 'desadvertir'], requireStaff(), async (ctx) => {
+    try {
+      const { target } = await resolveTargetAndArgs(ctx, { hasDuration: false });
+
+      if (!target || target.unresolved) {
+        return ctx.reply(
+          `${SYM.DIAMOND} <b>Uso:</b> <code>/unwarn [@usuario / ID / Responder]</code>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      await db.clearWarnings(target.userId, ctx.chat.id);
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+
+      await ctx.reply(
+        `${SYM.DIVIDER}\n` +
+        `✅ <b>ADVERTENCIAS REINICIADAS</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Usuario:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `✓ Se han limpiado las advertencias acumuladas en este chat.\n\n` +
+        `${SYM.THIN_LINE}`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      console.error('⟡ Mod: Error en /unwarn:', err.message);
+      await ctx.reply(`${SYM.CROSS} Error al limpiar advertencias: ${err.message}`, { parse_mode: 'HTML' });
+    }
+  });
+
+  // ── /warns [@user / ID / Responder] ──
+  bot.command(['warns', 'advertencias'], async (ctx) => {
+    try {
+      let { target } = await resolveTargetAndArgs(ctx, { hasDuration: false });
+      if (!target) {
+        target = {
+          userId: ctx.from.id,
+          username: ctx.from.username || null,
+          firstName: ctx.from.first_name || 'Usuario',
+        };
+      }
+
+      const warns = await db.getWarnings(target.userId, ctx.chat.id);
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+
+      let text =
+        `${SYM.DIVIDER}\n` +
+        `📋 <b>REGISTRO DE ADVERTENCIAS</b>\n` +
+        `${SYM.DIVIDER}\n\n` +
+        `➜ <b>Usuario:</b> ${targetMention}\n` +
+        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `➜ <b>Total de Advertencias:</b> <b>${warns.length} / 3</b>\n\n`;
+
+      if (warns.length === 0) {
+        text += `✓ <i>El usuario no tiene advertencias activas.</i>\n\n`;
+      } else {
+        warns.forEach((w, idx) => {
+          text += `<b>#${idx + 1}</b> | <i>${escapeHtml(w.reason || 'Sin motivo')}</i>\n`;
+        });
+        text += '\n';
+      }
+
+      text += `${SYM.THIN_LINE}`;
+      await ctx.reply(text, { parse_mode: 'HTML' });
+    } catch (err) {
+      console.error('⟡ Mod: Error en /warns:', err.message);
+    }
+  });
+
+  // ── /gban [@user / ID / Responder] [Motivo] ──
+  bot.command('gban', requireStaff(), async (ctx) => {
+    try {
+      const { target, reason } = await resolveTargetAndArgs(ctx, { hasDuration: false });
+
+      if (!target || target.unresolved) {
+        return ctx.reply(
+          `${SYM.DIAMOND} <b>Uso:</b> <code>/gban [@usuario / ID / Responder] [Motivo]</code>\n\n` +
+          `🔥 Banea al usuario <b>permanentemente de todos los grupos y canales oficiales</b> y lo registra en la base de datos de estafadores (Lista Negra).`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      if (config.OWNER_IDS.includes(target.userId)) {
+        return ctx.reply(`${SYM.CROSS} No se puede aplicar baneo global a un Propietario (Owner) del sistema.`, {
           parse_mode: 'HTML',
         });
       }
 
-      // Extraer razón
-      const text = ctx.message.text || '';
-      const parts = text.split(/\s+/);
-      const reason = parts.slice(2).join(' ') || 'Sanción por estafa / infracción grave';
-
-      // Guardar motivo en caché temporal para el callback de confirmación
       const redisDb = require('../../database/redis');
-      await redisDb.setCache(`gban_pending:${target.userId}`, {
-        userId: target.userId,
-        username: target.username || null,
-        reason,
-        issuerId: ctx.from.id,
-      }, 300);
+      await redisDb.setCache(
+        `gban_pending:${target.userId}`,
+        {
+          userId: target.userId,
+          username: target.username || null,
+          firstName: target.firstName || null,
+          reason,
+          issuerId: ctx.from.id,
+        },
+        300
+      );
 
-      const targetMention = target.username ? `@${target.username}` : `<code>${target.userId}</code>`;
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
 
       const kb = new InlineKeyboard()
         .text('EJECUTAR GBAN', `gban_confirm:${target.userId}`).danger()
@@ -286,9 +511,9 @@ function register(bot) {
         `➜ <b>Objetivo:</b> ${targetMention}\n` +
         `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
         `➜ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n\n` +
-        `🚨 <b>Advertencia:</b> Esta acción expulsará y bloqueará al usuario de <b>TODOS los grupos y canales oficiales</b> y lo registrará en la Lista Negra permanentemente.\n\n` +
+        `🚨 <b>Advertencia:</b> Esta acción expulsará al usuario de <b>TODOS los grupos y comunidades</b> y lo fichará permanentemente en la base de datos oficial.\n\n` +
         `${SYM.THIN_LINE}\n` +
-        `¿Estás seguro de que deseas proceder?`,
+        `¿Confirmas la ejecución?`,
         {
           parse_mode: 'HTML',
           reply_markup: kb,
@@ -303,45 +528,42 @@ function register(bot) {
   // ── Callback: Confirmar y Ejecutar GBan ──
   bot.callbackQuery(/^gban_confirm:(\d+)$/, requireStaff(), async (ctx) => {
     try {
-      const targetId = parseInt(ctx.match[1]);
+      const targetId = parseInt(ctx.match[1], 10);
       const redisDb = require('../../database/redis');
       const pending = (await redisDb.getCache(`gban_pending:${targetId}`)) || {};
       const reason = pending.reason || 'Sanción por estafa / infracción grave';
       const username = pending.username || null;
+      const firstName = pending.firstName || null;
 
       await ctx.answerCallbackQuery({ text: '🔥 Ejecutando GBan Global...' });
 
-      // 1. Obtener todos los grupos oficiales
-      const groups = await db.getAllGroups();
-      let bannedCount = 0;
+      // 1. Guardar en Lista Negra permanente (burned_users) usando firma estructurada y segura
+      await db.burnUser({
+        userId: targetId,
+        username,
+        firstName,
+        context: `GBAN: ${reason}`,
+        reportedBy: ctx.from.id,
+        approvedBy: ctx.from.id,
+      });
+
+      await redisDb.clearCache(`gban_pending:${targetId}`);
+
+      // 2. Banear en todos los grupos registrados mediante Motor Centinela
+      const { affectedCount } = await sentinel.syncPenaltyAcrossGroups(ctx.api, targetId, 'GBAN');
 
       // Banear en el chat actual si es grupo
       if (ctx.chat?.type === 'supergroup' || ctx.chat?.type === 'group') {
         try {
           await ctx.api.banChatMember(ctx.chat.id, targetId);
-          bannedCount++;
         } catch {}
       }
 
-      // Banear en todos los demás grupos registrados
-      for (const grp of groups) {
-        if (grp.chat_id && grp.chat_id !== ctx.chat?.id && grp.type !== 'channel') {
-          try {
-            await ctx.api.banChatMember(grp.chat_id, targetId);
-            bannedCount++;
-          } catch {}
-        }
-      }
-
-      // 2. Guardar en lista negra permanente (burned_users)
-      await db.burnUser(targetId, username, 'Estafador', `GBAN: ${reason}`, `Staff (${ctx.from.id})`);
-      await redisDb.clearCache(`gban_pending:${targetId}`);
-
-      // 3. Registrar log
+      // 3. Registrar mod log
       await db.addModLog('GBAN', ctx.from.id, targetId, ctx.chat?.id || 0, reason);
       await logger.sendLog(ctx.api, 'GBAN', ctx.from, targetId, ctx.chat?.title || 'Global', reason);
 
-      const targetMention = username ? `@${username}` : `<code>${targetId}</code>`;
+      const targetMention = mentionFromData(targetId, username, firstName);
       const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
       await ctx.editMessageText(
@@ -351,8 +573,8 @@ function register(bot) {
         `➜ <b>Usuario:</b> ${targetMention}\n` +
         `➜ <b>ID:</b> <code>${targetId}</code>\n` +
         `➜ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
-        `➜ <b>Grupos Sancionados:</b> <code>${bannedCount}</code>\n` +
-        `➜ <b>Estado:</b> 🔴 LISTA NEGRA PERMANENTE\n\n` +
+        `➜ <b>Grupos Sancionados:</b> <code>${affectedCount}</code>\n` +
+        `➜ <b>Estado:</b> 🔴 <b>REGISTRADO EN LISTA NEGRA PERMANENTE</b>\n\n` +
         `${SYM.THIN_LINE}\n` +
         `<i>Ejecutado por: ${adminMention}</i>`,
         { parse_mode: 'HTML' }
@@ -377,17 +599,16 @@ function register(bot) {
     } catch {}
   });
 
-  // ── /ungban (Remover Baneo Global y Desbanear de todos los grupos) ──
+  // ── /ungban [@user / ID / Responder] ──
   bot.command(['ungban', 'unburn', 'desquemar'], requireStaff(), async (ctx) => {
     try {
-      const { resolveTarget } = require('../../utils/helpers');
-      const target = await resolveTarget(ctx);
+      const { target } = await resolveTargetAndArgs(ctx, { hasDuration: false });
 
-      if (!target || !target.userId) {
+      if (!target || target.unresolved) {
         return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> <code>/ungban [ID / @username / Responder]</code>\n` +
-          `o también: <code>/desquemar [ID / @username]</code>\n\n` +
-          `${SYM.ARROW} Quita al usuario de la lista negra y le permite volver a ingresar a los grupos.`,
+          `${SYM.DIAMOND} <b>Uso:</b> <code>/ungban [@usuario / ID / Responder]</code>\n` +
+          `o también: <code>/desquemar [ID / @usuario]</code>\n\n` +
+          `🔓 Quita al usuario de la lista negra y le permite volver a ingresar a los grupos oficiales.`,
           { parse_mode: 'HTML' }
         );
       }
@@ -395,31 +616,20 @@ function register(bot) {
       // 1. Remover de la lista negra en base de datos
       await db.unburnUser(target.userId);
 
-      // 2. Desbanear de todos los grupos registrados
-      const groups = await db.getAllGroups();
-      let unbannedCount = 0;
+      // 2. Desbanear en todos los grupos registrados
+      const { affectedCount } = await sentinel.syncPenaltyAcrossGroups(ctx.api, target.userId, 'UNGBAN');
 
       if (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group') {
         try {
           await ctx.api.unbanChatMember(ctx.chat.id, target.userId, { only_if_banned: true });
-          unbannedCount++;
         } catch {}
-      }
-
-      for (const grp of groups) {
-        if (grp.chat_id !== ctx.chat.id) {
-          try {
-            await ctx.api.unbanChatMember(grp.chat_id, target.userId, { only_if_banned: true });
-            unbannedCount++;
-          } catch {}
-        }
       }
 
       // 3. Log
       await db.addModLog('UNGBAN', ctx.from.id, target.userId, ctx.chat.id, 'Removido de lista negra');
       await logger.sendLog(ctx.api, 'UNGBAN', ctx.from, target.userId, ctx.chat.title || 'Global', 'Rehabilitado');
 
-      const targetMention = target.username ? `@${target.username}` : `<code>${target.userId}</code>`;
+      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
 
       await ctx.reply(
         `${SYM.DIVIDER}\n` +
@@ -428,7 +638,7 @@ function register(bot) {
         `${SYM.CHECK} <b>Usuario:</b> ${targetMention}\n` +
         `${SYM.ARROW} <b>ID:</b> <code>${target.userId}</code>\n` +
         `${SYM.CHECK} <b>Estado:</b> <b>LIMPIO 🟢</b>\n` +
-        `${SYM.ARROW} <b>Grupos Desbloqueados:</b> <code>${unbannedCount}</code>\n\n` +
+        `${SYM.ARROW} <b>Grupos Desbloqueados:</b> <code>${affectedCount}</code>\n\n` +
         `${SYM.THIN_LINE}\n` +
         `${SYM.STAR} El usuario ha sido eliminado de la lista de estafadores y puede volver a participar.`,
         { parse_mode: 'HTML' }
@@ -439,16 +649,15 @@ function register(bot) {
     }
   });
 
-  // ── /listanegra / /blacklist / /quemados / /estafadores (Panel Interactivo de Lista Negra) ──
+  // ── /listanegra / /blacklist / /quemados / /estafadores ──
   bot.command(['listanegra', 'blacklist', 'quemados', 'estafadores', 'burned'], async (ctx) => {
     try {
       const text = ctx.message.text || '';
       const parts = text.trim().split(/\s+/);
 
-      // Si se pasó una página como número: /listanegra 2
       let targetPage = 1;
       if (parts[1] && /^\d+$/.test(parts[1])) {
-        targetPage = parseInt(parts[1]);
+        targetPage = parseInt(parts[1], 10);
       }
 
       const { text: msgText, keyboard } = await renderBlacklistPage(targetPage, ctx.from.id);
@@ -462,11 +671,11 @@ function register(bot) {
     }
   });
 
-  // ── Callbacks de Paginación de Lista Negra (Protegidos por Usuario) ──
+  // ── Callbacks de Paginación de Lista Negra ──
   bot.callbackQuery(/^blacklist_page:(\d+)(?::(\d+))?$/, async (ctx) => {
     try {
-      const page = parseInt(ctx.match[1]);
-      const ownerId = ctx.match[2] ? parseInt(ctx.match[2]) : null;
+      const page = parseInt(ctx.match[1], 10);
+      const ownerId = ctx.match[2] ? parseInt(ctx.match[2], 10) : null;
 
       if (ownerId && ctx.from.id !== ownerId) {
         return ctx.answerCallbackQuery({
@@ -491,7 +700,7 @@ function register(bot) {
 
   bot.callbackQuery(/^blacklist_close(?::(\d+))?$/, async (ctx) => {
     try {
-      const ownerId = ctx.match[1] ? parseInt(ctx.match[1]) : null;
+      const ownerId = ctx.match[1] ? parseInt(ctx.match[1], 10) : null;
 
       if (ownerId && ctx.from.id !== ownerId) {
         return ctx.answerCallbackQuery({
@@ -511,29 +720,17 @@ function register(bot) {
     }
   });
 
-  // ── Callbacks de Botones Interactivos en Logs del Staff ──
+  // ── Callbacks de Logs ──
   bot.callbackQuery(/^log_unban:(\d+)$/, requireStaff(), async (ctx) => {
     try {
-      const targetId = parseInt(ctx.match[1]);
+      const targetId = parseInt(ctx.match[1], 10);
       await ctx.answerCallbackQuery({ text: '🔓 Desbaneando usuario...' });
 
-      // 1. Desbanear en BD
       await db.unburnUser(targetId);
-
-      // 2. Desbanear en todos los grupos registrados
-      const groups = await db.getAllGroups();
-      let unbannedCount = 0;
-      for (const grp of groups) {
-        if (grp.chat_id && grp.type !== 'channel') {
-          try {
-            await ctx.api.unbanChatMember(grp.chat_id, targetId, { only_if_banned: true });
-            unbannedCount++;
-          } catch {}
-        }
-      }
+      const { affectedCount } = await sentinel.syncPenaltyAcrossGroups(ctx.api, targetId, 'UNBAN');
 
       await db.addModLog('UNBAN_LOG_BTN', ctx.from.id, targetId, ctx.chat?.id || 0, 'Desbaneado desde botón de log');
-      await ctx.reply(`✓ <b>Usuario <code>${targetId}</code> desbaneado con éxito</b> (${unbannedCount} grupos).`, { parse_mode: 'HTML' });
+      await ctx.reply(`✓ <b>Usuario <code>${targetId}</code> desbaneado con éxito</b> (${affectedCount} grupos).`, { parse_mode: 'HTML' });
     } catch (err) {
       console.error('⟡ Error en log_unban callback:', err.message);
       await ctx.answerCallbackQuery({ text: `✗ Error: ${err.message}`, show_alert: true });
@@ -542,39 +739,11 @@ function register(bot) {
 
   bot.callbackQuery(/^log_unmute:(\d+)$/, requireStaff(), async (ctx) => {
     try {
-      const targetId = parseInt(ctx.match[1]);
+      const targetId = parseInt(ctx.match[1], 10);
       await ctx.answerCallbackQuery({ text: '🔊 Desmuteando usuario...' });
 
-      const fullPerms = {
-        can_send_messages: true,
-        can_send_audios: true,
-        can_send_documents: true,
-        can_send_photos: true,
-        can_send_videos: true,
-        can_send_video_notes: true,
-        can_send_voice_notes: true,
-        can_send_polls: true,
-        can_send_other_messages: true,
-        can_add_web_page_previews: true,
-        can_change_info: true,
-        can_invite_users: true,
-        can_pin_messages: true,
-        can_manage_topics: true,
-      };
-
-      const groups = await db.getAllGroups();
-      for (const grp of groups) {
-        if (grp.chat_id && grp.type !== 'channel') {
-          try {
-            await ctx.api.restrictChatMember(grp.chat_id, targetId, {
-              permissions: fullPerms,
-              use_independent_chat_permissions: true,
-            });
-          } catch {}
-        }
-      }
-
-      await ctx.reply(`✓ <b>Usuario <code>${targetId}</code> desmuteado con éxito.</b>`, { parse_mode: 'HTML' });
+      const { affectedCount } = await sentinel.syncPenaltyAcrossGroups(ctx.api, targetId, 'UNMUTE');
+      await ctx.reply(`✓ <b>Usuario <code>${targetId}</code> desmuteado con éxito</b> (${affectedCount} grupos).`, { parse_mode: 'HTML' });
     } catch (err) {
       console.error('⟡ Error en log_unmute callback:', err.message);
       await ctx.answerCallbackQuery({ text: `✗ Error: ${err.message}`, show_alert: true });
@@ -583,10 +752,10 @@ function register(bot) {
 
   bot.callbackQuery(/^log_ban:(\d+)$/, requireStaff(), async (ctx) => {
     try {
-      const targetId = parseInt(ctx.match[1]);
+      const targetId = parseInt(ctx.match[1], 10);
       await ctx.answerCallbackQuery();
 
-      const user = await db.getUser(targetId) || { user_id: targetId };
+      const user = (await db.getUser(targetId)) || { user_id: targetId };
       const userMention = mentionFromData(targetId, user.username, user.first_name);
 
       const kb = new InlineKeyboard()
@@ -609,7 +778,7 @@ function register(bot) {
 
   bot.callbackQuery(/^log_info:(\d+)$/, async (ctx) => {
     try {
-      const targetId = parseInt(ctx.match[1]);
+      const targetId = parseInt(ctx.match[1], 10);
       await ctx.answerCallbackQuery();
 
       const { buildUserProfile } = require('../info/handler');

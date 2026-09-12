@@ -229,13 +229,14 @@ async function handleImpersonator(ctx, chat, user, detection) {
 
   // 2. Registrar en Lista Negra
   try {
-    await db.burnUser(
+    await db.burnUser({
       userId,
-      user.username || null,
-      user.first_name || 'Clon / Suplantador',
-      `Auto-Ban: Intento de suplantación de ${detection.targetStaff.firstName} (${detection.matchType}, ${detection.similarity}%)`,
-      'Anti-Impersonator Guardián'
-    );
+      username: user.username || null,
+      firstName: user.first_name || 'Clon / Suplantador',
+      context: `Auto-Ban: Intento de suplantación de ${detection.targetStaff.firstName} (${detection.matchType}, ${detection.similarity}%)`,
+      reportedBy: 0,
+      approvedBy: 0,
+    });
   } catch {}
 
   const userMention = mentionFromData(userId, user.username, user.first_name);

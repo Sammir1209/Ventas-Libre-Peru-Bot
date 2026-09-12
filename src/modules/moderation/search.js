@@ -236,13 +236,14 @@ function register(bot) {
       const userMention = mentionFromData(targetId, user.username, user.first_name);
 
       // 1. Quemar en BD
-      await db.burnUser(
-        targetId,
-        user.username || null,
-        user.first_name || 'Estafador',
-        'Fichado por Owner mediante radar de búsqueda',
-        `Owner (${ctx.from.id})`
-      );
+      await db.burnUser({
+        userId: targetId,
+        username: user.username || null,
+        firstName: user.first_name || 'Estafador',
+        context: 'Fichado mediante radar de búsqueda',
+        reportedBy: ctx.from.id,
+        approvedBy: ctx.from.id,
+      });
 
       // 2. Banear en todos los grupos registrados
       const groups = await db.getAllGroups();
