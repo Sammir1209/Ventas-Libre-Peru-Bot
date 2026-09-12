@@ -265,6 +265,18 @@ function register(bot) {
       console.error('⟡ Error comprobando anti-impersonator en join:', cloneErr.message);
     }
 
+    // ── 🛡️ CAPA 0 ESCUDO ANTI-RAID & MODO PÁNICO (DEFCON 1) ──
+    try {
+      const antiRaid = require('../security/antiRaid');
+      const raidResult = await antiRaid.processJoinEvent(ctx.api, chat, user);
+      if (raidResult.isRaid || !raidResult.shouldWelcome) {
+        console.warn(`🛡️ [ANTI-RAID] Bienvenida y verificación individual suprimidas para ${userId} durante ataque activo.`);
+        return; // Detener flujo para salvar al bot de FloodWait de Telegram
+      }
+    } catch (raidErr) {
+      console.error('⟡ Error procesando evento de join en antiRaid:', raidErr.message);
+    }
+
     // Eximir automáticamente supergrupos de Escrow y Staff
     if (chatId === config.ESCROW_GROUP_ID || chatId === config.STAFF_CHAT_ID) {
       return;

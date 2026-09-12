@@ -27,6 +27,7 @@ const infoHandler = require('./modules/info/handler');
 const helpHandler = require('./modules/help/handler');
 const aiHandler = require('./modules/ai/handler');
 const searchHandler = require('./modules/moderation/search');
+const securityHandler = require('./modules/security/handler');
 
 // ── Middleware ──
 const { antiSpam } = require('./middleware/antiSpam');
@@ -152,6 +153,7 @@ async function main() {
   aiHandler.register(bot);
   searchHandler.register(bot);
   setupHandler.register(bot);
+  securityHandler.register(bot);
 
   // ── Temporizador Periódico: Avisos de Seguridad cada 20 min ──
   const { startPeriodicNoticeScheduler } = require('./modules/moderation/scheduler');

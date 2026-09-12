@@ -17,7 +17,12 @@ function buildOwnerHelp() {
     `${SYM.BULLET} <code>/promote</code> — Ascender rango\n` +
     `${SYM.BULLET} <code>/demote</code> — Degradar rango\n` +
     `${SYM.BULLET} <code>/staff</code> — Lista oficial\n\n` +
-    `🛡️ <b>Seguridad:</b>\n` +
+    `🛡️ <b>Seguridad & Anti-Raid:</b>\n` +
+    `${SYM.BULLET} <code>/panico</code> — Lockdown de emergencia\n` +
+    `${SYM.BULLET} <code>/antiraid</code> — Configurar escudo anti-raid\n` +
+    `${SYM.BULLET} <code>/antiflood</code> — Control de flood y spam\n` +
+    `${SYM.BULLET} <code>/locks</code> — Bloqueos selectivos de contenido\n` +
+    `${SYM.BULLET} <code>/purge</code> — Limpiar spam masivo\n` +
     `${SYM.BULLET} <code>/gban</code> — Baneo global + lista negra\n` +
     `${SYM.BULLET} <code>/ungban</code> — Quitar de lista negra\n` +
     `${SYM.BULLET} <code>/listanegra</code> — Ver estafadores\n` +
