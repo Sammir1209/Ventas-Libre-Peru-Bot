@@ -3,7 +3,7 @@ const redisDb = require('../../database/redis');
 const config = require('../../config/env');
 const { ROLES, SYM } = require('../../config/constants');
 const { requireOwner } = require('../../middleware/auth');
-const { extractTarget } = require('../../utils/helpers');
+const { extractTarget, safeEditMessage } = require('../../utils/helpers');
 const { mentionFromData, escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 
@@ -311,7 +311,7 @@ function register(bot) {
         `<i>Toca los roles que deseas activar o desactivar:</i>`;
 
       const kb = buildRolesKeyboard(targetId, selected);
-      await ctx.editMessageText(cardText, { parse_mode: 'HTML', reply_markup: kb });
+      await safeEditMessage(ctx, cardText, { parse_mode: 'HTML', reply_markup: kb });
     } catch (err) {
       console.error('⟡ Error en staff_toggle:', err.message);
     }
@@ -346,7 +346,7 @@ function register(bot) {
         `<i>Selecciona qué título/tag oficial debe mostrar este miembro en los grupos o escribe uno personalizado:</i>`;
 
       const kb = buildTagKeyboard(targetId, selected);
-      await ctx.editMessageText(cardText, { parse_mode: 'HTML', reply_markup: kb });
+      await safeEditMessage(ctx, cardText, { parse_mode: 'HTML', reply_markup: kb });
     } catch (err) {
       console.error('⟡ Error en staff_roles_continue:', err.message);
     }
@@ -378,7 +378,7 @@ function register(bot) {
         `<i>Toca los roles que deseas activar o desactivar:</i>`;
 
       const kb = buildRolesKeyboard(targetId, selected);
-      await ctx.editMessageText(cardText, { parse_mode: 'HTML', reply_markup: kb });
+      await safeEditMessage(ctx, cardText, { parse_mode: 'HTML', reply_markup: kb });
     } catch (err) {
       console.error('⟡ Error en staff_back_roles:', err.message);
     }
@@ -430,7 +430,7 @@ function register(bot) {
         .row()
         .text('CANCELAR', 'staff_cancel').danger();
 
-      await ctx.editMessageText(cardText, { parse_mode: 'HTML', reply_markup: kb });
+      await safeEditMessage(ctx, cardText, { parse_mode: 'HTML', reply_markup: kb });
     } catch (err) {
       console.error('⟡ Error en staff_custom_tag_prompt:', err.message);
     }
@@ -487,7 +487,8 @@ function register(bot) {
         .row()
         .text('VOLVER', `staff_back_roles:${targetId}`).primary();
 
-      await ctx.editMessageText(
+      await safeEditMessage(
+        ctx,
         `⚠️ <b>CONFIRMAR REMOCIÓN DE STAFF</b>\n\n` +
         `• <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
         `• <b>ID:</b> <code>${targetId}</code>\n\n` +
@@ -525,7 +526,8 @@ function register(bot) {
 
       const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
-      await ctx.editMessageText(
+      await safeEditMessage(
+        ctx,
         `🛡️ <b>STAFF REMOVIDO CON ÉXITO</b>\n\n` +
         `• <b>ID:</b> <code>${targetId}</code>\n` +
         `• <b>Estado:</b> Usuario Normal (Permisos de Administrador revocados)\n\n` +
@@ -604,7 +606,7 @@ function register(bot) {
       const adminId = ctx.from.id;
       await redisDb.clearCache(`staff_wizard:${adminId}`);
       await ctx.answerCallbackQuery({ text: 'Operación cancelada.' });
-      await ctx.editMessageText(`✗ <b>Operación de Staff cancelada.</b>`, { parse_mode: 'HTML' });
+      await safeEditMessage(ctx, `✗ <b>Operación de Staff cancelada.</b>`, { parse_mode: 'HTML' });
     } catch { }
   });
 

@@ -1056,6 +1056,73 @@ async function burnUser(target, reportedBy = null, context = null, approvedBy = 
   return null;
 }
 
+async function isUserBurned(userId, username = null) {
+  if (!userId && !username) return false;
+
+  const redisDb = require('./redis');
+
+  // 1. Verificar primero en caché de memoria ultra-rápida (Redis)
+  if (userId) {
+    const cached = await redisDb.getCache(`is_burned:${userId}`);
+    if (cached !== null && cached !== undefined) return Boolean(cached);
+  }
+  if (username) {
+    const cleanUser = String(username).replace(/^@/, '').toLowerCase().trim();
+    const cached = await redisDb.getCache(`is_burned:@${cleanUser}`);
+    if (cached !== null && cached !== undefined) return Boolean(cached);
+  }
+
+  let burned = false;
+
+  // 2. Consulta en Supabase
+  if (useSupabase && supabase) {
+    try {
+      if (userId) {
+        const { data } = await supabase
+          .from('burned_users')
+          .select('id')
+          .eq('user_id', Number(userId))
+          .limit(1);
+        if (data && data.length > 0) burned = true;
+      }
+      if (!burned && username) {
+        const cleanUser = String(username).replace(/^@/, '').toLowerCase().trim();
+        const { data } = await supabase
+          .from('burned_users')
+          .select('id')
+          .ilike('username', cleanUser)
+          .limit(1);
+        if (data && data.length > 0) burned = true;
+      }
+    } catch {}
+  }
+
+  // 3. Fallback PostgreSQL directo
+  if (!burned && pool) {
+    try {
+      if (userId) {
+        const res = await pool.query(`SELECT 1 FROM burned_users WHERE user_id = $1 LIMIT 1`, [Number(userId)]);
+        if (res.rows.length > 0) burned = true;
+      }
+      if (!burned && username) {
+        const cleanUser = String(username).replace(/^@/, '').toLowerCase().trim();
+        const res = await pool.query(`SELECT 1 FROM burned_users WHERE LOWER(username) = LOWER($1) LIMIT 1`, [cleanUser]);
+        if (res.rows.length > 0) burned = true;
+      }
+    } catch {}
+  }
+
+  // 4. Guardar en caché Redis (60 segundos si no está quemado, 2 horas si está quemado)
+  const ttl = burned ? 7200 : 60;
+  if (userId) await redisDb.setCache(`is_burned:${userId}`, burned, ttl);
+  if (username) {
+    const cleanUser = String(username).replace(/^@/, '').toLowerCase().trim();
+    await redisDb.setCache(`is_burned:@${cleanUser}`, burned, ttl);
+  }
+
+  return burned;
+}
+
 async function isBurned(userId) {
   return isUserBurned(userId);
 }

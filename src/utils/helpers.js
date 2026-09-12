@@ -159,10 +159,30 @@ async function forEachGroup(groups, action) {
   return results;
 }
 
+/**
+ * Edita un mensaje de forma segura, ignorando el error 400 cuando el texto/teclado no cambió.
+ */
+async function safeEditMessage(ctx, text, options = {}) {
+  try {
+    return await ctx.editMessageText(text, options);
+  } catch (err) {
+    if (
+      err.message?.includes('message is not modified') ||
+      err.description?.includes('message is not modified') ||
+      err.error_code === 400
+    ) {
+      // Ignorar de forma limpia
+      return null;
+    }
+    throw err;
+  }
+}
+
 module.exports = {
   isOwner,
   extractTarget,
   resolveTarget,
   delay,
   forEachGroup,
+  safeEditMessage,
 };
