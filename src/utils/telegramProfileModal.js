@@ -138,91 +138,141 @@ function drawTelegramVerifiedBadge(ctx, x, y, size = 20) {
 /**
  * Dibuja el icono cuadrado redondeado de @ en Username
  */
-function drawUsernameIcon(ctx, x, y, size = 38) {
-  ctx.save();
-  roundRect(ctx, x, y, size, size, 12);
-  const iconGrad = ctx.createLinearGradient(x, y, x + size, y + size);
-  iconGrad.addColorStop(0, '#29b6f6');
-  iconGrad.addColorStop(1, '#0288d1');
-  ctx.fillStyle = iconGrad;
-  ctx.fill();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold 22px ${FONT_STACK}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('@', x + size / 2, y + size / 2 - 1);
-  ctx.restore();
-}
-
 /**
- * Dibuja el icono cuadrado redondeado de Bio (i de información)
+ * Dibuja el icono nativo de Telegram Web para Username (arroba lineal minimalista en #8da0b0)
  */
-function drawBioIcon(ctx, x, y, size = 38) {
+function drawUsernameIcon(ctx, x, y, size = 26) {
   ctx.save();
-  roundRect(ctx, x, y, size, size, 12);
-  const iconGrad = ctx.createLinearGradient(x, y, x + size, y + size);
-  iconGrad.addColorStop(0, '#78909c');
-  iconGrad.addColorStop(1, '#546e7a');
-  ctx.fillStyle = iconGrad;
-  ctx.fill();
+  ctx.strokeStyle = '#8fa2b4';
+  ctx.lineWidth = 1.9;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold 18px ${FONT_STACK}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('i', x + size / 2, y + size / 2);
-  ctx.restore();
-}
+  const cx = x + size / 2;
+  const cy = y + size / 2;
 
-/**
- * Dibuja el icono de notificaciones (Campana naranja/roja)
- */
-function drawBellIcon(ctx, x, y, size = 38) {
-  ctx.save();
-  roundRect(ctx, x, y, size, size, 12);
-  const iconGrad = ctx.createLinearGradient(x, y, x + size, y + size);
-  iconGrad.addColorStop(0, '#ff7043');
-  iconGrad.addColorStop(1, '#f4511e');
-  ctx.fillStyle = iconGrad;
-  ctx.fill();
-
-  // Campana blanca estilizada
-  const bx = x + size / 2;
-  const by = y + size / 2 - 2;
-  ctx.fillStyle = '#ffffff';
+  // Círculo exterior abierto de la arroba
   ctx.beginPath();
-  ctx.arc(bx, by - 2, 6, Math.PI, 0, false);
-  ctx.lineTo(bx + 8, by + 5);
-  ctx.lineTo(bx - 8, by + 5);
-  ctx.closePath();
-  ctx.fill();
+  ctx.arc(cx, cy, 10, -Math.PI * 0.15, Math.PI * 1.5, true);
+  // Trazo que entra hacia la 'a' central
+  ctx.lineTo(cx + 4, cy);
+  ctx.stroke();
 
-  // badajo
+  // Círculo de la 'a' central
   ctx.beginPath();
-  ctx.arc(bx, by + 7.5, 2, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.arc(cx - 0.5, cy, 4.5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Rabillo derecho de la 'a'
+  ctx.beginPath();
+  ctx.moveTo(cx + 4, cy - 4.5);
+  ctx.lineTo(cx + 4, cy + 4.5);
+  ctx.stroke();
 
   ctx.restore();
 }
 
 /**
- * Dibuja el icono cuadrado redondeado de ID (# numérico / credencial)
+ * Dibuja el icono nativo de Telegram Web para Bio (círculo lineal con 'i' interior en #8da0b0)
  */
-function drawIdIcon(ctx, x, y, size = 38) {
+function drawBioIcon(ctx, x, y, size = 26) {
   ctx.save();
-  roundRect(ctx, x, y, size, size, 12);
-  const iconGrad = ctx.createLinearGradient(x, y, x + size, y + size);
-  iconGrad.addColorStop(0, '#ab47bc');
-  iconGrad.addColorStop(1, '#7b1fa2');
-  ctx.fillStyle = iconGrad;
+  ctx.strokeStyle = '#8fa2b4';
+  ctx.fillStyle = '#8fa2b4';
+  ctx.lineWidth = 1.9;
+  ctx.lineCap = 'round';
+
+  const cx = x + size / 2;
+  const cy = y + size / 2;
+
+  // Círculo exterior
+  ctx.beginPath();
+  ctx.arc(cx, cy, 10.5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Punto de la i
+  ctx.beginPath();
+  ctx.arc(cx, cy - 4.5, 1.3, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold 19px ${FONT_STACK}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('#', x + size / 2, y + size / 2);
+  // Cuerpo de la i
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 1);
+  ctx.lineTo(cx, cy + 5);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/**
+ * Dibuja el icono nativo de Telegram Web para Notifications (campana lineal limpia en #8da0b0)
+ */
+function drawBellIcon(ctx, x, y, size = 26) {
+  ctx.save();
+  ctx.strokeStyle = '#8fa2b4';
+  ctx.fillStyle = '#8fa2b4';
+  ctx.lineWidth = 1.9;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const cx = x + size / 2;
+  const cy = y + size / 2 - 1;
+
+  // Silueta de campana
+  ctx.beginPath();
+  ctx.moveTo(cx - 1.5, cy - 8.5);
+  ctx.bezierCurveTo(cx - 5.5, cy - 7, cx - 7, cy - 3, cx - 7, cy + 3.5);
+  ctx.lineTo(cx - 9, cy + 6.5);
+  ctx.lineTo(cx + 9, cy + 6.5);
+  ctx.lineTo(cx + 7, cy + 3.5);
+  ctx.bezierCurveTo(cx + 7, cy - 3, cx + 5.5, cy - 7, cx + 1.5, cy - 8.5);
+  ctx.stroke();
+
+  // Badajo inferior
+  ctx.beginPath();
+  ctx.arc(cx, cy + 7, 2.5, 0, Math.PI);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/**
+ * Dibuja el icono nativo de Telegram Web para ID (tarjeta de identidad / credencial con foto lineal en #8da0b0)
+ */
+function drawIdIcon(ctx, x, y, size = 26) {
+  ctx.save();
+  ctx.strokeStyle = '#8fa2b4';
+  ctx.fillStyle = '#8fa2b4';
+  ctx.lineWidth = 1.8;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const cx = x + size / 2;
+  const cy = y + size / 2;
+
+  // Rectángulo redondeado exterior (tarjeta/badge de usuario)
+  roundRect(ctx, cx - 11, cy - 8.5, 22, 17, 3);
+  ctx.stroke();
+
+  // Silueta de avatar en la tarjeta: cabeza y hombros
+  ctx.beginPath();
+  ctx.arc(cx - 4.5, cy - 3, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx - 4.5, cy + 4, 3.8, Math.PI, 0, false);
+  ctx.stroke();
+
+  // Líneas de texto / credencial a la derecha
+  ctx.beginPath();
+  ctx.moveTo(cx + 2, cy - 3);
+  ctx.lineTo(cx + 7.5, cy - 3);
+  ctx.moveTo(cx + 2, cy + 1);
+  ctx.lineTo(cx + 7.5, cy + 1);
+  ctx.moveTo(cx + 2, cy + 5);
+  ctx.lineTo(cx + 5.5, cy + 5);
+  ctx.stroke();
+
   ctx.restore();
 }
 
