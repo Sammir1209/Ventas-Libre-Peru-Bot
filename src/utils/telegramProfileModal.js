@@ -207,6 +207,26 @@ function drawBellIcon(ctx, x, y, size = 38) {
 }
 
 /**
+ * Dibuja el icono cuadrado redondeado de ID (# numérico / credencial)
+ */
+function drawIdIcon(ctx, x, y, size = 38) {
+  ctx.save();
+  roundRect(ctx, x, y, size, size, 12);
+  const iconGrad = ctx.createLinearGradient(x, y, x + size, y + size);
+  iconGrad.addColorStop(0, '#ab47bc');
+  iconGrad.addColorStop(1, '#7b1fa2');
+  ctx.fillStyle = iconGrad;
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold 19px ${FONT_STACK}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('#', x + size / 2, y + size / 2);
+  ctx.restore();
+}
+
+/**
  * Dibuja el Switch / Toggle de Notificaciones (ON estilo iOS/Telegram morado)
  */
 function drawToggleSwitch(ctx, x, y, width = 48, height = 28, isOn = true) {
@@ -330,17 +350,31 @@ async function generateTelegramProfileModal({
   const ctx = canvas.getContext('2d');
   ctx.scale(scale, scale);
 
-  // 1. Fondo de la Pantalla / Cabecera (Azul pizarra oscuro Telegram #37474f a #2d3840)
-  const headerGrad = ctx.createLinearGradient(0, 0, 0, 240);
+  // 1. Fondo de la Pantalla / Cabecera (Azul pizarra oscuro Telegram profundo con viñeta de iluminación)
+  const headerGrad = ctx.createLinearGradient(0, 0, 0, baseH);
   if (isBurned) {
-    headerGrad.addColorStop(0, '#3a1f26');
-    headerGrad.addColorStop(1, '#25161a');
+    headerGrad.addColorStop(0, '#2d151a');
+    headerGrad.addColorStop(0.45, '#1e0e12');
+    headerGrad.addColorStop(1, '#14090c');
   } else {
-    headerGrad.addColorStop(0, '#455a64');
-    headerGrad.addColorStop(1, '#37474f');
+    headerGrad.addColorStop(0, '#384852');
+    headerGrad.addColorStop(0.45, '#263238');
+    headerGrad.addColorStop(1, '#1b2327');
   }
   ctx.fillStyle = headerGrad;
   ctx.fillRect(0, 0, baseW, baseH);
+
+  // Viñeta radial sutil de profundidad detrás del avatar
+  const avRadialGlow = ctx.createRadialGradient(baseW / 2, 118, 10, baseW / 2, 118, 160);
+  if (isBurned) {
+    avRadialGlow.addColorStop(0, 'rgba(239, 68, 68, 0.18)');
+    avRadialGlow.addColorStop(1, 'transparent');
+  } else {
+    avRadialGlow.addColorStop(0, 'rgba(64, 167, 227, 0.15)');
+    avRadialGlow.addColorStop(1, 'transparent');
+  }
+  ctx.fillStyle = avRadialGlow;
+  ctx.fillRect(0, 0, baseW, 250);
 
   // 2. Barra Superior: Botón ✕ y Título "User Info"
   // Botón cerrar ✕
@@ -466,7 +500,7 @@ async function generateTelegramProfileModal({
 
   // 6. Barra Horizontal de Canción / Estado de Telegram
   const barY = 244;
-  ctx.fillStyle = isBurned ? 'rgba(239, 68, 68, 0.15)' : 'rgba(0, 0, 0, 0.22)';
+  ctx.fillStyle = isBurned ? 'rgba(239, 68, 68, 0.22)' : 'rgba(0, 0, 0, 0.28)';
   ctx.fillRect(0, barY, baseW, 36);
 
   ctx.font = `13px ${FONT_STACK}`;
@@ -490,15 +524,29 @@ async function generateTelegramProfileModal({
     ctx.fillText(`♬ ${cleanTrack} ❯`, avX, barY + 18);
   }
 
-  // 7. Tarjeta Inferior Flotante Oscura (#181c20 / #15181c)
+  // 7. Tarjeta Inferior Flotante Oscura (#181c22 con sombra y borde sutil)
   const cardX = 14;
   const cardY = 294;
   const cardW = baseW - 28;
   const cardH = baseH - cardY - 20;
 
+  // Sombra de profundidad
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowBlur = 16;
+  ctx.shadowOffsetY = 6;
   roundRect(ctx, cardX, cardY, cardW, cardH, 24);
-  ctx.fillStyle = isBurned ? '#1b1215' : '#1a1e24';
+  ctx.fillStyle = isBurned ? '#1a1014' : '#181d24';
   ctx.fill();
+  ctx.restore();
+
+  // Borde fino de cristal
+  ctx.save();
+  roundRect(ctx, cardX, cardY, cardW, cardH, 24);
+  ctx.strokeStyle = isBurned ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255, 255, 255, 0.07)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
 
   let curY = cardY + 22;
   const rowPadX = cardX + 16;
@@ -560,24 +608,17 @@ async function generateTelegramProfileModal({
 
   curY += 54;
 
-  // ── Fila 4: ID de Telegram & Verificación ──
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(textLeftX, curY - 10);
-  ctx.lineTo(cardX + cardW - 16, curY - 10);
-  ctx.stroke();
-  ctx.restore();
+  // ── Fila 4: ID de Telegram (Con Icono con Gradiente Púrpura # y formato limpio) ──
+  drawIdIcon(ctx, rowPadX, curY);
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = `bold 14px ${FONT_STACK}`;
+  ctx.font = `bold 15px ${FONT_STACK}`;
   ctx.textBaseline = 'top';
-  ctx.fillText(`ID: ${id || 'N/A'}`, textLeftX, curY);
+  ctx.fillText(String(id || 'N/A'), textLeftX, curY + 2);
 
   ctx.fillStyle = '#78909c';
-  ctx.font = `11.5px ${FONT_STACK}`;
-  ctx.fillText('ID de Telegram Oficial', textLeftX, curY + 18);
+  ctx.font = `12px ${FONT_STACK}`;
+  ctx.fillText('ID de Telegram Oficial', textLeftX, curY + 22);
 
   return canvas.toBuffer('image/png');
 }
