@@ -351,7 +351,7 @@ function register(bot) {
     }
   });
 
-  // ── Comando /info [ID, @username o responder] (Tarjeta gráfica + Texto con datos y botones) ──
+  // ── Comando /info [ID, @username o responder] (Plantilla original en texto) ──
   bot.command('info', async (ctx) => {
     try {
       let target = await resolveTarget(ctx);
@@ -376,33 +376,14 @@ function register(bot) {
         );
       }
 
-      const statusMsg = await ctx.reply('⏳ <i>Cargando información y credenciales...</i>', { parse_mode: 'HTML' });
-
-      const { cardBuffer, userId } = await generateUserCardBuffer(ctx, target);
       const { text, keyboard } = await buildUserProfile(ctx, target);
-      const cardFile = new InputFile(cardBuffer, `info_${userId}.png`);
-
-      // Se envía la tarjeta gráfica con el texto explicativo de /info y los botones interactivos
-      await ctx.replyWithPhoto(cardFile, {
-        caption: text,
+      await ctx.reply(text, {
         parse_mode: 'HTML',
         reply_markup: keyboard,
       });
-
-      try {
-        await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id);
-      } catch {}
     } catch (err) {
       console.error('⟡ Info: Error en /info:', err.message);
-      // Fallback a texto si fallase el renderizado
-      try {
-        let target = await resolveTarget(ctx);
-        if (!target) target = { userId: ctx.from.id, username: ctx.from.username, firstName: ctx.from.first_name };
-        const { text, keyboard } = await buildUserProfile(ctx, target);
-        await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
-      } catch (fbErr) {
-        await ctx.reply(`⟡ ✗ Error al consultar información: ${err.message}`, { parse_mode: 'HTML' });
-      }
+      await ctx.reply(`⟡ ✗ Error al consultar información: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 
