@@ -1271,6 +1271,28 @@ async function addModLog(action, moderatorId, targetId, chatId, reason) {
 // ⟡ Inicialización
 // ══════════════════════════════════════════════════════
 
+async function syncGbanLogsToBurnedUsers() {
+  try {
+    if (useSupabase && supabase) {
+      const { data: logs } = await supabase.from('mod_logs').select('*').eq('action', 'GBAN');
+      if (logs && logs.length > 0) {
+        for (const log of logs) {
+          const targetId = Number(log.target_id);
+          const isRegistered = await isUserBurned(targetId);
+          if (!isRegistered) {
+            await burnUser({
+              userId: targetId,
+              context: log.reason || 'GBAN previo registrado en logs',
+              reportedBy: Number(log.moderator_id) || 0,
+              approvedBy: Number(log.moderator_id) || 0,
+            });
+          }
+        }
+      }
+    }
+  } catch {}
+}
+
 async function initialize() {
   if (useSupabase && supabase) {
     // Probar conexión con Supabase
@@ -1279,6 +1301,8 @@ async function initialize() {
       console.warn('⟡ Supabase: Tablas pendientes de creación en SQL Editor:', error.message);
     } else {
       console.log('✓ Supabase: Base de datos conectada y accesible.');
+      // Auto-sincronización de seguridad de logs antiguos de GBAN a burned_users
+      syncGbanLogsToBurnedUsers().catch(() => {});
     }
     return;
   }
