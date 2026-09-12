@@ -859,16 +859,24 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
   for (let i = 0; i < users.length; i++) {
     const u = users[i];
     const itemNum = offset + i + 1;
-    const userTag = u.username ? `@${u.username}` : (u.first_name ? `${u.first_name}` : 'Sin @Username');
+    let userHeader = '';
+    if (u.username) {
+      userHeader = `@${u.username}` + (u.first_name ? ` (${escapeHtml(u.first_name)})` : '');
+    } else if (u.first_name) {
+      userHeader = escapeHtml(u.first_name);
+    } else {
+      userHeader = `Usuario [${u.user_id}]`;
+    }
+
     const dateFormatted = formatPeruDate(u.burned_at);
     const reason = (u.context || 'Estafa comprobada').slice(0, 150);
 
     text +=
-      `⛔ <b>#${itemNum} | ${userTag}</b>\n` +
+      `⛔ <b>#${itemNum} | ${userHeader}</b>\n` +
       `🆔 <b>ID:</b> <code>${u.user_id}</code>\n` +
-      (u.username ? `🔗 <b>Username:</b> @${u.username}\n` : '') +
-      `📅 <b>Fecha y Hora:</b> <code>${dateFormatted}</code>\n` +
-      `📝 <b>Motivo / Hechos:</b> <i>${escapeHtml(reason)}</i>\n\n` +
+      `🔗 <b>Usuario:</b> ${u.username ? `<code>@${u.username}</code>` : '<i>Sin @username público</i>'}\n` +
+      `📅 <b>Fecha y Hora Exacta:</b> <code>${dateFormatted}</code>\n` +
+      `📝 <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n\n` +
       `───────────────────────\n`;
   }
 
@@ -876,21 +884,11 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
 
   const kb = new InlineKeyboard();
 
-  // Fila 1: Botones de inspección directa para cada estafador de la página
-  if (users.length > 0) {
-    for (let i = 0; i < users.length; i++) {
-      const u = users[i];
-      const itemNum = offset + i + 1;
-      kb.text(`👁️ #${itemNum}`, `info_profile:${u.user_id}`);
-    }
-    kb.row();
-  }
-
   const prevPayload = ownerId ? `blacklist_page:${currentPage - 1}:${ownerId}` : `blacklist_page:${currentPage - 1}`;
   const currPayload = ownerId ? `blacklist_page:${currentPage}:${ownerId}` : `blacklist_page:${currentPage}`;
   const nextPayload = ownerId ? `blacklist_page:${currentPage + 1}:${ownerId}` : `blacklist_page:${currentPage + 1}`;
 
-  // Fila 2: Paginación
+  // Fila 1: Paginación
   if (currentPage > 1) {
     kb.text('ANTERIOR', prevPayload).primary();
   }
@@ -898,7 +896,7 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
     kb.text('SIGUIENTE', nextPayload).primary();
   }
 
-  // Fila 3: Indicador y Cerrar
+  // Fila 2: Indicador de página y Cerrar
   kb.row();
   kb.text(`PÁGINA ${currentPage} / ${totalPages}`, currPayload);
   kb.text('CERRAR', closePayload).danger();
