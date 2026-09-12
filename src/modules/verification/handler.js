@@ -496,15 +496,23 @@ function register(bot) {
       }
 
       if (missingChannels.length > 0) {
-        // Faltan canales por unirse
-        await ctx.answerCallbackQuery({
-          text: `✗ Aún te faltan ${missingChannels.length} grupo(s)/canal(es) por unirte.`,
+        // Formatear nombres limpios para la ventana emergente nativa (alert modal)
+        const names = missingChannels.map(ch => {
+          const raw = String(ch).trim();
+          if (raw.includes('3My6QWWVjMw2Mzc8') || raw === '-1002561445231' || raw.includes('MADRE')) {
+            return '• Madre de las Ventas TV2';
+          }
+          if (raw.includes('quemando_ventaslibreperu')) {
+            return '• Quemando VLP (Lista Negra)';
+          }
+          if (raw.startsWith('@')) return `• ${raw}`;
+          return `• ${raw}`;
+        }).join('\n');
+
+        return ctx.answerCallbackQuery({
+          text: `⚠️ ACCESO DENEGADO\n\nAún no te has unido a todos los canales requeridos:\n\n${names}\n\nPresiona [ UNIRME ] para verlos y unirte.`,
           show_alert: true,
         });
-        await ctx.reply(templates.verificationFailed(missingChannels), {
-          parse_mode: 'HTML',
-        });
-        return;
       }
 
       // 4. Todos los canales verificados -> Proceder al desmuteo
