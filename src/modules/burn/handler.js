@@ -753,8 +753,6 @@ function register(bot) {
           `\n${SYM.STAR} <i>Captura nativa de Telegram Desktop / Móvil en Ultra HD.</i>`,
         parse_mode: 'HTML',
       });
-        parse_mode: 'HTML',
-      });
 
       try {
         await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id);
