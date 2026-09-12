@@ -1,4 +1,4 @@
-const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
+const { createCanvas, loadImage, GlobalFonts, Path2D } = require('@napi-rs/canvas');
 const fs = require('fs');
 const path = require('path');
 
@@ -103,12 +103,48 @@ function drawStoryRing(ctx, cx, cy, radius, isBurned = false) {
 }
 
 /**
+ * Dibuja la insignia oficial vectorial de Verificado de Telegram
+ * (Estrella dentada azul redondeada con check blanco)
+ */
+function drawTelegramVerifiedBadge(ctx, x, y, size = 20) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  const scaleFactor = size / 26;
+  ctx.scale(scaleFactor, scaleFactor);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(6, 6, 14, 14);
+
+  ctx.fillStyle = '#248bcf';
+  const starPath = new Path2D(
+    'M14.38 1.51L16.2 3.33C16.57 3.7 17.06 3.9 17.58 3.9H20.15C21.16 3.9 22 4.67 22.09 5.66L22.1 5.85V8.42C22.1 8.94 22.31 9.43 22.67 9.8L24.49 11.62C25.2 12.33 25.25 13.46 24.62 14.23L24.49 14.38L22.67 16.2C22.3 16.57 22.1 17.06 22.1 17.58V20.15C22.1 21.16 21.33 22 20.34 22.09L20.15 22.1H17.58C17.06 22.1 16.57 22.31 16.2 22.67L14.38 24.49C13.67 25.2 12.54 25.25 11.77 24.62L11.62 24.49L9.8 22.67C9.43 22.3 8.94 22.1 8.42 22.1H5.85C4.84 22.1 4 21.33 3.91 20.34L3.9 20.15V17.58C3.9 17.06 3.69 16.57 3.33 16.2L1.51 14.38C0.8 13.67 0.75 12.54 1.38 11.77L1.51 11.62L3.33 9.8C3.7 9.43 3.9 8.94 3.9 8.42V5.85C3.9 4.77 4.77 3.9 5.85 3.9H8.42C8.94 3.9 9.43 3.69 9.8 3.33L11.62 1.51C12.38 0.75 13.62 0.75 14.38 1.51Z'
+  );
+  ctx.fill(starPath);
+
+  ctx.beginPath();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 2.4;
+  ctx.strokeStyle = '#ffffff';
+  ctx.moveTo(8, 13.2);
+  ctx.lineTo(11.4, 16.8);
+  ctx.lineTo(18.5, 9.5);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/**
  * Dibuja el icono cuadrado redondeado de @ en Username
  */
 function drawUsernameIcon(ctx, x, y, size = 38) {
   ctx.save();
   roundRect(ctx, x, y, size, size, 12);
-  ctx.fillStyle = '#248bcf';
+  const iconGrad = ctx.createLinearGradient(x, y, x + size, y + size);
+  iconGrad.addColorStop(0, '#29b6f6');
+  iconGrad.addColorStop(1, '#0288d1');
+  ctx.fillStyle = iconGrad;
   ctx.fill();
 
   ctx.fillStyle = '#ffffff';
@@ -125,7 +161,10 @@ function drawUsernameIcon(ctx, x, y, size = 38) {
 function drawBioIcon(ctx, x, y, size = 38) {
   ctx.save();
   roundRect(ctx, x, y, size, size, 12);
-  ctx.fillStyle = '#6c7a89';
+  const iconGrad = ctx.createLinearGradient(x, y, x + size, y + size);
+  iconGrad.addColorStop(0, '#78909c');
+  iconGrad.addColorStop(1, '#546e7a');
+  ctx.fillStyle = iconGrad;
   ctx.fill();
 
   ctx.fillStyle = '#ffffff';
@@ -142,7 +181,10 @@ function drawBioIcon(ctx, x, y, size = 38) {
 function drawBellIcon(ctx, x, y, size = 38) {
   ctx.save();
   roundRect(ctx, x, y, size, size, 12);
-  ctx.fillStyle = '#ff6b6b';
+  const iconGrad = ctx.createLinearGradient(x, y, x + size, y + size);
+  iconGrad.addColorStop(0, '#ff7043');
+  iconGrad.addColorStop(1, '#f4511e');
+  ctx.fillStyle = iconGrad;
   ctx.fill();
 
   // Campana blanca estilizada
@@ -253,12 +295,15 @@ async function generateTelegramProfileModal({
   bio = null,
   avatarBuffer = null,
   isOnline = true,
+  isVerified = false,
   statusSubtitle = null,
   musicTrack = null,
   isBurned = false,
   burnReason = null,
   dealsCount = 0,
   role = null,
+  rating = '5.0',
+  totalRatings = 0,
 }) {
   const scale = 2; // Ultra HD 2x Retina
   const baseW = 380;
@@ -269,7 +314,7 @@ async function generateTelegramProfileModal({
     effectiveBio = `🚨 LISTA NEGRA: ${burnReason || 'Estafa comprobada'}\nID: ${id}`;
   } else if (!effectiveBio) {
     if (role) {
-      effectiveBio = `Oficial: ${role}\nTratos: ${dealsCount} completados`;
+      effectiveBio = `Staff Oficial: ${role}\nTratos: ${dealsCount} completados`;
     } else {
       effectiveBio = `Comunidad Ventas Libres Perú\nTratos: ${dealsCount} completados`;
     }
@@ -390,13 +435,25 @@ async function generateTelegramProfileModal({
   }
   ctx.restore();
 
-  // 4. Nombre Completo debajo del Avatar
-  const cleanName = cleanText(name || 'Usuario', 24);
+  // 4. Nombre Completo debajo del Avatar (con Insignia de Verificado si corresponde)
+  const cleanName = cleanText(name || 'Usuario', 22);
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold 20px ${FONT_STACK}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(cleanName, avX, 198);
+
+  if (isVerified || (role && role.includes('OWNER'))) {
+    // Dibujar nombre y check centrado
+    const nameWidth = ctx.measureText(cleanName).width;
+    const totalW = nameWidth + 24;
+    const startX = avX - totalW / 2;
+    ctx.textAlign = 'left';
+    ctx.fillText(cleanName, startX, 198);
+    drawTelegramVerifiedBadge(ctx, startX + nameWidth + 6, 187, 20);
+    ctx.textAlign = 'center';
+  } else {
+    ctx.fillText(cleanName, avX, 198);
+  }
 
   // 5. Estado del usuario ("online" o "últ. vez recientemente")
   const stateLabel = isBurned
@@ -421,8 +478,16 @@ async function generateTelegramProfileModal({
     ctx.fillText('⚠️ REGISTRADO EN LISTA NEGRA OFICIAL', avX, barY + 18);
   } else {
     ctx.fillStyle = '#eceff1';
-    const trackName = cleanText(musicTrack || 'Ventas Libres Perú — Seguridad & Confianza', 36);
-    ctx.fillText(`♬ ${trackName} ❯`, avX, barY + 18);
+    let trackName = musicTrack;
+    if (!trackName) {
+      if (role && (role.includes('TRATO') || role.includes('ADMIN'))) {
+        trackName = `⭐ Mediador Oficial ${rating}/5.0 (${dealsCount} tratos)`;
+      } else {
+        trackName = `Ventas Libres Perú — ${dealsCount} tratos completados`;
+      }
+    }
+    const cleanTrack = cleanText(trackName, 36);
+    ctx.fillText(`♬ ${cleanTrack} ❯`, avX, barY + 18);
   }
 
   // 7. Tarjeta Inferior Flotante Oscura (#181c20 / #15181c)

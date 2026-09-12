@@ -325,10 +325,13 @@ function register(bot) {
         bio: modalBio,
         avatarBuffer: avatarBuffer,
         isOnline: true,
+        isVerified: isVerified,
         isBurned: isBurned,
         burnReason: isBurned ? (burnInfo.context || 'Estafa comprobada') : null,
         dealsCount: dealsCount,
         role: primaryRole,
+        rating: rating,
+        totalRatings: totalRatings,
       });
 
       const { text, keyboard } = await buildUserProfile(ctx, target);
