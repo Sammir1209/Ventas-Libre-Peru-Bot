@@ -607,6 +607,103 @@ function register(bot) {
       await ctx.editMessageText(`✗ <b>Operación de Staff cancelada.</b>`, { parse_mode: 'HTML' });
     } catch { }
   });
+
+  // ── Evento: Bienvenida Oficial al Staff cuando entra un nuevo miembro promovido ──
+  bot.on(['message:new_chat_members', 'chat_member'], async (ctx, next) => {
+    try {
+      const chatId = ctx.chat?.id;
+      // Solo actuar si el evento ocurre en el grupo oficial del Staff
+      if (!config.STAFF_CHAT_ID || chatId !== config.STAFF_CHAT_ID) {
+        return next();
+      }
+
+      let membersToCheck = [];
+      if (ctx.message?.new_chat_members) {
+        membersToCheck = ctx.message.new_chat_members;
+      } else if (ctx.chatMember) {
+        const update = ctx.chatMember;
+        const oldStatus = update.old_chat_member?.status;
+        const newStatus = update.new_chat_member?.status;
+        if ((oldStatus === 'left' || oldStatus === 'kicked' || !oldStatus) && newStatus === 'member') {
+          if (update.new_chat_member?.user) {
+            membersToCheck.push(update.new_chat_member.user);
+          }
+        }
+      }
+
+      if (membersToCheck.length === 0) return next();
+
+      for (const member of membersToCheck) {
+        if (member.is_bot) continue;
+
+        // Comprobar si fue promovido recientemente
+        let promoData = await redisDb.getCache(`recent_staff_promoted:${member.id}`);
+
+        // Si no está en redis, verificar si tiene rol de staff registrado en BD
+        if (!promoData) {
+          const dbStaff = await db.getStaffMember(member.id);
+          if (dbStaff && dbStaff.role) {
+            promoData = {
+              userId: member.id,
+              username: member.username || dbStaff.username,
+              firstName: member.first_name || dbStaff.first_name,
+              roles: dbStaff.role,
+              customTag: dbStaff.custom_title || 'Staff',
+              promotedBy: null,
+            };
+          }
+        }
+
+        if (promoData) {
+          // Candado de debounce para no duplicar la bienvenida en el staff
+          const greetedKey = `greeted_staff:${chatId}:${member.id}`;
+          const alreadyGreeted = await redisDb.getCache(greetedKey);
+          if (alreadyGreeted) continue;
+          await redisDb.setCache(greetedKey, true, 86400 * 30); // 30 días
+
+          const userTag = promoData.username ? `@${promoData.username}` : `<b>${escapeHtml(promoData.firstName || member.first_name)}</b>`;
+          const communityTitle = escapeHtml(ctx.chat.title || 'Ventas Libres Perú');
+          const rolesStr = promoData.roles || 'Staff';
+          const tagStr = escapeHtml(promoData.customTag || 'Staff');
+
+          let promotedByText = '';
+          if (promoData.promotedBy && promoData.promotedBy.name) {
+            const adminTag = promoData.promotedBy.username ? `@${promoData.promotedBy.username}` : `<b>${escapeHtml(promoData.promotedBy.name)}</b>`;
+            promotedByText = `• <b>Promovido por:</b> ${adminTag}\n`;
+          }
+
+          const staffWelcomeCard =
+            `${SYM.DIVIDER}\n` +
+            `👑 <b>¡NUEVO INTEGRANTE EN EL EQUIPO OFICIAL!</b> 👑\n` +
+            `${SYM.DIVIDER}\n\n` +
+            `Demos una gran bienvenida a la familia de <b>${communityTitle}</b>:\n\n` +
+            `• <b>Miembro:</b> ${userTag} (<code>${member.id}</code>)\n` +
+            `• <b>Rango / Rol:</b> <b>${rolesStr}</b>\n` +
+            `• <b>Tag en Grupos:</b> <code>${tagStr}</code>\n` +
+            `${promotedByText}\n` +
+            `${SYM.THIN_LINE}\n` +
+            `⚔ <i>Un honor tenerte en las filas de la administración. La seguridad y transparencia de la comunidad están en nuestras manos. ¡Éxitos!</i> ✨`;
+
+          const sendOpts = { parse_mode: 'HTML' };
+          if (config.STAFF_THREAD_ID) {
+            sendOpts.message_thread_id = config.STAFF_THREAD_ID;
+          }
+
+          try {
+            await ctx.api.sendMessage(chatId, staffWelcomeCard, sendOpts);
+          } catch (sendErr) {
+            // Fallback sin thread_id si el topic fue cerrado o no aplica
+            await ctx.api.sendMessage(chatId, staffWelcomeCard, { parse_mode: 'HTML' });
+          }
+        }
+      }
+
+      return next();
+    } catch (err) {
+      console.error('⟡ Error en bienvenida de nuevo staff al grupo:', err.message);
+      return next();
+    }
+  });
 }
 
 /**
@@ -645,6 +742,52 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
     `• <b>Permisos de Admin:</b> ✓ ACTIVOS EN TELEGRAM\n\n` +
     `${SYM.THIN_LINE}\n` +
     `<i>Promovido por: ${adminMention}</i>`;
+
+  // 3. Registrar en Redis al nuevo promovido para darle la bienvenida especial cuando ingrese al grupo de Staff
+  const STAFF_INVITE_LINK = 'https://t.me/+IEooR3P_yHVhZTc0';
+  await redisDb.setCache(
+    `recent_staff_promoted:${targetId}`,
+    {
+      userId: targetId,
+      username,
+      firstName,
+      roles: rolesStr,
+      customTag,
+      promotedBy: {
+        id: ctx.from.id,
+        name: ctx.from.first_name,
+        username: ctx.from.username,
+      },
+      promotedAt: new Date().toISOString(),
+    },
+    86400 * 7 // Disponible durante 7 días
+  );
+
+  // 4. Enviar Mensaje Directo (DM / MD) de Bienvenida al nuevo miembro del Staff con el enlace oficial
+  try {
+    const dmWelcome =
+      `${SYM.DIVIDER}\n` +
+      `👑 <b>¡FELICITACIONES! HAS SIDO PROMOVIDO AL STAFF</b>\n` +
+      `${SYM.DIVIDER}\n\n` +
+      `Hola <b>${nameFormatted}</b>, has sido designado oficialmente como parte del equipo de administración de <b>Ventas Libres Perú</b>.\n\n` +
+      `🏷️ <b>Tu Rango / Roles:</b> <code>${rolesStr}</code>\n` +
+      `🏷️ <b>Tag Oficial:</b> <code>${escapeHtml(customTag)}</code>\n` +
+      `👤 <b>Asignado por:</b> ${adminMention}\n\n` +
+      `${SYM.THIN_LINE}\n` +
+      `🛡️ <b>Únete de inmediato al Grupo Oficial del Staff:</b>\n` +
+      `👉 <a href="${STAFF_INVITE_LINK}">${STAFF_INVITE_LINK}</a>\n\n` +
+      `<i>¡Bienvenido a la familia de Ventas Libres Perú! Mantén siempre el compromiso, la honestidad y la seguridad de la comunidad.</i>`;
+
+    const dmKeyboard = new InlineKeyboard()
+      .url('🛡️ UNIRSE AL GRUPO DE STAFF', STAFF_INVITE_LINK);
+
+    await ctx.api.sendMessage(targetId, dmWelcome, {
+      parse_mode: 'HTML',
+      reply_markup: dmKeyboard,
+    });
+  } catch (dmErr) {
+    console.warn(`⟡ Staff DM: No se pudo enviar MD de bienvenida a ${targetId} (quizás no ha iniciado el bot en privado):`, dmErr.message);
+  }
 
   if (customMasterId) {
     try {
