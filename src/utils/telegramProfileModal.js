@@ -14,6 +14,7 @@ function loadBundledFonts() {
     { file: 'segoeuib.ttf', family: 'Segoe UI Bold' },
     { file: 'seguiemj.ttf', family: 'Segoe UI Emoji' },
     { file: 'seguisym.ttf', family: 'Segoe UI Symbol' },
+    { file: 'seguihis.ttf', family: 'Segoe UI Historic' },
     { file: 'arial.ttf', family: 'Arial' },
     { file: 'arialbd.ttf', family: 'Arial Bold' },
   ];
@@ -28,6 +29,9 @@ function loadBundledFonts() {
   }
 
   try {
+    if (fs.existsSync('C:/Windows/Fonts/seguihis.ttf')) {
+      GlobalFonts.registerFromPath('C:/Windows/Fonts/seguihis.ttf', 'Segoe UI Historic');
+    }
     if (fs.existsSync('C:/Windows/Fonts/seguiemj.ttf')) {
       GlobalFonts.registerFromPath('C:/Windows/Fonts/seguiemj.ttf', 'Segoe UI Emoji');
     }
@@ -37,19 +41,28 @@ function loadBundledFonts() {
     if (fs.existsSync('C:/Windows/Fonts/segoeuib.ttf')) {
       GlobalFonts.registerFromPath('C:/Windows/Fonts/segoeuib.ttf', 'Segoe UI Bold');
     }
+    if (fs.existsSync('C:/Windows/Fonts/seguisym.ttf')) {
+      GlobalFonts.registerFromPath('C:/Windows/Fonts/seguisym.ttf', 'Segoe UI Symbol');
+    }
   } catch {}
 }
 
 loadBundledFonts();
 
-const FONT_STACK = '"Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Noto Color Emoji", Arial, sans-serif';
+const FONT_STACK = '"Segoe UI Historic", "Segoe UI", "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Noto Color Emoji", Arial, sans-serif';
 
 /**
- * Trunca texto y limpia
+ * Trunca texto y limpia caracteres o glifos no soportados para que siempre se visualice nítido
  */
 function cleanText(str, max = 32) {
   if (!str) return '';
-  const arr = Array.from(str.normalize('NFKD'));
+  // Normalizar corchetes decorativos / jeroglíficos a corchetes estándar legibles
+  let s = str
+    .replace(/[\u{13288}\u{3010}\u{300E}\u{300C}\u{FF3B}\u{27E6}\u{27EA}\u{3016}]/gu, '[')
+    .replace(/[\u{13289}\u{3011}\u{300F}\u{300D}\u{FF3D}\u{27E7}\u{27EB}\u{3017}]/gu, ']')
+    .replace(/[\u{25A0}-\u{25A9}\u{25FD}\u{25FE}]/gu, ''); // Eliminar cajas cuadradas vacías si las hay
+  
+  const arr = Array.from(s.normalize('NFKD'));
   if (arr.length <= max) return arr.join('');
   return arr.slice(0, max).join('') + '...';
 }
@@ -136,38 +149,27 @@ function drawTelegramVerifiedBadge(ctx, x, y, size = 20) {
 }
 
 /**
- * Dibuja el icono cuadrado redondeado de @ en Username
- */
-/**
- * Dibuja el icono nativo de Telegram Web para Username (arroba lineal minimalista en #8da0b0)
+ * Dibuja el icono nativo de Telegram Web para Username (arroba lineal perfecta con centro alineado en #8da0b0)
  */
 function drawUsernameIcon(ctx, x, y, size = 26) {
   ctx.save();
+  ctx.translate(x, y);
+  const scaleFactor = size / 24;
+  ctx.scale(scaleFactor, scaleFactor);
+
   ctx.strokeStyle = '#8fa2b4';
-  ctx.lineWidth = 1.9;
+  ctx.lineWidth = 2.0;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  const cx = x + size / 2;
-  const cy = y + size / 2;
-
-  // Círculo exterior abierto de la arroba
+  // Círculo central @
   ctx.beginPath();
-  ctx.arc(cx, cy, 10, -Math.PI * 0.15, Math.PI * 1.5, true);
-  // Trazo que entra hacia la 'a' central
-  ctx.lineTo(cx + 4, cy);
+  ctx.arc(12, 12, 4.2, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Círculo de la 'a' central
-  ctx.beginPath();
-  ctx.arc(cx - 0.5, cy, 4.5, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Rabillo derecho de la 'a'
-  ctx.beginPath();
-  ctx.moveTo(cx + 4, cy - 4.5);
-  ctx.lineTo(cx + 4, cy + 4.5);
-  ctx.stroke();
+  // Arco envolvente exterior
+  const atArc = new Path2D('M16.2 7.8v5.2a3.1 3.1 0 0 0 6.2 0v-1a10.4 10.4 0 1 0-4.2 8.3');
+  ctx.stroke(atArc);
 
   ctx.restore();
 }
@@ -352,8 +354,8 @@ function splitBioLines(text, maxChars = 34, maxLines = 4) {
  * - Nombre con soporte a tipografías, formatos y emojis
  * - Estado "online" o "últ. vez recientemente"
  * - Barra horizontal de estado/música nativa
- * - Tarjeta flotante inferior oscura (#1c1e22) con esquinas redondeadas
- * - Fila de Username con icono azul @ y código QR a la derecha
+ * - Tarjeta flotante inferior oscura (#181d24) con esquinas redondeadas
+ * - Fila de Username con icono @ y código QR a la derecha
  * - Fila de Bio con enlaces en morado/azul y descripción
  * - Fila de Notifications con toggle morado encendido
  * - Fila adicional con ID de Telegram
@@ -392,9 +394,21 @@ async function generateTelegramProfileModal({
 
   const bioLines = splitBioLines(effectiveBio, 32, 4);
 
-  // Altura dinámica según líneas de biografía
-  const bioBlockHeight = bioLines.length * 20;
-  const baseH = 590 + Math.max(0, bioBlockHeight - 40);
+  // Cálculo proporcional de altura con espaciado generoso
+  // Cabecera hasta inicio de tarjeta: 294px
+  // Padding superior e inferior de tarjeta: 22px + 24px
+  // Fila Username: 52px
+  // Gap Username -> Bio: 18px
+  // Fila Bio: bioLines.length * 20 + 22px
+  // Gap Bio -> Notifications: 18px
+  // Fila Notifications: 44px
+  // Gap Notifications -> ID: 18px
+  // Fila ID: 44px
+  const bioContentHeight = bioLines.length * 20 + 22;
+  const innerCardContentHeight = 22 + 52 + 18 + bioContentHeight + 18 + 44 + 18 + 44 + 24;
+  const cardH = innerCardContentHeight;
+  const cardY = 294;
+  const baseH = cardY + cardH + 20;
 
   const canvas = createCanvas(baseW * scale, baseH * scale);
   const ctx = canvas.getContext('2d');
@@ -499,8 +513,9 @@ async function generateTelegramProfileModal({
     ctx.fillStyle = avGrad;
     ctx.fillRect(avX - avR, avY - avR, avR * 2, avR * 2);
 
-    // Obtener iniciales (hasta 2 letras: ej. "Sammir Contreras" -> "SC")
-    const words = String(name || 'U').trim().split(/\s+/).filter(Boolean);
+    // Obtener iniciales alfanuméricas limpias (evitando símbolos raros para que queden nítidas)
+    const cleanAlpha = String(name || 'U').replace(/[^\p{Script=Latin}\p{N}\s]/gu, ' ').trim();
+    const words = cleanAlpha.split(/\s+/).filter(Boolean);
     let initials = '';
     if (words.length >= 2) {
       initials = Array.from(words[0])[0] + Array.from(words[words.length - 1])[0];
@@ -520,7 +535,7 @@ async function generateTelegramProfileModal({
   ctx.restore();
 
   // 4. Nombre Completo debajo del Avatar (con Insignia de Verificado si corresponde)
-  const cleanName = cleanText(name || 'Usuario', 22);
+  const cleanName = cleanText(name || 'Usuario', 24);
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold 20px ${FONT_STACK}`;
   ctx.textAlign = 'center';
@@ -574,11 +589,9 @@ async function generateTelegramProfileModal({
     ctx.fillText(`♬ ${cleanTrack} ❯`, avX, barY + 18);
   }
 
-  // 7. Tarjeta Inferior Flotante Oscura (#181c22 con sombra y borde sutil)
+  // 7. Tarjeta Inferior Flotante Oscura (#181d24 con sombra y borde sutil)
   const cardX = 14;
-  const cardY = 294;
   const cardW = baseW - 28;
-  const cardH = baseH - cardY - 20;
 
   // Sombra de profundidad
   ctx.save();
@@ -600,10 +613,10 @@ async function generateTelegramProfileModal({
 
   let curY = cardY + 22;
   const rowPadX = cardX + 16;
-  const textLeftX = rowPadX + 48;
+  const textLeftX = rowPadX + 44;
 
   // ── Fila 1: Username ──
-  drawUsernameIcon(ctx, rowPadX, curY);
+  drawUsernameIcon(ctx, rowPadX, curY + 6, 26);
 
   const displayUser = username ? username : 'Sin username';
   ctx.textAlign = 'left';
@@ -614,15 +627,15 @@ async function generateTelegramProfileModal({
 
   ctx.fillStyle = '#78909c';
   ctx.font = `12.5px ${FONT_STACK}`;
-  ctx.fillText('Username', textLeftX, curY + 22);
+  ctx.fillText('Username', textLeftX, curY + 24);
 
-  // Icono QR a la derecha
-  drawQrGrid(ctx, cardX + cardW - 36, curY + 10);
+  // Icono QR a la derecha centrado con la fila
+  drawQrGrid(ctx, cardX + cardW - 36, curY + 13);
 
-  curY += 56;
+  curY += 52 + 18;
 
   // ── Fila 2: Bio ──
-  drawBioIcon(ctx, rowPadX, curY);
+  drawBioIcon(ctx, rowPadX, curY + 4, 26);
 
   ctx.fillStyle = '#ffffff';
   ctx.font = `13.5px ${FONT_STACK}`;
@@ -636,30 +649,30 @@ async function generateTelegramProfileModal({
     } else {
       ctx.fillStyle = '#eceff1';
     }
-    ctx.fillText(line, textLeftX, curY + i * 18);
+    ctx.fillText(line, textLeftX, curY + i * 20);
   }
 
-  const bioBottomY = curY + bioLines.length * 18 + 2;
+  const bioBottomY = curY + bioLines.length * 20 + 3;
   ctx.fillStyle = '#78909c';
-  ctx.font = `12px ${FONT_STACK}`;
+  ctx.font = `12.5px ${FONT_STACK}`;
   ctx.fillText('Bio', textLeftX, bioBottomY);
 
-  curY = bioBottomY + 30;
+  curY = bioBottomY + 18 + 18;
 
   // ── Fila 3: Notifications ──
-  drawBellIcon(ctx, rowPadX, curY);
+  drawBellIcon(ctx, rowPadX, curY + 6, 26);
 
   ctx.fillStyle = '#ffffff';
   ctx.font = `15px ${FONT_STACK}`;
   ctx.textBaseline = 'middle';
   ctx.fillText('Notifications', textLeftX, curY + 19);
 
-  drawToggleSwitch(ctx, cardX + cardW - 58, curY + 5, 46, 26, true);
+  drawToggleSwitch(ctx, cardX + cardW - 58, curY + 6, 46, 26, true);
 
-  curY += 54;
+  curY += 44 + 18;
 
-  // ── Fila 4: ID de Telegram (Con Icono con Gradiente Púrpura # y formato limpio) ──
-  drawIdIcon(ctx, rowPadX, curY);
+  // ── Fila 4: ID de Telegram Oficial ──
+  drawIdIcon(ctx, rowPadX, curY + 6, 26);
 
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold 15px ${FONT_STACK}`;
@@ -667,8 +680,8 @@ async function generateTelegramProfileModal({
   ctx.fillText(String(id || 'N/A'), textLeftX, curY + 2);
 
   ctx.fillStyle = '#78909c';
-  ctx.font = `12px ${FONT_STACK}`;
-  ctx.fillText('ID de Telegram Oficial', textLeftX, curY + 22);
+  ctx.font = `12.5px ${FONT_STACK}`;
+  ctx.fillText('ID de Telegram Oficial', textLeftX, curY + 24);
 
   return canvas.toBuffer('image/png');
 }
@@ -676,3 +689,4 @@ async function generateTelegramProfileModal({
 module.exports = {
   generateTelegramProfileModal,
 };
+
