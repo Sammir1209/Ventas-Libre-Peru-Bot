@@ -197,7 +197,121 @@ async function buildUserProfile(ctx, targetUser) {
 }
 
 function register(bot) {
-  // ── Comando /perfil [ID, @username o responder] con Tarjeta Gráfica HD ──
+  /**
+   * Genera el buffer de la tarjeta gráfica del perfil de usuario
+   */
+  async function generateUserCardBuffer(ctx, target) {
+    const userId = target.userId;
+    let username = target.username;
+    let firstName = target.firstName;
+    let targetBio = null;
+
+    if (!username || !firstName) {
+      try {
+        const chatInfo = await ctx.api.getChat(userId);
+        if (!username) username = chatInfo.username || null;
+        if (!firstName) firstName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ') || null;
+        if (chatInfo.bio) targetBio = chatInfo.bio;
+      } catch {}
+    } else {
+      try {
+        const chatInfo = await ctx.api.getChat(userId);
+        if (chatInfo.bio) targetBio = chatInfo.bio;
+      } catch {}
+    }
+
+    // Descargar foto de perfil de Telegram en alta resolución
+    let avatarBuffer = null;
+    try {
+      const userPhotos = await ctx.api.getUserProfilePhotos(userId, { limit: 1 });
+      if (userPhotos && userPhotos.total_count > 0) {
+        const largestPhoto = userPhotos.photos[0][userPhotos.photos[0].length - 1];
+        avatarBuffer = await downloadTelegramAvatar(ctx.api, largestPhoto.file_id);
+      }
+    } catch {}
+
+    // Consultar roles, tratos, rating, antecedentes
+    let rolesList = [];
+    const effectiveOwners = ctx.tenant?.owner_ids || config.OWNER_IDS;
+    const tenantId = ctx.tenant?.id || null;
+
+    if (effectiveOwners.includes(userId)) {
+      rolesList = ['OWNER'];
+    }
+    try {
+      const staff = await db.getStaffMember(userId, tenantId);
+      if (staff && staff.role) {
+        const parsed = staff.role.split(',').map((r) => r.trim().toUpperCase());
+        rolesList = Array.from(new Set([...rolesList, ...parsed]));
+      }
+    } catch {}
+
+    let dealsCount = 0;
+    try {
+      dealsCount = await db.getUserDealsCount(userId);
+    } catch {}
+
+    let rating = '5.0';
+    let totalRatings = 0;
+    const isDealAdmin = rolesList.some((r) => r.includes('TRATO ADMIN') || r.includes('TRATOADMIN'));
+    if (isDealAdmin) {
+      try {
+        const rData = await db.getAdminAvgRating(userId);
+        if (rData && rData.avg_rating) rating = parseFloat(rData.avg_rating).toFixed(1);
+        if (rData && rData.total_ratings) totalRatings = rData.total_ratings;
+      } catch {}
+    }
+
+    let isVerified = false;
+    try {
+      const dbUser = await db.getUser(userId);
+      if (dbUser && (dbUser.verified || dbUser.is_verified)) {
+        isVerified = true;
+      }
+    } catch {}
+
+    let burnInfo = null;
+    try {
+      burnInfo = (await db.getBurnedUserInfo(userId)) || (username ? await db.getBurnedUserInfo(username) : null);
+    } catch {}
+
+    const isBurned = !!burnInfo;
+
+    let primaryRole = null;
+    if (rolesList.includes('OWNER')) primaryRole = '👑 OWNER';
+    else if (rolesList.some((r) => r.includes('CO-OWNER') || r.includes('COOWNER'))) primaryRole = '⚜️ CO-OWNER';
+    else if (isDealAdmin) primaryRole = '🤝 TRATO ADMIN';
+    else if (rolesList.includes('ADMIN')) primaryRole = '⚔️ ADMINISTRADOR';
+
+    let modalBio = targetBio;
+    if (!modalBio) {
+      if (primaryRole) {
+        modalBio = `Staff Oficial: ${primaryRole}\nTratos: ${dealsCount} completados`;
+      } else {
+        modalBio = `Usuario de la Comunidad\nTratos: ${dealsCount} completados`;
+      }
+    }
+
+    const cardBuffer = await generateTelegramProfileModal({
+      name: firstName || 'Usuario',
+      username: username,
+      id: userId,
+      bio: modalBio,
+      avatarBuffer: avatarBuffer,
+      isOnline: true,
+      isVerified: isVerified,
+      isBurned: isBurned,
+      burnReason: isBurned ? (burnInfo.context || 'Estafa comprobada') : null,
+      dealsCount: dealsCount,
+      role: primaryRole,
+      rating: rating,
+      totalRatings: totalRatings,
+    });
+
+    return { cardBuffer, userId, target };
+  }
+
+  // ── Comando /perfil [ID, @username o responder] (Solo la tarjeta / card) ──
   bot.command('perfil', async (ctx) => {
     try {
       let target = await resolveTarget(ctx);
@@ -221,146 +335,24 @@ function register(bot) {
         );
       }
 
-      const statusMsg = await ctx.reply('⏳ <i>Cargando credenciales y generando tarjeta de perfil...</i>', { parse_mode: 'HTML' });
+      const statusMsg = await ctx.reply('⏳ <i>Generando tarjeta de perfil...</i>', { parse_mode: 'HTML' });
 
-      const userId = target.userId;
-      let username = target.username;
-      let firstName = target.firstName;
-
-      let targetBio = null;
-      if (!username || !firstName) {
-        try {
-          const chatInfo = await ctx.api.getChat(userId);
-          if (!username) username = chatInfo.username || null;
-          if (!firstName) firstName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ') || null;
-          if (chatInfo.bio) targetBio = chatInfo.bio;
-        } catch {}
-      } else {
-        try {
-          const chatInfo = await ctx.api.getChat(userId);
-          if (chatInfo.bio) targetBio = chatInfo.bio;
-        } catch {}
-      }
-
-      // Descargar foto de perfil de Telegram en alta resolución
-      let avatarBuffer = null;
-      try {
-        const userPhotos = await ctx.api.getUserProfilePhotos(userId, { limit: 1 });
-        if (userPhotos && userPhotos.total_count > 0) {
-          const largestPhoto = userPhotos.photos[0][userPhotos.photos[0].length - 1];
-          avatarBuffer = await downloadTelegramAvatar(ctx.api, largestPhoto.file_id);
-        }
-      } catch {}
-
-      // Consultar roles, tratos, rating, antecedentes
-      let rolesList = [];
-      let customTitle = null;
-      const effectiveOwners = ctx.tenant?.owner_ids || config.OWNER_IDS;
-      const tenantId = ctx.tenant?.id || null;
-
-      if (effectiveOwners.includes(userId)) {
-        rolesList = ['OWNER'];
-      }
-      try {
-        const staff = await db.getStaffMember(userId, tenantId);
-        if (staff && staff.role) {
-          const parsed = staff.role.split(',').map((r) => r.trim().toUpperCase());
-          rolesList = Array.from(new Set([...rolesList, ...parsed]));
-          customTitle = staff.custom_title || null;
-        }
-      } catch {}
-
-      let dealsCount = 0;
-      try {
-        dealsCount = await db.getUserDealsCount(userId);
-      } catch {}
-
-      let rating = '5.0';
-      let totalRatings = 0;
-      const isDealAdmin = rolesList.some((r) => r.includes('TRATO ADMIN') || r.includes('TRATOADMIN'));
-      if (isDealAdmin) {
-        try {
-          const rData = await db.getAdminAvgRating(userId);
-          if (rData && rData.avg_rating) rating = parseFloat(rData.avg_rating).toFixed(1);
-          if (rData && rData.total_ratings) totalRatings = rData.total_ratings;
-        } catch {}
-      }
-
-      let isVerified = false;
-      try {
-        const dbUser = await db.getUser(userId);
-        if (dbUser && (dbUser.verified || dbUser.is_verified)) {
-          isVerified = true;
-        }
-      } catch {}
-
-      let burnInfo = null;
-      try {
-        burnInfo = (await db.getBurnedUserInfo(userId)) || (username ? await db.getBurnedUserInfo(username) : null);
-      } catch {}
-
-      const isBurned = !!burnInfo;
-
-      let primaryRole = null;
-      if (rolesList.includes('OWNER')) primaryRole = '👑 OWNER';
-      else if (rolesList.some((r) => r.includes('CO-OWNER') || r.includes('COOWNER'))) primaryRole = '⚜️ CO-OWNER';
-      else if (isDealAdmin) primaryRole = '🤝 TRATO ADMIN';
-      else if (rolesList.includes('ADMIN')) primaryRole = '⚔️ ADMINISTRADOR';
-
-      // Construir biografía informativa si no tiene una en Telegram
-      let modalBio = targetBio;
-      if (!modalBio) {
-        if (primaryRole) {
-          modalBio = `Staff Oficial: ${primaryRole}\nTratos: ${dealsCount} completados`;
-        } else {
-          modalBio = `Usuario de la Comunidad\nTratos: ${dealsCount} completados`;
-        }
-      }
-
-      // Generar la captura del modal nativo de Telegram (User Info)
-      const cardBuffer = await generateTelegramProfileModal({
-        name: firstName || 'Usuario',
-        username: username,
-        id: userId,
-        bio: modalBio,
-        avatarBuffer: avatarBuffer,
-        isOnline: true,
-        isVerified: isVerified,
-        isBurned: isBurned,
-        burnReason: isBurned ? (burnInfo.context || 'Estafa comprobada') : null,
-        dealsCount: dealsCount,
-        role: primaryRole,
-        rating: rating,
-        totalRatings: totalRatings,
-      });
-
-      const { text, keyboard } = await buildUserProfile(ctx, target);
+      const { cardBuffer, userId } = await generateUserCardBuffer(ctx, target);
       const cardFile = new InputFile(cardBuffer, `perfil_${userId}.png`);
 
-      await ctx.replyWithPhoto(cardFile, {
-        caption: text,
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      });
+      // Se envía únicamente la tarjeta gráfica limpia (sin texto largo de info)
+      await ctx.replyWithPhoto(cardFile);
 
       try {
         await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id);
       } catch {}
     } catch (err) {
-      console.error('⟡ Info: Error en /perfil con tarjeta gráfica:', err.message);
-      // Fallback limpio a texto si ocurre algún error gráfico
-      try {
-        let target = await resolveTarget(ctx);
-        if (!target) target = { userId: ctx.from.id, username: ctx.from.username, firstName: ctx.from.first_name };
-        const { text, keyboard } = await buildUserProfile(ctx, target);
-        await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
-      } catch (fbErr) {
-        await ctx.reply(`⟡ ✗ Error al consultar perfil: ${err.message}`, { parse_mode: 'HTML' });
-      }
+      console.error('⟡ Info: Error en /perfil:', err.message);
+      await ctx.reply(`⟡ ✗ Error al generar perfil: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 
-  // ── Comando /info [ID, @username o responder] (Respaldo en texto / datos) ──
+  // ── Comando /info [ID, @username o responder] (Tarjeta gráfica + Texto con datos y botones) ──
   bot.command('info', async (ctx) => {
     try {
       let target = await resolveTarget(ctx);
@@ -380,19 +372,38 @@ function register(bot) {
           `${SYM.ARROW} Esto ocurre si el usuario nunca ha iniciado el bot o su cuenta es privada.\n\n` +
           `${SYM.STAR} <b>Soluciones:</b>\n` +
           `${SYM.BULLET} Pídele que le envíe <code>/start</code> al bot una sola vez.\n` +
-          `${SYM.BULLET} O consulta su perfil usando su <b>ID numérico</b>: <code>/info [ID]</code>`,
+          `${SYM.BULLET} O consulta su información usando su <b>ID numérico</b>: <code>/info [ID]</code>`,
           { parse_mode: 'HTML' }
         );
       }
 
+      const statusMsg = await ctx.reply('⏳ <i>Cargando información y credenciales...</i>', { parse_mode: 'HTML' });
+
+      const { cardBuffer, userId } = await generateUserCardBuffer(ctx, target);
       const { text, keyboard } = await buildUserProfile(ctx, target);
-      await ctx.reply(text, {
+      const cardFile = new InputFile(cardBuffer, `info_${userId}.png`);
+
+      // Se envía la tarjeta gráfica con el texto explicativo de /info y los botones interactivos
+      await ctx.replyWithPhoto(cardFile, {
+        caption: text,
         parse_mode: 'HTML',
         reply_markup: keyboard,
       });
+
+      try {
+        await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id);
+      } catch {}
     } catch (err) {
       console.error('⟡ Info: Error en /info:', err.message);
-      await ctx.reply(`⟡ ✗ Error al consultar información: ${err.message}`, { parse_mode: 'HTML' });
+      // Fallback a texto si fallase el renderizado
+      try {
+        let target = await resolveTarget(ctx);
+        if (!target) target = { userId: ctx.from.id, username: ctx.from.username, firstName: ctx.from.first_name };
+        const { text, keyboard } = await buildUserProfile(ctx, target);
+        await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+      } catch (fbErr) {
+        await ctx.reply(`⟡ ✗ Error al consultar información: ${err.message}`, { parse_mode: 'HTML' });
+      }
     }
   });
 
