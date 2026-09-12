@@ -48,9 +48,6 @@ function verificationFailed(missingChannels) {
     `${SYM.WARNING} <b>VERIFICACIÓN INCOMPLETA</b>\n` +
     `${SYM.DIVIDER}\n\n` +
     `Aún te falta unirte a los siguientes canales requeridos:\n\n${list}\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `🌐 <i>También puedes ver la lista completa en la web oficial:</i>\n` +
-    `👉 <a href="https://ventas-libre-peru-bot.onrender.com/verificar">Portal Web de Verificación</a>\n\n` +
     `<i>Una vez unido(a), vuelve aquí y pulsa nuevamente <b>[ ✓ VERIFICAR ]</b>.</i>`
   );
 }
