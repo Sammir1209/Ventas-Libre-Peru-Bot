@@ -259,7 +259,7 @@ function createWebApp() {
   });
 
   // ── Guardar Branding de un Sub-Bot (logo, nombre, color) ──
-  app.post(`${apiPrefix}/branding/:tenantId?`, requireAdminAuth, async (req, res) => {
+  const handleSaveBranding = async (req, res) => {
     try {
       const session = req.sessionUser || {};
       const targetTenantId = req.params.tenantId || req.body.tenantId || session.tenantId;
@@ -297,7 +297,10 @@ function createWebApp() {
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }
-  });
+  };
+
+  app.post(`${apiPrefix}/branding`, requireAdminAuth, handleSaveBranding);
+  app.post(`${apiPrefix}/branding/:tenantId`, requireAdminAuth, handleSaveBranding);
 
   // ── Login de Owner con ID de Telegram + Master Key ──
   app.post(`${apiPrefix}/auth-owner`, async (req, res) => {
