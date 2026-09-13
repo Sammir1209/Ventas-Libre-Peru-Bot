@@ -924,9 +924,11 @@ function createWebApp() {
 
       if (action === 'activate') {
         await antiRaid.triggerLockdown(apiWrapper, chatId, 'Chat Grupal', 'Lockdown disparado desde el Dashboard Web');
+        await db.addModLog('ANTI_RAID_LOCKDOWN', req.sessionUser?.userId || 0, 0, chatId, 'Modo Pánico activado desde el Dashboard Web');
         res.json({ ok: true, isLockedDown: true, message: 'Modo Pánico activado. Chat cerrado en 1 segundo.' });
       } else {
         await antiRaid.disableLockdown(apiWrapper, chatId);
+        await db.addModLog('UNLOCKDOWN', req.sessionUser?.userId || 0, 0, chatId, 'Modo Pánico desactivado desde el Dashboard Web');
         res.json({ ok: true, isLockedDown: false, message: 'Modo Pánico levantado. Permisos de chat normalizados.' });
       }
     } catch (err) {
@@ -1415,11 +1417,31 @@ function createWebApp() {
           reviewerId
         );
         await db.updateBurnReportStatus(reportId, 'APPROVED', reviewerId);
+        await db.addModLog('BURN', reviewerId, report.target_id, null, `Reporte #${reportId} Aprobado y quemado desde Dashboard Web`);
       } else {
         await db.updateBurnReportStatus(reportId, 'REJECTED', reviewerId);
+        await db.addModLog('BURN_REJECT', reviewerId, report.target_id, null, `Reporte #${reportId} Rechazado desde Dashboard Web`);
       }
 
       res.json({ ok: true, message: `Reporte #${reportId} marcado como ${action}.` });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 12. Registro de Auditoría en Tiempo Real (Live Audit Log) ──
+  app.get(`${apiPrefix}/audit-logs`, requireAdminAuth, async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page) || 1);
+      const limit = Math.min(100, Math.max(5, parseInt(req.query.limit) || 25));
+      const action = req.query.action || null;
+      const search = req.query.search || '';
+
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || req.query.tenantId || null;
+
+      const result = await db.getAuditLogs({ page, limit, action, search, tenantId });
+      res.json({ ok: true, ...result });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }

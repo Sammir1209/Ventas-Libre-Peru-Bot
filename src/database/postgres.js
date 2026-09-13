@@ -1505,6 +1505,107 @@ async function addModLog(action, moderatorId, targetId, chatId, reason) {
   return null;
 }
 
+async function getAuditLogs({ page = 1, limit = 25, action = null, search = '', tenantId = null } = {}) {
+  const offset = (page - 1) * limit;
+
+  if (useSupabase && supabase) {
+    let q = supabase
+      .from('mod_logs')
+      .select('*', { count: 'exact' });
+
+    if (action && action !== 'ALL') {
+      q = q.eq('action', action);
+    }
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      const num = Number(term);
+      if (!isNaN(num) && num > 0) {
+        q = q.or(`target_id.eq.${num},moderator_id.eq.${num},chat_id.eq.${num}`);
+      } else {
+        q = q.ilike('reason', `%${term}%`);
+      }
+    }
+
+    q = q.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+
+    const { data, count, error } = await q;
+    if (error) {
+      console.error('⟡ Supabase getAuditLogs error:', error.message);
+      return { logs: [], total: 0, page, totalPages: 0 };
+    }
+
+    // Cache local de grupos y usuarios para enriquecer rápido
+    const groups = await getAllGroups(tenantId);
+    const groupsMap = new Map(groups.map((g) => [Number(g.chat_id), g.title]));
+
+    const staffList = await getAllStaff(tenantId);
+    const staffMap = new Map(staffList.map((s) => [Number(s.user_id), s.first_name || s.username]));
+
+    const enriched = (data || []).map((log) => {
+      const chatTitle = groupsMap.get(Number(log.chat_id)) || (log.chat_id ? `Grupo #${log.chat_id}` : 'Global / Sistema');
+      const modName = staffMap.get(Number(log.moderator_id)) || (log.moderator_id ? `Admin #${log.moderator_id}` : 'Bot Automático');
+
+      return {
+        ...log,
+        chat_title: chatTitle,
+        moderator_name: modName,
+      };
+    });
+
+    return {
+      logs: enriched,
+      total: count || enriched.length,
+      page,
+      limit,
+      totalPages: Math.ceil((count || enriched.length) / limit),
+    };
+  }
+
+  if (pool) {
+    let whereClauses = [];
+    let params = [];
+
+    if (action && action !== 'ALL') {
+      params.push(action);
+      whereClauses.push(`action = $${params.length}`);
+    }
+
+    if (search && search.trim()) {
+      const term = search.trim();
+      const num = Number(term);
+      if (!isNaN(num) && num > 0) {
+        params.push(num);
+        whereClauses.push(`(target_id = $${params.length} OR moderator_id = $${params.length} OR chat_id = $${params.length})`);
+      } else {
+        params.push(`%${term}%`);
+        whereClauses.push(`reason ILIKE $${params.length}`);
+      }
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    const countRes = await pool.query(`SELECT COUNT(*) FROM mod_logs ${whereSql}`, params);
+    const total = parseInt(countRes.rows[0]?.count || '0', 10);
+
+    params.push(limit, offset);
+    const logsRes = await pool.query(
+      `SELECT * FROM mod_logs ${whereSql} ORDER BY created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    return {
+      logs: logsRes.rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  return { logs: [], total: 0, page, totalPages: 0 };
+}
+
 // ══════════════════════════════════════════════════════
 // ⟡ Inicialización
 // ══════════════════════════════════════════════════════
@@ -1782,6 +1883,7 @@ module.exports = {
   getBurnedUsersCount,
   // Logs & Warnings
   addModLog,
+  getAuditLogs,
   addWarning,
   getWarnings,
   clearWarnings,

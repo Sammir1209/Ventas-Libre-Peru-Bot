@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     staff: document.getElementById('nav-staff'),
     deals: document.getElementById('nav-deals'),
     burn: document.getElementById('nav-burn'),
+    audit: document.getElementById('nav-audit'),
     verification: document.getElementById('nav-verification'),
     community: document.getElementById('nav-community'),
   };
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     staff: document.getElementById('view-staff'),
     deals: document.getElementById('view-deals'),
     burn: document.getElementById('view-burn'),
+    audit: document.getElementById('view-audit'),
     verification: document.getElementById('view-verification'),
     community: document.getElementById('view-community'),
   };
@@ -39,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (target === 'users') fetchUsers();
     else if (target === 'deals') fetchDeals();
     else if (target === 'burn') fetchBurnData();
+    else if (target === 'audit') fetchAuditLogs();
     else if (target === 'groups') fetchGroups();
     else if (target === 'staff') fetchStaff();
     else if (target === 'verification') fetchVerificationChannels();
@@ -1431,6 +1434,164 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnRefreshBurn) {
     btnRefreshBurn.addEventListener('click', () => fetchBurnData());
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 10. REGISTRO DE AUDITORÍA EN TIEMPO REAL (LIVE AUDIT LOG)
+  // ══════════════════════════════════════════════════════
+
+  let currentAuditPage = 1;
+  let currentAuditAction = 'ALL';
+  let currentAuditSearch = '';
+
+  const auditTableBody = document.getElementById('audit-table-body');
+  const selectAuditAction = document.getElementById('select-audit-action');
+  const inputSearchAudit = document.getElementById('input-search-audit');
+  const btnSearchAudit = document.getElementById('btn-search-audit');
+  const btnRefreshAudit = document.getElementById('btn-refresh-audit');
+  const btnPrevAudit = document.getElementById('btn-prev-audit');
+  const btnNextAudit = document.getElementById('btn-next-audit');
+  const auditPaginationLabel = document.getElementById('audit-pagination-label');
+  const auditCountSummary = document.getElementById('audit-count-summary');
+
+  async function fetchAuditLogs(page = currentAuditPage, action = currentAuditAction, search = currentAuditSearch) {
+    currentAuditPage = page;
+    currentAuditAction = action;
+    currentAuditSearch = search;
+
+    if (!auditTableBody) return;
+
+    auditTableBody.innerHTML = `
+      <tr>
+        <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-dim);">
+          <div class="spinner" style="margin: 0 auto 10px;"></div>
+          Consultando registros de auditoría en vivo...
+        </td>
+      </tr>
+    `;
+
+    try {
+      const qParams = new URLSearchParams({
+        page: String(page),
+        limit: '20',
+      });
+      if (action && action !== 'ALL') qParams.set('action', action);
+      if (search && search.trim()) qParams.set('search', search.trim());
+
+      const res = await secureFetch(`${API_PREFIX}/audit-logs?${qParams.toString()}`);
+      const data = await res.json();
+
+      if (!data.ok || !Array.isArray(data.logs)) {
+        auditTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-danger); padding: 2rem;">Error: ${data.error || 'No se pudieron cargar los registros'}</td></tr>`;
+        return;
+      }
+
+      renderAuditLogs(data.logs, data.total, data.page, data.totalPages);
+    } catch (err) {
+      auditTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--color-danger); padding: 2rem;">Error de conexión: ${err.message}</td></tr>`;
+    }
+  }
+
+  function renderAuditLogs(logs, total, page, totalPages) {
+    if (auditCountSummary) {
+      auditCountSummary.textContent = `${total} eventos registrados`;
+    }
+    if (auditPaginationLabel) {
+      auditPaginationLabel.textContent = `Página ${page} de ${totalPages || 1} (${total} eventos)`;
+    }
+    if (btnPrevAudit) btnPrevAudit.disabled = page <= 1;
+    if (btnNextAudit) btnNextAudit.disabled = page >= totalPages;
+
+    if (logs.length === 0) {
+      auditTableBody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 3rem; color: var(--text-dim);">
+            No se encontraron eventos de auditoría con los filtros aplicados.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    auditTableBody.innerHTML = logs
+      .map((log) => {
+        const dateStr = log.created_at
+          ? new Date(log.created_at).toLocaleString('es-PE', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+            })
+          : '—';
+
+        let badgeClass = 'badge-audit-default';
+        const act = (log.action || '').toUpperCase();
+        if (['GBAN', 'BAN', 'BURN'].includes(act)) badgeClass = 'badge-audit-gban';
+        else if (['MUTE', 'WARN'].includes(act)) badgeClass = 'badge-audit-mute';
+        else if (['UNMUTE', 'UNLOCKDOWN', 'VERIFIED'].includes(act)) badgeClass = 'badge-audit-unmute';
+        else if (['ANTI_RAID_LOCKDOWN', 'LOCKDOWN'].includes(act)) badgeClass = 'badge-audit-lockdown';
+
+        const targetDisplay = log.target_id && log.target_id !== 0 && log.target_id !== '0'
+          ? `<code>${log.target_id}</code>`
+          : '<span style="color: var(--text-dim);">N/A (Grupal)</span>';
+
+        const reasonDisplay = log.reason ? escapeHtml(log.reason) : '<span style="color: var(--text-dim); font-style: italic;">Sin motivo especificado</span>';
+
+        return `
+          <tr>
+            <td style="font-size: 0.8rem; color: var(--text-dim); white-space: nowrap;">${dateStr}</td>
+            <td><span class="badge-audit ${badgeClass}">${escapeHtml(act)}</span></td>
+            <td>
+              <strong>${escapeHtml(log.moderator_name || 'Admin')}</strong>
+              ${log.moderator_id ? `<br><small style="color: var(--text-dim);">ID: <code>${log.moderator_id}</code></small>` : ''}
+            </td>
+            <td>${targetDisplay}</td>
+            <td>
+              <span style="font-size: 0.85rem;">${escapeHtml(log.chat_title || 'Global')}</span>
+              ${log.chat_id ? `<br><small style="color: var(--text-dim);"><code>${log.chat_id}</code></small>` : ''}
+            </td>
+            <td style="max-width: 250px; font-size: 0.85rem; line-height: 1.4;">${reasonDisplay}</td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  if (selectAuditAction) {
+    selectAuditAction.addEventListener('change', (e) => {
+      fetchAuditLogs(1, e.target.value, currentAuditSearch);
+    });
+  }
+
+  if (btnSearchAudit && inputSearchAudit) {
+    btnSearchAudit.addEventListener('click', () => {
+      fetchAuditLogs(1, currentAuditAction, inputSearchAudit.value);
+    });
+    inputSearchAudit.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        fetchAuditLogs(1, currentAuditAction, inputSearchAudit.value);
+      }
+    });
+  }
+
+  if (btnRefreshAudit) {
+    btnRefreshAudit.addEventListener('click', () => {
+      fetchAuditLogs(currentAuditPage, currentAuditAction, currentAuditSearch);
+    });
+  }
+
+  if (btnPrevAudit) {
+    btnPrevAudit.addEventListener('click', () => {
+      if (currentAuditPage > 1) fetchAuditLogs(currentAuditPage - 1);
+    });
+  }
+
+  if (btnNextAudit) {
+    btnNextAudit.addEventListener('click', () => {
+      fetchAuditLogs(currentAuditPage + 1);
+    });
   }
 
   function escapeHtml(text) {

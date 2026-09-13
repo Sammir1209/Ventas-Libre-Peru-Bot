@@ -49,6 +49,10 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
           <span>Quemados & Reportes</span>
         </a>
+        <a href="#audit" class="nav-item" id="nav-audit">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>Registro de Auditoría</span>
+        </a>
         <a href="#verification" class="nav-item" id="nav-verification">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           <span>Canales de Verificación</span>
@@ -504,6 +508,79 @@
                 <div class="spinner"></div>
                 <p>Cargando reportes pendientes...</p>
               </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Section: Live Audit Log (#view-audit) -->
+      <div id="view-audit" class="dashboard-view" style="display: none;">
+        <header class="top-header">
+          <div class="header-title">
+            <div class="header-tag">AUDIT TRAIL & LIVE FEED</div>
+            <h1>Registro de Auditoría en Vivo</h1>
+            <p>Supervisa cada sanción, baneo, desmute, modo pánico, reporte y acción disciplinaria ejecutada en la comunidad.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-audit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span>Actualizar Feed</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="card-section">
+          <div class="config-card">
+            <!-- Filtros y Búsqueda -->
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+                <select id="select-audit-action" class="form-input" style="width: auto; padding: 8px 14px; font-size: 0.85rem; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px;">
+                  <option value="ALL">Todas las Acciones</option>
+                  <option value="GBAN">GBAN (Baneo Global)</option>
+                  <option value="BAN">BAN (Expulsión)</option>
+                  <option value="MUTE">MUTE (Silenciado)</option>
+                  <option value="UNMUTE">UNMUTE (Desmuteado)</option>
+                  <option value="WARN">WARN (Advertencia)</option>
+                  <option value="BURN">BURN (Quemado)</option>
+                  <option value="ANTI_RAID_LOCKDOWN">LOCKDOWN (Modo Pánico)</option>
+                  <option value="UNLOCKDOWN">UNLOCKDOWN (Normalizado)</option>
+                </select>
+                <span id="audit-count-summary" style="font-size: 0.85rem; color: var(--text-dim);">Cargando registros...</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="input-search-audit" class="form-input" placeholder="Buscar por ID o motivo..." style="width: 250px; padding: 8px 14px; font-size: 0.85rem; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px;" />
+                <button class="btn btn-primary btn-sm" id="btn-search-audit">Buscar</button>
+              </div>
+            </div>
+
+            <!-- Tabla de Auditoría -->
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Fecha & Hora</th>
+                    <th>Acción</th>
+                    <th>Moderador / Responsable</th>
+                    <th>Usuario Afectado</th>
+                    <th>Grupo / Origen</th>
+                    <th>Motivo / Razón</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-table-body">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--text-dim);">
+                      Cargando registros de auditoría...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Paginación -->
+            <div class="pagination-bar" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+              <button class="btn btn-secondary btn-sm" id="btn-prev-audit" disabled>&larr; Anterior</button>
+              <span id="audit-pagination-label" style="font-size: 0.85rem; color: var(--text-dim);">Página 1</span>
+              <button class="btn btn-secondary btn-sm" id="btn-next-audit" disabled>Siguiente &rarr;</button>
             </div>
           </div>
         </section>
