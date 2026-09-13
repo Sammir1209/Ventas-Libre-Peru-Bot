@@ -5,7 +5,7 @@ const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { escapeHtml } = require('../../utils/formatting');
 const { delay } = require('../../utils/helpers');
-const { generateTelegramProfileModal } = require('../../utils/telegramProfileModal');
+const { generateUserCardBuffer } = require('../../utils/userCard');
 const userbot = require('../../userbot/client');
 
 /**
@@ -107,19 +107,20 @@ async function publishBurnAlert(api, report) {
     const displayId = hasNumericId ? String(targetId) : 'No identificado';
     const displayName = targetName || (targetUsername ? `@${targetUsername}` : 'Estafador');
 
-    // 4. Generar Tarjeta Visual Modal de Telegram
-    let cardBuffer;
+    // 4. Generar Tarjeta Visual idéntica al comando /perfil
+    let cardBuffer = null;
     try {
-      cardBuffer = await generateTelegramProfileModal({
-        name: displayName,
-        username: targetUsername,
-        id: displayId,
-        bio: `🚨 LISTA NEGRA: ${cleanContext.slice(0, 75)}\nID: ${displayId}`,
+      const res = await generateUserCardBuffer(api, {
+        userId: targetId || null,
+        username: targetUsername || null,
+        firstName: displayName,
+        displayId: displayId,
         avatarBuffer: avatarBuffer,
-        isOnline: false,
+      }, {
         isBurned: true,
         burnReason: cleanContext || 'Estafa comprobada / Falta grave',
       });
+      cardBuffer = res.cardBuffer;
     } catch (cardErr) {
       console.error('⟡ Error generando banner modal de quemado:', cardErr.message);
     }

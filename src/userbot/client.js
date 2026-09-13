@@ -132,6 +132,24 @@ async function resolveUser(usernameOrId) {
 }
 
 /**
+ * Descarga la foto de perfil de cualquier usuario o chat vía MTProto a un Buffer
+ */
+async function downloadProfilePhoto(usernameOrId) {
+  if (!client || !isConnected()) return null;
+  try {
+    const target = typeof usernameOrId === 'string' ? usernameOrId.replace(/^@/, '') : usernameOrId;
+    const entity = await client.getEntity(target);
+    if (entity) {
+      const buffer = await client.downloadProfilePhoto(entity);
+      return buffer || null;
+    }
+  } catch (err) {
+    console.warn(`⟡ Userbot: No se pudo descargar foto de ${usernameOrId}:`, err.message);
+  }
+  return null;
+}
+
+/**
  * Desmutea y remueve todas las restricciones de un usuario vía MTProto directamente
  */
 async function unrestrictUser(chatId, userId) {
@@ -232,6 +250,7 @@ async function searchCommunityUsers(query, chatIds) {
 
 module.exports = {
   resolveUser,
+  downloadProfilePhoto,
   unrestrictUser,
   searchCommunityUsers,
   initialize,

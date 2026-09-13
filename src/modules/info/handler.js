@@ -4,25 +4,7 @@ const { SYM, ROLES } = require('../../config/constants');
 const { resolveTarget } = require('../../utils/helpers');
 const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard, InputFile } = require('grammy');
-const { generateTelegramProfileModal } = require('../../utils/telegramProfileModal');
-const https = require('https');
-
-async function downloadTelegramAvatar(api, fileId) {
-  try {
-    const file = await api.getFile(fileId);
-    const downloadUrl = `https://api.telegram.org/file/bot${config.BOT_TOKEN}/${file.file_path}`;
-    return new Promise((resolve) => {
-      https.get(downloadUrl, (res) => {
-        const chunks = [];
-        res.on('data', (chunk) => chunks.push(chunk));
-        res.on('end', () => resolve(Buffer.concat(chunks)));
-        res.on('error', () => resolve(null));
-      }).on('error', () => resolve(null));
-    });
-  } catch {
-    return null;
-  }
-}
+const { generateUserCardBuffer } = require('../../utils/userCard');
 
 // ══════════════════════════════════════════════════════
 // ⟡ Módulo: Información de Usuario y Consulta de Antecedentes (/info)
@@ -196,120 +178,6 @@ async function buildUserProfile(ctx, targetUser) {
 }
 
 function register(bot) {
-  /**
-   * Genera el buffer de la tarjeta gráfica del perfil de usuario
-   */
-  async function generateUserCardBuffer(ctx, target) {
-    const userId = target.userId;
-    let username = target.username;
-    let firstName = target.firstName;
-    let targetBio = null;
-
-    if (!username || !firstName) {
-      try {
-        const chatInfo = await ctx.api.getChat(userId);
-        if (!username) username = chatInfo.username || null;
-        if (!firstName) firstName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ') || null;
-        if (chatInfo.bio) targetBio = chatInfo.bio;
-      } catch {}
-    } else {
-      try {
-        const chatInfo = await ctx.api.getChat(userId);
-        if (chatInfo.bio) targetBio = chatInfo.bio;
-      } catch {}
-    }
-
-    // Descargar foto de perfil de Telegram en alta resolución
-    let avatarBuffer = null;
-    try {
-      const userPhotos = await ctx.api.getUserProfilePhotos(userId, { limit: 1 });
-      if (userPhotos && userPhotos.total_count > 0) {
-        const largestPhoto = userPhotos.photos[0][userPhotos.photos[0].length - 1];
-        avatarBuffer = await downloadTelegramAvatar(ctx.api, largestPhoto.file_id);
-      }
-    } catch {}
-
-    // Consultar roles, tratos, rating, antecedentes
-    let rolesList = [];
-    const effectiveOwners = ctx.tenant?.owner_ids || config.OWNER_IDS;
-    const tenantId = ctx.tenant?.id || null;
-
-    if (effectiveOwners.includes(userId)) {
-      rolesList = ['OWNER'];
-    }
-    try {
-      const staff = await db.getStaffMember(userId, tenantId);
-      if (staff && staff.role) {
-        const parsed = staff.role.split(',').map((r) => r.trim().toUpperCase());
-        rolesList = Array.from(new Set([...rolesList, ...parsed]));
-      }
-    } catch {}
-
-    let dealsCount = 0;
-    try {
-      dealsCount = await db.getUserDealsCount(userId);
-    } catch {}
-
-    let rating = '5.0';
-    let totalRatings = 0;
-    const isDealAdmin = rolesList.some((r) => r.includes('TRATO ADMIN') || r.includes('TRATOADMIN'));
-    if (isDealAdmin) {
-      try {
-        const rData = await db.getAdminAvgRating(userId);
-        if (rData && rData.avg_rating) rating = parseFloat(rData.avg_rating).toFixed(1);
-        if (rData && rData.total_ratings) totalRatings = rData.total_ratings;
-      } catch {}
-    }
-
-    let isVerified = false;
-    try {
-      const dbUser = await db.getUser(userId);
-      if (dbUser && (dbUser.verified || dbUser.is_verified)) {
-        isVerified = true;
-      }
-    } catch {}
-
-    let burnInfo = null;
-    try {
-      burnInfo = (await db.getBurnedUserInfo(userId)) || (username ? await db.getBurnedUserInfo(username) : null);
-    } catch {}
-
-    const isBurned = !!burnInfo;
-
-    let primaryRole = null;
-    if (rolesList.includes('OWNER')) primaryRole = '👑 OWNER';
-    else if (rolesList.some((r) => r.includes('CO-OWNER') || r.includes('COOWNER'))) primaryRole = '⚜️ CO-OWNER';
-    else if (isDealAdmin) primaryRole = '🤝 TRATO ADMIN';
-    else if (rolesList.includes('ADMIN')) primaryRole = '⚔️ ADMINISTRADOR';
-
-    let modalBio = targetBio;
-    if (!modalBio) {
-      if (primaryRole) {
-        modalBio = `Staff Oficial: ${primaryRole}\nTratos: ${dealsCount} completados`;
-      } else {
-        modalBio = `Usuario de la Comunidad\nTratos: ${dealsCount} completados`;
-      }
-    }
-
-    const cardBuffer = await generateTelegramProfileModal({
-      name: firstName || 'Usuario',
-      username: username,
-      id: userId,
-      bio: modalBio,
-      avatarBuffer: avatarBuffer,
-      isOnline: true,
-      isVerified: isVerified,
-      isBurned: isBurned,
-      burnReason: isBurned ? (burnInfo.context || 'Estafa comprobada') : null,
-      dealsCount: dealsCount,
-      role: primaryRole,
-      rating: rating,
-      totalRatings: totalRatings,
-    });
-
-    return { cardBuffer, userId, target };
-  }
-
   // ── Comando /perfil [ID, @username o responder] (Solo la tarjeta / card) ──
   bot.command('perfil', async (ctx) => {
     try {
@@ -336,8 +204,11 @@ function register(bot) {
 
       const statusMsg = await ctx.reply('⏳ <i>Generando tarjeta de perfil...</i>', { parse_mode: 'HTML' });
 
-      const { cardBuffer, userId } = await generateUserCardBuffer(ctx, target);
-      const cardFile = new InputFile(cardBuffer, `perfil_${userId}.png`);
+      const { cardBuffer, userId: resolvedId } = await generateUserCardBuffer(ctx.api, target, {
+        tenantId: ctx.tenant?.id,
+        ownerIds: ctx.tenant?.owner_ids,
+      });
+      const cardFile = new InputFile(cardBuffer, `perfil_${resolvedId || target.userId || 'user'}.png`);
 
       // Se envía únicamente la tarjeta gráfica limpia (sin texto largo de info)
       await ctx.replyWithPhoto(cardFile);
