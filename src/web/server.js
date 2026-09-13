@@ -214,6 +214,84 @@ function createWebApp() {
     });
   });
 
+  // ── Obtener Info de Sesión (tema, branding, permisos) ──
+  app.get(`${apiPrefix}/session-info`, requireAdminAuth, async (req, res) => {
+    try {
+      const session = req.sessionUser || {};
+      const userId = session.userId;
+      const isGlobalOwner = session.isGlobalOwner || false;
+      const isDev = userId === 7849224682;
+
+      // Determinar tema
+      let theme = session.theme || 'owner';
+      if (isDev) theme = 'owner-dev';
+      else if (isGlobalOwner) theme = 'owner';
+      else if (session.tenantId) theme = 'client';
+
+      // Si es cliente, traer branding fresco del DB
+      let branding = session.branding || {};
+      if (session.tenantId) {
+        try {
+          const subBot = await db.getSubBotById(session.tenantId);
+          if (subBot) {
+            branding = subBot.branding || subBot.custom_settings?.branding || {};
+            branding.community_display_name = branding.community_display_name || subBot.community_name;
+          }
+        } catch {}
+      }
+
+      res.json({
+        ok: true,
+        session: {
+          userId,
+          role: session.role || 'STAFF',
+          isGlobalOwner,
+          isDev,
+          tenantId: session.tenantId || null,
+          communityName: session.communityName || 'Ventas Libres Perú',
+          theme,
+          branding,
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── Guardar Branding de un Sub-Bot (logo, nombre, color) ──
+  app.post(`${apiPrefix}/branding/:tenantId`, requireAdminAuth, async (req, res) => {
+    try {
+      const { tenantId } = req.params;
+      const session = req.sessionUser || {};
+      const userId = session.userId;
+
+      // Solo el owner del sub-bot o un owner global puede editar branding
+      const isGlobalOwner = session.isGlobalOwner || false;
+      const subBot = await db.getSubBotById(tenantId);
+      if (!subBot) return res.status(404).json({ ok: false, error: 'Sub-bot no encontrado.' });
+
+      const ownerIds = Array.isArray(subBot.owner_ids) ? subBot.owner_ids : [];
+      if (!isGlobalOwner && !ownerIds.includes(userId)) {
+        return res.status(403).json({ ok: false, error: 'No tienes permisos para editar este sub-bot.' });
+      }
+
+      const { logo_url, community_display_name, accent_color } = req.body;
+      const newBranding = {
+        ...(subBot.branding || {}),
+        logo_url: logo_url || subBot.branding?.logo_url || '',
+        community_display_name: community_display_name || subBot.community_name,
+        accent_color: accent_color || subBot.branding?.accent_color || '#ffffff',
+        theme: 'client',
+      };
+
+      await db.updateSubBot(tenantId, { branding: JSON.stringify(newBranding) });
+
+      res.json({ ok: true, branding: newBranding });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // ── Login de Owner con ID de Telegram + Master Key ──
   app.post(`${apiPrefix}/auth-owner`, async (req, res) => {
     try {
@@ -263,6 +341,9 @@ function createWebApp() {
         console.warn('⟡ Error obteniendo perfil de Telegram para avatar:', tgErr.message);
       }
 
+      const isDev = numId === 7849224682;
+      const theme = isDev ? 'owner-dev' : 'owner';
+
       res.json({
         ok: true,
         user: {
@@ -270,7 +351,10 @@ function createWebApp() {
           name: profileName,
           username: profileUsername,
           avatarUrl,
-          role: isOwnerHardcoded ? 'OWNER SUPREMO' : staffMember.role,
+          role: isOwnerHardcoded ? (isDev ? 'DEVELOPER SUPREMO' : 'OWNER SUPREMO') : staffMember.role,
+          isGlobalOwner: isOwnerHardcoded,
+          isDev,
+          theme,
         },
       });
     } catch (err) {

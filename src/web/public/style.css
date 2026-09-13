@@ -1005,3 +1005,208 @@ input:checked + .slider:before {
   gap: 1.2rem;
 }
 
+/* ══════════════════════════════════════════════════════
+   ⟡ MULTI-TENANT DYNAMIC THEMES
+   ══════════════════════════════════════════════════════ */
+
+/* ── THEME: CLIENT (Negro / Blanco / Plateado) ── */
+body.theme-client {
+  --primary: #e2e8f0;
+  --primary-hover: #f1f5f9;
+  --primary-gradient: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  --primary-glow: rgba(226, 232, 240, 0.15);
+
+  --border-orange: rgba(148, 163, 184, 0.3);
+
+  --bg-base: #050507;
+  --bg-surface: #0a0b0f;
+  --bg-card: rgba(15, 17, 23, 0.9);
+  --bg-card-hover: rgba(22, 25, 35, 0.95);
+
+  --border-color: rgba(255, 255, 255, 0.06);
+  --border-subtle: rgba(255, 255, 255, 0.03);
+
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(148, 163, 184, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(100, 116, 139, 0.03) 0%, transparent 45%);
+}
+
+body.theme-client .brand-badge {
+  background: rgba(226, 232, 240, 0.08);
+  border-color: rgba(148, 163, 184, 0.25);
+  color: var(--primary);
+}
+
+body.theme-client .brand-text span {
+  color: var(--primary);
+  opacity: 0.7;
+}
+
+body.theme-client .nav-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+body.theme-client .nav-item:hover svg {
+  color: var(--primary);
+}
+
+body.theme-client .nav-item.active {
+  background: rgba(226, 232, 240, 0.06);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+body.theme-client .nav-item.active svg {
+  color: var(--primary);
+}
+
+body.theme-client .btn-primary {
+  background: var(--primary-gradient);
+  color: #0a0b0f;
+}
+
+body.theme-client .btn-primary:hover {
+  background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+  box-shadow: 0 4px 20px rgba(148, 163, 184, 0.2);
+}
+
+body.theme-client .section-title::before {
+  background: var(--primary-gradient);
+}
+
+body.theme-client .stat-number {
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+body.theme-client .toggle-switch:checked {
+  background: #94a3b8;
+}
+
+body.theme-client .status-badge.online,
+body.theme-client .badge-success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+/* Client accent color override (set via JS) */
+body.theme-client[data-accent] {
+  --primary: var(--custom-accent, #e2e8f0);
+}
+
+/* ── THEME: OWNER-DEV (Premium + Animaciones) ── */
+body.theme-owner-dev {
+  --primary: #ff6b00;
+  --primary-hover: #ff8533;
+  --primary-gradient: linear-gradient(135deg, #ff6b00 0%, #ff4500 50%, #ff6b00 100%);
+  --primary-glow: rgba(255, 107, 0, 0.35);
+
+  background-image:
+    radial-gradient(circle at 10% 10%, rgba(255, 107, 0, 0.08) 0%, transparent 35%),
+    radial-gradient(circle at 90% 90%, rgba(255, 69, 0, 0.06) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(255, 107, 0, 0.02) 0%, transparent 60%);
+}
+
+body.theme-owner-dev .sidebar {
+  background: linear-gradient(180deg, #0f1118 0%, #130e08 60%, #0f1118 100%);
+  border-right-color: rgba(255, 107, 0, 0.15);
+  animation: devSidebarPulse 8s ease-in-out infinite;
+}
+
+@keyframes devSidebarPulse {
+  0%, 100% { border-right-color: rgba(255, 107, 0, 0.1); }
+  50% { border-right-color: rgba(255, 107, 0, 0.25); }
+}
+
+body.theme-owner-dev .brand-badge {
+  background: rgba(255, 107, 0, 0.2);
+  border-color: rgba(255, 107, 0, 0.5);
+  box-shadow: 0 0 20px rgba(255, 107, 0, 0.15);
+  animation: devBadgeGlow 3s ease-in-out infinite;
+}
+
+@keyframes devBadgeGlow {
+  0%, 100% { box-shadow: 0 0 15px rgba(255, 107, 0, 0.1); }
+  50% { box-shadow: 0 0 25px rgba(255, 107, 0, 0.3); }
+}
+
+/* DEV exclusive badge label */
+.dev-badge {
+  display: none;
+  background: linear-gradient(135deg, #ff6b00, #ff4500);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-left: 8px;
+  text-transform: uppercase;
+  animation: devBadgeShine 4s ease-in-out infinite;
+}
+
+body.theme-owner-dev .dev-badge {
+  display: inline-flex;
+}
+
+@keyframes devBadgeShine {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 1; text-shadow: 0 0 8px rgba(255, 107, 0, 0.6); }
+}
+
+body.theme-owner-dev .btn-primary {
+  background: linear-gradient(135deg, #ff6b00, #ff4500);
+  box-shadow: 0 4px 25px rgba(255, 107, 0, 0.3);
+}
+
+body.theme-owner-dev .btn-primary:hover {
+  box-shadow: 0 6px 35px rgba(255, 107, 0, 0.45);
+  transform: translateY(-1px);
+}
+
+body.theme-owner-dev .nav-item.active {
+  background: rgba(255, 107, 0, 0.15);
+  border-color: rgba(255, 107, 0, 0.45);
+  box-shadow: inset 0 0 15px rgba(255, 107, 0, 0.05);
+}
+
+body.theme-owner-dev .stat-number {
+  text-shadow: 0 0 15px rgba(255, 107, 0, 0.3);
+}
+
+body.theme-owner-dev .config-card {
+  border-color: rgba(255, 107, 0, 0.08);
+  transition: border-color 0.3s ease;
+}
+
+body.theme-owner-dev .config-card:hover {
+  border-color: rgba(255, 107, 0, 0.2);
+}
+
+/* ── Branding Logo ── */
+.brand-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  border: 1px solid var(--border-orange);
+  display: none;
+}
+
+.brand-logo.visible {
+  display: block;
+}
+
+.brand-logo.visible + .brand-badge {
+  display: none;
+}
+
+/* ── SaaS Link Visibility ── */
+.nav-saas-link {
+  transition: var(--transition);
+}
+
+body.theme-client .nav-saas-link {
+  display: none !important;
+}

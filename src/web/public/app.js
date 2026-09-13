@@ -130,6 +130,79 @@ document.addEventListener('DOMContentLoaded', () => {
     return fetch(url, options);
   }
 
+  // ── Multi-Tenant Theme Engine ──
+  const brandLogo = document.getElementById('brand-logo');
+  const brandBadgeIcon = document.getElementById('brand-badge-icon');
+  const brandTitle = document.getElementById('brand-title');
+  const brandSubtitle = document.getElementById('brand-subtitle');
+  const devBadge = document.getElementById('dev-badge');
+
+  let currentSession = null;
+
+  function applyTheme(themeData) {
+    if (!themeData) return;
+
+    // Remove any existing theme classes
+    document.body.classList.remove('theme-client', 'theme-owner-dev', 'theme-owner');
+
+    const theme = themeData.theme || 'owner';
+
+    if (theme === 'client') {
+      document.body.classList.add('theme-client');
+    } else if (theme === 'owner-dev') {
+      document.body.classList.add('theme-owner-dev');
+    }
+    // 'owner' is the default (no extra class needed, uses :root vars)
+
+    // Update sidebar branding
+    const branding = themeData.branding || {};
+    const communityName = branding.community_display_name || themeData.communityName || 'VENTAS LIBRES';
+
+    if (theme === 'client') {
+      // Client theme: show their community name
+      brandTitle.textContent = communityName.toUpperCase();
+      brandSubtitle.textContent = 'PANEL DE CONTROL';
+
+      // Show logo if available
+      if (branding.logo_url) {
+        brandLogo.src = branding.logo_url;
+        brandLogo.classList.add('visible');
+        brandBadgeIcon.style.display = 'none';
+      }
+
+      // Custom accent color
+      if (branding.accent_color) {
+        document.body.style.setProperty('--custom-accent', branding.accent_color);
+        document.body.setAttribute('data-accent', branding.accent_color);
+      }
+
+      // Update page title
+      document.title = `${communityName} — Panel de Control`;
+    } else {
+      // Owner themes: VLP branding
+      brandTitle.textContent = 'VENTAS LIBRES';
+      brandSubtitle.textContent = 'CENTRO DE COMANDO';
+      document.title = 'VLP Control Center — Panel Maestro de Configuración';
+    }
+
+    // Store session for later use
+    currentSession = themeData;
+  }
+
+  async function loadSessionInfo() {
+    try {
+      const res = await secureFetch(`${API_PREFIX}/session-info`);
+      const data = await res.json();
+      if (data.ok && data.session) {
+        applyTheme(data.session);
+        return data.session;
+      }
+    } catch (err) {
+      console.warn('⟡ Could not load session info:', err.message);
+    }
+    return null;
+  }
+
   // Initial Auth Check
   async function initAuth() {
     if (authToken) {
@@ -140,6 +213,8 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       modalAuth.classList.remove('active');
       loadAllData();
+      // Load session info to apply correct theme
+      loadSessionInfo();
       return;
     }
 
@@ -147,6 +222,16 @@ document.addEventListener('DOMContentLoaded', () => {
       displayUserHeader(storedUser);
       modalAuth.classList.remove('active');
       loadAllData();
+      // Apply stored theme if available
+      if (storedUser.theme) {
+        applyTheme({
+          theme: storedUser.theme,
+          isGlobalOwner: storedUser.isGlobalOwner,
+          isDev: storedUser.isDev,
+          communityName: 'Ventas Libres Perú',
+          branding: {},
+        });
+      }
       return;
     }
 
@@ -194,6 +279,17 @@ document.addEventListener('DOMContentLoaded', () => {
         modalAuth.classList.remove('active');
         authErrorMsg.textContent = '';
         loadAllData();
+
+        // Apply theme from auth-owner response
+        if (data.user.theme) {
+          applyTheme({
+            theme: data.user.theme,
+            isGlobalOwner: data.user.isGlobalOwner,
+            isDev: data.user.isDev,
+            communityName: 'Ventas Libres Perú',
+            branding: {},
+          });
+        }
       } else {
         authErrorMsg.textContent = `✗ ${data.error || 'Acceso denegado'}`;
         authErrorMsg.className = 'verify-feedback error';
