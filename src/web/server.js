@@ -140,7 +140,7 @@ function securityFirewall(req, res, next) {
   next();
 }
 
-function createWebApp() {
+function createWebApp(mainBot = null) {
   const app = express();
 
   // Limitar tamaño de payloads para prevenir ataques de denegación de servicio por memoria
@@ -1410,20 +1410,75 @@ function createWebApp() {
       if (!report) return res.status(404).json({ ok: false, error: 'Reporte no encontrado.' });
 
       if (action === 'APPROVED') {
-        await db.burnUser(
-          report.target_id,
-          report.reporter_id,
-          report.context || 'Aprobado desde Dashboard Web',
-          reviewerId
-        );
         await db.updateBurnReportStatus(reportId, 'APPROVED', reviewerId);
         await db.addModLog('BURN', reviewerId, report.target_id, null, `Reporte #${reportId} Aprobado y quemado desde Dashboard Web`);
+
+        if (mainBot && mainBot.api) {
+          try {
+            const { publishBurnAlert } = require('../modules/burn/publisher');
+            await publishBurnAlert(mainBot.api, report);
+          } catch (pErr) {
+            console.error('⟡ Error publicando quemado desde web:', pErr.message);
+          }
+        }
       } else {
         await db.updateBurnReportStatus(reportId, 'REJECTED', reviewerId);
         await db.addModLog('BURN_REJECT', reviewerId, report.target_id, null, `Reporte #${reportId} Rechazado desde Dashboard Web`);
       }
 
       res.json({ ok: true, message: `Reporte #${reportId} marcado como ${action}.` });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post(`${apiPrefix}/burn/report/:id/republish`, requireAdminAuth, async (req, res) => {
+    try {
+      const reportId = Number(req.params.id);
+      const report = await db.getBurnReport(reportId);
+      if (!report) return res.status(404).json({ ok: false, error: 'Reporte no encontrado.' });
+
+      if (!mainBot || !mainBot.api) {
+        return res.status(500).json({ ok: false, error: 'Instancia del bot principal no disponible en el servidor.' });
+      }
+
+      const { publishBurnAlert } = require('../modules/burn/publisher');
+      const pubResult = await publishBurnAlert(mainBot.api, report);
+
+      res.json({
+        ok: true,
+        message: `Reporte #${reportId} re-publicado exitosamente en ${pubResult.broadcastCount} canales y grupos.`,
+        pubResult,
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post(`${apiPrefix}/burn/republish-all`, requireAdminAuth, async (req, res) => {
+    try {
+      if (!mainBot || !mainBot.api) {
+        return res.status(500).json({ ok: false, error: 'Instancia del bot principal no disponible en el servidor.' });
+      }
+
+      const { publishBurnAlert } = require('../modules/burn/publisher');
+      const rep6 = await db.getBurnReport(6);
+      const rep7 = await db.getBurnReport(7);
+
+      let count = 0;
+      if (rep6) {
+        await publishBurnAlert(mainBot.api, rep6);
+        count++;
+      }
+      if (rep7) {
+        await publishBurnAlert(mainBot.api, rep7);
+        count++;
+      }
+
+      res.json({
+        ok: true,
+        message: `${count} reportes quemados (#6 y #7) re-publicados con éxito en todos los canales y grupos oficiales.`,
+      });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }

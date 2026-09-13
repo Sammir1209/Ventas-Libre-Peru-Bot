@@ -329,17 +329,27 @@ function burnStaffReport(reportId, reporterMention, targetLabel, context, proofs
   );
 }
 
-function burnAlertBroadcast(targetId, context = null) {
+function burnAlertBroadcast(targetId, context = null, targetUsername = null, targetName = null) {
+  const hasNumericId = targetId && Number(targetId) > 0;
+  const idDisplay = hasNumericId ? `<code>${targetId}</code>` : '<i>Identificado por Alias</i>';
+  const nameDisplay = targetName || (targetUsername ? `@${targetUsername}` : 'Estafador');
+
   let text =
-    `${SYM.CROSS} <b>ESTAFADOR QUEMADO</b>\n\n` +
-    `ID <code>${targetId}</code> ha sido <b>baneado permanentemente</b> de todos los grupos.\n` +
-    `<b>Motivo:</b> Estafa confirmada por el Staff.\n`;
+    `${SYM.DIVIDER}\n` +
+    `🚨 <b>ESTAFADOR QUEMADO Y REGISTRADO</b> 🚨\n` +
+    `${SYM.DIVIDER}\n\n` +
+    `👤 <b>Nombre / Alias:</b> <b>${escapeHtml(nameDisplay)}</b>\n` +
+    (targetUsername ? `🔗 <b>Username:</b> @${escapeHtml(targetUsername)}\n` : '') +
+    `🆔 <b>ID de Telegram:</b> ${idDisplay}\n\n` +
+    `⚖️ <b>Sanción:</b> Baneo Permanente de todos los grupos y canales oficiales.\n\n`;
 
   if (context) {
-    text += `<b>Detalles:</b> <i>${escapeHtml(context.slice(0, 100))}</i>\n`;
+    text += `📝 <b>Motivo / Hechos:</b>\n<i>${escapeHtml(context)}</i>\n\n`;
   }
 
-  text += `\nSi tuviste trato con esta persona, contacta al Staff.`;
+  text +=
+    `${SYM.THIN_LINE}\n` +
+    `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`;
   return text;
 }
 

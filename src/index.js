@@ -174,7 +174,7 @@ async function main() {
   })();
 
   // 7. Servidor Web Express: Dashboard SaaS + Health 24/7
-  const webApp = createWebApp();
+  const webApp = createWebApp(bot);
   const port = process.env.PORT || config.PORT || 10000;
 
   webApp.listen(port, '0.0.0.0', () => {

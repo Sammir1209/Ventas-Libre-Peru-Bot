@@ -6,6 +6,7 @@ const { forEachGroup, delay } = require('../../utils/helpers');
 const { escapeHtml } = require('../../utils/formatting');
 const { InputFile, InputMediaBuilder } = require('grammy');
 const https = require('https');
+const { publishBurnAlert, extractTargetInfo } = require('./publisher');
 
 // ══════════════════════════════════════════════════════
 // ⟡ Módulo 4: Panel de Revisión del Staff
@@ -77,141 +78,57 @@ function register(bot) {
       // 1. Aprobar reporte en base de datos
       await db.approveBurnReport(reportId, reviewerId);
 
-      // 2. Obtener información actualizada del estafador en Telegram
-      let targetName = 'Estafador';
-      let targetUsername = null;
-      let targetBio = null;
-      let avatarBuffer = null;
+      // 2. Extraer metadatos del acusado
+      const { targetId, targetUsername, targetName, cleanContext } = extractTargetInfo(report);
 
-      if (report.target_id) {
-        try {
-          const chatInfo = await ctx.api.getChat(report.target_id);
-          targetName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ') || 'Estafador';
-          targetUsername = chatInfo.username || null;
-          targetBio = chatInfo.bio || null;
-        } catch {}
+      let successCount = 0;
+      let failCount = 0;
 
-        try {
-          const userPhotos = await ctx.api.getUserProfilePhotos(report.target_id, { limit: 1 });
-          if (userPhotos && userPhotos.total_count > 0) {
-            const largestPhoto = userPhotos.photos[0][userPhotos.photos[0].length - 1];
-            const { buffer } = await downloadTelegramFile(ctx.api, largestPhoto.file_id);
-            avatarBuffer = buffer;
-          }
-        } catch {}
+      // 3. Ban global en TODOS los grupos registrados si existe ID numérico
+      if (targetId && targetId > 0) {
+        const groups = await db.getAllGroups();
+        const banResults = await forEachGroup(groups, async (group) => {
+          await ctx.api.banChatMember(group.chat_id, targetId);
+        });
+        successCount = banResults.filter((r) => r.success).length;
+        failCount = banResults.filter((r) => !r.success).length;
 
-        // Registrar estafador quemado
+        // Registrar en base de datos de estafadores
         await db.burnUser(
-          report.target_id,
+          targetId,
           report.reporter_id,
-          report.context,
+          cleanContext,
           reviewerId,
           targetUsername,
           targetName
         );
+        await db.addModLog('BURN', reviewerId, targetId, null, cleanContext);
+      } else {
+        await db.addModLog('BURN', reviewerId, 0, null, `${targetUsername ? `[@${targetUsername}] ` : ''}${cleanContext}`);
       }
 
-      // 3. Log de moderación
-      await db.addModLog('BURN', reviewerId, report.target_id, null, report.context);
+      // 4. Publicar la alerta visual con Banner Modal y álbum de pruebas en TODOS los canales y grupos oficiales
+      let pubResult = { broadcastCount: 0, displayName: targetName || (targetUsername ? `@${targetUsername}` : 'Estafador') };
+      try {
+        pubResult = await publishBurnAlert(ctx.api, report);
+      } catch (pubErr) {
+        console.error('⟡ Error en broadcast de quemado:', pubErr.message);
+      }
 
-      // 4. Ban global en TODOS los grupos registrados
-      const groups = await db.getAllGroups();
-      const banResults = await forEachGroup(groups, async (group) => {
-        await ctx.api.banChatMember(group.chat_id, report.target_id);
-      });
-
-      const successCount = banResults.filter((r) => r.success).length;
-      const failCount = banResults.filter((r) => !r.success).length;
-
-      // 5. Broadcast de alerta en todos los grupos oficiales
-      await delay(400);
-      await forEachGroup(groups, async (group) => {
-        try {
-          await ctx.api.sendMessage(
-            group.chat_id,
-            templates.burnAlertBroadcast(report.target_id, report.context),
-            { parse_mode: 'HTML' }
-          );
-        } catch {}
-      });
-
-      // 6. Generar Banner Visual y Publicar en Canal Oficial de Quemados
-      (async () => {
-        try {
-          const { generateTelegramProfileModal } = require('../../utils/telegramProfileModal');
-
-          const cardBuffer = await generateTelegramProfileModal({
-            name: targetName,
-            username: targetUsername,
-            id: report.target_id,
-            bio: `🚨 ESTAFADOR QUEMADO\nMotivo: ${report.context || 'Estafa comprobada'}\nID: ${report.target_id}`,
-            avatarBuffer: avatarBuffer,
-            isOnline: false,
-            isBurned: true,
-            burnReason: report.context || 'Estafa comprobada / Falta grave',
-          });
-
-          const publicCaption =
-            `${SYM.DIVIDER}\n` +
-            `🚨 <b>NUEVO ESTAFADOR QUEMADO Y REGISTRADO</b> 🚨\n` +
-            `${SYM.DIVIDER}\n\n` +
-            `👤 <b>Nombre:</b> <b>${escapeHtml(targetName)}</b>\n` +
-            (targetUsername ? `🔗 <b>Username:</b> @${targetUsername}\n` : '') +
-            `🆔 <b>ID de Telegram:</b> <code>${report.target_id}</code>\n\n` +
-            `📝 <b>Motivo / Hechos:</b>\n` +
-            `<i>${escapeHtml(report.context || 'Estafa comprobada')}</i>\n\n` +
-            `${SYM.THIN_LINE}\n` +
-            `⚖️ <b>Sanción:</b> Baneo Permanente y Registro en Lista Negra Oficial.\n` +
-            `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`;
-
-          let pubChannel = config.PUBLIC_BURN_CHANNEL_ID;
-          let pubThread = config.PUBLIC_BURN_THREAD_ID;
-
-          if (!pubChannel) {
-            try {
-              const savedChan = await db.getSetting('public_burn_channel_id');
-              if (savedChan) pubChannel = Number(savedChan);
-              const savedTh = await db.getSetting('public_burn_thread_id');
-              if (savedTh) pubThread = Number(savedTh);
-            } catch {}
-          }
-
-          if (pubChannel) {
-            const cardFile = new InputFile(cardBuffer, 'perfil_estafador.png');
-            const targetChannelId = Number(pubChannel);
-
-            if (report.proof_file_ids && report.proof_file_ids.length > 0) {
-              const media = [
-                InputMediaBuilder.photo(cardFile, { caption: publicCaption, parse_mode: 'HTML' }),
-                ...report.proof_file_ids.slice(0, 9).map((fId) => InputMediaBuilder.photo(fId)),
-              ];
-
-              await ctx.api.sendMediaGroup(targetChannelId, media, {
-                ...(pubThread ? { message_thread_id: Number(pubThread) } : {}),
-              });
-            } else {
-              await ctx.api.sendPhoto(targetChannelId, cardFile, {
-                caption: publicCaption,
-                parse_mode: 'HTML',
-                ...(pubThread ? { message_thread_id: Number(pubThread) } : {}),
-              });
-            }
-          }
-        } catch (cardErr) {
-          console.error('⟡ Error publicando en canal de quemados:', cardErr.message);
-        }
-      })();
-
-      // 7. Actualizar mensaje del panel en Staff
+      // 5. Actualizar mensaje del panel en Staff
       const reviewerMention = ctx.from.username ? `@${ctx.from.username}` : 'Staff';
       const staffApprovedText =
         `${SYM.DIVIDER}\n` +
         `🔥 <b>REPORTE #${reportId} — APROBADO Y QUEMADO</b> 🔥\n` +
         `${SYM.DIVIDER}\n\n` +
-        `${SYM.CHECK} <b>Acusado:</b> <code>${report.target_id}</code> (${escapeHtml(targetName)})\n` +
-        `${SYM.ARROW} <b>Grupos Baneados:</b> <b>${successCount}</b> (${failCount} fallos)\n` +
-        `${SYM.ARROW} <b>Aprobado por:</b> <b>${reviewerMention}</b>\n` +
-        `${SYM.ARROW} <b>Estado:</b> Baneo global y publicación oficial ejecutadas.\n\n` +
+        `${SYM.CHECK} <b>Acusado:</b> <b>${escapeHtml(pubResult.displayName)}</b>\n` +
+        (pubResult.targetUsername ? `🔗 <b>Username:</b> @${pubResult.targetUsername}\n` : '') +
+        (pubResult.targetId && pubResult.targetId > 0
+          ? `🆔 <b>ID Telegram:</b> <code>${pubResult.targetId}</code>\n`
+          : `🆔 <b>ID Telegram:</b> <i>Identificado por @alias oficial</i>\n`) +
+        `${SYM.ARROW} <b>Grupos Baneados:</b> <b>${successCount}</b>\n` +
+        `📢 <b>Difusión:</b> Publicado en <b>${pubResult.broadcastCount}</b> canales y grupos\n` +
+        `${SYM.ARROW} <b>Aprobado por:</b> <b>${reviewerMention}</b>\n\n` +
         `${SYM.THIN_LINE}`;
 
       await safeEditStaffMessage(ctx, staffApprovedText);
@@ -363,6 +280,73 @@ function register(bot) {
       await safeEditStaffMessage(ctx, staffBanText);
     } catch (err) {
       console.error('⟡ Burn Review: Error en burn_ban_reporter:', err.message);
+    }
+  });
+
+  // ── Comandos para Owners: Re-publicar reportes de estafadores con formato completo ──
+  bot.command('republicar_quemado', async (ctx) => {
+    try {
+      const userId = ctx.from.id;
+      const isOwner = (config.OWNER_IDS || []).includes(userId);
+      if (!isOwner) return ctx.reply('✗ Comando exclusivo para Owners.');
+
+      const args = ctx.message.text.trim().split(/\s+/);
+      const reportId = parseInt(args[1]);
+      if (!reportId) return ctx.reply('ℹ️ Uso: <code>/republicar_quemado [id]</code>\nEjemplo: <code>/republicar_quemado 7</code>', { parse_mode: 'HTML' });
+
+      const report = await db.getBurnReport(reportId);
+      if (!report) return ctx.reply(`✗ Reporte #${reportId} no encontrado en la base de datos.`);
+
+      const statusMsg = await ctx.reply(`⏳ Re-publicando Reporte #${reportId} con diseño de perfil y pruebas en todos los canales y grupos...`);
+      const res = await publishBurnAlert(ctx.api, report);
+
+      await ctx.api.editMessageText(
+        ctx.chat.id,
+        statusMsg.message_id,
+        `✓ <b>Reporte #${reportId} re-publicado exitosamente</b>\n\n` +
+        `👤 <b>Acusado:</b> <b>${escapeHtml(res.displayName)}</b>\n` +
+        (res.targetUsername ? `🔗 <b>Username:</b> @${res.targetUsername}\n` : '') +
+        (res.targetId && res.targetId > 0
+          ? `🆔 <b>ID Telegram:</b> <code>${res.targetId}</code>\n`
+          : `🆔 <b>ID Telegram:</b> <i>Identificado por Alias (@${res.targetUsername || 'estafador'})</i>\n`) +
+        `📢 <b>Difusión:</b> Publicado en <b>${res.broadcastCount}</b> grupos y canales oficiales.\n\n` +
+        `🛡️ <i>Ventas Libres Perú</i>`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      console.error('⟡ Error en /republicar_quemado:', err.message);
+      ctx.reply(`✗ Error al re-publicar: ${err.message}`);
+    }
+  });
+
+  bot.command('republicar_quemados', async (ctx) => {
+    try {
+      const userId = ctx.from.id;
+      const isOwner = (config.OWNER_IDS || []).includes(userId);
+      if (!isOwner) return ctx.reply('✗ Comando exclusivo para Owners.');
+
+      const statusMsg = await ctx.reply('⏳ Re-publicando todos los reportes de estafadores (#6 y #7)...');
+      const rep6 = await db.getBurnReport(6);
+      const rep7 = await db.getBurnReport(7);
+
+      let totalPublished = 0;
+      if (rep6) {
+        await publishBurnAlert(ctx.api, rep6);
+        totalPublished++;
+      }
+      if (rep7) {
+        await publishBurnAlert(ctx.api, rep7);
+        totalPublished++;
+      }
+
+      await ctx.api.editMessageText(
+        ctx.chat.id,
+        statusMsg.message_id,
+        `✓ <b>${totalPublished} reportes quemados (#6 y #7) re-publicados con éxito con modal y pruebas en todos los grupos y canales oficiales.</b>`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      ctx.reply(`✗ Error al re-publicar quemados: ${err.message}`);
     }
   });
 }

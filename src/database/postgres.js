@@ -1001,14 +1001,22 @@ async function getSetting(key, tenantId = null) {
 // ⟡ CRUD — Estafadores & Reportes
 // ══════════════════════════════════════════════════════
 
-async function createBurnReport(reporterId, targetId, context, proofFileIds, proofUrls) {
+async function createBurnReport(reporterId, targetId, context, proofFileIds, proofUrls, targetUsername = null, targetName = null) {
+  let enrichedContext = context || '';
+  if (targetUsername && (!targetId || Number(targetId) === 0)) {
+    const cleanUser = targetUsername.replace(/^@/, '');
+    if (!enrichedContext.includes('[ACUSADO:')) {
+      enrichedContext = `[ACUSADO: @${cleanUser}${targetName ? ` | ${targetName}` : ''}]\n${enrichedContext}`;
+    }
+  }
+
   if (useSupabase && supabase) {
     const { data, error } = await supabase
       .from('burn_reports')
       .insert({
         reporter_id: reporterId,
-        target_id: targetId,
-        context,
+        target_id: targetId || 0,
+        context: enrichedContext,
         proof_file_ids: proofFileIds,
         proof_urls: proofUrls || [],
       })
@@ -1022,7 +1030,7 @@ async function createBurnReport(reporterId, targetId, context, proofFileIds, pro
       `INSERT INTO burn_reports (reporter_id, target_id, context, proof_file_ids, proof_urls)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [reporterId, targetId, context, proofFileIds, proofUrls || []]
+      [reporterId, targetId || 0, enrichedContext, proofFileIds, proofUrls || []]
     );
     return res.rows[0];
   }

@@ -15,6 +15,7 @@ const {
 } = require('./keyboard');
 const { InlineKeyboard, InputFile, InputMediaBuilder } = require('grammy');
 const https = require('https');
+const userbot = require('../../userbot/client');
 
 // Estados del flujo /quemar
 const BURN_STATES = {
@@ -260,6 +261,20 @@ function register(bot) {
             }
           } catch {}
 
+          // Intentar resolver via Userbot MTProto si no hay username
+          if (!targetUsername) {
+            try {
+              if (userbot.isConnected()) {
+                const ubRes = await userbot.resolveUser(targetId);
+                if (ubRes) {
+                  if (ubRes.username) targetUsername = ubRes.username;
+                  const ubName = [ubRes.firstName, ubRes.lastName].filter(Boolean).join(' ');
+                  if (ubName && (!targetName || targetName === 'Estafador')) targetName = ubName;
+                }
+              }
+            } catch {}
+          }
+
           try {
             const chatInfo = await ctx.api.getChat(targetId);
             if (chatInfo) {
@@ -303,7 +318,7 @@ function register(bot) {
           let targetId = null;
           let targetName = null;
 
-          // Buscar en BD Supabase
+          // 1. Buscar en BD Supabase
           try {
             const dbUser = await db.getUserByUsername(cleanUser);
             if (dbUser && dbUser.user_id) {
@@ -312,15 +327,31 @@ function register(bot) {
             }
           } catch {}
 
-          // Intentar resolver via Telegram API
-          try {
-            const chatInfo = await ctx.api.getChat(`@${cleanUser}`);
-            if (chatInfo && chatInfo.id) {
-              targetId = chatInfo.id;
-              const tgName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ');
-              if (tgName) targetName = tgName;
-            }
-          } catch {}
+          // 2. Intentar resolver vía Userbot MTProto (resuelve CUALQUIER usuario de Telegram sin restricción)
+          if (!targetId) {
+            try {
+              if (userbot.isConnected()) {
+                const ubRes = await userbot.resolveUser(cleanUser);
+                if (ubRes && ubRes.userId) {
+                  targetId = ubRes.userId;
+                  const ubName = [ubRes.firstName, ubRes.lastName].filter(Boolean).join(' ');
+                  if (ubName) targetName = ubName;
+                }
+              }
+            } catch {}
+          }
+
+          // 3. Intentar resolver via Telegram Bot API
+          if (!targetId) {
+            try {
+              const chatInfo = await ctx.api.getChat(`@${cleanUser}`);
+              if (chatInfo && chatInfo.id) {
+                targetId = chatInfo.id;
+                const tgName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ');
+                if (tgName) targetName = tgName;
+              }
+            } catch {}
+          }
 
           if (targetId && targetId === userId) {
             const errSelf =
@@ -602,7 +633,9 @@ function register(bot) {
           resolvedTargetId,
           state.context,
           proofFileIds,
-          proofUrls
+          proofUrls,
+          state.targetUsername,
+          state.targetName
         );
       } catch {
         report = { id: Date.now() };
