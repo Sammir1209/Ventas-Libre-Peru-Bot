@@ -1447,7 +1447,7 @@ function createWebApp(mainBot = null) {
 
       res.json({
         ok: true,
-        message: `Reporte #${reportId} re-publicado exitosamente en ${pubResult.broadcastCount} canales y grupos.`,
+        message: `Reporte #${reportId} re-publicado exitosamente en el Canal Oficial de Quemados.`,
         pubResult,
       });
     } catch (err) {
@@ -1477,7 +1477,7 @@ function createWebApp(mainBot = null) {
 
       res.json({
         ok: true,
-        message: `${count} reportes quemados (#6 y #7) re-publicados con éxito en todos los canales y grupos oficiales.`,
+        message: `${count} reportes quemados (#6 y #7) re-publicados con éxito en el Canal Oficial de Quemados.`,
       });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });

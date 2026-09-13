@@ -146,21 +146,7 @@ async function publishBurnAlert(api, report) {
       `⚖️ <b>Sanción:</b> Baneo Permanente y Registro en Lista Negra Oficial.\n` +
       `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`;
 
-    // 6. Recopilar todos los destinos (Grupos + Canales oficiales + Canal de quemados)
-    const destinations = new Map();
-
-    const groups = await db.getAllGroups();
-    for (const g of groups) {
-      if (g && g.chat_id) {
-        destinations.set(Number(g.chat_id), {
-          chatId: Number(g.chat_id),
-          title: g.title || `Chat ${g.chat_id}`,
-          type: g.type || 'group',
-          threadId: null,
-        });
-      }
-    }
-
+    // 6. Destino Exclusivo: Canal Oficial de Quemados (@quemando_ventaslibreperu)
     let pubChannel = config.PUBLIC_BURN_CHANNEL_ID;
     let pubThread = config.PUBLIC_BURN_THREAD_ID;
     if (!pubChannel) {
@@ -171,80 +157,68 @@ async function publishBurnAlert(api, report) {
         if (savedTh) pubThread = Number(savedTh);
       } catch {}
     }
-    if (pubChannel) {
-      const cId = Number(pubChannel);
-      destinations.set(cId, {
-        chatId: cId,
-        title: 'Canal Oficial de Quemados',
-        type: 'channel',
-        threadId: pubThread ? Number(pubThread) : null,
-      });
+
+    // Fallback: Si no está en config, buscar el canal de quemados en official_groups
+    if (!pubChannel) {
+      try {
+        const groups = await db.getAllGroups();
+        const quemandoGroup = groups.find(
+          (g) => (g.username && g.username.toLowerCase().includes('quemando')) ||
+                 (g.title && g.title.toLowerCase().includes('quemando'))
+        );
+        if (quemandoGroup) pubChannel = Number(quemandoGroup.chat_id);
+      } catch {}
     }
 
-    // 7. Preparar pruebas
+    if (!pubChannel) {
+      throw new Error('No se ha configurado el Canal Oficial de Quemados (PUBLIC_BURN_CHANNEL_ID).');
+    }
+
+    const targetChannelId = Number(pubChannel);
+    const extraOpts = pubThread ? { message_thread_id: Number(pubThread) } : {};
+
+    // 7. Preparar pruebas fotográficas
     const proofFileIds = Array.isArray(report.proof_file_ids) ? report.proof_file_ids.slice(0, 9) : [];
     const hasProofs = proofFileIds.length > 0;
 
-    let cardFileId = null;
-    let broadcastCount = 0;
+    try {
+      if (cardBuffer) {
+        const photoPayload = new InputFile(cardBuffer, 'perfil_estafador.png');
 
-    for (const dest of destinations.values()) {
-      try {
-        const extraOpts = dest.threadId ? { message_thread_id: Number(dest.threadId) } : {};
-
-        if (cardBuffer) {
-          const photoPayload = cardFileId || new InputFile(cardBuffer, 'perfil_estafador.png');
-
-          if (hasProofs) {
-            const media = [
-              InputMediaBuilder.photo(photoPayload, { caption: publicCaption, parse_mode: 'HTML' }),
-              ...proofFileIds.map((fId) => InputMediaBuilder.photo(fId)),
-            ];
-            const msgs = await api.sendMediaGroup(dest.chatId, media, extraOpts);
-            if (!cardFileId && msgs && msgs.length > 0 && msgs[0].photo) {
-              const p = msgs[0].photo;
-              cardFileId = p[p.length - 1].file_id;
-            }
-          } else {
-            const msg = await api.sendPhoto(dest.chatId, photoPayload, {
-              caption: publicCaption,
-              parse_mode: 'HTML',
-              ...extraOpts,
-            });
-            if (!cardFileId && msg && msg.photo) {
-              const p = msg.photo;
-              cardFileId = p[p.length - 1].file_id;
-            }
-          }
+        if (hasProofs) {
+          const media = [
+            InputMediaBuilder.photo(photoPayload, { caption: publicCaption, parse_mode: 'HTML' }),
+            ...proofFileIds.map((fId) => InputMediaBuilder.photo(fId)),
+          ];
+          await api.sendMediaGroup(targetChannelId, media, extraOpts);
         } else {
-          // Fallback a mensaje de texto si no hubo buffer
-          await api.sendMessage(dest.chatId, publicCaption, {
+          await api.sendPhoto(targetChannelId, photoPayload, {
+            caption: publicCaption,
             parse_mode: 'HTML',
             ...extraOpts,
           });
         }
-
-        broadcastCount++;
-        console.log(`⟡ Quemado publicado con éxito en: ${dest.title} (${dest.chatId})`);
-      } catch (postErr) {
-        console.warn(`⟡ Error enviando multimedia a ${dest.title} (${dest.chatId}), intentando texto:`, postErr.message);
-        try {
-          await api.sendMessage(dest.chatId, publicCaption, {
-            parse_mode: 'HTML',
-            ...(dest.threadId ? { message_thread_id: Number(dest.threadId) } : {}),
-          });
-          broadcastCount++;
-        } catch (txtErr) {
-          console.error(`⟡ Falló el envío en ${dest.title} (${dest.chatId}):`, txtErr.message);
-        }
+      } else {
+        // Fallback a mensaje de texto si no hubo buffer
+        await api.sendMessage(targetChannelId, publicCaption, {
+          parse_mode: 'HTML',
+          ...extraOpts,
+        });
       }
 
-      await delay(400);
+      console.log(`⟡ Quemado publicado con éxito en Canal de Quemados (${targetChannelId})`);
+    } catch (postErr) {
+      console.warn(`⟡ Error enviando multimedia al canal (${targetChannelId}), intentando texto:`, postErr.message);
+      await api.sendMessage(targetChannelId, publicCaption, {
+        parse_mode: 'HTML',
+        ...extraOpts,
+      });
     }
 
     return {
       success: true,
-      broadcastCount,
+      broadcastCount: 1,
+      targetChannelId,
       targetId,
       targetUsername,
       displayName,

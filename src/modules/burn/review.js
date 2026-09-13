@@ -127,7 +127,7 @@ function register(bot) {
           ? `🆔 <b>ID Telegram:</b> <code>${pubResult.targetId}</code>\n`
           : `🆔 <b>ID Telegram:</b> <i>Identificado por @alias oficial</i>\n`) +
         `${SYM.ARROW} <b>Grupos Baneados:</b> <b>${successCount}</b>\n` +
-        `📢 <b>Difusión:</b> Publicado en <b>${pubResult.broadcastCount}</b> canales y grupos\n` +
+        `📢 <b>Difusión:</b> Publicado en Canal Oficial de Quemados\n` +
         `${SYM.ARROW} <b>Aprobado por:</b> <b>${reviewerMention}</b>\n\n` +
         `${SYM.THIN_LINE}`;
 
@@ -297,19 +297,19 @@ function register(bot) {
       const report = await db.getBurnReport(reportId);
       if (!report) return ctx.reply(`✗ Reporte #${reportId} no encontrado en la base de datos.`);
 
-      const statusMsg = await ctx.reply(`⏳ Re-publicando Reporte #${reportId} con diseño de perfil y pruebas en todos los canales y grupos...`);
+      const statusMsg = await ctx.reply(`⏳ Re-publicando Reporte #${reportId} en el Canal Oficial de Quemados...`);
       const res = await publishBurnAlert(ctx.api, report);
 
       await ctx.api.editMessageText(
         ctx.chat.id,
         statusMsg.message_id,
-        `✓ <b>Reporte #${reportId} re-publicado exitosamente</b>\n\n` +
+        `✓ <b>Reporte #${reportId} re-publicado exitosamente en el Canal Oficial de Quemados</b>\n\n` +
         `👤 <b>Acusado:</b> <b>${escapeHtml(res.displayName)}</b>\n` +
         (res.targetUsername ? `🔗 <b>Username:</b> @${res.targetUsername}\n` : '') +
         (res.targetId && res.targetId > 0
           ? `🆔 <b>ID Telegram:</b> <code>${res.targetId}</code>\n`
           : `🆔 <b>ID Telegram:</b> <i>Identificado por Alias (@${res.targetUsername || 'estafador'})</i>\n`) +
-        `📢 <b>Difusión:</b> Publicado en <b>${res.broadcastCount}</b> grupos y canales oficiales.\n\n` +
+        `📢 <b>Difusión:</b> Publicado con banner modal de perfil y pruebas fotográficas.\n\n` +
         `🛡️ <i>Ventas Libres Perú</i>`,
         { parse_mode: 'HTML' }
       );
@@ -325,7 +325,7 @@ function register(bot) {
       const isOwner = (config.OWNER_IDS || []).includes(userId);
       if (!isOwner) return ctx.reply('✗ Comando exclusivo para Owners.');
 
-      const statusMsg = await ctx.reply('⏳ Re-publicando todos los reportes de estafadores (#6 y #7)...');
+      const statusMsg = await ctx.reply('⏳ Re-publicando reportes de estafadores (#6 y #7) en el Canal Oficial de Quemados...');
       const rep6 = await db.getBurnReport(6);
       const rep7 = await db.getBurnReport(7);
 
@@ -342,7 +342,7 @@ function register(bot) {
       await ctx.api.editMessageText(
         ctx.chat.id,
         statusMsg.message_id,
-        `✓ <b>${totalPublished} reportes quemados (#6 y #7) re-publicados con éxito con modal y pruebas en todos los grupos y canales oficiales.</b>`,
+        `✓ <b>${totalPublished} reportes quemados (#6 y #7) re-publicados con éxito con modal y pruebas en el Canal Oficial de Quemados.</b>`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
