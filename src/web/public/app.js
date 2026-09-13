@@ -323,43 +323,43 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function displayUserHeader(user) {
-    sidebarUserBox.style.display = 'flex';
-    userDisplayName.textContent = user.name || `ID: ${user.id}`;
-    userDisplayRole.textContent = user.role || 'OWNER SUPREMO';
+    if (sidebarUserBox) sidebarUserBox.style.display = 'flex';
+    if (userDisplayName) userDisplayName.textContent = user.name || `ID: ${user.id}`;
+    if (userDisplayRole) userDisplayRole.textContent = user.role || 'OWNER SUPREMO';
 
     if (user.avatarUrl) {
-      userAvatarImg.src = user.avatarUrl;
-      userAvatarImg.style.display = 'block';
-      userAvatarInitials.style.display = 'none';
+      if (userAvatarImg) {
+        userAvatarImg.src = user.avatarUrl;
+        userAvatarImg.style.display = 'block';
+      }
+      if (userAvatarInitials) userAvatarInitials.style.display = 'none';
     } else {
-      userAvatarImg.style.display = 'none';
-      userAvatarInitials.style.display = 'block';
-      const initials = (user.name || 'OW')
-        .split(' ')
-        .map((w) => w[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
-      userAvatarInitials.textContent = initials || 'OW';
+      if (userAvatarImg) userAvatarImg.style.display = 'none';
+      if (userAvatarInitials) {
+        userAvatarInitials.style.display = 'block';
+        const initials = (user.name || 'OW')
+          .split(' ')
+          .map((w) => w[0])
+          .slice(0, 2)
+          .join('')
+          .toUpperCase();
+        userAvatarInitials.textContent = initials || 'OW';
+      }
     }
   }
 
   function loadAllData() {
     fetchOverviewStats();
-    fetchGroups();
-    fetchUsers();
-    fetchStaff();
-    fetchDeals();
-    fetchBurnData();
-    fetchVerificationChannels();
-    fetchCommunitySettings();
+    const hash = (window.location.hash || '#groups').replace('#', '');
+    const initialView = views[hash] ? hash : 'groups';
+    switchView(initialView);
   }
 
   // ══════════════════════════════════════════════════════
   // 1. GRUPOS & SEGURIDAD EN TIEMPO REAL
   // ══════════════════════════════════════════════════════
 
-  async function fetchGroups() {
+  async function fetchGroups(fresh = false) {
     groupsContainer.innerHTML = `
       <div class="loading-state">
         <div class="spinner"></div>
@@ -367,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`;
 
     try {
-      const res = await secureFetch(`${API_PREFIX}/bot/groups`);
+      const res = await secureFetch(`${API_PREFIX}/bot/groups${fresh ? '?fresh=1' : ''}`);
       const data = await res.json();
 
       if (!data.ok || !Array.isArray(data.groups)) {
@@ -381,7 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  btnRefreshGroups.addEventListener('click', fetchGroups);
+  btnRefreshGroups.addEventListener('click', () => fetchGroups(true));
 
   function renderGroups(groups) {
     let adminCount = 0;
@@ -389,10 +389,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (groups.length === 0) {
       groupsContainer.innerHTML = `<div class="empty-state">El bot aún no está registrado en ningún grupo. Agrégalo a tus grupos como administrador.</div>`;
-      statGroupsCount.textContent = '0';
-      statAdminCount.textContent = '0';
-      statLockdownCount.textContent = '0';
-      groupsCountBadge.textContent = '0 Grupos';
+      if (statGroupsCount) statGroupsCount.textContent = '0';
+      if (statAdminCount) statAdminCount.textContent = '0';
+      if (statLockdownCount) statLockdownCount.textContent = '0';
+      if (groupsCountBadge) groupsCountBadge.textContent = '0 Grupos';
       return;
     }
 
@@ -450,10 +450,10 @@ document.addEventListener('DOMContentLoaded', () => {
       })
       .join('');
 
-    statGroupsCount.textContent = groups.length;
-    statAdminCount.textContent = adminCount;
-    statLockdownCount.textContent = lockdownCount;
-    groupsCountBadge.textContent = `${groups.length} Grupos`;
+    if (statGroupsCount) statGroupsCount.textContent = groups.length;
+    if (statAdminCount) statAdminCount.textContent = adminCount;
+    if (statLockdownCount) statLockdownCount.textContent = lockdownCount;
+    if (groupsCountBadge) groupsCountBadge.textContent = `${groups.length} Grupos`;
   }
 
   // Open Group Security Modal

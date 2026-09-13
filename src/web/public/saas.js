@@ -147,24 +147,28 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function displayUserHeader(user) {
-    sidebarUserBox.style.display = 'flex';
-    userDisplayName.textContent = user.name || `ID: ${user.id}`;
-    userDisplayRole.textContent = user.role || 'OWNER SUPREMO';
+    if (sidebarUserBox) sidebarUserBox.style.display = 'flex';
+    if (userDisplayName) userDisplayName.textContent = user.name || `ID: ${user.id}`;
+    if (userDisplayRole) userDisplayRole.textContent = user.role || 'OWNER SUPREMO';
 
     if (user.avatarUrl) {
-      userAvatarImg.src = user.avatarUrl;
-      userAvatarImg.style.display = 'block';
-      userAvatarInitials.style.display = 'none';
+      if (userAvatarImg) {
+        userAvatarImg.src = user.avatarUrl;
+        userAvatarImg.style.display = 'block';
+      }
+      if (userAvatarInitials) userAvatarInitials.style.display = 'none';
     } else {
-      userAvatarImg.style.display = 'none';
-      userAvatarInitials.style.display = 'block';
-      const initials = (user.name || 'OW')
-        .split(' ')
-        .map((w) => w[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
-      userAvatarInitials.textContent = initials || 'OW';
+      if (userAvatarImg) userAvatarImg.style.display = 'none';
+      if (userAvatarInitials) {
+        userAvatarInitials.style.display = 'block';
+        const initials = (user.name || 'OW')
+          .split(' ')
+          .map((w) => w[0])
+          .slice(0, 2)
+          .join('')
+          .toUpperCase();
+        userAvatarInitials.textContent = initials || 'OW';
+      }
     }
   }
 
@@ -312,10 +316,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await secureFetch(`${API_PREFIX}/stats`);
       const data = await res.json();
       if (data.ok && data.stats) {
-        statTotal.textContent = data.stats.totalBots || 0;
-        statOnline.textContent = data.stats.onlineBots || 0;
-        statGroups.textContent = data.stats.totalGroups || 0;
-        statBurned.textContent = data.stats.totalBurned || 0;
+        if (statTotal) statTotal.textContent = data.stats.totalBots || 0;
+        if (statOnline) statOnline.textContent = data.stats.onlineBots || 0;
+        if (statGroups) statGroups.textContent = data.stats.totalGroups || 0;
+        if (statBurned) statBurned.textContent = data.stats.totalBurned || 0;
       }
     } catch {}
   }
@@ -328,9 +332,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (data.ok && Array.isArray(data.bots)) {
         renderBots(data.bots);
-        botsCountBadge.textContent = `${data.bots.length} Bots`;
+        if (botsCountBadge) botsCountBadge.textContent = `${data.bots.length} Bots`;
       } else {
-        botsContainer.innerHTML = '<div class="empty-state">No se pudieron cargar los sub-bots.</div>';
+        if (botsContainer) botsContainer.innerHTML = '<div class="empty-state">No se pudieron cargar los sub-bots.</div>';
       }
     } catch (err) {
       botsContainer.innerHTML = `<div class="empty-state">Error de conexión: ${err.message}</div>`;

@@ -9,6 +9,12 @@ const https = require('https');
 // ⟡ Servidor Web y API REST Blindada — SaaS Dashboard
 // ══════════════════════════════════════════════════════
 
+const httpsAgent = new https.Agent({
+  keepAlive: true,
+  maxSockets: 30,
+  timeout: 5000,
+});
+
 function telegramApiCall(token, method, params = {}) {
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify(params);
@@ -17,6 +23,8 @@ function telegramApiCall(token, method, params = {}) {
       port: 443,
       path: `/bot${token}/${method}`,
       method: 'POST',
+      agent: httpsAgent,
+      timeout: 4000,
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(postData),
@@ -38,6 +46,10 @@ function telegramApiCall(token, method, params = {}) {
           reject(new Error('Respuesta inválida de Telegram'));
         }
       });
+    });
+
+    req.on('timeout', () => {
+      req.destroy(new Error('Timeout en llamada a Telegram API'));
     });
 
     req.on('error', (err) => reject(err));
@@ -525,20 +537,23 @@ function createWebApp() {
     }
   });
 
-  // ── Métricas y Estadísticas del Sistema ──
-  app.get(`${apiPrefix}/system-stats`, requireAdminAuth, async (req, res) => {
+  // ── Métricas y Estadísticas del Sistema (SaaS & Panel) ──
+  app.get([`${apiPrefix}/stats`, `${apiPrefix}/system-stats`], requireAdminAuth, async (req, res) => {
     try {
       const bots = await db.getAllSubBots();
-      const burnedCount = await db.getBurnedUsersCount();
+      const burnedCount = (await db.getBurnedUsersCount?.()) || 0;
       const groups = await db.getAllGroups();
       const live = botManager.getLiveStatus();
 
       res.json({
         ok: true,
         stats: {
+          totalBots: bots.length,
+          onlineBots: live.length,
           totalSubBots: bots.length,
           onlineSubBots: live.length,
           totalGroups: groups.length,
+          totalBurned: burnedCount,
           totalBurnedScammers: burnedCount,
           uptimeSeconds: Math.floor(process.uptime()),
           memoryUsageMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
@@ -727,11 +742,22 @@ function createWebApp() {
   const antiFlood = require('../modules/security/antiFlood');
   const locksModule = require('../modules/security/locks');
 
+  const groupsCache = new Map();
+  const staffCache = new Map();
+
   // ── 1. Listar Grupos en Vivo (con Miembros y Permisos de Admin) ──
   app.get(`${apiPrefix}/bot/groups`, requireAdminAuth, async (req, res) => {
     try {
       const session = req.sessionUser || {};
       const tenantId = session.tenantId || req.query.tenantId || null;
+      const cacheKey = String(tenantId || 'main');
+      const isFresh = req.query.fresh === '1' || req.query.fresh === 'true';
+
+      const cached = groupsCache.get(cacheKey);
+      if (!isFresh && cached && Date.now() - cached.timestamp < 35000) {
+        return res.json(cached.payload);
+      }
+
       let token = config.BOT_TOKEN;
 
       // Si es un sub-bot, usar su token propio
@@ -795,11 +821,14 @@ function createWebApp() {
         })
       );
 
-      res.json({
+      const responsePayload = {
         ok: true,
         bot: { id: me.id, username: me.username, name: me.first_name },
         groups: enriched,
-      });
+      };
+
+      groupsCache.set(cacheKey, { timestamp: Date.now(), payload: responsePayload });
+      res.json(responsePayload);
     } catch (err) {
       console.error('⟡ Error obteniendo grupos:', err.message);
       res.status(500).json({ ok: false, error: err.message });
@@ -894,6 +923,14 @@ function createWebApp() {
     try {
       const session = req.sessionUser || {};
       const tenantId = session.tenantId || req.query.tenantId || null;
+      const cacheKey = String(tenantId || 'main');
+      const isFresh = req.query.fresh === '1' || req.query.fresh === 'true';
+
+      const cached = staffCache.get(cacheKey);
+      if (!isFresh && cached && Date.now() - cached.timestamp < 60000) {
+        return res.json(cached.payload);
+      }
+
       const staffList = await db.getAllStaff(tenantId);
       
       // Enriquecer con info de dueños fijados si aplica
@@ -917,7 +954,9 @@ function createWebApp() {
         })
       );
 
-      res.json({ ok: true, staff: enriched, owners: config.OWNER_IDS });
+      const responsePayload = { ok: true, staff: enriched, owners: config.OWNER_IDS };
+      staffCache.set(cacheKey, { timestamp: Date.now(), payload: responsePayload });
+      res.json(responsePayload);
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }
@@ -983,6 +1022,7 @@ function createWebApp() {
         }
       }
 
+      staffCache.delete(String(tenantId || 'main'));
       res.json({ ok: true, message: `Rol [${role}] asignado correctamente a ${firstName}.`, staff: result });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
@@ -1016,6 +1056,7 @@ function createWebApp() {
         } catch {}
       }
 
+      staffCache.delete(String(tenantId || 'main'));
       res.json({ ok: true, message: `Usuario ${numId} removido del Staff.` });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
