@@ -266,6 +266,49 @@
             <div class="verify-feedback" id="community-feedback"></div>
           </form>
         </section>
+
+        <!-- Section: Branding & Identity -->
+        <section class="card-section" style="margin-top: 2rem;">
+          <div class="config-card">
+            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+              <div class="stat-icon" style="background: rgba(255, 255, 255, 0.05); color: var(--primary); display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+              </div>
+              <h3 style="margin: 0; font-size: 1.15rem;">Personalización Visual & Marca del Panel</h3>
+            </div>
+            <p class="card-desc">Configura el logotipo y el nombre de tu comunidad que aparecerán en la barra lateral y en el panel web.</p>
+
+            <form id="form-branding-settings" class="config-form" style="margin-top: 1.25rem;">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>🖼️ URL del Logotipo de la Comunidad</label>
+                  <input type="url" id="branding_logo_url" placeholder="https://i.imgur.com/tu-logo.png">
+                  <small class="form-hint">Enlace directo a una imagen (PNG, JPG, WebP) para el avatar del panel.</small>
+                </div>
+
+                <div class="form-group">
+                  <label>🏷️ Nombre Oficial de la Comunidad</label>
+                  <input type="text" id="branding_community_name" placeholder="Ej: SafeShop Perú">
+                  <small class="form-hint">Nombre que se mostrará en la cabecera superior y barra lateral.</small>
+                </div>
+
+                <div class="form-group">
+                  <label>🎨 Color de Acento (Bordes y Botones)</label>
+                  <input type="color" id="branding_accent_color" value="#ffffff" style="height: 44px; padding: 4px; cursor: pointer; border-radius: 8px; border: 1px solid var(--border);">
+                  <small class="form-hint">Tonalidad personalizada de acento visual para el panel.</small>
+                </div>
+              </div>
+
+              <div class="form-actions" style="margin-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" id="btn-save-branding">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                  <span>GUARDAR PERSONALIZACIÓN VISUAL</span>
+                </button>
+              </div>
+              <div class="verify-feedback" id="branding-feedback"></div>
+            </form>
+          </div>
+        </section>
       </div>
     </main>
   </div>

@@ -96,6 +96,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const formCommunity = document.getElementById('form-community-settings');
   const communityFeedback = document.getElementById('community-feedback');
 
+  // Branding Settings Elements
+  const formBranding = document.getElementById('form-branding-settings');
+  const brandingFeedback = document.getElementById('branding-feedback');
+  const inputBrandingLogo = document.getElementById('branding_logo_url');
+  const inputBrandingName = document.getElementById('branding_community_name');
+  const inputBrandingAccent = document.getElementById('branding_accent_color');
+
   // State
   let adminKey = localStorage.getItem('vlp_admin_key') || '';
   let authToken = localStorage.getItem('vlp_auth_token') || '';
@@ -187,6 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Store session for later use
     currentSession = themeData;
+    populateBrandingInputs(branding, themeData.communityName);
   }
 
   async function loadSessionInfo() {
@@ -890,6 +898,63 @@ document.addEventListener('DOMContentLoaded', () => {
       communityFeedback.className = 'verify-feedback error';
     }
   });
+
+  // ══════════════════════════════════════════════════════
+  // 5. PERSONALIZACIÓN VISUAL & BRANDING
+  // ══════════════════════════════════════════════════════
+
+  function populateBrandingInputs(branding, communityName) {
+    if (inputBrandingLogo && branding) {
+      inputBrandingLogo.value = branding.logo_url || '';
+    }
+    if (inputBrandingName) {
+      inputBrandingName.value = branding?.community_display_name || communityName || '';
+    }
+    if (inputBrandingAccent && branding?.accent_color) {
+      inputBrandingAccent.value = branding.accent_color;
+    }
+  }
+
+  if (formBranding) {
+    formBranding.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      brandingFeedback.textContent = 'Guardando personalización visual...';
+      brandingFeedback.className = 'verify-feedback';
+
+      const payload = {
+        logo_url: inputBrandingLogo ? inputBrandingLogo.value.trim() : '',
+        community_display_name: inputBrandingName ? inputBrandingName.value.trim() : '',
+        accent_color: inputBrandingAccent ? inputBrandingAccent.value.trim() : '#ffffff',
+      };
+
+      try {
+        const tenantId = currentSession?.tenantId || '';
+        const url = tenantId ? `${API_PREFIX}/branding/${tenantId}` : `${API_PREFIX}/branding`;
+        const res = await secureFetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          brandingFeedback.textContent = '✓ Personalización visual guardada y aplicada con éxito.';
+          brandingFeedback.className = 'verify-feedback success';
+
+          // Aplicar tema en tiempo real en la interfaz
+          if (currentSession) {
+            currentSession.branding = data.branding;
+            applyTheme(currentSession);
+          }
+        } else {
+          brandingFeedback.textContent = `✗ ${data.error}`;
+          brandingFeedback.className = 'verify-feedback error';
+        }
+      } catch (err) {
+        brandingFeedback.textContent = `✗ Error: ${err.message}`;
+        brandingFeedback.className = 'verify-feedback error';
+      }
+    });
+  }
 
   function escapeHtml(text) {
     if (!text) return '';

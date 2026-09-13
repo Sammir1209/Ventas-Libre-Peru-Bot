@@ -259,15 +259,18 @@ function createWebApp() {
   });
 
   // ── Guardar Branding de un Sub-Bot (logo, nombre, color) ──
-  app.post(`${apiPrefix}/branding/:tenantId`, requireAdminAuth, async (req, res) => {
+  app.post(`${apiPrefix}/branding/:tenantId?`, requireAdminAuth, async (req, res) => {
     try {
-      const { tenantId } = req.params;
       const session = req.sessionUser || {};
-      const userId = session.userId;
+      const targetTenantId = req.params.tenantId || req.body.tenantId || session.tenantId;
 
-      // Solo el owner del sub-bot o un owner global puede editar branding
+      if (!targetTenantId) {
+        return res.status(400).json({ ok: false, error: 'ID de sub-bot (tenantId) no especificado.' });
+      }
+
+      const userId = session.userId;
       const isGlobalOwner = session.isGlobalOwner || false;
-      const subBot = await db.getSubBotById(tenantId);
+      const subBot = await db.getSubBotById(targetTenantId);
       if (!subBot) return res.status(404).json({ ok: false, error: 'Sub-bot no encontrado.' });
 
       const ownerIds = Array.isArray(subBot.owner_ids) ? subBot.owner_ids : [];
@@ -276,15 +279,19 @@ function createWebApp() {
       }
 
       const { logo_url, community_display_name, accent_color } = req.body;
+      const existingBranding = subBot.branding || subBot.custom_settings?.branding || {};
       const newBranding = {
-        ...(subBot.branding || {}),
-        logo_url: logo_url || subBot.branding?.logo_url || '',
-        community_display_name: community_display_name || subBot.community_name,
-        accent_color: accent_color || subBot.branding?.accent_color || '#ffffff',
+        ...existingBranding,
+        logo_url: logo_url !== undefined ? logo_url : (existingBranding.logo_url || ''),
+        community_display_name: community_display_name || existingBranding.community_display_name || subBot.community_name,
+        accent_color: accent_color || existingBranding.accent_color || '#ffffff',
         theme: 'client',
       };
 
-      await db.updateSubBot(tenantId, { branding: JSON.stringify(newBranding) });
+      const currentCustom = (typeof subBot.custom_settings === 'object' && subBot.custom_settings !== null) ? subBot.custom_settings : {};
+      const updatedCustom = { ...currentCustom, branding: newBranding };
+
+      await db.updateSubBot(targetTenantId, { custom_settings: updatedCustom });
 
       res.json({ ok: true, branding: newBranding });
     } catch (err) {
