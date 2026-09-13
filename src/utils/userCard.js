@@ -29,41 +29,80 @@ async function downloadTelegramAvatar(api, fileId) {
 /**
  * Genera el buffer de la tarjeta de perfil gráfica del usuario (idéntica a /perfil)
  * Utilizada tanto por el comando /perfil como por la publicación de alertas en el canal de quemados.
+ * 
+ * Por defecto genera SIEMPRE la tarjeta auténtica limpia de Telegram (fondo pizarra azul,
+ * anillo cyan/esmeralda, estado online, fila de @username y fila de ID oficial).
  */
 async function generateUserCardBuffer(api, target, options = {}) {
   let userId = target.userId && Number(target.userId) > 0 ? Number(target.userId) : null;
-  let username = target.username || null;
+  let username = target.username ? target.username.replace(/^@/, '') : null;
   let firstName = target.firstName || target.name || null;
   let targetBio = target.bio || target.targetBio || null;
   let avatarBuffer = target.avatarBuffer || null;
 
-  // 1. Si no hay userId o no hay avatar y tenemos username, intentar resolver vía MTProto Userbot
-  if ((!userId || !avatarBuffer) && (username || userId)) {
+  // 1. Verificar primero en Base de Datos si falta ID o Username
+  if (!userId && username) {
+    try {
+      const dbUser = await db.getUserByUsername(username);
+      if (dbUser && dbUser.user_id) {
+        userId = Number(dbUser.user_id);
+        if (!firstName && dbUser.first_name) firstName = dbUser.first_name;
+      }
+    } catch {}
+  }
+  if (userId && !username) {
+    try {
+      const dbUser = await db.getUser(userId);
+      if (dbUser && dbUser.username) username = dbUser.username.replace(/^@/, '');
+      if (!firstName && dbUser.first_name) firstName = dbUser.first_name;
+    } catch {}
+  }
+
+  // 2. Verificar vía Agentbot / MTProto Userbot (resuelve cualquier usuario, ID y foto en HD)
+  if ((!userId || !username || !avatarBuffer) && (username || userId)) {
     try {
       if (userbot.isConnected()) {
         const targetQuery = username || userId;
         const ubRes = await userbot.resolveUser(targetQuery);
         if (ubRes) {
           if (!userId && ubRes.userId) userId = ubRes.userId;
-          if (!firstName && (ubRes.firstName || ubRes.lastName)) {
+          if (!username && ubRes.username) username = ubRes.username.replace(/^@/, '');
+          if ((!firstName || firstName === 'Estafador' || firstName === 'Usuario') && (ubRes.firstName || ubRes.lastName)) {
             firstName = [ubRes.firstName, ubRes.lastName].filter(Boolean).join(' ') || null;
           }
-          if (!username && ubRes.username) username = ubRes.username;
         }
 
         if (!avatarBuffer) {
           avatarBuffer = await userbot.downloadProfilePhoto(targetQuery);
         }
       }
+    } catch (ubErr) {
+      console.warn('⟡ Userbot resolveUser aviso:', ubErr.message);
+    }
+  }
+
+  // 3. Verificar vía Bot API de Telegram (getChat y getUserProfilePhotos)
+  if (!userId && username) {
+    try {
+      const chatInfo = await api.getChat(`@${username}`);
+      if (chatInfo && chatInfo.id) {
+        userId = chatInfo.id;
+        if (!username && chatInfo.username) username = chatInfo.username.replace(/^@/, '');
+        if ((!firstName || firstName === 'Estafador') && (chatInfo.first_name || chatInfo.last_name)) {
+          firstName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ');
+        }
+        if (chatInfo.bio) targetBio = chatInfo.bio;
+      }
     } catch {}
   }
 
-  // 2. Si tenemos userId numérico, consultar Telegram Bot API
   if (userId) {
     try {
       const chatInfo = await api.getChat(userId);
-      if (!username && chatInfo.username) username = chatInfo.username;
-      if (!firstName) firstName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ') || null;
+      if (!username && chatInfo.username) username = chatInfo.username.replace(/^@/, '');
+      if ((!firstName || firstName === 'Estafador' || firstName === 'Usuario') && (chatInfo.first_name || chatInfo.last_name)) {
+        firstName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ');
+      }
       if (chatInfo.bio) targetBio = chatInfo.bio;
     } catch {}
 
@@ -78,14 +117,14 @@ async function generateUserCardBuffer(api, target, options = {}) {
     }
   }
 
-  // 3. Fallbacks de nombre
-  if (!firstName) {
+  // 4. Fallbacks de nombre para que siempre salga limpio y legible
+  if (!firstName || firstName === 'Estafador') {
     if (username) firstName = `@${username}`;
     else if (userId) firstName = `ID ${userId}`;
     else firstName = target.name || 'Usuario';
   }
 
-  // 4. Consultar roles, tratos, rating, antecedentes
+  // 5. Consultar roles, tratos, rating
   let rolesList = [];
   const effectiveOwners = options.ownerIds || config.OWNER_IDS || [];
   const tenantId = options.tenantId || null;
@@ -132,18 +171,8 @@ async function generateUserCardBuffer(api, target, options = {}) {
     } catch {}
   }
 
-  let burnInfo = null;
-  if (options.isBurned !== undefined) {
-    if (options.isBurned) {
-      burnInfo = { context: options.burnReason || 'Estafa comprobada / Falta grave' };
-    }
-  } else if (userId || username) {
-    try {
-      burnInfo = (userId ? await db.getBurnedUserInfo(userId) : null) || (username ? await db.getBurnedUserInfo(username) : null);
-    } catch {}
-  }
-
-  const isBurned = !!burnInfo;
+  // NO USAR TEMA ROJO (la tarjeta de perfil es SIEMPRE la versión auténtica de Telegram solicitada por el usuario)
+  const isBurned = options.isBurned === true;
 
   let primaryRole = null;
   if (rolesList.includes('OWNER')) primaryRole = '👑 OWNER';
@@ -153,32 +182,45 @@ async function generateUserCardBuffer(api, target, options = {}) {
 
   let modalBio = targetBio;
   if (!modalBio) {
-    if (isBurned) {
-      modalBio = `🚨 LISTA NEGRA: ${burnInfo.context || 'Estafa comprobada'}\nID: ${userId || target.displayId || 'No identificado'}`;
-    } else if (primaryRole) {
+    if (primaryRole) {
       modalBio = `Staff Oficial: ${primaryRole}\nTratos: ${dealsCount} completados`;
     } else {
       modalBio = `Usuario de la Comunidad\nTratos: ${dealsCount} completados`;
     }
   }
 
+  const displayId = userId ? String(userId) : (target.displayId || 'No identificado');
+
   const cardBuffer = await generateTelegramProfileModal({
     name: firstName || 'Usuario',
     username: username,
-    id: userId ? String(userId) : (target.displayId || 'No identificado'),
+    id: displayId,
     bio: modalBio,
     avatarBuffer: avatarBuffer,
-    isOnline: !isBurned,
+    isOnline: true,
     isVerified: isVerified,
     isBurned: isBurned,
-    burnReason: isBurned ? (burnInfo.context || options.burnReason || 'Estafa comprobada') : null,
+    burnReason: null,
     dealsCount: dealsCount,
     role: primaryRole,
     rating: rating,
     totalRatings: totalRatings,
   });
 
-  return { cardBuffer, userId, target };
+  return {
+    cardBuffer,
+    userId,
+    username,
+    firstName,
+    avatarBuffer,
+    target: {
+      ...target,
+      userId,
+      username,
+      firstName,
+      avatarBuffer,
+    },
+  };
 }
 
 module.exports = {

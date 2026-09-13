@@ -102,30 +102,30 @@ async function publishBurnAlert(api, report) {
       } catch {}
     }
 
-    // 3. Formatear datos legibles
-    const hasNumericId = targetId && targetId > 0;
-    const displayId = hasNumericId ? String(targetId) : 'No identificado';
-    const displayName = targetName || (targetUsername ? `@${targetUsername}` : 'Estafador');
-
-    // 4. Generar Tarjeta Visual idéntica al comando /perfil
+    // 1. Generar Tarjeta Visual idéntica al comando /perfil (Azul pizarra, aro cyan, online, NO ROJA)
+    // El bot y el userbot verifican y resuelven tanto el @ como el ID numérico y descargan el avatar real.
     let cardBuffer = null;
     try {
       const res = await generateUserCardBuffer(api, {
         userId: targetId || null,
         username: targetUsername || null,
-        firstName: displayName,
-        displayId: displayId,
-        avatarBuffer: avatarBuffer,
+        firstName: targetName,
       }, {
-        isBurned: true,
-        burnReason: cleanContext || 'Estafa comprobada / Falta grave',
+        isBurned: false, // El usuario no quiere el tema rojo, sino la tarjeta limpia idéntica a /perfil
       });
       cardBuffer = res.cardBuffer;
+      if (res.userId) targetId = res.userId;
+      if (res.username) targetUsername = res.username;
+      if (res.firstName) targetName = res.firstName;
     } catch (cardErr) {
-      console.error('⟡ Error generando banner modal de quemado:', cardErr.message);
+      console.error('⟡ Error generando tarjeta modal de perfil:', cardErr.message);
     }
 
-    // 5. Generar Leyenda / Caption con diseño estético uniforme
+    // 2. Formatear datos legibles finales
+    const hasNumericId = targetId && targetId > 0;
+    const displayName = targetName || (targetUsername ? `@${targetUsername}` : 'Estafador');
+
+    // 3. Generar Leyenda / Caption con diseño estético uniforme
     const idLine = hasNumericId
       ? `🆔 <b>ID de Telegram:</b> <code>${targetId}</code>\n\n`
       : `🆔 <b>ID de Telegram:</b> <i>Identificado por @alias oficial</i>\n\n`;
