@@ -90,11 +90,11 @@ function drawBackArrow(ctx, x, y) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.moveTo(x + 14, y);
+  ctx.moveTo(x + 15, y);
   ctx.lineTo(x, y);
-  ctx.lineTo(x + 6, y - 6);
+  ctx.lineTo(x + 6.5, y - 6.5);
   ctx.moveTo(x, y);
-  ctx.lineTo(x + 6, y + 6);
+  ctx.lineTo(x + 6.5, y + 6.5);
   ctx.stroke();
   ctx.restore();
 }
@@ -146,127 +146,140 @@ function drawTelegramVerifiedBadge(ctx, x, y, size = 20) {
 }
 
 /**
- * Icono Mensaje (burbuja de chat con cola inferior)
+ * 💬 Icono Mensaje nativo Telegram Android
  */
 function drawMessageIcon(ctx, cx, cy) {
   ctx.save();
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  roundRect(ctx, cx - 10, cy - 8, 20, 14, 4);
+  roundRect(ctx, cx - 10, cy - 8.5, 20, 15, 4.5);
   ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(cx - 7, cy + 5);
-  ctx.lineTo(cx - 10, cy + 9);
-  ctx.lineTo(cx - 3, cy + 6);
+  ctx.moveTo(cx - 6, cy + 6.5);
+  ctx.lineTo(cx - 10, cy + 10.5);
+  ctx.lineTo(cx - 2, cy + 6.5);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 }
 
 /**
- * Icono Silenciar (campana con badajo)
+ * 🔔 Icono Silenciar nativo Telegram Android
  */
 function drawBellIcon(ctx, cx, cy) {
   ctx.save();
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
-  ctx.arc(cx, cy - 8, 1.6, 0, Math.PI * 2);
+  ctx.arc(cx, cy - 8.5, 1.8, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(cx - 1.5, cy - 6);
-  ctx.bezierCurveTo(cx - 5, cy - 5, cx - 7, cy - 2, cx - 7, cy + 3.5);
-  ctx.lineTo(cx - 8.5, cy + 6);
-  ctx.lineTo(cx + 8.5, cy + 6);
-  ctx.lineTo(cx + 7, cy + 3.5);
-  ctx.bezierCurveTo(cx + 7, cy - 2, cx + 5, cy - 5, cx + 1.5, cy - 6);
+  ctx.moveTo(cx - 1.5, cy - 6.5);
+  ctx.bezierCurveTo(cx - 5.5, cy - 5, cx - 7.5, cy - 2, cx - 7.5, cy + 3.5);
+  ctx.lineTo(cx - 9.5, cy + 6.5);
+  ctx.lineTo(cx + 9.5, cy + 6.5);
+  ctx.lineTo(cx + 7.5, cy + 3.5);
+  ctx.bezierCurveTo(cx + 7.5, cy - 2, cx + 5.5, cy - 5, cx + 1.5, cy - 6.5);
   ctx.closePath();
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(cx, cy + 7, 2.2, 0, Math.PI);
+  ctx.arc(cx, cy + 7.5, 2.5, 0, Math.PI);
   ctx.fill();
   ctx.restore();
 }
 
 /**
- * Icono Llamar (auricular de teléfono inclinado)
+ * 📞 Icono Llamar / Teléfono nativo Telegram Android curvado
  */
 function drawPhoneIcon(ctx, cx, cy) {
   ctx.save();
   ctx.fillStyle = '#ffffff';
   ctx.translate(cx, cy);
   ctx.rotate(-Math.PI / 4);
-  roundRect(ctx, -7, -9, 14, 4.5, 2);
+
+  ctx.beginPath();
+  ctx.moveTo(-7.5, -9);
+  ctx.lineTo(-2, -9);
+  ctx.quadraticCurveTo(-1.5, -5, -4, -4);
+  ctx.quadraticCurveTo(-2, 0, 0, 2);
+  ctx.quadraticCurveTo(4, 1.5, 5, 2);
+  ctx.lineTo(9, 7.5);
+  ctx.quadraticCurveTo(7.5, 10, 4, 9.5);
+  ctx.quadraticCurveTo(-2, 7, -7, 2);
+  ctx.quadraticCurveTo(-9.5, -4, -7.5, -9);
+  ctx.closePath();
   ctx.fill();
-  roundRect(ctx, -3, -6, 6, 12, 1.5);
-  ctx.fill();
-  roundRect(ctx, -7, 4.5, 14, 4.5, 2);
-  ctx.fill();
+
   ctx.restore();
 }
 
 /**
- * Icono Video (cámara con lente trapezoidal)
+ * 📹 Icono Video Cámara nativo Telegram Android
  */
 function drawVideoIcon(ctx, cx, cy) {
   ctx.save();
   ctx.fillStyle = '#ffffff';
-  roundRect(ctx, cx - 11, cy - 7, 14, 14, 3.5);
+  roundRect(ctx, cx - 11.5, cy - 7, 14.5, 14, 3.5);
   ctx.fill();
+
   ctx.beginPath();
-  ctx.moveTo(cx + 4, cy - 4.5);
-  ctx.lineTo(cx + 10, cy - 7);
-  ctx.lineTo(cx + 10, cy + 7);
-  ctx.lineTo(cx + 4, cy + 4.5);
+  ctx.moveTo(cx + 4.5, cy - 3.5);
+  ctx.lineTo(cx + 10.5, cy - 6.5);
+  ctx.quadraticCurveTo(cx + 11.5, cy - 6.5, cx + 11.5, cy - 5);
+  ctx.lineTo(cx + 11.5, cy + 5);
+  ctx.quadraticCurveTo(cx + 11.5, cy + 6.5, cx + 10.5, cy + 6.5);
+  ctx.lineTo(cx + 4.5, cy + 3.5);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
 }
 
 /**
- * Icono QR nativo de Telegram (4 cuadritos agrupados)
+ * ⚏ Icono QR nativo de Telegram
  */
 function drawQrGrid(ctx, x, y) {
   ctx.save();
   ctx.fillStyle = '#8fa2b4';
-  const s = 6.5;
-  const g = 3;
+  const s = 6;
+  const g = 3.5;
   ctx.fillRect(x, y, s, s);
   ctx.fillRect(x + s + g, y, s, s);
   ctx.fillRect(x, y + s + g, s, s);
   ctx.fillRect(x + s + g, y + s + g, s, s);
 
   ctx.fillStyle = '#141920';
-  ctx.fillRect(x + 2, y + 2, 2.5, 2.5);
-  ctx.fillRect(x + s + g + 2, y + 2, 2.5, 2.5);
-  ctx.fillRect(x + 2, y + s + g + 2, 2.5, 2.5);
-  ctx.fillRect(x + s + g + 2, y + s + g + 2, 2.5, 2.5);
+  ctx.fillRect(x + 2, y + 2, 2, 2);
+  ctx.fillRect(x + s + g + 2, y + 2, 2, 2);
+  ctx.fillRect(x + 2, y + s + g + 2, 2, 2);
+  ctx.fillRect(x + s + g + 2, y + s + g + 2, 2, 2);
   ctx.restore();
 }
 
 /**
- * Icono de Credencial / ID oficial de Telegram
+ * 🪪 Icono de Credencial / ID de Telegram
  */
 function drawIdCardIcon(ctx, x, y) {
   ctx.save();
   ctx.strokeStyle = '#8fa2b4';
   ctx.fillStyle = '#8fa2b4';
   ctx.lineWidth = 1.6;
-  roundRect(ctx, x, y, 18, 14, 2.5);
+  roundRect(ctx, x, y, 19, 14.5, 3);
   ctx.stroke();
+
   ctx.beginPath();
-  ctx.arc(x + 5, y + 5, 2, 0, Math.PI * 2);
+  ctx.arc(x + 5.5, y + 5.5, 2.2, 0, Math.PI * 2);
   ctx.fill();
+
   ctx.beginPath();
-  ctx.moveTo(x + 9, y + 5);
-  ctx.lineTo(x + 14, y + 5);
-  ctx.moveTo(x + 9, y + 8.5);
-  ctx.lineTo(x + 14, y + 8.5);
+  ctx.moveTo(x + 10, y + 5.5);
+  ctx.lineTo(x + 15, y + 5.5);
+  ctx.moveTo(x + 10, y + 9.5);
+  ctx.lineTo(x + 15, y + 9.5);
   ctx.stroke();
   ctx.restore();
 }
 
 /**
- * Icono de Añadir a Contactos (+👤)
+ * +👤 Icono Añadir a Contactos nativo
  */
 function drawAddContactIcon(ctx, x, y) {
   ctx.save();
@@ -274,15 +287,19 @@ function drawAddContactIcon(ctx, x, y) {
   ctx.fillStyle = '#8fa2b4';
   ctx.lineWidth = 1.8;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
   ctx.beginPath();
   ctx.moveTo(x - 5, y);
   ctx.lineTo(x + 3, y);
   ctx.moveTo(x - 1, y - 4);
   ctx.lineTo(x - 1, y + 4);
   ctx.stroke();
+
   ctx.beginPath();
   ctx.arc(x + 13, y - 3.5, 4, 0, Math.PI * 2);
   ctx.stroke();
+
   ctx.beginPath();
   ctx.arc(x + 13, y + 8, 6.5, Math.PI * 1.15, Math.PI * 1.85, false);
   ctx.stroke();
@@ -290,10 +307,10 @@ function drawAddContactIcon(ctx, x, y) {
 }
 
 /**
- * Divide el texto de la biografía en líneas
+ * Divide el texto de la biografía en líneas (solo si existe)
  */
 function splitBioLines(text, maxChars = 34, maxLines = 4) {
-  if (!text) return ['Sin biografía pública.'];
+  if (!text || !text.trim()) return [];
   const rawLines = text.split('\n');
   const result = [];
 
@@ -313,7 +330,7 @@ function splitBioLines(text, maxChars = 34, maxLines = 4) {
     if (cur && result.length < maxLines) result.push(cur);
     if (result.length >= maxLines) break;
   }
-  return result.length ? result : ['Sin biografía pública.'];
+  return result;
 }
 
 /**
@@ -324,13 +341,12 @@ function splitBioLines(text, maxChars = 34, maxLines = 4) {
  * - Avatar circular HD en tamaño completo (con iniciales en gradiente nativo o foto real)
  * - Nombre de usuario en tipografía bold con badge verificado
  * - Estado de conexión "online" o "últ. vez hace poco / recientemente"
- * - 4 Botones de acción flotantes cuadrados redondeados: [Mensaje], [Silenciar], [Llamar], [Video]
- * - Tarjeta principal con bordes redondeados conteniendo:
- *   • Biografía con resaltado de enlaces
+ * - 4 Botones de acción flotantes: [Mensaje], [Silenciar], [Llamar], [Video]
+ * - Tarjeta principal limpia conteniendo únicamente:
+ *   • Biografía (solo si el usuario tiene biografía pública real en Telegram)
  *   • Nombre de usuario (@) con botón QR
  *   • ID Oficial de Telegram con icono de credencial
- *   • Respaldo de comunidad / Tratos completados si aplica
- * - Tarjeta secundaria "Añadir a Contactos"
+ * - Tarjeta inferior de acción "Añadir a Contactos"
  */
 async function generateTelegramProfileModal({
   name = 'Usuario',
@@ -341,36 +357,20 @@ async function generateTelegramProfileModal({
   isOnline = true,
   isVerified = false,
   statusSubtitle = null,
-  musicTrack = null,
-  isBurned = false,
-  burnReason = null,
-  dealsCount = 0,
-  role = null,
-  rating = '5.0',
-  totalRatings = 0,
 }) {
   const scale = 2; // Ultra HD 2x Retina
   const baseW = 380;
 
-  let effectiveBio = bio;
-  if (!effectiveBio) {
-    if (role) {
-      effectiveBio = `Staff Oficial: ${role}\nTratos: ${dealsCount} completados`;
-    } else {
-      effectiveBio = `Usuario de la Comunidad\nTratos: ${dealsCount} completados`;
-    }
-  }
+  // Solo procesar biografía si realmente existe
+  const bioLines = splitBioLines(bio, 34, 4);
+  const hasBio = bioLines.length > 0;
 
-  const bioLines = splitBioLines(effectiveBio, 34, 4);
-
-  // Cálculo vertical proporcional
-  const bioH = bioLines.length * 20 + 26;
+  // Cálculo vertical proporcional estricto
+  const bioH = hasBio ? (bioLines.length * 20 + 30) : 0;
   const usernameH = 58;
   const idH = 58;
-  const hasCommunityRow = dealsCount > 0 || role;
-  const communityH = hasCommunityRow ? 54 : 0;
 
-  const cardH = bioH + usernameH + idH + communityH;
+  const cardH = bioH + usernameH + idH + 16;
   const cardY = 314;
   const secY = cardY + cardH + 14;
   const baseH = secY + 46 + 24;
@@ -454,7 +454,7 @@ async function generateTelegramProfileModal({
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  if (isVerified || (role && role.includes('OWNER'))) {
+  if (isVerified) {
     const nameWidth = ctx.measureText(cleanName).width;
     const totalW = nameWidth + 24;
     const startX = avX - totalW / 2;
@@ -501,37 +501,42 @@ async function generateTelegramProfileModal({
     ctx.fillText(b.label, bx + btnW / 2, btnY + 44);
   });
 
-  // 7. Tarjeta Principal de Información (#141920 con esquinas redondeadas)
+  // 7. Tarjeta Principal de Información (#141920)
   const cardW = 340;
   const cardX = 20;
   roundRect(ctx, cardX, cardY, cardW, cardH, 20);
   ctx.fillStyle = '#141920';
   ctx.fill();
 
-  // Fila 1: Biografía
-  ctx.textAlign = 'left';
-  let curY = cardY + 24;
-  for (let line of bioLines) {
-    ctx.font = `15px ${FONT_STACK}`;
-    ctx.fillStyle = line.startsWith('http') ? '#64b5f6' : '#ffffff';
-    ctx.fillText(line, cardX + 18, curY);
-    curY += 20;
-  }
-  ctx.font = `12px ${FONT_STACK}`;
-  ctx.fillStyle = '#728394';
-  ctx.fillText('Biografía', cardX + 18, curY);
-  curY += 16;
+  let curY = cardY;
 
-  // Separador 1
-  ctx.strokeStyle = '#1e2630';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(cardX + 18, curY);
-  ctx.lineTo(cardX + cardW - 18, curY);
-  ctx.stroke();
+  // Fila 1: Biografía (Solo si existe en Telegram)
+  if (hasBio) {
+    curY += 24;
+    ctx.textAlign = 'left';
+    for (let line of bioLines) {
+      ctx.font = `15px ${FONT_STACK}`;
+      ctx.fillStyle = line.startsWith('http') ? '#64b5f6' : '#ffffff';
+      ctx.fillText(line, cardX + 18, curY);
+      curY += 20;
+    }
+    ctx.font = `12px ${FONT_STACK}`;
+    ctx.fillStyle = '#728394';
+    ctx.fillText('Biografía', cardX + 18, curY);
+    curY += 16;
+
+    // Separador
+    ctx.strokeStyle = '#1e2630';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cardX + 18, curY);
+    ctx.lineTo(cardX + cardW - 18, curY);
+    ctx.stroke();
+  }
 
   // Fila 2: Nombre de usuario
   curY += 24;
+  ctx.textAlign = 'left';
   const displayUsername = username ? (username.startsWith('@') ? username : `@${username}`) : 'Sin @username';
   ctx.font = `bold 15px ${FONT_STACK}`;
   ctx.fillStyle = '#ffffff';
@@ -542,13 +547,15 @@ async function generateTelegramProfileModal({
   drawQrGrid(ctx, cardX + cardW - 36, curY + 2);
   curY += 34;
 
-  // Separador 2
+  // Separador
+  ctx.strokeStyle = '#1e2630';
+  ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(cardX + 18, curY);
   ctx.lineTo(cardX + cardW - 18, curY);
   ctx.stroke();
 
-  // Fila 3: ID de Telegram Oficial
+  // Fila 3: ID de Telegram
   curY += 24;
   const displayNumericId = String(id || 'No identificado');
   ctx.font = `bold 15px ${FONT_STACK}`;
@@ -556,26 +563,8 @@ async function generateTelegramProfileModal({
   ctx.fillText(displayNumericId, cardX + 18, curY);
   ctx.font = `12px ${FONT_STACK}`;
   ctx.fillStyle = '#728394';
-  ctx.fillText('ID de Telegram Oficial', cardX + 18, curY + 18);
+  ctx.fillText('ID de Telegram', cardX + 18, curY + 18);
   drawIdCardIcon(ctx, cardX + cardW - 38, curY + 2);
-  curY += 34;
-
-  // Fila 4: Comunidad & Tratos (si aplica)
-  if (hasCommunityRow) {
-    ctx.beginPath();
-    ctx.moveTo(cardX + 18, curY);
-    ctx.lineTo(cardX + cardW - 18, curY);
-    ctx.stroke();
-
-    curY += 22;
-    ctx.font = `14px ${FONT_STACK}`;
-    ctx.fillStyle = '#ffffff';
-    const commText = role ? `Staff: ${role} (${dealsCount} tratos)` : `Ventas Libres Perú — ${dealsCount} tratos`;
-    ctx.fillText(cleanText(commText, 32), cardX + 18, curY);
-    ctx.font = `12px ${FONT_STACK}`;
-    ctx.fillStyle = '#728394';
-    ctx.fillText('Comunidad & Respaldo Oficial', cardX + 18, curY + 17);
-  }
 
   // 8. Tarjeta Secundaria de Acción (Añadir a Contactos)
   roundRect(ctx, cardX, secY, cardW, 46, 16);
