@@ -197,11 +197,12 @@ async function unrestrictUser(chatId, userId) {
 }
 
 /**
- * Busca usuarios directamente en los grupos usando el motor nativo de Telegram (MTProto).
- * Esto permite encontrar usuarios por nombre, soporte completo de unicodes y gente que nunca ha hablado.
+ * Busca usuarios directamente en Telegram usando el motor nativo MTProto.
+ * Combina búsqueda global de contactos/usuarios y escaneo en los grupos activos del userbot.
+ * Soporta fuentes decorativas, unicodes, nombres partidos con/sin espacios y usuarios sin username.
  */
-async function searchCommunityUsers(query, chatIds) {
-  if (!client || !isConnected()) return [];
+async function searchCommunityUsers(query, chatIds = []) {
+  if (!client || !isConnected() || !query) return [];
   const resultsMap = new Map();
 
   const cleanNorm = query
@@ -209,41 +210,82 @@ async function searchCommunityUsers(query, chatIds) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+  const words = cleanNorm.split(/\s+/).filter(Boolean);
+  const noSpaces = cleanNorm.replace(/[\s_\-\.]+/g, '');
 
-  for (const chatId of chatIds) {
+  // 1. Búsqueda Nativa Global MTProto (contacts.Search)
+  const searchVariants = [query, noSpaces];
+  if (words.length > 1) searchVariants.push(words[0]);
+
+  for (const qVar of searchVariants) {
+    if (!qVar || qVar.length < 2) continue;
     try {
-      const entity = await client.getEntity(chatId);
-      const participants = await client.getParticipants(entity, {
-        search: query,
-        limit: 25,
-      });
+      const globalRes = await client.invoke(new Api.contacts.Search({ q: qVar, limit: 15 }));
+      if (globalRes && globalRes.users) {
+        for (const u of globalRes.users) {
+          const uid = Number(u.id?.value || u.id);
+          const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Usuario';
+          const normName = fullName.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+          const normUser = (u.username || '').toLowerCase();
+          const normNameNoSpaces = normName.replace(/[\s_\-\.]+/g, '');
+          const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
 
-      for (const p of participants) {
-        const id = Number(p.id?.value || p.id);
-        const firstName = p.firstName || p.title || '';
-        const username = p.username || null;
+          const directMatch = normName.includes(cleanNorm) || normUser.includes(cleanNorm);
+          const noSpacesMatch = noSpaces.length >= 2 && (normNameNoSpaces.includes(noSpaces) || normUserNoSpaces.includes(noSpaces));
+          const wordsMatch = words.length > 1 && words.every((w) => normName.includes(w) || normUser.includes(w) || normNameNoSpaces.includes(w));
 
-        const normFirst = firstName
-          .normalize('NFKD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase();
-
-        // Validar coincidencia en nombre o username normalizado
-        if (normFirst.includes(cleanNorm) || (username && username.toLowerCase().includes(cleanNorm))) {
-          if (!resultsMap.has(id)) {
-            resultsMap.set(id, {
-              user_id: id,
-              username: username,
-              first_name: firstName || 'Usuario',
-              is_burned: false,
-            });
+          if (directMatch || noSpacesMatch || wordsMatch) {
+            if (!resultsMap.has(uid)) {
+              resultsMap.set(uid, {
+                user_id: uid,
+                username: u.username || null,
+                first_name: fullName,
+                is_burned: false,
+              });
+            }
           }
         }
       }
-    } catch (err) {
-      console.warn(`⟡ Userbot: Error buscando en chat ${chatId}:`, err.message);
-    }
+    } catch {}
   }
+
+  // 2. Búsqueda en los diálogos reales y accesibles del Userbot
+  try {
+    const dialogs = await client.getDialogs({ limit: 40 });
+    for (const d of dialogs) {
+      if (!d.isGroup && !d.isChannel) continue;
+      try {
+        const participants = await client.getParticipants(d.entity, {
+          search: query,
+          limit: 30,
+        });
+
+        for (const p of participants) {
+          const uid = Number(p.id?.value || p.id);
+          const fullName = [p.firstName, p.lastName].filter(Boolean).join(' ') || p.title || 'Usuario';
+          const normName = fullName.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+          const normUser = (p.username || '').toLowerCase();
+          const normNameNoSpaces = normName.replace(/[\s_\-\.]+/g, '');
+          const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
+
+          const directMatch = normName.includes(cleanNorm) || normUser.includes(cleanNorm);
+          const noSpacesMatch = noSpaces.length >= 2 && (normNameNoSpaces.includes(noSpaces) || normUserNoSpaces.includes(noSpaces));
+          const wordsMatch = words.length > 1 && words.every((w) => normName.includes(w) || normUser.includes(w) || normNameNoSpaces.includes(w));
+
+          if (directMatch || noSpacesMatch || wordsMatch) {
+            if (!resultsMap.has(uid)) {
+              resultsMap.set(uid, {
+                user_id: uid,
+                username: p.username || null,
+                first_name: fullName,
+                is_burned: false,
+              });
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch {}
 
   return Array.from(resultsMap.values());
 }

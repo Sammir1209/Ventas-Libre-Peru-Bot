@@ -6,6 +6,7 @@ const { forEachGroup, delay } = require('../../utils/helpers');
 const { escapeHtml } = require('../../utils/formatting');
 const { InputFile, InputMediaBuilder } = require('grammy');
 const https = require('https');
+const userbot = require('../../userbot/client');
 const { publishBurnAlert, extractTargetInfo } = require('./publisher');
 
 // ══════════════════════════════════════════════════════
@@ -78,8 +79,19 @@ function register(bot) {
       // 1. Aprobar reporte en base de datos
       await db.approveBurnReport(reportId, reviewerId);
 
-      // 2. Extraer metadatos del acusado
-      const { targetId, targetUsername, targetName, cleanContext } = extractTargetInfo(report);
+      // 2. Extraer metadatos del acusado y resolver ID si falta mediante Bot Agent
+      let { targetId, targetUsername, targetName, cleanContext } = extractTargetInfo(report);
+
+      if ((!targetId || targetId <= 0) && targetUsername && userbot.isConnected()) {
+        try {
+          const ubRes = await userbot.resolveUser(targetUsername);
+          if (ubRes && ubRes.userId) {
+            targetId = ubRes.userId;
+            if (!targetUsername && ubRes.username) targetUsername = ubRes.username;
+            if ((!targetName || targetName === 'Estafador') && ubRes.firstName) targetName = ubRes.firstName;
+          }
+        } catch {}
+      }
 
       let successCount = 0;
       let failCount = 0;

@@ -46,37 +46,38 @@ async function executeSearch(ctx, rawQuery) {
 
   const cleanNoAt = query.replace(/^@/, '').trim();
 
-  // 1. Buscar en Base de Datos por Nombre, Username o ID
+  // 1. Buscar en Base de Datos por Nombre, Username o ID (con búsqueda tokenizada insensible a espacios)
   let results = await db.searchUsers(cleanNoAt);
 
-  // 1.5. Si no hay en BD, buscar usando el Userbot nativo (soporta fuentes raras y usuarios invisibles)
-  if ((!results || results.length === 0) && userbot.isConnected()) {
+  // 1.5. Si no hay en BD o hay pocos resultados, buscar usando el Userbot nativo MTProto
+  if (userbot.isConnected()) {
     try {
-      const groups = await db.getAllGroups();
-      const chatIds = groups.map((g) => g.chat_id).filter(Boolean);
-      results = await userbot.searchCommunityUsers(cleanNoAt, chatIds);
-
-      // Guardar en base de datos para que quede registrado
-      if (results && results.length > 0) {
-        for (const u of results) {
+      const ubResults = await userbot.searchCommunityUsers(cleanNoAt);
+      if (ubResults && ubResults.length > 0) {
+        for (const u of ubResults) {
+          // Registrar en base de datos para futuras consultas rápidas
           db.upsertUser(u.user_id, u.username, u.first_name).catch(() => {});
+          if (!results.some((r) => Number(r.user_id) === Number(u.user_id))) {
+            results.push(u);
+          }
         }
       }
     } catch (err) {
-      console.error('⟡ Error usando userbot search:', err.message);
+      console.warn('⟡ Error usando userbot search:', err.message);
     }
   }
 
-  // 2. Revisar en la Lista Negra / Quemados por nombre si no se encontró en BD ni Userbot
+  // 2. Revisar en la Lista Negra / Quemados por nombre si no se encontró
   if (!results || results.length === 0) {
     try {
       const burnedInfo = await db.getBurnedUserInfo(cleanNoAt);
       if (burnedInfo) {
         results = [{
-          user_id: burnedInfo.user_id,
+          user_id: Number(burnedInfo.user_id),
           username: burnedInfo.username || null,
           first_name: burnedInfo.first_name || 'Estafador Fichado',
           is_burned: true,
+          in_database: true,
         }];
       }
     } catch {}
@@ -87,37 +88,45 @@ async function executeSearch(ctx, rawQuery) {
       `${SYM.DIVIDER}\n` +
       `🔍 <b>RADAR DE RASTREO — RESULTADO</b>\n` +
       `${SYM.DIVIDER}\n\n` +
-      `${SYM.CROSS} No se encontraron coincidencias para el nombre: <code>${escapeHtml(query)}</code>\n\n` +
-      `💡 <i>Verifica que el nombre esté bien escrito. Este comando busca exclusivamente por nombre (First Name) dentro de la comunidad.</i>`,
+      `${SYM.CROSS} No se encontraron coincidencias para: <code>${escapeHtml(query)}</code>\n\n` +
+      `💡 <i>Verifica que el nombre o @username esté bien escrito. Puedes buscar por nombre completo, alias (@user) o ID numérico.</i>`,
       { parse_mode: 'HTML' }
     );
   }
 
-  // Filtrar resultados para asegurar que solo pertenecen a la comunidad
-  const groups = await db.getAllGroups();
+  // Filtrar y enriquecer resultados de la comunidad
+  const groups = await db.getAllGroups().catch(() => []);
   const communityResults = [];
   
   for (const user of results) {
-    let isInCommunity = false;
+    let isInActiveGroup = false;
+    let detectedGroupName = null;
+
     for (const grp of groups) {
       if (!grp.chat_id) continue;
       try {
         const member = await ctx.api.getChatMember(grp.chat_id, user.user_id);
         if (['member', 'administrator', 'creator', 'restricted'].includes(member.status)) {
-          isInCommunity = true;
-          break; // Está en la comunidad
+          isInActiveGroup = true;
+          detectedGroupName = grp.group_name || null;
+          break;
         }
       } catch {}
     }
     
-    if (isInCommunity || user.is_burned) {
-      // Evitar duplicados
-      if (!communityResults.find(u => u.user_id === user.user_id)) {
-        communityResults.push(user);
+    // Si está en la base de datos de usuarios, quemados o en un grupo activo
+    const isCommunityMember = isInActiveGroup || user.in_database || user.is_burned || results.length === 1;
+
+    if (isCommunityMember) {
+      if (!communityResults.find((u) => Number(u.user_id) === Number(user.user_id))) {
+        communityResults.push({
+          ...user,
+          isInActiveGroup,
+          detectedGroupName,
+        });
       }
     }
     
-    // Limitar a máximo 6 resultados para mostrar el primero + 5 en lista
     if (communityResults.length >= 6) break;
   }
 
@@ -126,8 +135,8 @@ async function executeSearch(ctx, rawQuery) {
       `${SYM.DIVIDER}\n` +
       `🔍 <b>RADAR DE RASTREO — RESULTADO</b>\n` +
       `${SYM.DIVIDER}\n\n` +
-      `${SYM.CROSS} El usuario existe globalmente, pero <b>no pertenece a la comunidad</b> ni está en la base de datos de estafadores.\n\n` +
-      `💡 <i>El radar está restringido para buscar solo dentro de nuestros grupos y canales oficiales.</i>`,
+      `${SYM.CROSS} Se localizó el usuario en Telegram, pero <b>no registra actividad</b> en nuestros grupos ni historial en la comunidad.\n\n` +
+      `💡 <i>El radar prioriza usuarios registrados dentro de nuestros grupos oficiales.</i>`,
       { parse_mode: 'HTML' }
     );
   }

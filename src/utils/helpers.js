@@ -59,6 +59,18 @@ function extractTarget(ctx) {
     return {
       userId: null,
       username: arg,
+      query: arg,
+      firstName: null,
+    };
+  }
+
+  // 3. Consulta de búsqueda por nombre o frase (ej: "arthur fso", "Carlos", etc.)
+  const fullQuery = parts.slice(1).join(' ').trim();
+  if (fullQuery) {
+    return {
+      userId: null,
+      username: fullQuery.startsWith('@') ? fullQuery.slice(1) : null,
+      query: fullQuery,
       firstName: null,
     };
   }
@@ -67,7 +79,7 @@ function extractTarget(ctx) {
 }
 
 /**
- * Resuelve de forma completa un target (ID, username o reply) buscando en API y BD.
+ * Resuelve de forma completa un target (ID, username, nombre o reply) buscando en Userbot, API y BD.
  */
 async function resolveTarget(ctx) {
   const target = extractTarget(ctx);
@@ -85,21 +97,23 @@ async function resolveTarget(ctx) {
     return target;
   }
 
-  // Si tenemos username (ej: cinefastperu)
-  if (target.username) {
-    const cleanUsername = target.username.replace(/^@/, '');
+  const query = target.query || target.username;
+  if (!query) return null;
 
-    // 1. Intentar resolver vía Userbot MTProto si está activo
-    if (userbot.isConnected()) {
-      try {
-        const ubUser = await userbot.resolveUser(cleanUsername);
-        if (ubUser && ubUser.userId) {
-          return ubUser;
-        }
-      } catch (err) {}
-    }
+  const cleanUsername = query.replace(/^@/, '').trim();
 
-    // 1. Intentar resolver via Telegram API getChat
+  // 1. Intentar resolver vía Userbot MTProto si es username o ID
+  if (userbot.isConnected() && !cleanUsername.includes(' ')) {
+    try {
+      const ubUser = await userbot.resolveUser(cleanUsername);
+      if (ubUser && ubUser.userId) {
+        return ubUser;
+      }
+    } catch (err) {}
+  }
+
+  // 2. Intentar resolver via Telegram API getChat (si no tiene espacios)
+  if (!cleanUsername.includes(' ')) {
     try {
       const chatInfo = await ctx.api.getChat(`@${cleanUsername}`);
       if (chatInfo && chatInfo.id) {
@@ -110,29 +124,53 @@ async function resolveTarget(ctx) {
         };
       }
     } catch {}
+  }
 
-    // 2. Buscar en la base de datos de usuarios registrados
+  // 3. Buscar en la base de datos de usuarios registrados (por username exacto o búsqueda tokenizada)
+  try {
+    const dbUser = await db.getUserByUsername(cleanUsername);
+    if (dbUser && dbUser.user_id) {
+      return {
+        userId: Number(dbUser.user_id),
+        username: dbUser.username || cleanUsername,
+        firstName: dbUser.first_name || null,
+      };
+    }
+
+    const searchMatches = await db.searchUsers(query);
+    if (searchMatches && searchMatches.length > 0) {
+      const match = searchMatches[0];
+      return {
+        userId: Number(match.user_id),
+        username: match.username || null,
+        firstName: match.first_name || null,
+      };
+    }
+  } catch {}
+
+  // 4. Búsqueda inteligente con Userbot MTProto (contacts.Search y grupos)
+  if (userbot.isConnected()) {
     try {
-      const dbUser = await db.getUserByUsername(cleanUsername);
-      if (dbUser && dbUser.user_id) {
+      const ubMatches = await userbot.searchCommunityUsers(query);
+      if (ubMatches && ubMatches.length > 0) {
+        const match = ubMatches[0];
+        db.upsertUser(match.user_id, match.username, match.first_name).catch(() => {});
         return {
-          userId: Number(dbUser.user_id),
-          username: dbUser.username || cleanUsername,
-          firstName: dbUser.first_name || null,
+          userId: Number(match.user_id),
+          username: match.username || null,
+          firstName: match.first_name || null,
         };
       }
     } catch {}
-
-    // 3. Retornar con el username para indicar qué falta
-    return {
-      userId: null,
-      username: cleanUsername,
-      firstName: null,
-      unresolved: true,
-    };
   }
 
-  return null;
+  // 5. Retornar con el username para indicar que no pudo resolverse
+  return {
+    userId: null,
+    username: cleanUsername,
+    firstName: null,
+    unresolved: true,
+  };
 }
 
 /**

@@ -260,48 +260,54 @@ async function searchUsers(query) {
   const clean = query.replace(/^@/, '').trim();
   const isNumeric = /^\d+$/.test(clean);
 
+  const cleanNormalized = clean
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  const words = cleanNormalized.split(/\s+/).filter(Boolean);
+  const cleanNoSpaces = cleanNormalized.replace(/[\s_\-\.]+/g, '');
+
   let results = [];
   if (useSupabase && supabase) {
     let q = supabase.from('users').select('*');
     if (isNumeric) {
       q = q.or(`user_id.eq.${clean},first_name.ilike.%${clean}%,username.ilike.%${clean}%`);
     } else {
-      q = q.or(`first_name.ilike.%${clean}%,username.ilike.%${clean}%`);
+      q = q.or(`first_name.ilike.%${clean}%,username.ilike.%${clean}%,first_name.ilike.%${cleanNoSpaces}%,username.ilike.%${cleanNoSpaces}%`);
     }
-    const { data, error } = await q.limit(10);
+    const { data, error } = await q.limit(15);
     if (error) console.error('⟡ Supabase searchUsers error:', error.message);
     results = data || [];
   } else if (pool) {
     if (isNumeric) {
       const res = await pool.query(
-        `SELECT * FROM users WHERE user_id = $1 OR first_name ILIKE $2 OR username ILIKE $2 LIMIT 10`,
+        `SELECT * FROM users WHERE user_id = $1 OR first_name ILIKE $2 OR username ILIKE $2 LIMIT 15`,
         [Number(clean), `%${clean}%`]
       );
       results = res.rows || [];
     } else {
       const res = await pool.query(
-        `SELECT * FROM users WHERE first_name ILIKE $1 OR username ILIKE $1 LIMIT 10`,
-        [`%${clean}%`]
+        `SELECT * FROM users 
+         WHERE first_name ILIKE $1 OR username ILIKE $1 
+            OR first_name ILIKE $2 OR username ILIKE $2 
+            OR REPLACE(first_name, ' ', '') ILIKE $2
+         LIMIT 15`,
+        [`%${clean}%`, `%${cleanNoSpaces}%`]
       );
       results = res.rows || [];
     }
   }
 
-  const cleanNormalized = clean
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-
-  // Fallback Universal: Si SQL no encontró por fuentes raras/unicodes/decoraciones
+  // Fallback Universal: Si SQL no encontró por fuentes raras/unicodes/espacios/decoraciones
   if (results.length === 0 && !isNumeric && cleanNormalized.length >= 2) {
     try {
       let allUsers = [];
       if (useSupabase && supabase) {
-        const { data } = await supabase.from('users').select('*').limit(2000);
+        const { data } = await supabase.from('users').select('*').limit(2500);
         allUsers = data || [];
       } else if (pool) {
-        const res = await pool.query(`SELECT * FROM users LIMIT 2000`);
+        const res = await pool.query(`SELECT * FROM users LIMIT 2500`);
         allUsers = res.rows || [];
       }
 
@@ -314,20 +320,65 @@ async function searchUsers(query) {
           .normalize('NFKD')
           .replace(/[\u0300-\u036f]/g, '')
           .toLowerCase();
-        return normFirst.includes(cleanNormalized) || normUser.includes(cleanNormalized);
-      }).slice(0, 10);
+        const normFirstNoSpaces = normFirst.replace(/[\s_\-\.]+/g, '');
+        const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
+
+        const directMatch = normFirst.includes(cleanNormalized) || normUser.includes(cleanNormalized);
+        const noSpacesMatch = cleanNoSpaces.length >= 2 && (normFirstNoSpaces.includes(cleanNoSpaces) || normUserNoSpaces.includes(cleanNoSpaces));
+        const wordsMatch = words.length > 1 && words.every((w) => normFirst.includes(w) || normUser.includes(w) || normFirstNoSpaces.includes(w));
+
+        return directMatch || noSpacesMatch || wordsMatch;
+      }).slice(0, 15);
     } catch (err) {
       console.warn('⟡ Error en fallback unicode search:', err.message);
     }
   }
 
-  // Comprobar estado de estafa en cada resultado
-  for (const u of results) {
+  // También buscar en burned_users para garantizar que estafadores registrados aparezcan siempre
+  if (!isNumeric && cleanNormalized.length >= 2) {
     try {
-      const burned = await isUserBurned(u.user_id, u.username);
-      u.is_burned = !!burned;
-    } catch {
-      u.is_burned = false;
+      const allBurned = await getAllBurnedUsers(50, 0);
+      for (const b of allBurned) {
+        const normFirst = (b.first_name || '')
+          .normalize('NFKD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+        const normUser = (b.username || '')
+          .normalize('NFKD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+        const normFirstNoSpaces = normFirst.replace(/[\s_\-\.]+/g, '');
+        const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
+
+        const directMatch = normFirst.includes(cleanNormalized) || normUser.includes(cleanNormalized);
+        const noSpacesMatch = cleanNoSpaces.length >= 2 && (normFirstNoSpaces.includes(cleanNoSpaces) || normUserNoSpaces.includes(cleanNoSpaces));
+        const wordsMatch = words.length > 1 && words.every((w) => normFirst.includes(w) || normUser.includes(w) || normFirstNoSpaces.includes(w));
+
+        if (directMatch || noSpacesMatch || wordsMatch) {
+          if (!results.some((r) => Number(r.user_id) === Number(b.user_id))) {
+            results.push({
+              user_id: Number(b.user_id),
+              username: b.username || null,
+              first_name: b.first_name || 'Estafador Fichado',
+              is_burned: true,
+              in_database: true,
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // Comprobar estado de estafa y marcar registro en cada resultado
+  for (const u of results) {
+    u.in_database = true;
+    if (u.is_burned === undefined) {
+      try {
+        const burned = await isUserBurned(u.user_id, u.username);
+        u.is_burned = !!burned;
+      } catch {
+        u.is_burned = false;
+      }
     }
   }
 
