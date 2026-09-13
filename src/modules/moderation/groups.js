@@ -103,16 +103,15 @@ function register(bot) {
       if (targetThreadId) updateEnvFile('STAFF_THREAD_ID', targetThreadId);
 
       await ctx.reply(
-        `${SYM.DIVIDER}\n` +
-        `${SYM.CHECK} <b>HILO / SALA DE TRATOS ADMIN CONFIGURADO</b> ${SYM.CHECK}\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.CHECK} <b>Grupo:</b> <b>${targetTitle}</b>\n` +
-        `${SYM.ARROW} <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
-        (targetThreadId ? `${SYM.ARROW} <b>Hilo / Tema (Topic ID):</b> <code>${targetThreadId}</code>\n` : `${SYM.ARROW} <b>Ubicación:</b> Chat Principal\n`) +
-        `${SYM.ARROW} <b>Destino:</b> Solicitudes entrantes de <code>/tratoadm</code> para mediadores.\n` +
-        `${SYM.CHECK} <b>Persistencia:</b> Guardado permanentemente en Supabase y .env.\n\n` +
-        `${SYM.THIN_LINE}\n` +
-        `${SYM.STAR} Todas las solicitudes de Trato Admin llegarán directamente a este ${targetThreadId ? 'hilo/tema' : 'chat'}.`,
+        `⟡ <b>SALA DE TRATOS ADMIN</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Grupo:</b> <b>${targetTitle}</b>\n` +
+        `▸ <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
+        (targetThreadId ? `▸ <b>Hilo / Tema (Topic ID):</b> <code>${targetThreadId}</code>\n` : `▸ <b>Ubicación:</b> Chat Principal\n`) +
+        `▸ <b>Enrutamiento:</b> Solicitudes entrantes de <code>/tratoadm</code> para mediadores.\n` +
+        `▸ <b>Persistencia:</b> Almacenado permanentemente en Supabase y .env.\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `✓ <i>Todas las solicitudes de Trato Admin serán derivadas directamente aquí.</i>`,
         {
           parse_mode: 'HTML',
           ...(targetThreadId ? { message_thread_id: targetThreadId } : {}),
@@ -120,7 +119,7 @@ function register(bot) {
       );
     } catch (err) {
       console.error('⟡ Error en /set_staff:', err.message);
-      await ctx.reply(`${SYM.CROSS} Error al configurar destino de tratos: ${err.message}`, { parse_mode: 'HTML' });
+      await ctx.reply(`⟡ ✗ Error al configurar destino de tratos: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 
@@ -133,7 +132,7 @@ function register(bot) {
 
       // Validar permisos en chats no-canales
       if (!isChannel && userId && !config.OWNER_IDS.includes(userId)) {
-        return ctx.reply(`${SYM.CROSS} Solo los <b>Owners</b> pueden configurar el canal/hilo de logs.`, {
+        return ctx.reply(`⟡ ✗ <i>Solo los <b>Owners Supremos</b> pueden configurar el canal de logs.</i>`, {
           parse_mode: 'HTML',
         });
       }
@@ -154,8 +153,10 @@ function register(bot) {
         } catch {}
       } else if (ctx.chat.type === 'private') {
         return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> Ejecuta este comando dentro del canal/hilo de logs, o usa:\n` +
-          `<code>/set_canal_logs [ID_DEL_CANAL]</code>`,
+          `⟡ <b>CANAL DE AUDITORÍA & LOGS</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Uso:</b> Ejecuta este comando dentro del canal/hilo de logs, o escribe:\n` +
+          `  <code>/set_canal_logs [ID_DEL_CANAL]</code>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -170,16 +171,15 @@ function register(bot) {
       if (targetThreadId) updateEnvFile('LOG_THREAD_ID', targetThreadId);
 
       const confirmText =
-        `${SYM.DIVIDER}\n` +
-        `${SYM.CHECK} <b>DESTINO DE LOGS Y AUDITORÍA CONFIGURADO</b> ${SYM.CHECK}\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.CHECK} <b>Nombre:</b> <b>${targetTitle}</b>\n` +
-        `${SYM.ARROW} <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
-        (targetThreadId ? `${SYM.ARROW} <b>Hilo / Tema (Topic ID):</b> <code>${targetThreadId}</code>\n` : `${SYM.ARROW} <b>Ubicación:</b> Canal / Chat Principal\n`) +
-        `${SYM.ARROW} <b>Destino:</b> Moderación (/ban, /gban), respaldos .json de chats y auditoría.\n` +
-        `${SYM.CHECK} <b>Persistencia:</b> Guardado permanentemente en Supabase y .env.\n\n` +
-        `${SYM.THIN_LINE}\n` +
-        `${SYM.STAR} Todas las copias de seguridad de tratos y logs se enviarán aquí.`;
+        `⟡ <b>CANAL DE AUDITORÍA & LOGS</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Nombre:</b> <b>${targetTitle}</b>\n` +
+        `▸ <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
+        (targetThreadId ? `▸ <b>Hilo / Tema (Topic ID):</b> <code>${targetThreadId}</code>\n` : `▸ <b>Ubicación:</b> Canal / Chat Principal\n`) +
+        `▸ <b>Destino:</b> Registros de moderación (/ban, /gban), respaldos .json y auditoría.\n` +
+        `▸ <b>Persistencia:</b> Almacenado permanentemente en Supabase y .env.\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `🛡️ <i>Canal oficial de auditoría perimetral activado.</i>`;
 
       if (isChannel) {
         await ctx.api.sendMessage(targetChatId, confirmText, {
@@ -195,7 +195,7 @@ function register(bot) {
     } catch (err) {
       console.error('⟡ Error en /set_canal_logs:', err.message);
       try {
-        await ctx.reply(`${SYM.CROSS} Error al configurar destino de logs: ${err.message}`, { parse_mode: 'HTML' });
+        await ctx.reply(`⟡ ✗ Error al configurar canal de logs: ${err.message}`, { parse_mode: 'HTML' });
       } catch {}
     }
   }
@@ -210,7 +210,7 @@ function register(bot) {
       const userId = ctx.from?.id;
 
       if (!isChannel && userId && !config.OWNER_IDS.includes(userId)) {
-        return ctx.reply(`${SYM.CROSS} Solo los <b>Owners</b> pueden configurar este destino.`, {
+        return ctx.reply(`⟡ ✗ <i>Solo los <b>Owners Supremos</b> pueden configurar este destino.</i>`, {
           parse_mode: 'HTML',
         });
       }
@@ -230,8 +230,10 @@ function register(bot) {
         } catch {}
       } else if (ctx.chat.type === 'private') {
         return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> Ejecuta este comando dentro del grupo/hilo donde deben llegar los reportes de /quemar, o usa:\n` +
-          `<code>/set_quemar [ID_DEL_GRUPO]</code>`,
+          `⟡ <b>HILO DE REPORTES /QUEMAR</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Uso:</b> Ejecuta este comando dentro del grupo/hilo donde deben llegar las denuncias, o escribe:\n` +
+          `  <code>/set_quemar [ID_DEL_GRUPO]</code>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -245,16 +247,15 @@ function register(bot) {
       if (targetThreadId) updateEnvFile('BURN_THREAD_ID', targetThreadId);
 
       await ctx.reply(
-        `${SYM.DIVIDER}\n` +
-        `${SYM.CHECK} <b>HILO / SALA DE REPORTES /QUEMAR CONFIGURADO</b> ${SYM.CHECK}\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.CHECK} <b>Grupo:</b> <b>${targetTitle}</b>\n` +
-        `${SYM.ARROW} <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
-        (targetThreadId ? `${SYM.ARROW} <b>Hilo / Tema (Topic ID):</b> <code>${targetThreadId}</code>\n` : `${SYM.ARROW} <b>Ubicación:</b> Chat Principal\n`) +
-        `${SYM.ARROW} <b>Destino:</b> Denuncias y pruebas fotográficas de estafadores para revisión.\n` +
-        `${SYM.CHECK} <b>Persistencia:</b> Guardado permanentemente en Supabase y .env.\n\n` +
-        `${SYM.THIN_LINE}\n` +
-        `${SYM.STAR} Todos los reportes del comando /quemar llegarán directamente a este ${targetThreadId ? 'hilo/tema' : 'chat'}.`,
+        `⟡ <b>HILO DE REPORTES /QUEMAR</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Grupo:</b> <b>${targetTitle}</b>\n` +
+        `▸ <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
+        (targetThreadId ? `▸ <b>Hilo / Tema (Topic ID):</b> <code>${targetThreadId}</code>\n` : `▸ <b>Ubicación:</b> Chat Principal\n`) +
+        `▸ <b>Destino:</b> Denuncias y comprobantes de estafa para dictamen del Staff.\n` +
+        `▸ <b>Persistencia:</b> Almacenado permanentemente en Supabase y .env.\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `⚖️ <i>Todos los reportes de estafa serán centralizados en esta sala.</i>`,
         {
           parse_mode: 'HTML',
           ...(targetThreadId ? { message_thread_id: targetThreadId } : {}),
@@ -262,7 +263,7 @@ function register(bot) {
       );
     } catch (err) {
       console.error('⟡ Error en /set_quemar:', err.message);
-      await ctx.reply(`${SYM.CROSS} Error al configurar destino de quemar: ${err.message}`, { parse_mode: 'HTML' });
+      await ctx.reply(`⟡ ✗ Error al configurar destino de quemar: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 
@@ -275,7 +276,7 @@ function register(bot) {
 
       // 1. Validar permisos en no-canales
       if (!isChannel && userId && !config.OWNER_IDS.includes(userId)) {
-        return ctx.reply(`${SYM.CROSS} Solo los <b>Owners</b> pueden configurar este canal.`, {
+        return ctx.reply(`⟡ ✗ <i>Solo los <b>Owners Supremos</b> pueden configurar este canal.</i>`, {
           parse_mode: 'HTML',
         });
       }
@@ -296,8 +297,10 @@ function register(bot) {
         } catch {}
       } else if (ctx.chat.type === 'private') {
         return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> Ejecuta este comando dentro del canal oficial de quemados, o usa:\n` +
-          `<code>/set_canal_quemar [ID_DEL_CANAL]</code>`,
+          `⟡ <b>CANAL PÚBLICO DE QUEMADOS</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Uso:</b> Ejecuta este comando dentro del canal de quemados, o escribe:\n` +
+          `  <code>/set_canal_quemar [ID_DEL_CANAL]</code>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -312,16 +315,15 @@ function register(bot) {
       if (targetThreadId) updateEnvFile('PUBLIC_BURN_THREAD_ID', targetThreadId);
 
       const confirmText =
-        `${SYM.DIVIDER}\n` +
-        `${SYM.CHECK} <b>CANAL OFICIAL DE QUEMADOS CONFIGURADO</b> ${SYM.CHECK}\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.CHECK} <b>Nombre:</b> <b>${targetTitle}</b>\n` +
-        `${SYM.ARROW} <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
-        (targetThreadId ? `${SYM.ARROW} <b>Hilo / Topic:</b> <code>${targetThreadId}</code>\n` : `${SYM.ARROW} <b>Ubicación:</b> Canal Principal\n`) +
-        `${SYM.ARROW} <b>Destino:</b> Publicaciones automáticas con Banners de Perfil de estafadores quemados y pruebas.\n` +
-        `${SYM.CHECK} <b>Persistencia:</b> Guardado permanentemente en Supabase y .env.\n\n` +
-        `${SYM.THIN_LINE}\n` +
-        `${SYM.STAR} Cada vez que el Staff apruebe un reporte, se publicará automáticamente aquí.`;
+        `⟡ <b>CANAL PÚBLICO DE QUEMADOS</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Nombre:</b> <b>${targetTitle}</b>\n` +
+        `▸ <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
+        (targetThreadId ? `▸ <b>Hilo / Topic:</b> <code>${targetThreadId}</code>\n` : `▸ <b>Ubicación:</b> Canal Principal\n`) +
+        `▸ <b>Destino:</b> Publicaciones automáticas de fichas Canvas y fichas periciales de estafadores.\n` +
+        `▸ <b>Persistencia:</b> Almacenado permanentemente en Supabase y .env.\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `🔥 <i>Muro público de sentencias y desarticulación de fraude activo.</i>`;
 
       if (isChannel) {
         await ctx.api.sendMessage(targetChatId, confirmText, {

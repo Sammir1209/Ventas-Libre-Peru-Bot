@@ -114,12 +114,11 @@ function register(bot) {
         } catch {}
 
         return ctx.reply(
-          `${SYM.DIVIDER}\n` +
-          `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS (/QUEMAR)</b> ${SYM.DIAMOND}\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `${SYM.ARROW} Por motivos de <b>seguridad y confidencialidad</b>, los reportes de estafa se realizan <b>exclusivamente por mensaje privado (DM)</b> con el bot.\n\n` +
-          `${SYM.THIN_LINE}\n` +
-          `${SYM.STAR} Pulsa el botón de abajo para iniciar tu reporte de forma segura:`,
+          `⟡ <b>SISTEMA ANTI-FRAUDE</b> ⊱ <code>DENUNCIAS</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `Por protocolos de <b>seguridad y confidencialidad pericial</b>, los reportes de estafa se realizan <b>exclusivamente por mensaje privado</b> con el bot.\n\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🔥 <i>Pulsa el botón oficial de abajo para iniciar tu denuncia con pruebas:</i>`,
           {
             parse_mode: 'HTML',
             reply_markup: new InlineKeyboard().url(
@@ -778,12 +777,14 @@ function register(bot) {
 
       await ctx.replyWithPhoto(cardFile, {
         caption:
-          `🖼️ <b>VISTA PREVIA DEL PERFIL (CAPTURA TELEGRAM NATIVA)</b>\n\n` +
-          `👤 <b>Usuario:</b> <b>${escapeHtml(targetName)}</b>\n` +
-          (targetUsername ? `🔗 <b>Username:</b> @${targetUsername}\n` : '') +
-          `🆔 <b>ID:</b> <code>${targetUser.userId}</code>\n` +
-          (isBurned ? `\n🚨 <b>ESTADO:</b> <b>LISTA NEGRA (QUEMADO)</b>\n` : '') +
-          `\n${SYM.STAR} <i>Captura nativa de Telegram Desktop / Móvil en Ultra HD.</i>`,
+          `⟡ <b>FICHA DE IDENTIFICACIÓN</b> ⊱ <code>CANVAS TELEGRAM</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Nombre:</b> <b>${escapeHtml(targetName)}</b>\n` +
+          (targetUsername ? `▸ <b>Username:</b> @${targetUsername}\n` : '') +
+          `▸ <b>ID de Usuario:</b> <code>${targetUser.userId}</code>\n` +
+          (isBurned ? `▸ <b>Antecedentes:</b> 🚨 <b>LISTA NEGRA (ESTAFADOR QUEMADO)</b>\n` : '') +
+          `──────────────────────────────────────────────────────\n` +
+          `📸 <i>Renderizado forense nativo en ultra definición.</i>`,
         parse_mode: 'HTML',
       });
 

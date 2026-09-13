@@ -495,15 +495,14 @@ function register(bot) {
       const staffList = await db.getAllStaff(ctx.tenant?.id || null);
 
       const text =
-        `${SYM.DIVIDER}\n` +
-        `🛰️ <b>MOTOR CENTINELA VLP — RED DE SEGURIDAD</b> 🛡️\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `➜ <b>Estado del Sistema:</b> <b>EN LÍNEA / ACTIVO 🟢</b>\n` +
-        `➜ <b>Grupos Protegidos:</b> <code>${groups.length}</code> comunidades\n` +
-        `➜ <b>Estafadores en Lista Negra:</b> <code>${burnedCount}</code> registros\n` +
-        `➜ <b>Staff y Guardianes:</b> <code>${staffList.length + config.OWNER_IDS.length}</code> agentes\n` +
-        `➜ <b>Motor MTProto Userbot:</b> <code>${userbot.isConnected() ? 'CONECTADO ⚡' : 'STANDBY ⚪'}</code>\n\n` +
-        `${SYM.THIN_LINE}\n` +
+        `⟡ <b>MOTOR CENTINELA VLP</b> ⊱ <code>RED DE SEGURIDAD</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Estado del Sistema:</b> ⊱ <code>EN LÍNEA / ACTIVO 🟢</code> ⊰\n` +
+        `▸ <b>Grupos Protegidos:</b> <code>${groups.length} comunidades</code>\n` +
+        `▸ <b>Estafadores en Lista Negra:</b> <code>${burnedCount} fichados</code>\n` +
+        `▸ <b>Staff y Guardianes:</b> <code>${staffList.length + config.OWNER_IDS.length} agentes</code>\n` +
+        `▸ <b>Motor MTProto Userbot:</b> <code>${userbot.isConnected() ? 'CONECTADO ⚡' : 'STANDBY ⚪'}</code>\n\n` +
+        `──────────────────────────────────────────────────────\n` +
         `⚡ <b>Módulos Integrados:</b>\n` +
         `• <i>Blacklist Dinámico en Tiempo Real (Anti-Intrusos)</i>\n` +
         `• <i>Anti-Impersonator & Detector de Clones de Staff</i>\n` +
@@ -532,8 +531,11 @@ function register(bot) {
 
       if (!target) {
         return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> <code>/analizar [@usuario / ID / Responder]</code>\n\n` +
-          `🔍 Ejecuta un escaneo forense completo de confiabilidad, antecedentes y riesgo.`,
+          `⟡ <b>ESCANEO FORENSE</b> ⊱ <code>CENTINELA</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Uso:</b> <code>/analizar [@usuario / ID / Responder]</code>\n\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🔍 <i>Ejecuta un escaneo forense completo de confiabilidad, antecedentes y riesgo.</i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -550,21 +552,20 @@ function register(bot) {
       const userMention = mentionFromData(target.userId, target.username, target.firstName);
 
       let text =
-        `${SYM.DIVIDER}\n` +
-        `🔬 <b>INFORME FORENSE CENTINELA — PERFIL</b> 🔬\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `➜ <b>Usuario:</b> ${userMention}\n` +
-        `➜ <b>ID:</b> <code>${target.userId}</code>\n` +
-        (target.username ? `➜ <b>Username:</b> @${target.username}\n` : '') +
-        `➜ <b>Nivel de Confianza:</b> <b>${profile.score}%</b>\n` +
-        `➜ <b>Clasificación de Riesgo:</b> <b>${profile.riskLevel}</b>\n\n` +
-        `${SYM.THIN_LINE}\n`;
+        `⟡ <b>INFORME FORENSE CENTINELA</b> ⊱ <code>PERFIL</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Usuario:</b> ${userMention}\n` +
+        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
+        (target.username ? `▸ <b>Username:</b> @${target.username}\n` : '') +
+        `▸ <b>Nivel de Confianza:</b> ⊱ <b>${profile.score}%</b> ⊰\n` +
+        `▸ <b>Clasificación de Riesgo:</b> ⊱ <b>${profile.riskLevel}</b> ⊰\n\n` +
+        `──────────────────────────────────────────────────────\n`;
 
       if (profile.isBurned) {
         text +=
           `🚨 <b>REGISTRO DE ESTAFADOR CONFIRMADO</b> 🚨\n` +
-          `📝 <b>Detalle:</b> <i>${escapeHtml(profile.burnInfo.context || 'Estafa')}</i>\n` +
-          `📅 <b>Fecha:</b> <code>${profile.burnInfo.burned_at || profile.burnInfo.created_at || 'Previa'}</code>\n\n` +
+          `▸ <b>Detalle:</b> <i>${escapeHtml(profile.burnInfo.context || 'Estafa')}</i>\n` +
+          `▸ <b>Fecha:</b> <code>${profile.burnInfo.burned_at || profile.burnInfo.created_at || 'Previa'}</code>\n\n` +
           `⚠️ <i>ADVERTENCIA: Usuario catalogado de peligro crítico. No realice operaciones.</i>\n`;
       } else {
         if (profile.trustFactors.length > 0) {
@@ -575,7 +576,7 @@ function register(bot) {
         }
       }
 
-      text += `${SYM.THIN_LINE}\n🛡️ <i>Centinela Engine — Sistema de Protección Oficial</i>`;
+      text += `──────────────────────────────────────────────────────\n🛡️ <i>Centinela Engine — Sistema de Protección Oficial</i>`;
 
       const kb = new InlineKeyboard()
         .text('VER PERFIL COMPLETO', `info_profile:${target.userId}`).primary()

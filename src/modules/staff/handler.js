@@ -205,11 +205,12 @@ function register(bot) {
       const rolesDisplay = initialSelected.length > 0 ? initialSelected.join(', ') : 'Ninguno (Usuario)';
 
       const cardText =
-        `👑 <b>PANEL DE ASIGNACIÓN DE STAFF</b>\n\n` +
-        `• <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
-        `• <b>ID:</b> <code>${target.userId}</code>\n` +
-        `• <b>Roles Seleccionados:</b> <b>${rolesDisplay}</b>\n\n` +
-        `${SYM.THIN_LINE}\n` +
+        `⟡ <b>GESTIÓN DE STAFF</b> ⊱ <code>ASIGNACIÓN DE ROLES</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
+        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
+        `▸ <b>Roles Seleccionados:</b> <b>${rolesDisplay}</b>\n\n` +
+        `──────────────────────────────────────────────────────\n` +
         `<i>Toca los roles que deseas activar o desactivar:</i>`;
 
       const kb = buildRolesKeyboard(target.userId, initialSelected);
@@ -242,8 +243,9 @@ function register(bot) {
 
       if (!target) {
         return ctx.reply(
-          `🛡️ <b>DEGRADACIÓN DE STAFF</b>\n\n` +
-          `• <b>Uso:</b> <code>/demote [ID, @username o responder a mensaje]</code>`,
+          `⟡ <b>DEGRADACIÓN DE STAFF</b> ⊱ <code>USO DEL COMANDO</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Uso:</b> <code>/demote [ID, @username o responder a mensaje]</code>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -264,10 +266,12 @@ function register(bot) {
         .text('CANCELAR', 'staff_cancel').primary();
 
       await ctx.reply(
-        `⚠️ <b>CONFIRMAR REMOCIÓN DE STAFF</b>\n\n` +
-        `• <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
-        `• <b>ID:</b> <code>${target.userId}</code>\n\n` +
-        `¿Deseas revocar todos los permisos de Administrador y eliminar del Staff oficial?`,
+        `⟡ <b>REVOCACIÓN DE STAFF</b> ⊱ <code>CONFIRMACIÓN</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
+        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `¿Deseas revocar todos los permisos de Administrador y remover al usuario del Staff?`,
         { parse_mode: 'HTML', reply_markup: kb }
       );
     } catch (err) {
@@ -339,11 +343,12 @@ function register(bot) {
       const rolesDisplay = selected.join(', ');
 
       const cardText =
-        `🏷️ <b>SELECCIÓN DE TAG OFICIAL PARA GRUPOS</b>\n\n` +
-        `• <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
-        `• <b>Roles:</b> <b>${rolesDisplay}</b>\n\n` +
-        `${SYM.THIN_LINE}\n` +
-        `<i>Selecciona qué título/tag oficial debe mostrar este miembro en los grupos o escribe uno personalizado:</i>`;
+        `⟡ <b>DISTINTIVO OFICIAL</b> ⊱ <code>TAG EN GRUPOS</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
+        `▸ <b>Jerarquía:</b> <b>${rolesDisplay}</b>\n\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `<i>Selecciona el título oficial que se mostrará en los grupos o escribe uno personalizado:</i>`;
 
       const kb = buildTagKeyboard(targetId, selected);
       await safeEditMessage(ctx, cardText, { parse_mode: 'HTML', reply_markup: kb });
@@ -736,14 +741,15 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
   const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
   const confirmationText =
-    `👑 <b>ASIGNACIÓN DE STAFF COMPLETADA</b> 👑\n\n` +
-    `• <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
-    `• <b>ID:</b> <code>${targetId}</code>\n` +
-    `• <b>Roles Asignados:</b> <b>${rolesStr}</b>\n` +
-    `• <b>Tag en Grupos:</b> <code>${escapeHtml(customTag)}</code>\n` +
-    `• <b>Permisos de Admin:</b> ✓ ACTIVOS EN TELEGRAM\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `<i>Promovido por: ${adminMention}</i>`;
+    `⟡ <b>ASIGNACIÓN DE STAFF</b> ⊱ <code>CONFIGURACIÓN COMPLETADA</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
+    `▸ <b>ID Numérico:</b> <code>${targetId}</code>\n` +
+    `▸ <b>Jerarquía Asignada:</b> <b>${rolesStr}</b>\n` +
+    `▸ <b>Distintivo Oficial:</b> <code>${escapeHtml(customTag)}</code>\n` +
+    `▸ <b>Permisos de Administrador:</b> ⊱ <code>ACTIVOS EN TELEGRAM ✓</code> ⊰\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `🛡️ <i>Promovido por: ${adminMention}</i>`;
 
   // 3. Registrar en Redis al nuevo promovido para darle la bienvenida especial cuando ingrese al grupo de Staff
   const STAFF_INVITE_LINK = 'https://t.me/+IEooR3P_yHVhZTc0';
@@ -768,17 +774,16 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
   // 4. Enviar Mensaje Directo (DM / MD) de Bienvenida al nuevo miembro del Staff con el enlace oficial
   try {
     const dmWelcome =
-      `${SYM.DIVIDER}\n` +
-      `👑 <b>¡FELICITACIONES! HAS SIDO PROMOVIDO AL STAFF</b>\n` +
-      `${SYM.DIVIDER}\n\n` +
+      `⟡ <b>EQUIPO OFICIAL</b> ⊱ <code>BIENVENIDA AL STAFF</code> ⊰\n` +
+      `══════════════════════════════════════════════════════\n\n` +
       `Hola <b>${nameFormatted}</b>, has sido designado oficialmente como parte del equipo de administración de <b>Ventas Libres Perú</b>.\n\n` +
-      `🏷️ <b>Tu Rango / Roles:</b> <code>${rolesStr}</code>\n` +
-      `🏷️ <b>Tag Oficial:</b> <code>${escapeHtml(customTag)}</code>\n` +
-      `👤 <b>Asignado por:</b> ${adminMention}\n\n` +
-      `${SYM.THIN_LINE}\n` +
+      `▸ <b>Jerarquía / Roles:</b> <code>${rolesStr}</code>\n` +
+      `▸ <b>Distintivo Oficial:</b> <code>${escapeHtml(customTag)}</code>\n` +
+      `▸ <b>Asignado por:</b> ${adminMention}\n\n` +
+      `──────────────────────────────────────────────────────\n` +
       `🛡️ <b>Únete de inmediato al Grupo Oficial del Staff:</b>\n` +
-      `👉 <a href="${STAFF_INVITE_LINK}">${STAFF_INVITE_LINK}</a>\n\n` +
-      `<i>¡Bienvenido a la familia de Ventas Libres Perú! Mantén siempre el compromiso, la honestidad y la seguridad de la comunidad.</i>`;
+      `👉 <a href="${STAFF_INVITE_LINK}"><b>[ ENTRAR AL GRUPO DE STAFF ]</b></a>\n\n` +
+      `<i>¡Bienvenido al Staff de Ventas Libres Perú! Compromiso, honorabilidad y seguridad para la comunidad.</i>`;
 
     const dmKeyboard = new InlineKeyboard()
       .url('🛡️ UNIRSE AL GRUPO DE STAFF', STAFF_INVITE_LINK);

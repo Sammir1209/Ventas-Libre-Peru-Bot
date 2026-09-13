@@ -138,41 +138,45 @@ async function buildUserProfile(ctx, targetUser) {
     }
 
     text =
-      `${headerIcon} <b>PERFIL OFICIAL — ${headerTitle}</b> ${headerIcon}\n\n` +
-      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
-      `• <b>Usuario:</b> ${userTag}\n` +
-      `• <b>ID:</b> <code>${userId}</code>\n\n` +
-      `⚜️ <b>Roles Asignados:</b> <b>${rolesList.join(' + ')}</b>\n` +
-      (customTitle ? `🏷️ <b>Tag en Grupos:</b> <code>${escapeHtml(customTitle)}</code>\n` : '');
+      `⟡ <b>𝐏𝐄𝐑𝐅𝐈𝐋 𝐎𝐅𝐈𝐂𝐈𝐀𝐋</b> ⊱ <code>${headerTitle}</code> ⊰\n` +
+      `══════════════════════════════════════════════════════\n\n` +
+      `▸ <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
+      `▸ <b>Usuario:</b> ${userTag}\n` +
+      `▸ <b>ID Numérico:</b> <code>${userId}</code>\n\n` +
+      `▸ <b>Jerarquía:</b> <b>${rolesList.join(' + ')}</b>\n` +
+      (customTitle ? `▸ <b>Distintivo en Grupos:</b> <code>${escapeHtml(customTitle)}</code>\n` : '');
 
     if (isDealAdmin) {
       text +=
-        `💼 <b>Mediaciones Realizadas:</b> <b>${dealsCount} caso(s)</b>\n` +
-        `⭐ <b>Reputación de Mediador:</b> <b>${rating} / 5.0</b> (${totalRatings} reseñas)\n`;
+        `▸ <b>Mediaciones Exitosas:</b> <code>${dealsCount} tratos</code>\n` +
+        `▸ <b>Reputación de Mediador:</b> ⊱ ⭐ <b>${rating} / 5.0</b> (${totalRatings} reseñas) ⊰\n`;
     } else {
-      text += `📦 <b>Tratos Realizados:</b> <b>${dealsCount} caso(s)</b>\n`;
+      text += `▸ <b>Tratos Realizados:</b> <code>${dealsCount} operaciones</code>\n`;
     }
 
     text +=
-      `🟢 <b>Estado:</b> <b>Miembro del Staff Activo</b>\n\n` +
+      `▸ <b>Estado:</b> ⊱ <code>ACTIVO 🟢</code> ⊰\n\n` +
+      `──────────────────────────────────────────────────────\n` +
       `🛡️ <i>${escapeHtml(communityName)} — Equipo Oficial</i>`;
   } else {
-    // USUARIO NORMAL (Limpio, estético y nada recargado)
-    const verifiedStatus = isVerified ? 'Verificado 🟢' : 'Pendiente ⚪';
+    // USUARIO NORMAL
+    const verifiedStatus = isVerified ? 'VERIFICADO 🟢' : 'PENDIENTE ⚪';
     text =
-      `👤 <b>PERFIL DE USUARIO</b>\n\n` +
-      `• <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
-      `• <b>Usuario:</b> ${userTag}\n` +
-      `• <b>ID:</b> <code>${userId}</code>\n\n` +
-      `• <b>Rango:</b> <b>Usuario de la Comunidad</b>\n` +
-      `• <b>Canales:</b> <b>${verifiedStatus}</b>\n` +
-      `• <b>Tratos Realizados:</b> <b>${dealsCount} completado(s)</b>\n\n` +
-      `<i>Consulta de antecedentes y registros de seguridad:</i>`;
+      `⟡ <b>𝐏𝐄𝐑𝐅𝐈𝐋 𝐃𝐄 𝐔𝐒𝐔𝐀𝐑𝐈𝐎</b> ⊱ <code>COMUNIDAD</code> ⊰\n` +
+      `══════════════════════════════════════════════════════\n\n` +
+      `▸ <b>Nombre:</b> <b>${nameFormatted}</b>\n` +
+      `▸ <b>Usuario:</b> ${userTag}\n` +
+      `▸ <b>ID Numérico:</b> <code>${userId}</code>\n\n` +
+      `▸ <b>Rango:</b> <b>Usuario de la Comunidad</b>\n` +
+      `▸ <b>Membresía Canales:</b> ⊱ <code>${verifiedStatus}</code> ⊰\n` +
+      `▸ <b>Tratos Realizados:</b> <code>${dealsCount} completado(s)</code>\n\n` +
+      `──────────────────────────────────────────────────────\n` +
+      `🔍 <i>Consulta de antecedentes y registros de seguridad oficiales:</i>`;
   }
 
-  // Botón único permanente para consultar antecedentes sin botón de cerrar (así queda registro permanente en el buscador)
+  // Botón único permanente para consultar antecedentes
   const keyboard = new InlineKeyboard()
-    .text('VER ANTECEDENTES', `info_check_burn:${userId}`).success();
+    .text('🔍 VER ANTECEDENTES', `info_check_burn:${userId}`).success();
 
   return { text, keyboard };
 }
@@ -262,27 +266,26 @@ function register(bot) {
   bot.command('id', async (ctx) => {
     try {
       let replyText = 
-        `${SYM.DIVIDER}\n` +
-        `🔍 <b>IDENTIFICADORES (IDs)</b>\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `➜ <b>ID de este Chat:</b> <code>${ctx.chat.id}</code>\n`;
+        `⟡ <b>IDENTIFICADORES OFICIALES</b> ⊱ <code>TELEGRAM ID</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>ID de este Chat:</b> <code>${ctx.chat.id}</code>\n`;
       
       if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
-        replyText += `➜ <b>Tipo de Chat:</b> Grupo\n`;
+        replyText += `▸ <b>Tipo de Chat:</b> ⊱ <code>GRUPO</code> ⊰\n`;
       } else if (ctx.chat.type === 'channel') {
-        replyText += `➜ <b>Tipo de Chat:</b> Canal\n`;
+        replyText += `▸ <b>Tipo de Chat:</b> ⊱ <code>CANAL</code> ⊰\n`;
       } else {
-        replyText += `➜ <b>Tipo de Chat:</b> Privado\n`;
+        replyText += `▸ <b>Tipo de Chat:</b> ⊱ <code>PRIVADO</code> ⊰\n`;
       }
-
-      replyText += `\n`;
 
       if (ctx.message?.reply_to_message) {
         const repliedUser = ctx.message.reply_to_message.from;
-        replyText += `➜ <b>ID del usuario respondido:</b> <code>${repliedUser.id}</code>\n`;
+        replyText += `▸ <b>ID de Usuario Respondido:</b> <code>${repliedUser.id}</code>\n`;
       } else {
-        replyText += `➜ <b>Tu ID:</b> <code>${ctx.from.id}</code>\n`;
+        replyText += `▸ <b>Tu ID Numérico:</b> <code>${ctx.from.id}</code>\n`;
       }
+
+      replyText += `──────────────────────────────────────────────────────`;
 
       await ctx.reply(replyText, { parse_mode: 'HTML' });
     } catch (err) {
@@ -318,10 +321,12 @@ function register(bot) {
       const finalLink = groupInviteLink || folderLink;
 
       const text =
-        `${SYM.SEAL} <b>ENLACE DE INVITACIÓN</b> ${SYM.BADGE}\n\n` +
-        (isGroup ? `👥 <b>Grupo:</b> ${escapeHtml(groupTitle)}\n\n` : `🇵🇪 <b>Comunidad:</b> Ventas Libres Perú\n\n`) +
-        `🔗 <b>Enlace Oficial:</b>\n<code>${finalLink}</code>\n\n` +
-        `<i>Comparte este enlace para invitar a tus amigos y comerciantes a la comunidad.</i>`;
+        `⟡ <b>ENLACE DE INVITACIÓN OFICIAL</b> ⊱ <code>ACCESO</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        (isGroup ? `▸ <b>Grupo:</b> ${escapeHtml(groupTitle)}\n\n` : `▸ <b>Comunidad:</b> Ventas Libres Perú 🇵🇪\n\n`) +
+        `▸ <b>Enlace Verificado:</b>\n  ↳ <code>${finalLink}</code>\n\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `✨ <i>Comparte este enlace para invitar a comerciantes y amigos a la red oficial.</i>`;
 
       const kb = new InlineKeyboard();
       if (groupInviteLink) {
@@ -361,18 +366,16 @@ function register(bot) {
       if (!burnInfo) {
         // USUARIO LIMPIO
         const cleanText =
-          `${SYM.DIVIDER}\n` +
-          `${SYM.SHIELD} <b>CONSULTA DE ANTECEDENTES</b> ${SYM.CHECK}\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `${SYM.ARROW} <b>Usuario:</b> ${userMention}\n` +
-          `${SYM.ARROW} <b>ID:</b> <code>${targetId}</code>\n` +
-          `${SYM.ARROW} <b>Estado:</b> <b>LIMPIO 🟢</b>\n\n` +
-          `${SYM.THIN_LINE}\n` +
-          `${SYM.STAR} Este usuario <b>NO registra antecedentes</b> ni sanciones por estafa en la base de datos oficial.\n` +
-          `${SYM.THIN_LINE}`;
+          `⟡ <b>CONSULTA DE ANTECEDENTES</b> ⊱ <code>REGISTRO LIMPIO</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Usuario:</b> ${userMention}\n` +
+          `▸ <b>ID:</b> <code>${targetId}</code>\n` +
+          `▸ <b>Estado:</b> ⊱ <code>LIMPIO 🟢</code> ⊰\n\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `✓ <i>Este usuario NO registra antecedentes de estafa ni sanciones en la base de datos oficial.</i>`;
 
         const kb = new InlineKeyboard()
-          .text('VOLVER', `info_back:${targetId}`).primary();
+          .text('« VOLVER AL PERFIL', `info_back:${targetId}`).primary();
 
         try {
           await ctx.editMessageText(cleanText, {
@@ -400,22 +403,20 @@ function register(bot) {
           : 'Fecha no registrada';
 
         const burnText =
-          `${SYM.DIVIDER}\n` +
-          `${SYM.ALERT} <b>ALERTA: USUARIO QUEMADO</b> ${SYM.WARNING}\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `${SYM.CROSS} <b>Usuario:</b> ${userMention}\n` +
-          `${SYM.ARROW} <b>ID:</b> <code>${targetId}</code>\n` +
-          `${SYM.CROSS} <b>Estado:</b> <b>QUEMADO / ESTAFADOR 🔴</b>\n\n` +
-          `${SYM.THIN_LINE}\n` +
-          `${SYM.ARROW} <b>Motivo / Contexto:</b>\n<i>${escapeHtml(burnInfo.context || 'Reporte de estafa confirmado')}</i>\n\n` +
-          `${SYM.ARROW} <b>Reportado por:</b> <code>${burnInfo.reported_by || 'Staff'}</code>\n` +
-          `${SYM.ARROW} <b>Fecha de Registro:</b> ${dateStr}\n` +
-          `${SYM.THIN_LINE}\n\n` +
-          `${SYM.WARNING} <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
-          `No realices transferencias, depósitos ni entregas de productos con este usuario bajo ninguna circunstancia.`;
+          `🚨 <b>REGISTRO DE ESTAFADOR</b> ⊱ <code>LISTA NEGRA</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Usuario:</b> ${userMention}\n` +
+          `▸ <b>ID:</b> <code>${targetId}</code>\n` +
+          `▸ <b>Estado:</b> ⊱ <code>QUEMADO / ESTAFADOR 🔴</code> ⊰\n` +
+          `▸ <b>Fecha:</b> <code>${dateStr}</code>\n` +
+          `▸ <b>Motivo / Hechos:</b>\n  ↳ <i>${escapeHtml(burnInfo.context || 'Reporte de estafa confirmado')}</i>\n\n` +
+          `▸ <b>Reportado por:</b> <code>${burnInfo.reported_by || 'Staff'}</code>\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `⚠️ <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
+          `<i>No realices transferencias, pagos ni entregas con este usuario bajo ninguna circunstancia.</i>`;
 
         const kb = new InlineKeyboard()
-          .text('VOLVER', `info_back:${targetId}`).primary();
+          .text('« VOLVER AL PERFIL', `info_back:${targetId}`).primary();
 
         try {
           await ctx.editMessageText(burnText, {

@@ -85,10 +85,10 @@ async function executeSearch(ctx, rawQuery) {
 
   if (!results || results.length === 0) {
     return ctx.reply(
-      `${SYM.DIVIDER}\n` +
-      `🔍 <b>RADAR DE RASTREO — RESULTADO</b>\n` +
-      `${SYM.DIVIDER}\n\n` +
-      `${SYM.CROSS} No se encontraron coincidencias para: <code>${escapeHtml(query)}</code>\n\n` +
+      `⟡ <b>RADAR DE RASTREO</b> ⊱ <code>SIN RESULTADOS</code> ⊰\n` +
+      `══════════════════════════════════════════════════════\n\n` +
+      `✗ <i>No se localizaron coincidencias para:</i> <code>${escapeHtml(query)}</code>\n\n` +
+      `──────────────────────────────────────────────────────\n` +
       `💡 <i>Verifica que el nombre o @username esté bien escrito. Puedes buscar por nombre completo, alias (@user) o ID numérico.</i>`,
       { parse_mode: 'HTML' }
     );
@@ -198,16 +198,15 @@ async function executeSearch(ctx, rawQuery) {
     .text('🔥 Quemar (GBan)', `search_gban:${firstUser.user_id}`);
 
   let replyText = 
-    `${SYM.DIVIDER}\n` +
-    `👤 <b>USUARIO LOCALIZADO EN EL RADAR</b>\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `➜ <b>Nombre:</b> ${escapeHtml(firstUser.first_name || 'Sin nombre registrado')}\n` +
-    `➜ <b>Username:</b> ${usernameDisplay}\n` +
-    `➜ <b>ID Numérico:</b> <code>${firstUser.user_id}</code>\n` +
-    `➜ <b>Mención:</b> ${userMention}\n` +
-    `➜ <b>Estado:</b> ${statusBadge}\n` +
-    `➜ <b>Comunidad:</b> ${firstUser.communityStatus}\n\n` +
-    `${SYM.THIN_LINE}`;
+    `⟡ <b>RADAR DE RASTREO</b> ⊱ <code>USUARIO LOCALIZADO</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Nombre:</b> ${escapeHtml(firstUser.first_name || 'Sin nombre registrado')}\n` +
+    `▸ <b>Username:</b> ${usernameDisplay}\n` +
+    `▸ <b>ID de Telegram:</b> <code>${firstUser.user_id}</code>\n` +
+    `▸ <b>Mención:</b> ${userMention}\n` +
+    `▸ <b>Estado:</b> ${statusBadge}\n` +
+    `▸ <b>Comunidad:</b> ${firstUser.communityStatus}\n\n` +
+    `──────────────────────────────────────────────────────`;
 
   // Si hay más personas con nombres similares, ponerlos en una lista abajo
   if (finalResults.length > 1) {

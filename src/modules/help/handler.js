@@ -7,33 +7,38 @@ const { SYM, ROLES } = require('../../config/constants');
 // ⟡ Módulo: Guía de Ayuda y Protocolos de Actuación por Rol
 // ══════════════════════════════════════════════════════
 
+const { toMathBold, toMathSerifBold, toSmallCaps, AESTHETIC_DIVIDERS } = require('../../utils/aesthetic');
+
 /**
  * Genera la vista de ayuda para el rol de OWNER / CO-OWNER.
  */
 function buildOwnerHelp() {
   const text =
-    `${SYM.DIAMOND} <b>PANEL — OWNER / CO-OWNER</b>\n\n` +
-    `👑 <b>Staff:</b>\n` +
-    `${SYM.BULLET} <code>/promote</code> — Ascender rango\n` +
-    `${SYM.BULLET} <code>/demote</code> — Degradar rango\n` +
-    `${SYM.BULLET} <code>/staff</code> — Lista oficial\n\n` +
-    `🛡️ <b>Seguridad & Anti-Raid:</b>\n` +
-    `${SYM.BULLET} <code>/panico</code> — Lockdown de emergencia\n` +
-    `${SYM.BULLET} <code>/antiraid</code> — Configurar escudo anti-raid\n` +
-    `${SYM.BULLET} <code>/antiflood</code> — Control de flood y spam\n` +
-    `${SYM.BULLET} <code>/locks</code> — Bloqueos selectivos de contenido\n` +
-    `${SYM.BULLET} <code>/purge</code> — Limpiar spam masivo\n` +
-    `${SYM.BULLET} <code>/gban</code> — Baneo global + lista negra\n` +
-    `${SYM.BULLET} <code>/ungban</code> — Quitar de lista negra\n` +
-    `${SYM.BULLET} <code>/listanegra</code> — Ver estafadores\n` +
-    `${SYM.BULLET} <code>/info</code> — Consultar antecedentes\n\n` +
-    `⚙️ <b>Configuración:</b>\n` +
-    `${SYM.BULLET} <code>/set_grupo_tratos</code> — Grupo Escrow\n` +
-    `${SYM.BULLET} <code>/set_tratosadm</code> — Hilo solicitudes\n` +
-    `${SYM.BULLET} <code>/set_quemar</code> — Hilo reportes\n` +
-    `${SYM.BULLET} <code>/set_canal_quemar</code> — Canal público quemados\n` +
-    `${SYM.BULLET} <code>/set_logs</code> — Canal de logs\n` +
-    `${SYM.BULLET} <code>/verify</code> — Toggle verificación`;
+    `⟡ <b>PANEL DE CONTROL</b> ⊱ <code>OWNER & CO-OWNER</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>ADMINISTRACIÓN & STAFF</b>\n` +
+    `  • <code>/promote</code> — Ascender y asignar rangos oficiales\n` +
+    `  • <code>/demote</code> — Degradar rango a miembro regular\n` +
+    `  • <code>/staff</code> — Directorio oficial del Staff\n\n` +
+    `▸ <b>ESCUDO DE SEGURIDAD & ANTI-RAID</b>\n` +
+    `  • <code>/panico</code> — Lockdown inmediato en grupo (DEFCON 1)\n` +
+    `  • <code>/antiraid</code> — Configurar escudo anti-incursiones\n` +
+    `  • <code>/antiflood</code> — Control de spam por repetición\n` +
+    `  • <code>/locks</code> — Bloqueos selectivos (links, bots, media)\n` +
+    `  • <code>/purge</code> — Limpieza relámpago de mensajes\n` +
+    `  • <code>/gban</code> — Baneo global permanente + lista negra\n` +
+    `  • <code>/ungban</code> — Revocar baneo global\n` +
+    `  • <code>/blacklist</code> — Base de datos de estafadores\n` +
+    `  • <code>/info</code> — Antecedentes y perfil penal\n\n` +
+    `▸ <b>SISTEMA & ENRUTAMIENTO</b>\n` +
+    `  • <code>/set_grupo_tratos</code> — Grupo de mediaciones Escrow\n` +
+    `  • <code>/set_tratosadm</code> — Hilo / Topic de solicitudes\n` +
+    `  • <code>/set_quemar</code> — Hilo de recepción de denuncias\n` +
+    `  • <code>/set_canal_quemar</code> — Canal público de estafadores\n` +
+    `  • <code>/set_logs</code> — Canal privado de auditoría\n` +
+    `  • <code>/verify</code> — Toggle de verificación obligatoria\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `⚖️ <i>Protocolo maestro reservado para la alta dirección.</i>`;
 
   const kb = new InlineKeyboard()
     .text('PROTOCOLO TRATO ADMIN', 'help_view:trato_admin').primary()
@@ -49,13 +54,21 @@ function buildOwnerHelp() {
  */
 function buildTratoAdminHelp() {
   const text =
-    `${SYM.DIAMOND} <b>PROTOCOLO — TRATO ADMIN</b>\n\n` +
-    `<b>1.</b> Acepta solicitud → entra al hilo.\n` +
-    `<b>2.</b> Confirma monto y producto con ambas partes.\n` +
-    `<b>3.</b> Pasa tus datos de pago al <b>COMPRADOR</b>. <b>NUNCA</b> des luz verde sin ver el dinero reflejado.\n` +
-    `<b>4.</b> Confirma pago retenido → vendedor entrega.\n` +
-    `<b>5.</b> Comprador confirma → transfieres al vendedor → cierras hilo.\n\n` +
-    `<i>El bot pide calificación y respalda el chat automáticamente.</i>`;
+    `⟡ <b>PROTOCOLO OPERATIVO</b> ⊱ <code>TRATO ADMIN / ESCROW</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Fase 1: Aceptación</b>\n` +
+    `  ↳ Toma la solicitud pendiente e ingresa al hilo privado generado.\n\n` +
+    `▸ <b>Fase 2: Conciliación</b>\n` +
+    `  ↳ Confirma monto, moneda y especificaciones del producto con ambas partes.\n\n` +
+    `▸ <b>Fase 3: Retención de Fondos</b>\n` +
+    `  ↳ Envía tus cuentas de pago al <b>COMPRADOR</b>.\n` +
+    `  ⚠️ <i>NUNCA des luz verde sin verificar el dinero disponible en tu cuenta/app bancaria.</i>\n\n` +
+    `▸ <b>Fase 4: Entrega</b>\n` +
+    `  ↳ Una vez confirmado el pago en custodia, autoriza al <b>VENDEDOR</b> a entregar.\n\n` +
+    `▸ <b>Fase 5: Cierre & Liberación</b>\n` +
+    `  ↳ Comprador da visto bueno → transfieres los fondos al vendedor → cierras el trato.\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `🛡️ <i>El sistema solicita calificación y archiva la auditoría automáticamente.</i>`;
 
   const kb = new InlineKeyboard()
     .text('MIS ESTADISTICAS', 'help_view:my_stats').success()
@@ -70,17 +83,22 @@ function buildTratoAdminHelp() {
  */
 function buildAdminHelp() {
   const text =
-    `${SYM.DIAMOND} <b>MODERACIÓN — ADMIN</b>\n\n` +
-    `⚔️ <b>Control:</b>\n` +
-    `${SYM.BULLET} <code>/ban</code> — Banear del grupo\n` +
-    `${SYM.BULLET} <code>/unban</code> — Desbanear\n` +
-    `${SYM.BULLET} <code>/mute</code> — Silenciar\n` +
-    `${SYM.BULLET} <code>/unmute</code> — Desmutear\n\n` +
-    `🚨 <b>Anti-Estafas:</b>\n` +
-    `${SYM.BULLET} <code>/gban</code> — Baneo global\n` +
-    `${SYM.BULLET} <code>/ungban</code> — Quitar baneo global\n` +
-    `${SYM.BULLET} <code>/listanegra</code> — Lista de estafadores\n` +
-    `${SYM.BULLET} <code>/info</code> — Antecedentes`;
+    `⟡ <b>PANEL DE MODERACIÓN</b> ⊱ <code>ADMINISTRADOR</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>CONTROL DE GRUPO</b>\n` +
+    `  • <code>/ban</code> — Expulsión definitiva del grupo\n` +
+    `  • <code>/unban</code> — Revocar expulsión\n` +
+    `  • <code>/mute [tiempo]</code> — Silenciar temporalmente (ej. <code>1h</code>, <code>1d</code>)\n` +
+    `  • <code>/unmute</code> — Restablecer permisos de escritura\n` +
+    `  • <code>/warn</code> — Advertencia formal por mala conducta (3/3 ban)\n` +
+    `  • <code>/warns</code> — Historial de advertencias del usuario\n\n` +
+    `▸ <b>DEFENSA ANTI-FRAUDE</b>\n` +
+    `  • <code>/gban [id/@user] [motivo]</code> — Baneo global de la red entera\n` +
+    `  • <code>/ungban [id/@user]</code> — Retirar de la lista negra\n` +
+    `  • <code>/blacklist</code> — Explorar registro oficial de estafadores\n` +
+    `  • <code>/info [id/@user]</code> — Ficha penal y antecedentes\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `⚖️ <i>Mantén la disciplina y el respeto en todos los sectores.</i>`;
 
   const kb = new InlineKeyboard()
     .text('PROTOCOLO TRATO ADMIN', 'help_view:trato_admin').primary()
@@ -95,13 +113,17 @@ function buildAdminHelp() {
  */
 function buildUserHelp() {
   const text =
-    `${SYM.DIAMOND} <b>AYUDA — VENTAS LIBRES PERÚ</b>\n\n` +
-    `${SYM.BULLET} <code>/tratoadm</code> — Compra/venta segura con mediador\n` +
-    `${SYM.BULLET} <code>/listanegra</code> — Lista de estafadores\n` +
-    `${SYM.BULLET} <code>/info</code> — Consultar antecedentes\n` +
-    `${SYM.BULLET} <code>/quemar</code> — Reportar estafador\n` +
-    `${SYM.BULLET} <code>/staff</code> — Equipo oficial\n\n` +
-    `${SYM.WARNING} Nunca transfieras dinero por DM. Usa <code>/tratoadm</code>.`;
+    `⟡ <b>CENTRO DE AYUDA</b> ⊱ <code>VENTAS LIBRES PERÚ</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>COMANDOS PRINCIPALES</b>\n` +
+    `  • <code>/tratoadm</code> — Intermediación 100% segura para tus compras\n` +
+    `  • <code>/quemar</code> — Denunciar a un estafador con pruebas reales\n` +
+    `  • <code>/info [id/@user]</code> — Verificar antecedentes de un vendedor\n` +
+    `  • <code>/blacklist</code> — Ver lista pública de usuarios vetados\n` +
+    `  • <code>/staff</code> — Conocer al equipo oficial de mediadores\n` +
+    `  • <code>/perfil</code> — Ver tu reputación y tratos concretados\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `💡 <i>Consejo de Oro: Jamás compres por mensaje privado sin mediador. Usa <code>/tratoadm</code> para proteger tu dinero.</i>`;
 
   const kb = new InlineKeyboard()
     .url('INICIAR TRATO ADMIN', `https://t.me/${config.BOT_TOKEN.split(':')[0]}?start=tratoadm`).primary()
@@ -158,12 +180,14 @@ function register(bot) {
         const name = ctx.from.first_name || 'Usuario';
         const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
         const startText =
-          `${SYM.SEAL} <b>${escapeHtml(communityName.toUpperCase())}</b> ${SYM.BADGE}\n\n` +
-          `¡Hola, <b>${escapeHtml(name)}</b>! 🇵🇪\n\n` +
-          `${SYM.SWORD} <b>Trato Admin</b> — Mediación segura\n` +
-          `${SYM.ALERT} <b>Quemar</b> — Reportar estafadores\n` +
-          `${SYM.CROWN} <b>Staff</b> — Equipo oficial\n\n` +
-          `Selecciona una opción:`;
+          `⟡ <b>${escapeHtml(communityName.toUpperCase())}</b> ⊱ <code>OFICIAL</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `Hola, <b>${escapeHtml(name)}</b>. Bienvenido al ecosistema oficial de comercio seguro.\n\n` +
+          `▸ <b>Trato Admin:</b> Mediación y custodia 100% garantizada.\n` +
+          `▸ <b>Quemar:</b> Denuncias públicas y base de datos contra estafadores.\n` +
+          `▸ <b>Staff:</b> Directorio de moderadores y mediadores autorizados.\n\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `✨ <i>Selecciona una opción del menú interactivo para comenzar:</i>`;
 
         const kb = new InlineKeyboard()
           .text('TRATO ADMIN', 'start_tratoadm').success()
@@ -312,14 +336,14 @@ function register(bot) {
         const stats = await db.getAdminStats(ctx.from.id);
         const rating = stats.deals_count > 0 ? (stats.total_stars / stats.ratings_count || 5).toFixed(1) : '5.0';
         const statsText =
-          `${SYM.DIVIDER}\n` +
-          `${SYM.DIAMOND} <b>MIS ESTADÍSTICAS — TRATO ADMIN</b> ${SYM.DIAMOND}\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `${SYM.ARROW} <b>Tratos Completados:</b> <code>${stats.deals_count || 0}</code>\n` +
-          `${SYM.ARROW} <b>Calificación Promedio:</b> ⭐ <b>${rating} / 5.0</b>\n` +
-          `${SYM.ARROW} <b>Reseñas Recibidas:</b> <code>${stats.ratings_count || 0}</code>\n\n` +
-          `${SYM.THIN_LINE}\n` +
-          `${SYM.STAR} <i>¡Sigue brindando una atención rápida y segura para mantener tu reputación alta!</i>`;
+          `⟡ <b>ESTADÍSTICAS OFICIALES</b> ⊱ <code>TRATO ADMIN</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Mediador:</b> <b>${escapeHtml(ctx.from.first_name || 'Admin')}</b> (<code>${ctx.from.id}</code>)\n` +
+          `▸ <b>Tratos Concretados:</b> <code>${stats.deals_count || 0}</code> mediaciones\n` +
+          `▸ <b>Calificación Promedio:</b> ⭐ <b>${rating} / 5.0</b>\n` +
+          `▸ <b>Reseñas Verificadas:</b> <code>${stats.ratings_count || 0}</code> valoraciones\n\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `⭐ <i>Tu desempeño y honestidad consolidan la confianza de toda la comunidad.</i>`;
 
         const kb = new InlineKeyboard()
           .text('VOLVER AL PROTOCOLO', 'help_view:trato_admin').primary()

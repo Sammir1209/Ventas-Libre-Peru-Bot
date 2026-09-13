@@ -53,7 +53,7 @@ function register(bot) {
     try {
       if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
         return ctx.reply(
-          `${SYM.CROSS} Este comando solo se utiliza <b>dentro de un grupo o supergrupo</b> para activar o desactivar la verificación obligatoria.`,
+          `⟡ ✗ <i>Este comando solo puede ejecutarse dentro de un grupo o supergrupo para activar o suspender el filtro perimetral.</i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -65,7 +65,7 @@ function register(bot) {
       // Solo Owners o Staff pueden configurar
       if (!isOwner && !staffMember) {
         return ctx.reply(
-          `${SYM.CROSS} Solo los miembros del <b>Staff u Owners</b> pueden modificar la verificación en este grupo.`,
+          `⟡ ✗ <i>Solo miembros autorizados del Staff u Owners pueden modificar la verificación perimetral.</i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -83,14 +83,13 @@ function register(bot) {
         await redisDb.clearCache(key);
         await db.setSetting(`verify_disabled_${chatId}`, 'false');
         await ctx.reply(
-          `${SYM.DIVIDER}\n` +
-          `${SYM.DIAMOND} <b>SISTEMA DE VERIFICACIÓN</b> ${SYM.DIAMOND}\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `${SYM.ARROW} <b>Grupo:</b> ${escapeHtml(ctx.chat.title || 'Este grupo')}\n` +
-          `${SYM.CHECK} <b>Estado:</b> <b>ACTIVADO 🟢</b>\n\n` +
-          `${SYM.CHECK} <b>Persistencia:</b> Guardado permanentemente en Supabase.\n` +
-          `${SYM.THIN_LINE}\n` +
-          `${SYM.STAR} A partir de ahora, los nuevos miembros serán <b>silenciados automáticamente</b> hasta que se unan a los canales y verifiquen su membresía.`,
+          `⟡ <b>SISTEMA DE VERIFICACIÓN</b> ⊱ <code>FILTRO ACTIVADO 🟢</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Este grupo')}</b>\n` +
+          `▸ <b>Estado:</b> 🟢 <b>ACTIVO & BLINDADO</b>\n` +
+          `▸ <b>Base de Datos:</b> Sincronizado permanentemente en Supabase.\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🛡️ <i>Todo nuevo miembro será silenciado preventivamente hasta unirse a los canales oficiales.</i>`,
           { parse_mode: 'HTML' }
         );
       } else {
@@ -98,14 +97,13 @@ function register(bot) {
         await redisDb.setCache(key, true, 86400 * 365);
         await db.setSetting(`verify_disabled_${chatId}`, 'true');
         await ctx.reply(
-          `${SYM.DIVIDER}\n` +
-          `${SYM.DIAMOND} <b>SISTEMA DE VERIFICACIÓN</b> ${SYM.DIAMOND}\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `${SYM.ARROW} <b>Grupo:</b> ${escapeHtml(ctx.chat.title || 'Este grupo')}\n` +
-          `${SYM.CROSS} <b>Estado:</b> <b>DESACTIVADO 🔴</b>\n\n` +
-          `${SYM.CHECK} <b>Persistencia:</b> Guardado permanentemente en Supabase.\n` +
-          `${SYM.THIN_LINE}\n` +
-          `${SYM.STAR} Los nuevos miembros que ingresen a este grupo ya <b>NO serán silenciados ni obligados a verificarse</b> (ideal para grupos de Staff y Tratos).`,
+          `⟡ <b>SISTEMA DE VERIFICACIÓN</b> ⊱ <code>FILTRO SUSPENDIDO 🔴</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Este grupo')}</b>\n` +
+          `▸ <b>Estado:</b> 🔴 <b>DESACTIVADO</b>\n` +
+          `▸ <b>Base de Datos:</b> Sincronizado permanentemente en Supabase.\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `💡 <i>Los nuevos miembros ya no serán silenciados al entrar (ideal para salas de Staff o Tratos).</i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -119,7 +117,7 @@ function register(bot) {
     try {
       const userId = ctx.from.id;
       if (!config.OWNER_IDS.includes(userId)) {
-        return ctx.reply(`${SYM.CROSS} Solo los <b>Owners</b> pueden configurar los canales de verificación.`, {
+        return ctx.reply(`⟡ ✗ <i>Solo los <b>Owners Supremos</b> pueden configurar los canales de verificación obligatoria.</i>`, {
           parse_mode: 'HTML',
         });
       }
@@ -127,13 +125,13 @@ function register(bot) {
       const args = ctx.message.text.split(/\s+/).slice(1);
       if (args.length === 0) {
         return ctx.reply(
-          `${SYM.DIVIDER}\n` +
-          `${SYM.DIAMOND} <b>CONFIGURAR CANALES / GRUPOS DE VERIFICACIÓN</b>\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `${SYM.ARROW} <b>Uso:</b> <code>/set_canales [canal1] [canal2] [canal3]...</code>\n\n` +
-          `${SYM.STAR} <b>Ejemplo:</b>\n` +
-          `<code>/set_canales @VentasLibresPeru @CanalRespaldo -1001234567890</code>\n\n` +
-          `${SYM.ALERT} <i>Asegúrate de que el bot sea Administrador en todos los canales/grupos indicados para poder comprobar membresía.</i>`,
+          `⟡ <b>CANALES DE VERIFICACIÓN</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Sintaxis:</b> <code>/set_canales [canal1] [canal2] [canal3]...</code>\n\n` +
+          `▸ <b>Ejemplo:</b>\n` +
+          `  <code>/set_canales @VentasLibresPeru @CanalRespaldo -1001234567890</code>\n\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `⚠️ <i>El bot debe ser Administrador en todos los canales indicados para consultar membresías.</i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -145,14 +143,16 @@ function register(bot) {
       _channelsCacheTime = Date.now();
 
       await ctx.reply(
-        `${SYM.CHECK} <b>CANALES GUARDADOS</b> (${args.length})\n\n` +
-        args.map((ch, i) => `${SYM.BULLET} <b>${i + 1}.</b> <code>${escapeHtml(ch)}</code>`).join('\n') +
-        `\n\n<i>Guardado en Base de Datos.</i>`,
+        `⟡ <b>CANALES REGISTRADOS</b> ⊱ <code>${args.length} CANALES</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        args.map((ch, i) => `▸ <b>${i + 1}.</b> <code>${escapeHtml(ch)}</code>`).join('\n') +
+        `\n\n──────────────────────────────────────────────────────\n` +
+        `✓ <i>Lista almacenada en base de datos perimetral.</i>`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
       console.error('⟡ Error en /set_canales:', err.message);
-      await ctx.reply(`${SYM.CROSS} Error guardando canales: ${err.message}`, { parse_mode: 'HTML' });
+      await ctx.reply(`⟡ ✗ Error guardando canales: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 
@@ -162,11 +162,10 @@ function register(bot) {
       const channels = await getChannelsToVerify();
       if (channels.length === 0) {
         return ctx.reply(
-          `${SYM.DIVIDER}\n` +
-          `${SYM.ALERT} <b>CANALES DE VERIFICACIÓN</b>\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `${SYM.CROSS} No hay canales ni grupos obligatorios configurados.\n` +
-          `${SYM.ARROW} Configúralos con <code>/set_canales [canal1] [canal2] [canal3]</code>`,
+          `⟡ <b>CANALES DE VERIFICACIÓN</b> ⊱ <code>ESTADO</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `✗ No hay canales obligatorios registrados actualmente.\n` +
+          `▸ Configúralos con: <code>/set_canales [canal1] [canal2]</code>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -183,24 +182,23 @@ function register(bot) {
         try {
           const chat = await ctx.api.getChat(lookupTarget);
           const title = chat.title || (isKnownInvite ? 'Madre de las Ventas TV2' : ch);
-          statusList.push(`${SYM.CHECK} <b>${escapeHtml(title)}</b> (${isKnownInvite ? '<code>Canal Madre TV2</code>' : `<code>${ch}</code>`})`);
+          statusList.push(`  • <b>${escapeHtml(title)}</b> (${isKnownInvite ? '<code>Canal Madre TV2</code>' : `<code>${ch}</code>`})`);
         } catch (e) {
           if (isKnownInvite) {
-            statusList.push(`${SYM.CHECK} <b>Madre de las Ventas TV2</b> (<code>https://t.me/+3My6QWWVjMw2Mzc8</code>)`);
+            statusList.push(`  • <b>Madre de las Ventas TV2</b> (<code>https://t.me/+3My6QWWVjMw2Mzc8</code>)`);
           } else {
-            statusList.push(`${SYM.WARNING} <code>${escapeHtml(ch)}</code> (<i>${e.message}</i>)`);
+            statusList.push(`  • <code>${escapeHtml(ch)}</code> (<i>${e.message}</i>)`);
           }
         }
       }
 
       await ctx.reply(
-        `${SYM.DIVIDER}\n` +
-        `${SYM.DIAMOND} <b>CANALES Y GRUPOS OBLIGATORIOS</b>\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `${SYM.ARROW} <b>Total requeridos:</b> ${channels.length}\n\n` +
+        `⟡ <b>CANALES DE VERIFICACIÓN</b> ⊱ <code>OBLIGATORIOS</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Total registrados:</b> <code>${channels.length} canales</code>\n\n` +
         statusList.join('\n') +
-        `\n\n${SYM.THIN_LINE}\n` +
-        `${SYM.STAR} <i>Los nuevos miembros deben unirse a todos ellos para poder hablar.</i>`,
+        `\n\n──────────────────────────────────────────────────────\n` +
+        `🛡️ <i>Los nuevos miembros deben unirse a cada uno de ellos para desbloquear su chat.</i>`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {

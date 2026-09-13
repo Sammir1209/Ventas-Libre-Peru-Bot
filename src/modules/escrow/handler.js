@@ -345,12 +345,11 @@ function register(bot) {
         } catch {}
 
         return ctx.reply(
-          `${SYM.DIVIDER}\n` +
-          `${SYM.DIAMOND} <b>SISTEMA DE TRATOS ADMIN (ESCROW)</b> ${SYM.DIAMOND}\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `${SYM.ARROW} Por motivos de <b>seguridad y privacidad</b>, las solicitudes de Trato Admin se realizan <b>exclusivamente por mensaje privado (DM)</b> con el bot.\n\n` +
-          `${SYM.THIN_LINE}\n` +
-          `${SYM.STAR} Pulsa el botón de abajo para iniciar tu solicitud de forma segura:`,
+          `⟡ <b>SISTEMA TRATO ADMIN</b> ⊱ <code>CUSTODIA SEGURA</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `Por protocolos de <b>seguridad y protección de datos</b>, las solicitudes de Trato Admin se gestionan <b>únicamente por mensaje privado</b> con el bot.\n\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🛡️ <i>Pulsa el botón oficial de abajo para iniciar tu intermediación:</i>`,
           {
             parse_mode: 'HTML',
             reply_markup: new InlineKeyboard().url(

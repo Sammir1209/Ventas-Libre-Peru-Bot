@@ -70,7 +70,7 @@ function register(bot) {
   bot.command(['panico', 'lockdown', 'defcon'], requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
-        return ctx.reply(`${SYM.CROSS} Este comando solo se utiliza en grupos.`, { parse_mode: 'HTML' });
+        return ctx.reply(`⟡ ✗ <i>Este comando solo puede ejecutarse dentro de un grupo oficial.</i>`, { parse_mode: 'HTML' });
       }
 
       const parts = (ctx.message.text || '').trim().split(/\s+/);
@@ -82,12 +82,12 @@ function register(bot) {
       if (sub === 'off' || (currentlyLocked && !sub)) {
         await antiRaid.disableLockdown(ctx.api, chatId);
         return ctx.reply(
-          `${SYM.DIVIDER}\n` +
-          `🟢 <b>MODO PÁNICO DESACTIVADO — CHAT RESTAURADO</b>\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `➜ <b>Estado:</b> Permisos de escritura normalizados.\n` +
-          `➜ <b>Operación:</b> Los miembros pueden volver a escribir con normalidad.\n\n` +
-          `${SYM.THIN_LINE}`,
+          `⟡ <b>MODO PÁNICO DESACTIVADO</b> ⊱ <code>CHAT RESTAURADO</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Estado:</b> 🟢 Permisos de escritura normalizados\n` +
+          `▸ <b>Operación:</b> Los miembros pueden volver a escribir con normalidad.\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🛡️ <i>Escudo perimetral estabilizado.</i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -95,18 +95,18 @@ function register(bot) {
       // Activar Lockdown
       await antiRaid.triggerLockdown(ctx.api, chatId, ctx.chat.title, `Activado manualmente por ${ctx.from.first_name}`);
       return ctx.reply(
-        `${SYM.DIVIDER}\n` +
-        `🚨 <b>MODO PÁNICO ACTIVADO (DEFCON 1)</b> 🚨\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `➜ <b>Estado:</b> 🔴 <b>CHAT CERRADO AL 100%</b>\n` +
-        `➜ <b>Seguridad:</b> Se revocó el permiso de envío a todos los miembros regulares.\n` +
-        `➜ <b>Bienvenidas:</b> Suspendidas para evitar saturación de Telegram.\n\n` +
-        `<i>Para abrir el grupo nuevamente, escribe: <code>/panico off</code></i>`,
+        `⟡ <b>PROTOCOLO DE EMERGENCIA</b> ⊱ <code>DEFCON 1</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Estado:</b> 🔴 <b>CHAT CERRADO AL 100% (LOCKDOWN)</b>\n` +
+        `▸ <b>Seguridad:</b> Revocados los permisos de envío a todos los miembros regulares.\n` +
+        `▸ <b>Tráfico entrante:</b> Bienvenidas suspendidas para evitar saturación de Telegram.\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `💡 <i>Para reabrir el grupo, escribe: <code>/panico off</code></i>`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
       console.error('⟡ Error en /panico:', err.message);
-      await ctx.reply(`${SYM.CROSS} Error al modificar modo pánico: ${err.message}`, { parse_mode: 'HTML' });
+      await ctx.reply(`⟡ ✗ Error al modificar modo pánico: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 
@@ -114,7 +114,7 @@ function register(bot) {
   bot.command('antiraid', requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
-        return ctx.reply(`${SYM.CROSS} Este comando es para grupos.`, { parse_mode: 'HTML' });
+        return ctx.reply(`⟡ ✗ <i>Este comando solo puede ejecutarse dentro de un grupo oficial.</i>`, { parse_mode: 'HTML' });
       }
 
       const parts = (ctx.message.text || '').trim().split(/\s+/);
@@ -125,50 +125,85 @@ function register(bot) {
       if (sub === 'on') {
         conf.enabled = true;
         await antiRaid.setAntiRaidConfig(chatId, conf);
-        return ctx.reply(`🛡️ <b>Anti-Raid: ACTIVADO 🟢</b> (Umbral: ${conf.threshold} usuarios en ${conf.windowMs / 1000}s).`, { parse_mode: 'HTML' });
+        return ctx.reply(
+          `⟡ <b>ESCUDO ANTI-RAID</b> ⊱ <code>ACTIVADO 🟢</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Umbral:</b> <code>${conf.threshold} usuarios</code> en <code>${conf.windowMs / 1000}s</code>\n` +
+          `▸ <b>Acción Automática:</b> <b>${conf.action}</b>\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🛡️ <i>Monitoreo perimetral en tiempo real habilitado.</i>`,
+          { parse_mode: 'HTML' }
+        );
       }
 
       if (sub === 'off') {
         conf.enabled = false;
         await antiRaid.setAntiRaidConfig(chatId, conf);
-        return ctx.reply(`🛡️ <b>Anti-Raid: DESACTIVADO 🔴</b>`, { parse_mode: 'HTML' });
+        return ctx.reply(
+          `⟡ <b>ESCUDO ANTI-RAID</b> ⊱ <code>DESACTIVADO 🔴</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Estado:</b> 🔴 Desprotegido ante ingresos masivos simultáneos.\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `💡 <i>Reactiva con <code>/antiraid on</code> para asegurar la comunidad.</i>`,
+          { parse_mode: 'HTML' }
+        );
       }
 
       if (sub === 'alta' || sub === 'high') {
         conf.threshold = 3;
         conf.windowMs = 10000;
         await antiRaid.setAntiRaidConfig(chatId, conf);
-        return ctx.reply(`🛡️ <b>Sensibilidad Anti-Raid: ALTA</b> (Se activa con 3 ingresos en 10s).`, { parse_mode: 'HTML' });
+        return ctx.reply(
+          `⟡ <b>SENSIBILIDAD ANTI-RAID</b> ⊱ <code>ALTA</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Ajuste:</b> Se activa con <code>3 ingresos</code> en <code>10s</code>.\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🛡️ <i>Sensibilidad máxima ante incursiones botnet.</i>`,
+          { parse_mode: 'HTML' }
+        );
       }
 
       if (sub === 'media' || sub === 'medium') {
         conf.threshold = 6;
         conf.windowMs = 10000;
         await antiRaid.setAntiRaidConfig(chatId, conf);
-        return ctx.reply(`🛡️ <b>Sensibilidad Anti-Raid: MEDIA</b> (Se activa con 6 ingresos en 10s).`, { parse_mode: 'HTML' });
+        return ctx.reply(
+          `⟡ <b>SENSIBILIDAD ANTI-RAID</b> ⊱ <code>MEDIA</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Ajuste:</b> Se activa con <code>6 ingresos</code> en <code>10s</code>.\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🛡️ <i>Balance equilibrado para grupos con flujo regular.</i>`,
+          { parse_mode: 'HTML' }
+        );
       }
 
       if (sub === 'baja' || sub === 'low') {
         conf.threshold = 10;
         conf.windowMs = 10000;
         await antiRaid.setAntiRaidConfig(chatId, conf);
-        return ctx.reply(`🛡️ <b>Sensibilidad Anti-Raid: BAJA</b> (Se activa con 10 ingresos en 10s).`, { parse_mode: 'HTML' });
+        return ctx.reply(
+          `⟡ <b>SENSIBILIDAD ANTI-RAID</b> ⊱ <code>BAJA</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Ajuste:</b> Se activa con <code>10 ingresos</code> en <code>10s</code>.\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🛡️ <i>Tolerancia extendida para eventos o picos altos.</i>`,
+          { parse_mode: 'HTML' }
+        );
       }
 
       const text =
-        `${SYM.DIVIDER}\n` +
-        `🛡️ <b>CONFIGURACIÓN DEL ESCUDO ANTI-RAID</b>\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `➜ <b>Estado:</b> <b>${conf.enabled ? 'ACTIVADO 🟢' : 'DESACTIVADO 🔴'}</b>\n` +
-        `➜ <b>Umbral de Detección:</b> <code>${conf.threshold}</code> ingresos\n` +
-        `➜ <b>Ventana de Análisis:</b> <code>${conf.windowMs / 1000}s</code>\n` +
-        `➜ <b>Acción Automática:</b> <b>${conf.action}</b>\n\n` +
-        `${SYM.THIN_LINE}\n` +
-        `<b>Opciones de ajuste:</b>\n` +
-        `• <code>/antiraid on</code> / <code>/antiraid off</code>\n` +
-        `• <code>/antiraid alta</code> (3 usuarios en 10s)\n` +
-        `• <code>/antiraid media</code> (6 usuarios en 10s)\n` +
-        `• <code>/antiraid baja</code> (10 usuarios en 10s)`;
+        `⟡ <b>CONFIGURACIÓN</b> ⊱ <code>ESCUDO ANTI-RAID</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Estado:</b> <b>${conf.enabled ? 'ACTIVADO 🟢' : 'DESACTIVADO 🔴'}</b>\n` +
+        `▸ <b>Umbral de Detección:</b> <code>${conf.threshold}</code> ingresos\n` +
+        `▸ <b>Ventana de Análisis:</b> <code>${conf.windowMs / 1000}s</code>\n` +
+        `▸ <b>Acción Automática:</b> <b>${conf.action}</b>\n\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `▸ <b>Comandos de calibración:</b>\n` +
+        `  • <code>/antiraid on</code> | <code>/antiraid off</code>\n` +
+        `  • <code>/antiraid alta</code> (3 usuarios en 10s)\n` +
+        `  • <code>/antiraid media</code> (6 usuarios en 10s)\n` +
+        `  • <code>/antiraid baja</code> (10 usuarios en 10s)`;
 
       await ctx.reply(text, { parse_mode: 'HTML' });
     } catch (err) {
@@ -180,7 +215,7 @@ function register(bot) {
   bot.command('antiflood', requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
-        return ctx.reply(`${SYM.CROSS} Este comando es para grupos.`, { parse_mode: 'HTML' });
+        return ctx.reply(`⟡ ✗ <i>Este comando solo puede ejecutarse dentro de un grupo oficial.</i>`, { parse_mode: 'HTML' });
       }
 
       const parts = (ctx.message.text || '').trim().split(/\s+/);
@@ -191,34 +226,53 @@ function register(bot) {
       if (sub === 'on') {
         conf.enabled = true;
         await antiFlood.setAntiFloodConfig(chatId, conf);
-        return ctx.reply(`🌊 <b>Anti-Flood: ACTIVADO 🟢</b> (Límite: ${conf.msgLimit} msgs en ${conf.windowMs / 1000}s).`, { parse_mode: 'HTML' });
+        return ctx.reply(
+          `⟡ <b>SISTEMA ANTI-FLOOD</b> ⊱ <code>ACTIVADO 🟢</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Límite:</b> <code>${conf.msgLimit} mensajes</code> en <code>${conf.windowMs / 1000}s</code>\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `🛡️ <i>Protección contra saturación por spam activo.</i>`,
+          { parse_mode: 'HTML' }
+        );
       }
 
       if (sub === 'off') {
         conf.enabled = false;
         await antiFlood.setAntiFloodConfig(chatId, conf);
-        return ctx.reply(`🌊 <b>Anti-Flood: DESACTIVADO 🔴</b>`, { parse_mode: 'HTML' });
+        return ctx.reply(
+          `⟡ <b>SISTEMA ANTI-FLOOD</b> ⊱ <code>DESACTIVADO 🔴</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Estado:</b> 🔴 Desactivado.\n` +
+          `──────────────────────────────────────────────────────\n` +
+          `💡 <i>Reactiva con <code>/antiflood on</code>.</i>`,
+          { parse_mode: 'HTML' }
+        );
       }
 
       if (/^\d+$/.test(sub)) {
         conf.msgLimit = Math.max(3, Math.min(20, parseInt(sub, 10)));
         await antiFlood.setAntiFloodConfig(chatId, conf);
-        return ctx.reply(`🌊 <b>Límite de Anti-Flood fijado a:</b> <code>${conf.msgLimit} mensajes</code>`, { parse_mode: 'HTML' });
+        return ctx.reply(
+          `⟡ <b>LÍMITE ANTI-FLOOD</b> ⊱ <code>CALIBRADO</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          `▸ <b>Nuevo Límite:</b> <code>${conf.msgLimit} mensajes</code> en <code>${conf.windowMs / 1000}s</code>\n` +
+          `──────────────────────────────────────────────────────`,
+          { parse_mode: 'HTML' }
+        );
       }
 
       const text =
-        `${SYM.DIVIDER}\n` +
-        `🌊 <b>SISTEMA ANTI-FLOOD EN TIEMPO REAL</b>\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `➜ <b>Estado:</b> <b>${conf.enabled ? 'ACTIVADO 🟢' : 'DESACTIVADO 🔴'}</b>\n` +
-        `➜ <b>Límite de Mensajes:</b> <code>${conf.msgLimit}</code> mensajes\n` +
-        `➜ <b>Ventana de Tiempo:</b> <code>${conf.windowMs / 1000}s</code>\n` +
-        `➜ <b>Repetición Idéntica:</b> <code>${conf.repeatLimit}</code> veces\n` +
-        `➜ <b>Sanción Aplicada:</b> Mute por <b>${conf.muteTime}</b>\n\n` +
-        `${SYM.THIN_LINE}\n` +
-        `<b>Comandos:</b>\n` +
-        `• <code>/antiflood on</code> | <code>/antiflood off</code>\n` +
-        `• <code>/antiflood [número]</code> (ej. <code>/antiflood 4</code>)`;
+        `⟡ <b>SISTEMA ANTI-FLOOD</b> ⊱ <code>TIEMPO REAL</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Estado:</b> <b>${conf.enabled ? 'ACTIVADO 🟢' : 'DESACTIVADO 🔴'}</b>\n` +
+        `▸ <b>Límite de Mensajes:</b> <code>${conf.msgLimit}</code> mensajes\n` +
+        `▸ <b>Ventana de Tiempo:</b> <code>${conf.windowMs / 1000}s</code>\n` +
+        `▸ <b>Repetición Idéntica:</b> <code>${conf.repeatLimit}</code> veces\n` +
+        `▸ <b>Sanción Aplicada:</b> Mute por <b>${conf.muteTime}</b>\n\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `▸ <b>Comandos:</b>\n` +
+        `  • <code>/antiflood on</code> | <code>/antiflood off</code>\n` +
+        `  • <code>/antiflood [número]</code> (ej. <code>/antiflood 4</code>)`;
 
       await ctx.reply(text, { parse_mode: 'HTML' });
     } catch (err) {
@@ -230,25 +284,24 @@ function register(bot) {
   bot.command('locks', requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
-        return ctx.reply(`${SYM.CROSS} Este comando es para grupos.`, { parse_mode: 'HTML' });
+        return ctx.reply(`⟡ ✗ <i>Este comando solo puede ejecutarse dentro de un grupo oficial.</i>`, { parse_mode: 'HTML' });
       }
 
       const locks = await locksModule.getGroupLocks(ctx.chat.id);
       let text =
-        `${SYM.DIVIDER}\n` +
-        `🔒 <b>BLOQUEOS DE CONTENIDO ACTIVOS (LOCKS)</b>\n` +
-        `${SYM.DIVIDER}\n\n`;
+        `⟡ <b>BLOQUEOS DE CONTENIDO</b> ⊱ <code>LOCKS ACTIVOS</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n`;
 
       for (const item of locksModule.SUPPORTED_LOCKS) {
         const isLocked = locks[item] === true;
-        text += `• <b>${item.toUpperCase()}:</b> ${isLocked ? '🔴 BLOQUEADO' : '🟢 PERMITIDO'}\n`;
+        text += `▸ <b>${item.toUpperCase()}:</b> ${isLocked ? '🔴 BLOQUEADO' : '🟢 PERMITIDO'}\n`;
       }
 
       text +=
-        `\n${SYM.THIN_LINE}\n` +
-        `💡 <b>Uso:</b>\n` +
-        `• Bloquear: <code>/lock [tipo]</code> (ej. <code>/lock links</code>)\n` +
-        `• Desbloquear: <code>/unlock [tipo]</code> (ej. <code>/unlock stickers</code>)`;
+        `\n──────────────────────────────────────────────────────\n` +
+        `💡 <b>Comandos de gestión:</b>\n` +
+        `  • Bloquear: <code>/lock [tipo]</code> (ej. <code>/lock links</code>)\n` +
+        `  • Desbloquear: <code>/unlock [tipo]</code> (ej. <code>/unlock stickers</code>)`;
 
       await ctx.reply(text, { parse_mode: 'HTML' });
     } catch (err) {
@@ -264,9 +317,11 @@ function register(bot) {
 
       if (!targetLock || !locksModule.SUPPORTED_LOCKS.includes(targetLock)) {
         return ctx.reply(
-          `🔒 <b>Tipos disponibles para bloquear:</b>\n\n` +
-          locksModule.SUPPORTED_LOCKS.map((l) => `• <code>${l}</code>`).join('\n') +
-          `\n\nEjemplo: <code>/lock links</code>`,
+          `⟡ <b>BLOQUEOS DISPONIBLES</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          locksModule.SUPPORTED_LOCKS.map((l) => `  • <code>${l}</code>`).join('\n') +
+          `\n\n──────────────────────────────────────────────────────\n` +
+          `💡 <i>Ejemplo de activación: <code>/lock links</code></i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -275,7 +330,14 @@ function register(bot) {
       locks[targetLock] = true;
       await locksModule.setGroupLocks(ctx.chat.id, locks);
 
-      await ctx.reply(`🔒 <b>Bloqueo activado:</b> <code>${targetLock.toUpperCase()}</code> ahora está prohibido para usuarios regulares.`, { parse_mode: 'HTML' });
+      await ctx.reply(
+        `⟡ <b>BLOQUEO ACTIVADO</b> ⊱ <code>${targetLock.toUpperCase()}</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Restricción:</b> 🔴 <code>${targetLock.toUpperCase()}</code> queda prohibido para usuarios regulares.\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `🛡️ <i>Cualquier contenido detectado será purgado al instante.</i>`,
+        { parse_mode: 'HTML' }
+      );
     } catch (err) {
       console.error('⟡ Error en /lock:', err.message);
     }
@@ -289,8 +351,11 @@ function register(bot) {
 
       if (!targetLock || !locksModule.SUPPORTED_LOCKS.includes(targetLock)) {
         return ctx.reply(
-          `🔓 <b>Tipos disponibles para desbloquear:</b>\n\n` +
-          locksModule.SUPPORTED_LOCKS.map((l) => `• <code>${l}</code>`).join('\n'),
+          `⟡ <b>DESBLOQUEOS DISPONIBLES</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
+          `══════════════════════════════════════════════════════\n\n` +
+          locksModule.SUPPORTED_LOCKS.map((l) => `  • <code>${l}</code>`).join('\n') +
+          `\n\n──────────────────────────────────────────────────────\n` +
+          `💡 <i>Ejemplo: <code>/unlock stickers</code></i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -299,7 +364,13 @@ function register(bot) {
       locks[targetLock] = false;
       await locksModule.setGroupLocks(ctx.chat.id, locks);
 
-      await ctx.reply(`🔓 <b>Bloqueo desactivado:</b> <code>${targetLock.toUpperCase()}</code> ahora está permitido.`, { parse_mode: 'HTML' });
+      await ctx.reply(
+        `⟡ <b>BLOQUEO DESACTIVADO</b> ⊱ <code>${targetLock.toUpperCase()}</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `▸ <b>Estado:</b> 🟢 <code>${targetLock.toUpperCase()}</code> ahora está permitido.\n` +
+        `──────────────────────────────────────────────────────`,
+        { parse_mode: 'HTML' }
+      );
     } catch (err) {
       console.error('⟡ Error en /unlock:', err.message);
     }
@@ -339,7 +410,12 @@ function register(bot) {
         } catch {}
       }
 
-      const confirmation = await ctx.reply(`🧹 <i>Limpieza completada: ${deleted} mensajes eliminados.</i>`, { parse_mode: 'HTML' });
+      const confirmation = await ctx.reply(
+        `⟡ <b>PURGA COMPLETADA</b> ⊱ <code>${deleted} MENSAJES</code> ⊰\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `🧹 <i>Se limpió el rastro de spam exitosamente.</i>`,
+        { parse_mode: 'HTML' }
+      );
       setTimeout(async () => {
         try {
           await ctx.api.deleteMessage(ctx.chat.id, confirmation.message_id);

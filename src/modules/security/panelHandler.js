@@ -151,17 +151,16 @@ function register(bot) {
 
       // 4. Preparar mensaje para el chat privado (MD)
       const dmText =
-        `${SYM.DIVIDER}\n` +
-        `🔐 <b>CREDENCIALES DE ACCESO AL PANEL WEB</b>\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `¡Hola, <b>${escapeHtml(firstName)}</b>! Se ha generado tu acceso seguro al centro de comando:\n\n` +
-        `➜ <b>ID de Usuario:</b> <code>${userId}</code>\n` +
-        `➜ <b>Usuario:</b> ${username ? `@${username}` : '<i>Sin @username</i>'}\n` +
-        `➜ <b>Rango Autorizado:</b> <b>${escapeHtml(roleName)}</b>\n` +
-        `➜ <b>Contraseña Temporal:</b> <code>${tempPassword}</code>\n\n` +
-        `⏱️ <b>Vigencia:</b> 30 minutos desde la emisión.\n` +
-        `${SYM.THIN_LINE}\n` +
-        `💡 <i>Puedes pulsar directamente en los botones de abajo para ingresar sin escribir contraseña:</i>`;
+        `⟡ <b>PANEL DE CONTROL WEB</b> ⊱ <code>CREDENCIALES</code> ⊰\n` +
+        `══════════════════════════════════════════════════════\n\n` +
+        `Hola, <b>${escapeHtml(firstName)}</b>. Se ha emitido tu token de acceso seguro al centro de comando:\n\n` +
+        `▸ <b>ID de Usuario:</b> <code>${userId}</code>\n` +
+        `▸ <b>Usuario:</b> ${username ? `@${username}` : '<i>Sin alias</i>'}\n` +
+        `▸ <b>Rango Autorizado:</b> <b>${escapeHtml(roleName)}</b>\n` +
+        `▸ <b>Clave Temporal:</b> <code>${tempPassword}</code>\n\n` +
+        `⏱️ <b>Vigencia de Sesión:</b> <code>30 minutos</code>\n` +
+        `──────────────────────────────────────────────────────\n` +
+        `🔐 <i>Haz clic en los accesos directos para iniciar sesión de forma automática:</i>`;
 
       const kb = new InlineKeyboard()
         .url('GESTIONAR GRUPOS & SEGURIDAD', groupsPanelUrl);
@@ -191,7 +190,9 @@ function register(bot) {
       } else {
         if (sentToDm) {
           const groupNotice = await ctx.reply(
-            `📩 <b>${escapeHtml(firstName)}</b>, te he enviado tus credenciales y enlaces de acceso al panel por <b>mensaje privado</b>.`,
+            `⟡ <b>PANEL WEB</b> ⊱ <code>ENLACE ENVIADO</code> ⊰\n` +
+            `──────────────────────────────────────────────────────\n` +
+            `📩 <b>${escapeHtml(firstName)}</b>, se han enviado tus credenciales de acceso por <b>mensaje privado</b>.`,
             { parse_mode: 'HTML' }
           );
           setTimeout(async () => {
@@ -203,8 +204,10 @@ function register(bot) {
         } else {
           const botUsername = ctx.me.username;
           await ctx.reply(
-            `⚠️ <b>${escapeHtml(firstName)}</b>, no pude enviarte el mensaje privado porque aún no has iniciado el bot.\n\n` +
-            `👉 Haz clic en <a href="https://t.me/${botUsername}?start=panel"><b>[ Iniciar Chat Privado ]</b></a> y vuelve a escribir <code>/panel</code>.`,
+            `⟡ <b>PANEL WEB</b> ⊱ <code>PRIVADO REQUERIDO</code> ⊰\n` +
+            `──────────────────────────────────────────────────────\n` +
+            `⚠️ <b>${escapeHtml(firstName)}</b>, no fue posible entregarte las claves por privado porque no has iniciado el bot.\n\n` +
+            `👉 Inicia el bot aquí: <a href="https://t.me/${botUsername}?start=panel"><b>[ Iniciar Chat Privado ]</b></a> y repite <code>/panel</code>.`,
             { parse_mode: 'HTML' }
           );
         }

@@ -2,7 +2,7 @@ const { SYM } = require('../config/constants');
 const { escapeHtml } = require('./formatting');
 
 // ══════════════════════════════════════════════════════
-// ⟡ Plantillas HTML — Ventas Libres Perú (Compactas)
+// ⟡ Plantillas Estéticas Oficiales — Ventas Libres Perú 🇵🇪
 // ══════════════════════════════════════════════════════
 
 function welcomeMessage(username, firstName) {
@@ -11,11 +11,15 @@ function welcomeMessage(username, firstName) {
     : `<b>${escapeHtml(firstName || 'Usuario')}</b>`;
 
   return (
-    `${SYM.SEAL} <b>VENTAS LIBRES PERÚ</b> ${SYM.BADGE}\n\n` +
-    `¡Hola, ${mention}! Estás en modo <b>silenciado</b>.\n\n` +
-    `① Únete a nuestros canales → <b>[ ⟡ Unirme ]</b>\n` +
-    `② Pulsa <b>[ ✓ Verificar ]</b>\n\n` +
-    `<i>Proceso automático, 3 segundos.</i>`
+    `⟡ <b>𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔</b> ⊱ <code>VERIFICACIÓN</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `¡Hola, ${mention}! Te damos la bienvenida oficial.\n` +
+    `Actualmente te encuentras en modo <b>silenciado preventivo</b>.\n\n` +
+    `▸ <b>Paso 1:</b> Únete a nuestros canales oficiales abajo.\n` +
+    `▸ <b>Paso 2:</b> Pulsa el botón <b>[ ✓ VERIFICAR MEMBRESÍA ]</b>.\n` +
+    `  ↳ <i>Proceso 100% automático y seguro en 3 segundos.</i>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `🛡️ <i>Manteniendo la comunidad libre de estafadores y cuentas falsas.</i>`
   );
 }
 
@@ -25,7 +29,13 @@ function verificationSuccess(username, firstName) {
     : `<b>${escapeHtml(firstName || 'Usuario')}</b>`;
 
   return (
-    `${SYM.CHECK} <b>${mention}</b>, verificación exitosa. ¡Bienvenido(a)! 🇵🇪`
+    `⟡ <b>𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔</b> ⊱ <code>ACCESO AUTORIZADO</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `✓ <b>Membresía validada:</b> ${mention}\n` +
+    `▸ <b>Estado:</b> ⊱ <code>DESMUTEO EXITOSO</code> ⊰\n` +
+    `▸ <b>Comunidad:</b> Ventas Libres Perú 🇵🇪\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `✨ <i>¡Ya puedes participar, comerciar y chatear libremente!</i>`
   );
 }
 
@@ -33,64 +43,76 @@ function verificationFailed(missingChannels) {
   const list = missingChannels.map(ch => {
     const raw = String(ch).trim();
     if (raw.includes('3My6QWWVjMw2Mzc8') || raw === '-1002561445231' || raw.includes('MADRE')) {
-      return `${SYM.BULLET} 📢 <a href="https://t.me/+3My6QWWVjMw2Mzc8"><b>Madre de las Ventas TV2</b></a>`;
+      return `▸ 📢 <a href="https://t.me/+3My6QWWVjMw2Mzc8"><b>Madre de las Ventas TV2</b></a>`;
     }
     if (raw.includes('quemando_ventaslibreperu')) {
-      return `${SYM.BULLET} 🔥 <a href="https://t.me/quemando_ventaslibreperu"><b>Quemando VLP (Lista Negra)</b></a>`;
+      return `▸ 🔥 <a href="https://t.me/quemando_ventaslibreperu"><b>Quemando VLP (Lista Negra)</b></a>`;
     }
-    if (raw.startsWith('http')) return `${SYM.BULLET} <a href="${raw}">${raw}</a>`;
-    if (raw.startsWith('@')) return `${SYM.BULLET} <a href="https://t.me/${raw.replace('@', '')}"><b>${raw}</b></a>`;
-    return `${SYM.BULLET} <code>${raw}</code>`;
+    if (raw.startsWith('http')) return `▸ 🔗 <a href="${raw}"><b>Canal Oficial</b></a>`;
+    if (raw.startsWith('@')) return `▸ 🔗 <a href="https://t.me/${raw.replace('@', '')}"><b>${raw}</b></a>`;
+    return `▸ <code>${raw}</code>`;
   }).join('\n');
 
   return (
-    `${SYM.DIVIDER}\n` +
-    `${SYM.WARNING} <b>VERIFICACIÓN INCOMPLETA</b>\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `Aún te falta unirte a los siguientes canales requeridos:\n\n${list}\n\n` +
-    `<i>Una vez unido(a), vuelve aquí y pulsa nuevamente <b>[ ✓ VERIFICAR ]</b>.</i>`
+    `⟡ <b>VERIFICACIÓN INCOMPLETA</b> ⊱ <code>CANALES PENDIENTES</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `Aún no registras suscripción activa a nuestros canales:\n\n${list}\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `⚠️ <i>Únete a todos los canales arriba y pulsa nuevamente <b>[ ✓ VERIFICAR ]</b>.</i>`
   );
 }
 
 function howItWorksMessage() {
   return (
-    `${SYM.PRINT} <b>¿CÓMO FUNCIONA?</b>\n\n` +
-    `① Al ingresar, serás silenciado.\n` +
-    `② Únete a los canales oficiales.\n` +
-    `③ Pulsa <b>[ ✓ Verificar ]</b>.\n` +
-    `④ Acceso completo al instante.`
+    `⟡ <b>¿CÓMO FUNCIONA?</b> ⊱ <code>GUÍA RÁPIDA</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>1.</b> Al ingresar al grupo, eres silenciado preventivamente.\n` +
+    `▸ <b>2.</b> Te unes a nuestros canales oficiales verificados.\n` +
+    `▸ <b>3.</b> Presionas el botón <b>[ ✓ Verificar ]</b>.\n` +
+    `▸ <b>4.</b> El bot confirma tu membresía y desbloquea tu chat.\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `💡 <i>Para transacciones seguras utiliza siempre <code>/tratoadm</code>.</i>`
   );
 }
 
 function dealMainMenuMessage() {
   return (
-    `${SYM.SWORD} <b>TRATO ADMIN (ESCROW)</b> ${SYM.SHIELD}\n\n` +
-    `Un mediador certificado custodia los fondos hasta que ambas partes cumplan.\n\n` +
-    `${SYM.BULLET} <b>Comisión:</b> 10% fija\n` +
-    `${SYM.BULLET} <b>Atención:</b> 1-5 min\n\n` +
-    `Selecciona una opción:`
+    `⟡ <b>𝐓𝐑𝐀𝐓𝐎 𝐀𝐃𝐌𝐈𝐍</b> ⊱ <code>ESCROW OFICIAL</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `Un <b>Trato Admin certificado</b> del Staff retiene los fondos y custodia la operación hasta la conformidad de ambas partes.\n\n` +
+    `▸ <b>Comisión fija:</b> <code>10%</code>\n` +
+    `▸ <b>Tiempo estimado:</b> <code>1 a 5 minutos</code>\n` +
+    `▸ <b>Garantía:</b> 100% libre de robos y estafas\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `👇 <i>Selecciona una opción en el menú inferior para iniciar:</i>`
   );
 }
 
 function dealDetailedInfoMessage() {
   return (
-    `${SYM.DIAMOND} <b>GUÍA: TRATOS ADMIN</b>\n\n` +
-    `El Trato Admin evita estafas al 100%. El comprador paga al Admin, el vendedor entrega, el comprador confirma y el Admin libera el pago.\n\n` +
-    `<b>Proceso:</b>\n` +
-    `${SYM.BULLET} <b>1.</b> Solicitas indicando si vendes/compras.\n` +
-    `${SYM.BULLET} <b>2.</b> Un admin toma tu caso.\n` +
-    `${SYM.BULLET} <b>3.</b> Se genera grupo privado.\n` +
-    `${SYM.BULLET} <b>4.</b> Dinero en custodia del Admin.\n` +
-    `${SYM.BULLET} <b>5.</b> Entrega verificada → cierre y calificación.\n\n` +
-    `<b>Comisión (10%):</b> S/10 → S/1 | S/50 → S/5 | S/100 → S/10\n\n` +
-    `<i>¡Nunca hagas tratos fuera del grupo oficial!</i>`
+    `⟡ <b>GUÍA DE TRATOS SEGUROS</b> ⊱ <code>ESCROW VLP</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `El Trato Admin protege tanto al comprador como al vendedor reteniendo los fondos hasta comprobar la entrega real del producto o cuenta.\n\n` +
+    `▸ <b>Paso 1:</b> Solicitas el trato indicando si vendes o compras.\n` +
+    `▸ <b>Paso 2:</b> Un Trato Admin verificado toma tu caso.\n` +
+    `▸ <b>Paso 3:</b> Se abre una sala privada en el grupo de mediaciones.\n` +
+    `▸ <b>Paso 4:</b> El comprador transfiere los fondos al Trato Admin.\n` +
+    `▸ <b>Paso 5:</b> El vendedor entrega el producto y se verifica.\n` +
+    `▸ <b>Paso 6:</b> El Trato Admin libera el dinero y cierra el trato.\n\n` +
+    `▸ <b>Tabla de Comisión (10%):</b>\n` +
+    `  ↳ S/ 10.00 → Comisión S/ 1.00\n` +
+    `  ↳ S/ 50.00 → Comisión S/ 5.00\n` +
+    `  ↳ S/ 100.00 → Comisión S/ 10.00\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `⚠️ <i>¡Nunca realices pagos por fuera de la sala oficial!</i>`
   );
 }
 
 function dealRoleStepMessage() {
   return (
-    `${SYM.DIAMOND} <b>NUEVA SOLICITUD DE TRATO</b>\n\n` +
-    `<b>Paso 1/3:</b> ¿Cuál es tu rol?\n\n` +
+    `⟡ <b>SOLICITUD DE TRATO</b> ⊱ <code>PASO 1 DE 3</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Pregunta:</b> ¿Cuál es tu rol en la transacción?\n\n` +
     `Selecciona si vas a <b>Vender</b> o <b>Comprar</b>:`
   );
 }
@@ -98,61 +120,72 @@ function dealRoleStepMessage() {
 function dealCounterpartStepMessage(role) {
   const counterpartName = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   return (
-    `${SYM.DIAMOND} <b>SOLICITUD DE TRATO</b>\n\n` +
-    `<b>Paso 2/3:</b> ¿Con quién es el trato?\n\n` +
-    `Envía el <b>@usuario</b> o <b>ID</b> del <b>${counterpartName}</b>:`
+    `⟡ <b>SOLICITUD DE TRATO</b> ⊱ <code>PASO 2 DE 3</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Tu rol:</b> <code>${role}</code>\n` +
+    `▸ <b>Pregunta:</b> ¿Con quién vas a realizar la transacción?\n\n` +
+    `Envía el <b>@usuario</b> o <b>ID numérico</b> del <b>${counterpartName}</b>:`
   );
 }
 
 function dealDescriptionStepMessage(role, counterpart) {
   return (
-    `${SYM.DIAMOND} <b>SOLICITUD DE TRATO</b>\n\n` +
-    `<b>Paso 3/3:</b> Detalles\n` +
-    `Contraparte: <b>${escapeHtml(counterpart)}</b>\n\n` +
-    `Envía una breve descripción de la transacción:`
+    `⟡ <b>SOLICITUD DE TRATO</b> ⊱ <code>PASO 3 DE 3</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Tu rol:</b> <code>${role}</code>\n` +
+    `▸ <b>Contraparte:</b> <code>${escapeHtml(counterpart)}</code>\n\n` +
+    `Envía una descripción clara de la operación (producto, monto y método):`
   );
 }
 
 function dealSummaryMessage(role, counterpart, description) {
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   return (
-    `${SYM.DIAMOND} <b>CONFIRMAR SOLICITUD DE TRATO</b>\n\n` +
-    `• <b>Tu Rol:</b> ${role}\n` +
-    `• <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart)}</code>\n` +
-    `• <b>Detalles:</b> <i>${escapeHtml(description)}</i>\n\n` +
-    `¿Deseas enviar la solicitud al equipo de mediadores?`
+    `⟡ <b>CONFIRMAR SOLICITUD DE TRATO</b> ⊱ <code>ESCROW</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Tu Rol:</b> <code>${role}</code>\n` +
+    `▸ <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart)}</code>\n` +
+    `▸ <b>Detalles de la operación:</b>\n` +
+    `  ↳ <i>${escapeHtml(description)}</i>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `¿Deseas enviar la solicitud al equipo de mediadores oficiales?`
   );
 }
 
 function dealWaitingMessage(dealId, role, counterpart, description) {
   return (
-    `${SYM.DIAMOND} <b>SOLICITUD EN COLA #${dealId}</b>\n\n` +
-    `${SYM.CHECK} ¡Solicitud creada con éxito!\n\n` +
-    `• <b>Tu Rol:</b> ${role}\n` +
-    `• <b>Contraparte:</b> <code>${escapeHtml(counterpart)}</code>\n` +
-    `• <b>Detalles:</b> <i>${escapeHtml(description)}</i>\n\n` +
-    `Los <b>Trato Admins</b> han sido notificados. Espera a que un mediador tome tu caso.`
+    `⟡ <b>SOLICITUD EN COLA</b> ⊱ <code>TRATO #${dealId}</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `✓ <b>Solicitud registrada exitosamente en cola de atención.</b>\n\n` +
+    `▸ <b>Tu Rol:</b> <code>${role}</code>\n` +
+    `▸ <b>Contraparte:</b> <code>${escapeHtml(counterpart)}</code>\n` +
+    `▸ <b>Detalles:</b> <i>${escapeHtml(description)}</i>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `⏳ <i>El equipo de <b>Trato Admins</b> ha sido notificado. En breve un mediador tomará tu caso.</i>`
   );
 }
 
 function dealNotifyAdmin(dealId, creatorUsername, creatorId, role, counterpart, description) {
-  const userTag = creatorUsername ? `<code>@${creatorUsername}</code>` : `<code>${creatorId}</code>`;
+  const userTag = creatorUsername ? `@${creatorUsername}` : `<code>${creatorId}</code>`;
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   return (
-    `${SYM.DIAMOND} <b>NUEVA SOLICITUD DE TRATO #${dealId}</b>\n\n` +
-    `• <b>Solicitante:</b> ${userTag} (${role || 'N/A'})\n` +
-    `• <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
-    `• <b>Descripción:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `<i>Selecciona una opción para gestionar este caso:</i>`
+    `⟡ <b>NUEVA SOLICITUD DE TRATO</b> ⊱ <code>CASO #${dealId}</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Solicitante:</b> ${userTag} (${role || 'N/A'})\n` +
+    `▸ <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
+    `▸ <b>Descripción:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `<i>Selecciona una acción para tomar o declinar este caso:</i>`
   );
 }
 
 function dealAcceptedGroup(dealId, adminUsername) {
-  const adminTag = adminUsername ? `<code>@${adminUsername}</code>` : 'un Administrador';
+  const adminTag = adminUsername ? `@${adminUsername}` : 'un Administrador';
   return (
-    `${SYM.DIAMOND} <b>TRATO #${dealId} ACEPTADO</b>\n\n` +
-    `${SYM.CHECK} <b>${adminTag}</b> ha tomado la mediación de este caso.\n` +
-    `Preparando sala privada de negociación...`
+    `⟡ <b>TRATO #${dealId} ACEPTADO</b> ⊱ <code>EN PROCESO</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `✓ <b>${adminTag}</b> ha tomado la mediación de este caso.\n` +
+    `⚡ <i>Creando sala privada y generando enlaces de acceso...</i>`
   );
 }
 
@@ -165,23 +198,27 @@ function dealInviteMessage(dealId, inviteLink, topicLink, counterpart, role, des
     : (counterpart.startsWith('@') || /^\d+$/.test(counterpart) ? counterpart : `@${counterpart}`);
 
   return (
-    `${SYM.DIAMOND} <b>SALA DE MEDIACIÓN #${dealId} LISTA</b>\n\n` +
-    `• <b>Tu Rol:</b> ${myRole}\n` +
-    `• <b>${counterpartRole}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
-    `• <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala #${dealId} ]</b></a>\n\n` +
-    `<i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo.</i>`
+    `⟡ <b>SALA DE MEDIACIÓN LISTA</b> ⊱ <code>TRATO #${dealId}</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Tu Rol:</b> <code>${myRole}</code>\n` +
+    `▸ <b>${counterpartRole}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
+    `▸ <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `👉 <a href="${inviteLink}"><b>[ ENTRAR A LA SALA #${dealId} ]</b></a>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `🛡️ <i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo oficial.</i>`
   );
 }
 
 function dealCounterpartInviteMessage(dealId, inviteLink, creatorMention, myRole, creatorRole, description) {
   return (
-    `${SYM.DIAMOND} <b>SALA DE MEDIACIÓN #${dealId} LISTA</b>\n\n` +
-    `• <b>Tu Rol:</b> ${myRole || 'Participante'}\n` +
-    `• <b>${creatorRole || 'Solicitante'}:</b> ${creatorMention}\n` +
-    `• <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `👉 <a href="${inviteLink}"><b>[ Entrar a la Sala #${dealId} ]</b></a>\n\n` +
-    `<i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo.</i>`
+    `⟡ <b>SALA DE MEDIACIÓN LISTA</b> ⊱ <code>TRATO #${dealId}</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Tu Rol:</b> <code>${myRole || 'Participante'}</code>\n` +
+    `▸ <b>${creatorRole || 'Solicitante'}:</b> ${creatorMention}\n` +
+    `▸ <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `👉 <a href="${inviteLink}"><b>[ ENTRAR A LA SALA #${dealId} ]</b></a>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `🛡️ <i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo oficial.</i>`
   );
 }
 
@@ -194,137 +231,161 @@ function dealTopicWelcomeBanner(dealId, creatorMention, counterpart, adminMentio
     : (counterpart.startsWith('@') || /^\d+$/.test(counterpart) ? counterpart : `@${counterpart}`);
 
   return (
-    `${SYM.DIAMOND} <b>SALA OFICIAL DE MEDIACIÓN — TRATO #${dealId}</b>\n\n` +
-    `• <b>${creatorRoleName}:</b> ${creatorMention}\n` +
-    `• <b>${counterpartRoleName}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
-    `• <b>Mediador:</b> ${adminMention}\n` +
-    `• <b>Detalles del Trato:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `📌 <b>Protocolo de Seguridad:</b>\n` +
-    `1. Toda comunicación y comprobantes deben enviarse en este hilo.\n` +
-    `2. El Comprador paga directamente al Mediador (Trato Admin).\n` +
-    `3. El Vendedor entrega el producto únicamente tras confirmación del Mediador.\n` +
-    `4. Al finalizar con éxito, el Mediador libera los fondos y cierra el hilo.`
+    `⟡ <b>𝐓𝐑𝐀𝐓𝐎 𝐄𝐒𝐂𝐑𝐎𝐖 𝐎𝐅𝐈𝐂𝐈𝐀𝐋</b> ⊱ <code>SALA #${dealId}</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>${creatorRoleName}:</b> ${creatorMention}\n` +
+    `▸ <b>${counterpartRoleName}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
+    `▸ <b>Mediador Asignado:</b> ${adminMention}\n` +
+    `▸ <b>Detalles del Trato:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `📌 <b>PROTOCOLO OFICIAL DE SEGURIDAD:</b>\n` +
+    `• <b>1.</b> Todo comprobante y dato debe enviarse únicamente en este hilo.\n` +
+    `• <b>2.</b> El Comprador paga directamente al Mediador (Trato Admin).\n` +
+    `• <b>3.</b> El Vendedor entrega el producto SOLO cuando el Mediador confirme el dinero retenido.\n` +
+    `• <b>4.</b> Tras conformidad, el Mediador liquida los fondos y cierra el trato.`
   );
 }
 
 function escrowGroupConfigured(groupTitle, groupId) {
   return (
-    `${SYM.CHECK} <b>GRUPO DE TRATOS CONFIGURADO</b>\n\n` +
-    `<b>Grupo:</b> ${escapeHtml(groupTitle)}\n` +
-    `<b>ID:</b> <code>${groupId}</code>\n` +
-    `<b>Temas (Topics):</b> ACTIVADOS ✓\n\n` +
-    `Cada trato aceptado creará un hilo <b>"⟡ Trato Admin N°X"</b>.`
+    `⟡ <b>GRUPO DE TRATOS CONFIGURADO</b> ⊱ <code>SISTEMA ESCROW</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Grupo:</b> ${escapeHtml(groupTitle)}\n` +
+    `▸ <b>ID:</b> <code>${groupId}</code>\n` +
+    `▸ <b>Temas (Topics):</b> ⊱ <code>ACTIVADOS ✓</code> ⊰\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `✓ <i>Cada trato aceptado creará automáticamente su hilo seguro.</i>`
   );
 }
 
 function escrowGroupNotForumError() {
   return (
-    `${SYM.CROSS} <b>TEMAS NO ACTIVADOS</b>\n\n` +
-    `Este grupo no tiene la función de Temas activada.\n\n` +
-    `<b>Para activar:</b>\n` +
-    `${SYM.BULLET} Editar grupo → Activar "Temas" → Guardar.\n` +
-    `${SYM.BULLET} Bot como Admin con "Gestionar temas".\n\n` +
-    `Luego ejecuta <code>/set_grupo_tratos</code> de nuevo.`
+    `⟡ <b>TEMAS NO ACTIVADOS</b> ⊱ <code>ERROR DE CONFIGURACIÓN</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `Este grupo no tiene la función de <b>Temas (Topics)</b> activada.\n\n` +
+    `▸ <b>Solución:</b>\n` +
+    `  ↳ Editar grupo → Activar opción "Temas" → Guardar.\n` +
+    `  ↳ Verificar que el bot sea Admin con permiso "Gestionar temas".\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `<i>Luego vuelve a ejecutar <code>/set_grupo_tratos</code>.</i>`
   );
 }
 
 function escrowGroupNoPermissionError() {
   return (
-    `${SYM.CROSS} <b>PERMISOS INSUFICIENTES</b>\n\n` +
-    `El bot necesita ser Admin con:\n` +
-    `${SYM.BULLET} Gestionar temas (Manage Topics)\n` +
-    `${SYM.BULLET} Invitar usuarios por enlace\n\n` +
-    `Dale los permisos y vuelve a ejecutar <code>/set_grupo_tratos</code>.`
+    `⟡ <b>PERMISOS INSUFICIENTES</b> ⊱ <code>BOT REQUERIMIENTO</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `El bot requiere los siguientes permisos de Administrador:\n\n` +
+    `▸ Gestionar temas (Manage Topics)\n` +
+    `▸ Invitar usuarios por enlace (Invite Users via Link)\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `<i>Otorga los permisos y vuelve a ejecutar <code>/set_grupo_tratos</code>.</i>`
   );
 }
 
 function dealRatingMessage(dealId, adminUsername) {
-  const adminTag = adminUsername ? `<code>@${adminUsername}</code>` : 'el Trato Admin';
+  const adminTag = adminUsername ? `@${adminUsername}` : 'el Trato Admin';
   return (
-    `${SYM.DIAMOND} <b>CALIFICAR SERVICIO</b> — Trato #${dealId}\n\n` +
-    `${SYM.CHECK} <b>¡Trato completado con éxito!</b>\n` +
-    `<b>Mediador:</b> ${adminTag}\n\n` +
-    `¿Cómo calificarías la atención del mediador?`
+    `⟡ <b>CALIFICACIÓN DE ATENCIÓN</b> ⊱ <code>TRATO #${dealId}</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `✓ <b>¡Trato completado exitosamente!</b>\n` +
+    `▸ <b>Mediador:</b> ${adminTag}\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `¿Cómo calificarías el desempeño y rapidez del mediador?`
   );
 }
 
 function dealCancelledMessage(dealId) {
-  return `${SYM.CROSS} <b>Trato #${dealId} Cancelado.</b>`;
+  return `⟡ <b>TRATO #${dealId} CANCELADO</b> ⊱ <code>CERRADO</code> ⊰`;
 }
 
 function burnInitialPrompt() {
   return (
-    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
-    `<i>El uso indebido o reportes falsos resultan en Baneo Global Permanente.</i>\n\n` +
-    `<b>Paso 1/3:</b> Selecciona cómo identificar al acusado:`
+    `⟡ <b>SISTEMA ANTI-ESTAFAS</b> ⊱ <code>REPORTE DE ESTAFA</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `⚠️ <i>El uso indebido o denuncias falsas conllevan Baneo Global Permanente (GBAN).</i>\n\n` +
+    `▸ <b>Paso 1 de 3:</b> Selecciona cómo deseas identificar al acusado:`
   );
 }
 
 function burnAskIdPrompt() {
   return (
-    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
-    `<b>Paso 1/3:</b> Envía el <b>ID numérico</b> del acusado.\n` +
-    `<i>Ejemplo: <code>8579513055</code></i>`
+    `⟡ <b>SISTEMA ANTI-ESTAFAS</b> ⊱ <code>IDENTIFICACIÓN POR ID</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Paso 1 de 3:</b> Envía el <b>ID numérico de Telegram</b> del acusado.\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `💡 <i>Ejemplo: <code>8579513055</code></i>`
   );
 }
 
 function burnAskUsernamePrompt() {
   return (
-    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
-    `<b>Paso 1/3:</b> Envía el <b>@Username</b> del acusado.\n` +
-    `<i>Ejemplo: <code>@usuario_estafador</code></i>`
+    `⟡ <b>SISTEMA ANTI-ESTAFAS</b> ⊱ <code>IDENTIFICACIÓN POR USERNAME</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Paso 1 de 3:</b> Envía el <b>@Username</b> del acusado.\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `💡 <i>Ejemplo: <code>@usuario_estafador</code></i>`
   );
 }
 
 function burnContextPrompt(targetLabel) {
   return (
-    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
-    `👤 <b>Acusado:</b> ${targetLabel}\n\n` +
-    `<b>Paso 2/3:</b> Describe detalladamente lo sucedido (monto, método de engaño, fechas).\n` +
-    `<i>(Mínimo 15 caracteres | Máximo 400 caracteres)</i>`
+    `⟡ <b>SISTEMA ANTI-ESTAFAS</b> ⊱ <code>DESCRIPCIÓN DE HECHOS</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Acusado:</b> ${targetLabel}\n\n` +
+    `▸ <b>Paso 2 de 3:</b> Describe detalladamente lo sucedido (monto robado, método, fecha).\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `📝 <i>(Mínimo 15 caracteres | Máximo 400 caracteres)</i>`
   );
 }
 
 function burnProofPrompt(targetLabel, contextSnippet, proofsCount = 0) {
   return (
-    `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
-    `👤 <b>Acusado:</b> ${targetLabel}\n` +
-    `📝 <b>Hechos:</b> <i>${escapeHtml(contextSnippet.slice(0, 80))}${contextSnippet.length > 80 ? '...' : ''}</i>\n\n` +
-    `<b>Paso 3/3:</b> Envía tus capturas o comprobantes de pago como imagen.\n` +
-    `📸 <b>Capturas subidas:</b> <b>${proofsCount}</b> <i>(Mínimo 1 obligatoria)</i>\n\n` +
+    `⟡ <b>SISTEMA ANTI-ESTAFAS</b> ⊱ <code>EVIDENCIAS Y CAPTURAS</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Acusado:</b> ${targetLabel}\n` +
+    `▸ <b>Hechos:</b> <i>${escapeHtml(contextSnippet.slice(0, 80))}${contextSnippet.length > 80 ? '...' : ''}</i>\n\n` +
+    `▸ <b>Paso 3 de 3:</b> Envía tus capturas o comprobantes de pago como imagen.\n` +
+    `▸ <b>Capturas recibidas:</b> <b>${proofsCount}</b> <i>(Mínimo 1 obligatoria)</i>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
     `<i>Cuando termines de enviar todas tus capturas, presiona <b>[ CONTINUAR ]</b>.</i>`
   );
 }
 
 function burnSummaryMessage(targetLabel, context, proofsCount) {
   return (
-    `${SYM.DIAMOND} <b>RESUMEN DEL REPORTE ANTI-ESTAFAS</b>\n\n` +
-    `👤 <b>Acusado:</b> ${targetLabel}\n` +
-    `📸 <b>Evidencias:</b> <b>${proofsCount} captura(s)</b>\n\n` +
-    `📝 <b>Descripción de los Hechos:</b>\n<i>${escapeHtml(context)}</i>\n\n` +
-    `${SYM.THIN_LINE}\n` +
-    `⚠️ <i>Al presionar <b>[ QUEMAR ]</b>, el reporte se enviará al equipo de moderación para su investigación y baneo global.</i>`
+    `⟡ <b>RESUMEN DEL REPORTE</b> ⊱ <code>CONFIRMACIÓN</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Acusado:</b> ${targetLabel}\n` +
+    `▸ <b>Evidencias:</b> <code>${proofsCount} captura(s)</code>\n` +
+    `▸ <b>Descripción de los Hechos:</b>\n` +
+    `  ↳ <i>${escapeHtml(context)}</i>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `⚠️ <i>Al pulsar <b>[ QUEMAR ]</b>, el reporte se enviará al Staff para revisión y baneo global.</i>`
   );
 }
 
 function burnSentMessage(reportId = '') {
   const idText = reportId ? ` #${reportId}` : '';
   return (
-    `${SYM.CHECK} <b>REPORTE ENVIADO AL STAFF${idText}</b>\n\n` +
-    `Tu denuncia y pruebas han sido recibidas por los moderadores de <b>Ventas Libres Perú</b>.\n\n` +
-    `<i>Revisaremos tu caso a la brevedad. Gracias por mantener segura la comunidad. 🇵🇪</i>`
+    `⟡ <b>REPORTE ENVIADO AL STAFF${idText}</b> ⊱ <code>EN REVISIÓN</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `✓ Tu denuncia y evidencias han sido recibidas por los moderadores de <b>Ventas Libres Perú</b>.\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `🛡️ <i>Revisaremos tu caso a la brevedad. Gracias por mantener limpia la comunidad. 🇵🇪</i>`
   );
 }
 
 function burnStaffReport(reportId, reporterMention, targetLabel, context, proofsCount = 0) {
   return (
-    `${SYM.DIAMOND} <b>REPORTE DE ESTAFA #${reportId}</b>\n\n` +
-    `${SYM.ARROW} <b>Reportante:</b> ${reporterMention}\n` +
-    `${SYM.ARROW} <b>Acusado:</b> ${targetLabel}\n` +
-    `${SYM.ARROW} <b>Evidencias:</b> <code>${proofsCount} captura(s)</code>\n\n` +
-    `📝 <b>Contexto / Hechos:</b>\n<i>${escapeHtml(context)}</i>\n\n` +
-    `${SYM.THIN_LINE}\n` +
+    `⟡ <b>DENUNCIA DE ESTAFA #${reportId}</b> ⊱ <code>PANEL STAFF</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Reportante:</b> ${reporterMention}\n` +
+    `▸ <b>Acusado:</b> ${targetLabel}\n` +
+    `▸ <b>Evidencias:</b> <code>${proofsCount} captura(s)</code>\n\n` +
+    `▸ <b>Contexto / Hechos:</b>\n` +
+    `  ↳ <i>${escapeHtml(context)}</i>\n\n` +
+    `──────────────────────────────────────────────────────\n` +
     `<b>Acciones de Moderación:</b>`
   );
 }
@@ -335,21 +396,20 @@ function burnAlertBroadcast(targetId, context = null, targetUsername = null, tar
   const nameDisplay = targetName || (targetUsername ? `@${targetUsername}` : 'Estafador');
 
   let text =
-    `${SYM.DIVIDER}\n` +
-    `🚨 <b>ESTAFADOR QUEMADO Y REGISTRADO</b> 🚨\n` +
-    `${SYM.DIVIDER}\n\n` +
-    `👤 <b>Nombre / Alias:</b> <b>${escapeHtml(nameDisplay)}</b>\n` +
-    (targetUsername ? `🔗 <b>Username:</b> @${escapeHtml(targetUsername)}\n` : '') +
-    `🆔 <b>ID de Telegram:</b> ${idDisplay}\n\n` +
-    `⚖️ <b>Sanción:</b> Baneo Permanente de todos los grupos y canales oficiales.\n\n`;
+    `🚨 <b>𝐄𝐒𝐓𝐀𝐅𝐀𝐃𝐎𝐑 𝐐𝐔𝐄𝐌𝐀𝐃𝐎 𝐘 𝐑𝐄𝐆𝐈𝐒𝐓𝐑𝐀𝐃𝐎</b> 🚨\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Nombre / Alias:</b> <b>${escapeHtml(nameDisplay)}</b>\n` +
+    (targetUsername ? `▸ <b>Username:</b> @${escapeHtml(targetUsername)}\n` : '') +
+    `▸ <b>ID de Telegram:</b> ${idDisplay}\n` +
+    `▸ <b>Sanción:</b> ⊱ <code>BANEO GLOBAL PERMANENTE (GBAN)</code> ⊰\n\n`;
 
   if (context) {
-    text += `📝 <b>Motivo / Hechos:</b>\n<i>${escapeHtml(context)}</i>\n\n`;
+    text += `▸ <b>Motivo / Hechos:</b>\n  ↳ <i>${escapeHtml(context)}</i>\n\n`;
   }
 
   text +=
-    `${SYM.THIN_LINE}\n` +
-    `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`;
+    `──────────────────────────────────────────────────────\n` +
+    `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad absoluta.</i>`;
   return text;
 }
 
@@ -361,92 +421,102 @@ function formatStaffUser(username, userId) {
 }
 
 function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
-  let output = `👑 <b>STAFF OFICIAL — ${escapeHtml(communityName.toUpperCase())}</b>\n\n`;
+  let output =
+    `⟡ <b>𝐒𝐓𝐀𝐅𝐅 𝐎𝐅𝐈𝐂𝐈𝐀𝐋</b> ⊱ <code>${escapeHtml(communityName.toUpperCase())}</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n`;
 
-  output += `<b>OWNERS</b>\n`;
+  output += `👑 <b>𝐎𝐖𝐍𝐄𝐑𝐒 (Propietarios)</b>\n`;
   if (groupedStaff.owners && groupedStaff.owners.length > 0) {
     for (const m of groupedStaff.owners) {
-      output += `• ${formatStaffUser(m.username, m.user_id)}\n`;
+      output += `▸ ${formatStaffUser(m.username, m.user_id)}\n`;
     }
   } else {
-    output += `<i>No registrados</i>\n`;
+    output += `<i>• No registrados</i>\n`;
   }
   output += `\n`;
 
-  output += `<b>CO-OWNERS</b>\n`;
+  output += `⚔️ <b>𝐂𝐎-𝐎𝐖𝐍𝐄𝐑𝐒</b>\n`;
   if (groupedStaff.coowners && groupedStaff.coowners.length > 0) {
     for (const m of groupedStaff.coowners) {
-      output += `• ${formatStaffUser(m.username, m.user_id)}\n`;
+      output += `▸ ${formatStaffUser(m.username, m.user_id)}\n`;
     }
   } else {
-    output += `<i>No registrados</i>\n`;
+    output += `<i>• No registrados</i>\n`;
   }
   output += `\n`;
 
-  output += `<b>ADMINISTRADORES</b>\n`;
+  output += `🛡️ <b>𝐀𝐃𝐌𝐈𝐍𝐈𝐒𝐓𝐑𝐀𝐃𝐎𝐑𝐄𝐒</b>\n`;
   if (groupedStaff.admins && groupedStaff.admins.length > 0) {
     for (const m of groupedStaff.admins) {
-      output += `• ${formatStaffUser(m.username, m.user_id)}\n`;
+      output += `▸ ${formatStaffUser(m.username, m.user_id)}\n`;
     }
   } else {
-    output += `<i>No registrados</i>\n`;
+    output += `<i>• No registrados</i>\n`;
   }
   output += `\n`;
 
-  output += `<b>TRATO ADMINS (MEDIADORES)</b>\n`;
+  output += `⚖️ <b>𝐓𝐑𝐀𝐓𝐎 𝐀𝐃𝐌𝐈𝐍𝐒 (Mediadores Certificados)</b>\n`;
   if (groupedStaff.dealAdmins && groupedStaff.dealAdmins.length > 0) {
     for (const m of groupedStaff.dealAdmins) {
       const score = m.avgRating ? `${m.avgRating}/5.0 ⭐` : `5.0/5.0 ⭐`;
-      output += `• ${formatStaffUser(m.username, m.user_id)} (${score})\n`;
+      output += `▸ ${formatStaffUser(m.username, m.user_id)} ⊱ ${score} ⊰\n`;
     }
   } else {
-    output += `<i>No registrados</i>\n`;
+    output += `<i>• No registrados</i>\n`;
   }
 
-  output += `\n🛡️ <i>Para compras y ventas 100% seguras usa <code>/tratoadm</code>.</i>`;
+  output +=
+    `\n──────────────────────────────────────────────────────\n` +
+    `🛡️ <i>Para compras y ventas 100% seguras usa <code>/tratoadm</code>.</i>`;
   return output;
 }
 
 function modLogEntry(action, moderatorMention, targetId, chatTitle, reason) {
   return (
-    `${SYM.PRINT} <b>LOG: ${action}</b>\n\n` +
-    `<b>Mod:</b> ${moderatorMention}\n` +
-    `<b>Objetivo:</b> <code>${targetId}</code>\n` +
-    `<b>Grupo:</b> ${chatTitle || 'N/A'}\n` +
-    `<b>Razón:</b> ${reason || 'Sin especificar'}\n` +
-    `<b>Fecha:</b> <code>${new Date().toISOString()}</code>`
+    `⟡ <b>LOG DE MODERACIÓN</b> ⊱ <code>${action}</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `▸ <b>Moderador:</b> ${moderatorMention}\n` +
+    `▸ <b>Objetivo:</b> <code>${targetId}</code>\n` +
+    `▸ <b>Grupo:</b> ${chatTitle || 'N/A'}\n` +
+    `▸ <b>Motivo:</b> ${reason || 'Sin especificar'}\n` +
+    `▸ <b>Registro:</b> <code>${new Date().toISOString()}</code>\n` +
+    `──────────────────────────────────────────────────────`
   );
 }
 
 function periodicSecurityNotice() {
   return (
-    `${SYM.SEAL} <b>AVISO DE SEGURIDAD</b> ${SYM.BADGE}\n\n` +
-    `🛡️ Para compras y ventas 100% seguras:\n` +
-    `${SYM.BULLET} Verifica al <b>/staff</b> oficial.\n` +
-    `${SYM.BULLET} Usa <b>/tratoadm</b> con un mediador certificado.\n\n` +
-    `${SYM.CHECK} Fondos y cuentas protegidos.\n` +
-    `<i>— Staff Oficial, Ventas Libres Perú</i> 🇵🇪`
+    `⟡ <b>𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔</b> ⊱ <code>AVISO DE SEGURIDAD</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
+    `🛡️ <b>Recomendaciones para un comercio 100% seguro:</b>\n\n` +
+    `▸ Verifica siempre al equipo oficial con <code>/staff</code>.\n` +
+    `▸ Usa <code>/tratoadm</code> para retener y proteger tu dinero.\n` +
+    `▸ No confíes en tratos por mensajes privados con desconocidos.\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `✓ <i>Staff Oficial — Ventas Libres Perú 🇵🇪</i>`
   );
 }
 
 function periodicNoticeKeyboard(botUsername = 'ventas_libres_peru_Bot') {
   const { InlineKeyboard } = require('grammy');
   return new InlineKeyboard()
-    .url('TRATO ADMIN', `https://t.me/${botUsername}?start=tratoadm`)
-    .url('STAFF', `https://t.me/${botUsername}?start=staff`)
+    .url('🤝 TRATO ADMIN', `https://t.me/${botUsername}?start=tratoadm`)
+    .url('🛡️ STAFF', `https://t.me/${botUsername}?start=staff`)
     .row()
-    .url('REPORTAR ESTAFA', `https://t.me/${botUsername}?start=quemar`);
+    .url('🚨 REPORTAR ESTAFA', `https://t.me/${botUsername}?start=quemar`);
 }
 
 function scamKeywordReply(firstName, username) {
   const userTag = username ? `@${username}` : (firstName ? `<b>${escapeHtml(firstName)}</b>` : 'Estimado usuario');
   return (
-    `${SYM.ALERT} <b>CENTRAL DE REPORTES</b>\n\n` +
+    `⟡ <b>CENTRAL DE SEGURIDAD</b> ⊱ <code>ALERTA DE ESTAFA</code> ⊰\n` +
+    `══════════════════════════════════════════════════════\n\n` +
     `${userTag}, si fuiste víctima de estafa:\n\n` +
-    `① Guarda capturas y comprobantes.\n` +
-    `② Escribe <code>/quemar</code> al bot por privado.\n` +
-    `③ El Staff revisará tu caso.\n\n` +
-    `<i>${SYM.SHIELD} Tu seguridad es nuestra prioridad.</i>`
+    `▸ <b>1.</b> Guarda todas las capturas de chat y vouchers de pago.\n` +
+    `▸ <b>2.</b> Escribe <code>/quemar</code> al bot por privado.\n` +
+    `▸ <b>3.</b> El Staff investigará y emitirá Baneo Global.\n\n` +
+    `──────────────────────────────────────────────────────\n` +
+    `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`
   );
 }
 
@@ -486,5 +556,4 @@ module.exports = {
   burnAlertBroadcast,
   renderStaffList,
   modLogEntry,
-  scamKeywordReply,
 };
