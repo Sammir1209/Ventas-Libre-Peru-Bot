@@ -18,6 +18,7 @@ const helpHandler = require('../modules/help/handler');
 const aiHandler = require('../modules/ai/handler');
 const searchHandler = require('../modules/moderation/search');
 const setupHandler = require('../modules/setup/handler');
+const securityHandler = require('../modules/security/handler');
 
 // ══════════════════════════════════════════════════════
 // ⟡ Motor Multi-Instancia de Sub-Bots (Plataforma SaaS)
@@ -58,6 +59,7 @@ class BotManager {
     aiHandler.register(bot);
     searchHandler.register(bot);
     setupHandler.register(bot);
+    securityHandler.register(bot);
 
     bot.catch((err) => {
       console.error(`⟡ [Sub-Bot: ${tenant.community_name}] Error no controlado:`, err.message);

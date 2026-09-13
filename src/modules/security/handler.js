@@ -8,12 +8,15 @@ const { InlineKeyboard } = require('grammy');
 const antiRaid = require('./antiRaid');
 const antiFlood = require('./antiFlood');
 const locksModule = require('./locks');
+const panelHandler = require('./panelHandler');
 
 // ══════════════════════════════════════════════════════
 // ⟡ Módulo de Comandos: Seguridad, Anti-Raid & Locks
 // ══════════════════════════════════════════════════════
 
 function register(bot) {
+  // Registrar comando /panel
+  panelHandler.register(bot);
   // ── Interceptor Global de Mensajes (Anti-Flood & Locks) ──
   bot.on('message', async (ctx, next) => {
     try {

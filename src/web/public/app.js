@@ -1,18 +1,45 @@
 // ══════════════════════════════════════════════════════
-// ⟡ VLP SaaS Dashboard — Client Application
+// ⟡ VLP SaaS & Bot Control Center — Client Application
 // ══════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', () => {
   const API_PREFIX = '/api-sec-vlp';
 
-  // Containers
-  const botsContainer = document.getElementById('bots-container');
-  const btnRefresh = document.getElementById('btn-refresh');
-  const btnOpenModal = document.getElementById('btn-open-modal');
-  const btnCloseModal = document.getElementById('btn-close-modal');
-  const btnCancelModal = document.getElementById('btn-cancel-modal');
-  const modalCreate = document.getElementById('modal-create');
-  const formCreate = document.getElementById('form-create-bot');
+  // ── Navigation Views ──
+  const navItems = {
+    groups: document.getElementById('nav-groups'),
+    staff: document.getElementById('nav-staff'),
+    verification: document.getElementById('nav-verification'),
+    community: document.getElementById('nav-community'),
+  };
+
+  const views = {
+    groups: document.getElementById('view-groups'),
+    staff: document.getElementById('view-staff'),
+    verification: document.getElementById('view-verification'),
+    community: document.getElementById('view-community'),
+  };
+
+  function switchView(target) {
+    Object.keys(views).forEach((k) => {
+      if (views[k]) {
+        views[k].style.display = k === target ? 'block' : 'none';
+      }
+      if (navItems[k]) {
+        navItems[k].classList.toggle('active', k === target);
+      }
+    });
+  }
+
+  Object.keys(navItems).forEach((key) => {
+    if (navItems[key]) {
+      navItems[key].addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.hash = key;
+        switchView(key);
+      });
+    }
+  });
 
   // Auth Elements
   const modalAuth = document.getElementById('modal-auth');
@@ -21,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const adminKeyInput = document.getElementById('admin_key_input');
   const authErrorMsg = document.getElementById('auth-error-msg');
 
-  // User Profile in Sidebar
+  // User Profile
   const sidebarUserBox = document.getElementById('sidebar-user-box');
   const userAvatarImg = document.getElementById('user-avatar-img');
   const userAvatarInitials = document.getElementById('user-avatar-initials');
@@ -29,62 +56,125 @@ document.addEventListener('DOMContentLoaded', () => {
   const userDisplayRole = document.getElementById('user-display-role');
   const btnLogout = document.getElementById('btn-logout');
 
-  // Form Fields & Verifiers
-  const botTokenInput = document.getElementById('bot_token');
-  const btnVerifyToken = document.getElementById('btn-verify-token');
-  const tokenFeedback = document.getElementById('token-feedback');
-
-  const officialChatIdInput = document.getElementById('official_chat_id');
-  const btnVerifyChat = document.getElementById('btn-verify-chat');
-  const chatFeedback = document.getElementById('chat-feedback');
-
-  const channelInput = document.getElementById('channel_input');
-  const btnAddChannel = document.getElementById('btn-add-channel');
-  const channelFeedback = document.getElementById('channel-feedback');
-  const channelsChipsContainer = document.getElementById('channels-chips-container');
+  // Groups & Security Elements
+  const groupsContainer = document.getElementById('groups-container');
+  const btnRefreshGroups = document.getElementById('btn-refresh-groups');
+  const modalGroupSecurity = document.getElementById('modal-group-security');
+  const btnCloseGroupModal = document.getElementById('btn-close-group-modal');
+  const btnCancelGroupModal = document.getElementById('btn-cancel-group-modal');
+  const formGroupSecurity = document.getElementById('form-group-security');
+  const modalGroupName = document.getElementById('modal-group-name');
+  const modalGroupId = document.getElementById('modal-group-id');
+  const panicBanner = document.getElementById('panic-status-banner');
+  const btnTogglePanic = document.getElementById('btn-toggle-panic');
+  const panicBannerTitle = document.getElementById('panic-banner-title');
+  const panicBannerDesc = document.getElementById('panic-banner-desc');
+  const groupSaveFeedback = document.getElementById('group-save-feedback');
 
   // Stats Elements
-  const statTotal = document.getElementById('stat-total');
-  const statOnline = document.getElementById('stat-online');
-  const statGroups = document.getElementById('stat-groups');
-  const statBurned = document.getElementById('stat-burned');
-  const botsCountBadge = document.getElementById('bots-count-badge');
+  const statGroupsCount = document.getElementById('stat-groups-count');
+  const statAdminCount = document.getElementById('stat-admin-count');
+  const statLockdownCount = document.getElementById('stat-lockdown-count');
+  const groupsCountBadge = document.getElementById('groups-count-badge');
+
+  // Staff Elements
+  const staffContainer = document.getElementById('staff-container');
+  const btnOpenStaffModal = document.getElementById('btn-open-staff-modal');
+  const modalStaff = document.getElementById('modal-staff');
+  const btnCloseStaffModal = document.getElementById('btn-close-staff-modal');
+  const btnCancelStaffModal = document.getElementById('btn-cancel-staff-modal');
+  const formStaffAssign = document.getElementById('form-staff-assign');
+  const staffModalFeedback = document.getElementById('staff-modal-feedback');
+
+  // Verification Channels Elements
+  const inputNewVerifChannel = document.getElementById('input-new-verif-channel');
+  const btnAddVerifChannel = document.getElementById('btn-add-verif-channel');
+  const verifChannelFeedback = document.getElementById('verif-channel-feedback');
+  const verifChannelsTableBody = document.getElementById('verif-channels-table-body');
+
+  // Community Settings Elements
+  const formCommunity = document.getElementById('form-community-settings');
+  const communityFeedback = document.getElementById('community-feedback');
 
   // State
-  let verifiedChannelsList = [];
-  let currentVerifiedBot = null;
   let adminKey = localStorage.getItem('vlp_admin_key') || '';
+  let authToken = localStorage.getItem('vlp_auth_token') || '';
   let storedUser = null;
+  let activeChatId = null;
+  let activeGroupIsLockedDown = false;
+  let cachedVerifChannels = [];
 
   try {
     storedUser = JSON.parse(localStorage.getItem('vlp_admin_user') || 'null');
   } catch {}
 
-  // Initial Auth Check
-  if (!adminKey || !storedUser) {
-    modalAuth.classList.add('active');
-  } else {
-    displayUserHeader(storedUser);
-    fetchBots();
-    fetchStats();
+  // Check URL params for one-click token login from /panel command: ?auth_token=...&uid=...
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlAuthToken = urlParams.get('auth_token');
+  const urlUid = urlParams.get('uid');
+
+  if (urlAuthToken) {
+    authToken = urlAuthToken;
+    localStorage.setItem('vlp_auth_token', urlAuthToken);
+    // Limpiar query params de la barra de direcciones por privacidad
+    window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
   }
 
-  // ── Logout ──
+  // Helper para Fetch Seguro (Envía tanto x-admin-key como x-auth-token)
+  function secureFetch(url, options = {}) {
+    options.headers = {
+      ...options.headers,
+      'x-admin-key': adminKey,
+      'x-auth-token': authToken,
+    };
+    return fetch(url, options);
+  }
+
+  // Initial Auth Check
+  async function initAuth() {
+    if (authToken) {
+      displayUserHeader({
+        id: urlUid || 'Oficial',
+        name: 'Administrador Autorizado',
+        role: 'OWNER / STAFF',
+      });
+      modalAuth.classList.remove('active');
+      loadAllData();
+      return;
+    }
+
+    if (adminKey && storedUser) {
+      displayUserHeader(storedUser);
+      modalAuth.classList.remove('active');
+      loadAllData();
+      return;
+    }
+
+    modalAuth.classList.add('active');
+  }
+
+  initAuth();
+
+  // Hash Navigation routing
+  const initialHash = window.location.hash.replace('#', '') || 'groups';
+  if (views[initialHash]) switchView(initialHash);
+
+  // Logout
   btnLogout.addEventListener('click', () => {
     localStorage.removeItem('vlp_admin_key');
+    localStorage.removeItem('vlp_auth_token');
     localStorage.removeItem('vlp_admin_user');
     location.reload();
   });
 
-  // ── Login con ID de Telegram + Master Key ──
+  // Login form submit
   formAuth.addEventListener('submit', async (e) => {
     e.preventDefault();
     const telegramId = adminTgIdInput.value.trim();
     const key = adminKeyInput.value.trim();
-
     if (!telegramId || !key) return;
 
-    authErrorMsg.textContent = 'Verificando con Telegram API...';
+    authErrorMsg.textContent = 'Verificando autorización...';
     authErrorMsg.className = 'verify-feedback';
 
     try {
@@ -103,14 +193,13 @@ document.addEventListener('DOMContentLoaded', () => {
         displayUserHeader(data.user);
         modalAuth.classList.remove('active');
         authErrorMsg.textContent = '';
-        await fetchBots();
-        await fetchStats();
+        loadAllData();
       } else {
         authErrorMsg.textContent = `✗ ${data.error || 'Acceso denegado'}`;
         authErrorMsg.className = 'verify-feedback error';
       }
     } catch (err) {
-      authErrorMsg.textContent = `✗ Error de conexión: ${err.message}`;
+      authErrorMsg.textContent = `✗ Error de red: ${err.message}`;
       authErrorMsg.className = 'verify-feedback error';
     }
   });
@@ -137,370 +226,343 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Helper para Fetch Seguro
-  function secureFetch(url, options = {}) {
-    options.headers = {
-      ...options.headers,
-      'x-admin-key': adminKey,
-    };
-    return fetch(url, options);
+  function loadAllData() {
+    fetchGroups();
+    fetchStaff();
+    fetchVerificationChannels();
+    fetchCommunitySettings();
   }
 
-  // Modal Controls
-  btnOpenModal.addEventListener('click', () => {
-    verifiedChannelsList = [];
-    renderChannelChips();
-    tokenFeedback.textContent = '';
-    chatFeedback.textContent = '';
-    channelFeedback.textContent = '';
-    modalCreate.classList.add('active');
-  });
-  btnCloseModal.addEventListener('click', () => modalCreate.classList.remove('active'));
-  btnCancelModal.addEventListener('click', () => modalCreate.classList.remove('active'));
-  btnRefresh.addEventListener('click', () => {
-    fetchBots();
-    fetchStats();
-  });
+  // ══════════════════════════════════════════════════════
+  // 1. GRUPOS & SEGURIDAD EN TIEMPO REAL
+  // ══════════════════════════════════════════════════════
 
-  // ── 1. Verificar Token de BotFather ──
-  btnVerifyToken.addEventListener('click', async () => {
-    const token = botTokenInput.value.trim();
-    if (!token) {
-      tokenFeedback.textContent = 'Ingresa un token para verificar.';
-      tokenFeedback.className = 'verify-feedback error';
-      return;
-    }
-
-    tokenFeedback.textContent = 'Consultando Telegram API...';
-    tokenFeedback.className = 'verify-feedback';
-
-    try {
-      const res = await secureFetch(`${API_PREFIX}/test-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
-      const data = await res.json();
-
-      if (data.ok) {
-        currentVerifiedBot = data.bot;
-        tokenFeedback.textContent = `✓ Bot Válido: @${data.bot.username} (${data.bot.first_name})`;
-        tokenFeedback.className = 'verify-feedback success';
-      } else {
-        tokenFeedback.textContent = `✗ Error: ${data.error}`;
-        tokenFeedback.className = 'verify-feedback error';
-      }
-    } catch (err) {
-      tokenFeedback.textContent = `✗ Error: ${err.message}`;
-      tokenFeedback.className = 'verify-feedback error';
-    }
-  });
-
-  // ── 2. Verificar Grupo Oficial Chat (por ID o Enlace https://t.me/+...) ──
-  btnVerifyChat.addEventListener('click', async () => {
-    const chatId = officialChatIdInput.value.trim();
-    const token = botTokenInput.value.trim();
-
-    if (!chatId) {
-      chatFeedback.textContent = 'Ingresa el ID (ej: -100...) o enlace (ej: https://t.me/+...).';
-      chatFeedback.className = 'verify-feedback error';
-      return;
-    }
-
-    chatFeedback.textContent = 'Verificando pertenencia y permisos del bot...';
-    chatFeedback.className = 'verify-feedback';
-
-    try {
-      const res = await secureFetch(`${API_PREFIX}/verify-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, chatId }),
-      });
-      const data = await res.json();
-
-      if (data.ok && data.chat) {
-        const c = data.chat;
-        const admText = c.isBotAdmin ? '✓ Bot es Administrador' : '⚠️ Bot es Miembro (Recomendado hacerlo Admin)';
-        chatFeedback.textContent = `✓ "${c.title}" (${c.type}) — ${admText}`;
-        chatFeedback.className = 'verify-feedback success';
-      } else {
-        chatFeedback.textContent = `✗ ${data.error || 'Grupo no encontrado'}`;
-        chatFeedback.className = 'verify-feedback error';
-      }
-    } catch (err) {
-      chatFeedback.textContent = `✗ Error: ${err.message}`;
-      chatFeedback.className = 'verify-feedback error';
-    }
-  });
-
-  // ── 3. Verificar Grupo de Tratos Admin (Escrow) ──
-  const escrowGroupInput = document.getElementById('escrow_group_id');
-  const btnVerifyEscrow = document.getElementById('btn-verify-escrow');
-  const escrowFeedback = document.getElementById('escrow-feedback');
-
-  btnVerifyEscrow.addEventListener('click', async () => {
-    const chatId = escrowGroupInput.value.trim();
-    const token = botTokenInput.value.trim();
-
-    if (!chatId) {
-      escrowFeedback.textContent = 'Ingresa el ID o enlace del grupo de tratos.';
-      escrowFeedback.className = 'verify-feedback error';
-      return;
-    }
-
-    escrowFeedback.textContent = 'Verificando grupo de tratos...';
-    escrowFeedback.className = 'verify-feedback';
-
-    try {
-      const res = await secureFetch(`${API_PREFIX}/verify-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, chatId }),
-      });
-      const data = await res.json();
-
-      if (data.ok && data.chat) {
-        const c = data.chat;
-        const admText = c.isBotAdmin ? '✓ Bot es Administrador' : '⚠️ Bot no es Administrador';
-        escrowFeedback.textContent = `✓ "${c.title}" — ${admText}`;
-        escrowFeedback.className = 'verify-feedback success';
-      } else {
-        escrowFeedback.textContent = `✗ ${data.error || 'Grupo no encontrado'}`;
-        escrowFeedback.className = 'verify-feedback error';
-      }
-    } catch (err) {
-      escrowFeedback.textContent = `✗ Error: ${err.message}`;
-      escrowFeedback.className = 'verify-feedback error';
-    }
-  });
-
-  // ── 4. Verificar Grupo Oficial de Staff ──
-  const staffChatInput = document.getElementById('staff_chat_id');
-  const btnVerifyStaff = document.getElementById('btn-verify-staff');
-  const staffFeedback = document.getElementById('staff-feedback');
-
-  btnVerifyStaff.addEventListener('click', async () => {
-    const chatId = staffChatInput.value.trim();
-    const token = botTokenInput.value.trim();
-
-    if (!chatId) {
-      staffFeedback.textContent = 'Ingresa el ID o enlace del grupo de staff.';
-      staffFeedback.className = 'verify-feedback error';
-      return;
-    }
-
-    staffFeedback.textContent = 'Verificando grupo de staff...';
-    staffFeedback.className = 'verify-feedback';
-
-    try {
-      const res = await secureFetch(`${API_PREFIX}/verify-chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, chatId }),
-      });
-      const data = await res.json();
-
-      if (data.ok && data.chat) {
-        const c = data.chat;
-        const admText = c.isBotAdmin ? '✓ Bot es Administrador' : '⚠️ Bot no es Administrador';
-        staffFeedback.textContent = `✓ "${c.title}" — ${admText}`;
-        staffFeedback.className = 'verify-feedback success';
-      } else {
-        staffFeedback.textContent = `✗ ${data.error || 'Grupo no encontrado'}`;
-        staffFeedback.className = 'verify-feedback error';
-      }
-    } catch (err) {
-      staffFeedback.textContent = `✗ Error: ${err.message}`;
-      staffFeedback.className = 'verify-feedback error';
-    }
-  });
-
-  // ── 3. Verificar y Agregar Canal 1 por 1 ──
-  btnAddChannel.addEventListener('click', async () => {
-    const channelRaw = channelInput.value.trim();
-    const token = botTokenInput.value.trim();
-
-    if (!channelRaw) {
-      channelFeedback.textContent = 'Escribe el @canal o enlace.';
-      channelFeedback.className = 'verify-feedback error';
-      return;
-    }
-
-    channelFeedback.textContent = 'Verificando canal...';
-    channelFeedback.className = 'verify-feedback';
-
-    try {
-      const res = await secureFetch(`${API_PREFIX}/verify-channel`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, channelIdentifier: channelRaw }),
-      });
-      const data = await res.json();
-
-      if (data.ok && data.channel) {
-        const ch = data.channel;
-        if (!verifiedChannelsList.includes(ch.username)) {
-          verifiedChannelsList.push(ch.username);
-          renderChannelChips();
-          channelInput.value = '';
-          channelFeedback.textContent = `✓ Canal agregado: ${ch.title} (${ch.username})`;
-          channelFeedback.className = 'verify-feedback success';
-        } else {
-          channelFeedback.textContent = 'Este canal ya está en la lista.';
-          channelFeedback.className = 'verify-feedback error';
-        }
-      } else {
-        channelFeedback.textContent = `✗ ${data.error || 'Canal no encontrado'}`;
-        channelFeedback.className = 'verify-feedback error';
-      }
-    } catch (err) {
-      channelFeedback.textContent = `✗ Error: ${err.message}`;
-      channelFeedback.className = 'verify-feedback error';
-    }
-  });
-
-  function renderChannelChips() {
-    if (verifiedChannelsList.length === 0) {
-      channelsChipsContainer.innerHTML = `<span style="color: var(--text-dim); font-size: 0.75rem;">Sin canales agregados aún.</span>`;
-      return;
-    }
-
-    channelsChipsContainer.innerHTML = verifiedChannelsList
-      .map(
-        (ch, idx) => `
-        <div class="channel-chip">
-          <span>${escapeHtml(ch)}</span>
-          <span class="channel-chip-remove" onclick="removeChannel(${idx})">&times;</span>
-        </div>
-      `
-      )
-      .join('');
-  }
-
-  window.removeChannel = (index) => {
-    verifiedChannelsList.splice(index, 1);
-    renderChannelChips();
-  };
-
-  // ── Cargar Métricas y Sub-Bots ──
-  async function fetchStats() {
-    try {
-      const res = await secureFetch(`${API_PREFIX}/system-stats`);
-      const data = await res.json();
-      if (data.ok && data.stats) {
-        statGroups.textContent = data.stats.totalGroups || 0;
-        statBurned.textContent = data.stats.totalBurnedScammers || 0;
-      }
-    } catch {}
-  }
-
-  async function fetchBots() {
-    if (!adminKey) return;
-
-    botsContainer.innerHTML = `
+  async function fetchGroups() {
+    groupsContainer.innerHTML = `
       <div class="loading-state">
         <div class="spinner"></div>
-        <p>Cargando instancias en tiempo real...</p>
-      </div>
-    `;
+        <p>Sincronizando grupos con Telegram API...</p>
+      </div>`;
 
     try {
-      const res = await secureFetch(`${API_PREFIX}/subbots`);
+      const res = await secureFetch(`${API_PREFIX}/bot/groups`);
+      const data = await res.json();
 
-      if (res.status === 401 || res.status === 403) {
-        localStorage.removeItem('vlp_admin_key');
-        localStorage.removeItem('vlp_admin_user');
-        modalAuth.classList.add('active');
+      if (!data.ok || !Array.isArray(data.groups)) {
+        groupsContainer.innerHTML = `<div class="empty-state">No se pudieron cargar los grupos: ${data.error || 'Error'}</div>`;
         return;
       }
 
-      const data = await res.json();
-
-      if (!data.ok || !data.bots) {
-        throw new Error(data.error || 'Error al obtener bots');
-      }
-
-      renderStats(data.bots);
-      renderBots(data.bots);
+      renderGroups(data.groups);
     } catch (err) {
-      botsContainer.innerHTML = `
-        <div class="empty-state">
-          <p>Error al cargar sub-bots: ${escapeHtml(err.message)}</p>
-        </div>
-      `;
+      groupsContainer.innerHTML = `<div class="empty-state">Error de conexión: ${err.message}</div>`;
     }
   }
 
-  function renderStats(bots) {
-    const total = bots.length;
-    const online = bots.filter((b) => b.isOnline).length;
+  btnRefreshGroups.addEventListener('click', fetchGroups);
 
-    statTotal.textContent = total;
-    statOnline.textContent = online;
-    botsCountBadge.textContent = `${total} Sub-Bots`;
-  }
+  function renderGroups(groups) {
+    let adminCount = 0;
+    let lockdownCount = 0;
 
-  function renderBots(bots) {
-    if (bots.length === 0) {
-      botsContainer.innerHTML = `
-        <div class="empty-state">
-          <p>No tienes ningún sub-bot registrado. Haz clic en "NUEVO SUB-BOT" para desplegar el primero.</p>
-        </div>
-      `;
+    if (groups.length === 0) {
+      groupsContainer.innerHTML = `<div class="empty-state">El bot aún no está registrado en ningún grupo. Agrégalo a tus grupos como administrador.</div>`;
+      statGroupsCount.textContent = '0';
+      statAdminCount.textContent = '0';
+      statLockdownCount.textContent = '0';
+      groupsCountBadge.textContent = '0 Grupos';
       return;
     }
 
-    botsContainer.innerHTML = bots
-      .map((bot) => {
-        const isOnline = bot.isOnline;
-        const statusBadge = isOnline
-          ? '<span class="badge badge-green">ONLINE</span>'
-          : '<span class="badge badge-red">DETENIDO</span>';
+    groupsContainer.innerHTML = groups
+      .map((g) => {
+        if (g.isBotAdmin) adminCount++;
+        if (g.isLockedDown) lockdownCount++;
 
-        const expiresFormatted = bot.expires_at
-          ? new Date(bot.expires_at).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
-          : 'Ilimitado';
+        const adminBadge = g.isBotAdmin
+          ? '<span class="badge badge-green">ADMIN</span>'
+          : '<span class="badge badge-red">MIEMBRO</span>';
 
-        const ownersList = bot.owner_ids && bot.owner_ids.length > 0 ? bot.owner_ids.join(', ') : 'No asignado';
-        const channelsCount = Array.isArray(bot.channels_to_verify) ? bot.channels_to_verify.length : 0;
+        const panicBadge = g.isLockedDown
+          ? '<span class="badge badge-red">🚨 DEFCON 1</span>'
+          : '<span class="badge badge-orange">NORMAL</span>';
+
+        const membersDisplay = g.memberCount ? `${g.memberCount.toLocaleString()} miembros` : 'Desconocido';
 
         return `
-          <div class="bot-card" data-id="${bot.id}">
-            <div class="bot-card-header">
-              <div class="bot-card-title">
-                <h3>${escapeHtml(bot.community_name)}</h3>
-                <span>@${escapeHtml(bot.bot_username || 'SubBot')}</span>
+          <div class="group-card">
+            <div class="group-card-header">
+              <div class="group-title">
+                <h3>${escapeHtml(g.title || 'Grupo')}</h3>
+                <span>ID: <code>${g.chat_id}</code></span>
               </div>
-              ${statusBadge}
+              <div style="display: flex; gap: 6px;">
+                ${adminBadge}
+                ${panicBadge}
+              </div>
             </div>
 
-            <div class="bot-card-body">
-              <div class="bot-info-row">
-                <span>Token:</span>
-                <strong><code>${escapeHtml(bot.bot_token_masked || '••••••••')}</code></strong>
+            <div class="group-details-list">
+              <div class="group-detail-row">
+                <span>Miembros:</span>
+                <strong>${membersDisplay}</strong>
               </div>
-              <div class="bot-info-row">
-                <span>Owner ID:</span>
-                <strong><code>${escapeHtml(ownersList)}</code></strong>
+              <div class="group-detail-row">
+                <span>Permiso Borrar Mensajes:</span>
+                <strong>${g.permissions?.can_delete_messages ? '✓ Sí' : '✗ No'}</strong>
               </div>
-              <div class="bot-info-row">
-                <span>Canales a Verificar:</span>
-                <strong>${channelsCount} canales</strong>
-              </div>
-              <div class="bot-info-row">
-                <span>Vencimiento:</span>
-                <strong>${expiresFormatted}</strong>
+              <div class="group-detail-row">
+                <span>Permiso Restringir (Mute/Ban):</span>
+                <strong>${g.permissions?.can_restrict_members ? '✓ Sí' : '✗ No'}</strong>
               </div>
             </div>
 
             <div class="bot-card-actions">
-              ${
-                isOnline
-                  ? `<button class="btn btn-secondary btn-sm" onclick="toggleBot('${bot.id}', 'stop')">Pausar</button>`
-                  : `<button class="btn btn-primary btn-sm" onclick="toggleBot('${bot.id}', 'start')">Iniciar</button>`
-              }
-              <button class="btn btn-secondary btn-sm" onclick="toggleBot('${bot.id}', 'restart')">Reiniciar</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteBot('${bot.id}')">Eliminar</button>
+              <button class="btn btn-primary btn-sm" onclick="openGroupSettings('${g.chat_id}', '${escapeHtml(g.title || 'Grupo')}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Configurar Seguridad
+              </button>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+
+    statGroupsCount.textContent = groups.length;
+    statAdminCount.textContent = adminCount;
+    statLockdownCount.textContent = lockdownCount;
+    groupsCountBadge.textContent = `${groups.length} Grupos`;
+  }
+
+  // Open Group Security Modal
+  window.openGroupSettings = async (chatId, title) => {
+    activeChatId = chatId;
+    modalGroupName.textContent = title;
+    modalGroupId.textContent = `ID: ${chatId}`;
+    groupSaveFeedback.textContent = 'Cargando ajustes en vivo...';
+    groupSaveFeedback.className = 'verify-feedback';
+    modalGroupSecurity.classList.add('active');
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/group-settings/${chatId}`);
+      const data = await res.json();
+
+      if (data.ok && data.settings) {
+        groupSaveFeedback.textContent = '';
+        const s = data.settings;
+
+        // Anti-Raid
+        document.getElementById('toggle-antiraid-enabled').checked = !!s.antiRaid?.enabled;
+        document.getElementById('select-antiraid-sensitivity').value = s.antiRaid?.sensitivity || 'high';
+        document.getElementById('select-antiraid-action').value = s.antiRaid?.action || 'mute';
+
+        // Anti-Flood
+        document.getElementById('toggle-antiflood-enabled').checked = !!s.antiFlood?.enabled;
+        document.getElementById('input-antiflood-limit').value = s.antiFlood?.msgLimit || 5;
+        document.getElementById('select-antiflood-mutetime').value = s.antiFlood?.muteTime || '1h';
+
+        // Locks
+        const l = s.locks || {};
+        document.getElementById('lock-links').checked = !!l.links;
+        document.getElementById('lock-forwards').checked = !!l.forwards;
+        document.getElementById('lock-stickers').checked = !!l.stickers;
+        document.getElementById('lock-gifs').checked = !!l.gifs;
+        document.getElementById('lock-audio').checked = !!l.audio;
+        document.getElementById('lock-voice').checked = !!l.voice;
+        document.getElementById('lock-video').checked = !!l.video;
+        document.getElementById('lock-docs').checked = !!l.docs;
+        document.getElementById('lock-bots').checked = !!l.bots;
+        document.getElementById('lock-arab').checked = !!l.arab;
+
+        // Verification
+        document.getElementById('toggle-verify-enabled').checked = s.verifyEnabled !== false;
+
+        // Panic state
+        updatePanicBannerUI(!!s.isLockedDown);
+      } else {
+        groupSaveFeedback.textContent = 'Error cargando configuración.';
+        groupSaveFeedback.className = 'verify-feedback error';
+      }
+    } catch (e) {
+      groupSaveFeedback.textContent = `Error: ${e.message}`;
+      groupSaveFeedback.className = 'verify-feedback error';
+    }
+  };
+
+  function updatePanicBannerUI(isLocked) {
+    activeGroupIsLockedDown = isLocked;
+    if (isLocked) {
+      panicBanner.classList.add('active');
+      panicBannerTitle.textContent = '🚨 MODO PÁNICO ACTIVO (CHAT BLOQUEADO)';
+      panicBannerDesc.textContent = 'Nadie puede enviar mensajes en este momento.';
+      btnTogglePanic.textContent = 'LEVANTAR PÁNICO / NORMALIZAR';
+      btnTogglePanic.className = 'btn btn-secondary btn-sm';
+    } else {
+      panicBanner.classList.remove('active');
+      panicBannerTitle.textContent = 'ESTADO DE CIERRE (NORMAL)';
+      panicBannerDesc.textContent = 'El chat está funcionando con normalidad.';
+      btnTogglePanic.textContent = 'ACTIVAR PÁNICO DEFCON 1';
+      btnTogglePanic.className = 'btn btn-danger btn-sm';
+    }
+  }
+
+  // Panic Button Click
+  btnTogglePanic.addEventListener('click', async () => {
+    if (!activeChatId) return;
+    const action = activeGroupIsLockedDown ? 'deactivate' : 'activate';
+    btnTogglePanic.disabled = true;
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/group/${activeChatId}/panic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        updatePanicBannerUI(data.isLockedDown);
+        fetchGroups();
+      } else {
+        alert(`Error al cambiar modo pánico: ${data.error}`);
+      }
+    } catch (e) {
+      alert(`Error de red: ${e.message}`);
+    } finally {
+      btnTogglePanic.disabled = false;
+    }
+  });
+
+  // Save Group Security
+  formGroupSecurity.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!activeChatId) return;
+
+    groupSaveFeedback.textContent = 'Aplicando ajustes en vivo a Telegram...';
+    groupSaveFeedback.className = 'verify-feedback';
+
+    const payload = {
+      antiRaid: {
+        enabled: document.getElementById('toggle-antiraid-enabled').checked,
+        sensitivity: document.getElementById('select-antiraid-sensitivity').value,
+        action: document.getElementById('select-antiraid-action').value,
+      },
+      antiFlood: {
+        enabled: document.getElementById('toggle-antiflood-enabled').checked,
+        msgLimit: Number(document.getElementById('input-antiflood-limit').value),
+        muteTime: document.getElementById('select-antiflood-mutetime').value,
+      },
+      locks: {
+        links: document.getElementById('lock-links').checked,
+        forwards: document.getElementById('lock-forwards').checked,
+        stickers: document.getElementById('lock-stickers').checked,
+        gifs: document.getElementById('lock-gifs').checked,
+        audio: document.getElementById('lock-audio').checked,
+        voice: document.getElementById('lock-voice').checked,
+        video: document.getElementById('lock-video').checked,
+        docs: document.getElementById('lock-docs').checked,
+        bots: document.getElementById('lock-bots').checked,
+        arab: document.getElementById('lock-arab').checked,
+      },
+      verifyEnabled: document.getElementById('toggle-verify-enabled').checked,
+    };
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/group-settings/${activeChatId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        groupSaveFeedback.textContent = '✓ Configuración aplicada y sincronizada en vivo con el grupo.';
+        groupSaveFeedback.className = 'verify-feedback success';
+        setTimeout(() => {
+          modalGroupSecurity.classList.remove('active');
+          fetchGroups();
+        }, 1200);
+      } else {
+        groupSaveFeedback.textContent = `✗ Error: ${data.error}`;
+        groupSaveFeedback.className = 'verify-feedback error';
+      }
+    } catch (err) {
+      groupSaveFeedback.textContent = `✗ Error de red: ${err.message}`;
+      groupSaveFeedback.className = 'verify-feedback error';
+    }
+  });
+
+  btnCloseGroupModal.addEventListener('click', () => modalGroupSecurity.classList.remove('active'));
+  btnCancelGroupModal.addEventListener('click', () => modalGroupSecurity.classList.remove('active'));
+
+  // ══════════════════════════════════════════════════════
+  // 2. GESTIÓN DE STAFF EN TIEMPO REAL
+  // ══════════════════════════════════════════════════════
+
+  async function fetchStaff() {
+    staffContainer.innerHTML = `
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Cargando equipo de Staff...</p>
+      </div>`;
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/staff`);
+      const data = await res.json();
+
+      if (!data.ok || !Array.isArray(data.staff)) {
+        staffContainer.innerHTML = `<div class="empty-state">No se pudo cargar el Staff.</div>`;
+        return;
+      }
+
+      renderStaff(data.staff, data.owners || []);
+    } catch (e) {
+      staffContainer.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+    }
+  }
+
+  function renderStaff(staffList, owners) {
+    if (staffList.length === 0) {
+      staffContainer.innerHTML = `<div class="empty-state">No hay miembros de staff registrados aún. Añade uno con el botón superior.</div>`;
+      return;
+    }
+
+    staffContainer.innerHTML = staffList
+      .map((st) => {
+        const isOwner = owners.includes(Number(st.user_id)) || (st.role && st.role.includes('OWNER'));
+        const roleBadge = isOwner
+          ? '<span class="badge badge-orange">OWNER</span>'
+          : '<span class="badge badge-green">STAFF</span>';
+
+        const tagDisplay = st.custom_title ? `<code>${escapeHtml(st.custom_title)}</code>` : '<i>Sin tag</i>';
+        const userTag = st.username ? `@${st.username}` : `ID: ${st.user_id}`;
+
+        return `
+          <div class="staff-card">
+            <div class="staff-card-header">
+              <div class="staff-title">
+                <h3>${escapeHtml(st.first_name || 'Staff')}</h3>
+                <span>${userTag}</span>
+              </div>
+              ${roleBadge}
+            </div>
+
+            <div class="staff-details-list">
+              <div class="group-detail-row">
+                <span>ID Telegram:</span>
+                <strong><code>${st.user_id}</code></strong>
+              </div>
+              <div class="group-detail-row">
+                <span>Rol(es):</span>
+                <strong>${escapeHtml(st.role || 'ADMIN')}</strong>
+              </div>
+              <div class="group-detail-row">
+                <span>Tag en Grupos:</span>
+                <strong>${tagDisplay}</strong>
+              </div>
+            </div>
+
+            <div class="bot-card-actions">
+              <button class="btn btn-secondary btn-sm" onclick="editStaff('${st.user_id}', '${escapeHtml(st.role || 'ADMIN')}', '${escapeHtml(st.custom_title || '')}')">Editar</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteStaff('${st.user_id}')">Remover</button>
             </div>
           </div>
         `;
@@ -508,75 +570,230 @@ document.addEventListener('DOMContentLoaded', () => {
       .join('');
   }
 
-  // ── Crear Sub-Bot ──
-  formCreate.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btnSubmit = document.getElementById('btn-submit-bot');
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = 'Desplegando...';
+  btnOpenStaffModal.addEventListener('click', () => {
+    formStaffAssign.reset();
+    staffModalFeedback.textContent = '';
+    modalStaff.classList.add('active');
+  });
 
-    const formData = new FormData(formCreate);
-    const payload = Object.fromEntries(formData.entries());
-    payload.channels_to_verify = verifiedChannelsList;
+  btnCloseStaffModal.addEventListener('click', () => modalStaff.classList.remove('active'));
+  btnCancelStaffModal.addEventListener('click', () => modalStaff.classList.remove('active'));
+
+  formStaffAssign.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    staffModalFeedback.textContent = 'Guardando y sincronizando con Telegram...';
+    staffModalFeedback.className = 'verify-feedback';
+
+    const payload = {
+      userId: Number(document.getElementById('staff_user_id').value),
+      role: document.getElementById('staff_role').value,
+      customTitle: document.getElementById('staff_custom_title').value.trim(),
+      promoteInGroups: document.getElementById('staff_promote_groups').checked,
+    };
 
     try {
-      const res = await secureFetch(`${API_PREFIX}/subbots`, {
+      const res = await secureFetch(`${API_PREFIX}/staff`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-
       if (data.ok) {
-        modalCreate.classList.remove('active');
-        formCreate.reset();
-        verifiedChannelsList = [];
-        renderChannelChips();
-        tokenFeedback.textContent = '';
-        chatFeedback.textContent = '';
-        await fetchBots();
-        await fetchStats();
+        staffModalFeedback.textContent = '✓ Staff asignado exitosamente.';
+        staffModalFeedback.className = 'verify-feedback success';
+        setTimeout(() => {
+          modalStaff.classList.remove('active');
+          fetchStaff();
+        }, 1000);
       } else {
-        alert(`Error al crear sub-bot: ${data.error}`);
+        staffModalFeedback.textContent = `✗ ${data.error}`;
+        staffModalFeedback.className = 'verify-feedback error';
       }
     } catch (err) {
-      alert(`Error de red: ${err.message}`);
-    } finally {
-      btnSubmit.disabled = false;
-      btnSubmit.textContent = 'DESPLEGAR SUB-BOT';
+      staffModalFeedback.textContent = `✗ Error: ${err.message}`;
+      staffModalFeedback.className = 'verify-feedback error';
     }
   });
 
-  // ── Control de Sub-Bots ──
-  window.toggleBot = async (id, action) => {
+  window.editStaff = (userId, role, tag) => {
+    document.getElementById('staff_user_id').value = userId;
+    document.getElementById('staff_role').value = role;
+    document.getElementById('staff_custom_title').value = tag || '';
+    modalStaff.classList.add('active');
+  };
+
+  window.deleteStaff = async (userId) => {
+    if (!confirm(`¿Deseas remover a ${userId} del Staff y quitarle permisos de administrador?`)) return;
     try {
-      const res = await secureFetch(`${API_PREFIX}/subbots/${id}/${action}`, { method: 'POST' });
+      const res = await secureFetch(`${API_PREFIX}/staff/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ demoteInGroups: true }),
+      });
       const data = await res.json();
       if (data.ok) {
-        await fetchBots();
+        fetchStaff();
       } else {
         alert(`Error: ${data.error}`);
       }
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      alert(`Error de red: ${err.message}`);
     }
   };
 
-  window.deleteBot = async (id) => {
-    if (!confirm('¿Deseas eliminar este sub-bot? Se detendrá la instancia y se borrará la configuración.')) return;
+  // ══════════════════════════════════════════════════════
+  // 3. CANALES DE VERIFICACIÓN
+  // ══════════════════════════════════════════════════════
+
+  async function fetchVerificationChannels() {
     try {
-      const res = await secureFetch(`${API_PREFIX}/subbots/${id}`, { method: 'DELETE' });
+      const res = await secureFetch(`${API_PREFIX}/config/verification-channels`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.channels)) {
+        cachedVerifChannels = data.channels.map((c) => c.target);
+        renderVerifChannels(data.channels);
+      }
+    } catch (e) {
+      console.warn('Error cargando canales de verificación:', e);
+    }
+  }
+
+  function renderVerifChannels(channels) {
+    if (channels.length === 0) {
+      verifChannelsTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-dim);">No hay canales agregados aún.</td></tr>`;
+      return;
+    }
+
+    verifChannelsTableBody.innerHTML = channels
+      .map((c, idx) => {
+        const statusBadge = c.isBotAdmin
+          ? '<span class="badge badge-green">BOT ADMIN</span>'
+          : (c.isValid ? '<span class="badge badge-orange">CONECTADO</span>' : '<span class="badge badge-red">INVÁLIDO</span>');
+
+        const subsDisplay = c.memberCount ? `${c.memberCount.toLocaleString()} subs` : '—';
+
+        return `
+          <tr>
+            <td><code>${escapeHtml(c.target)}</code></td>
+            <td><strong>${escapeHtml(c.title || c.target)}</strong></td>
+            <td>${subsDisplay}</td>
+            <td>${statusBadge}</td>
+            <td>
+              <button class="btn btn-danger btn-sm" onclick="removeVerifChannel(${idx})">Eliminar</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  btnAddVerifChannel.addEventListener('click', async () => {
+    const channel = inputNewVerifChannel.value.trim();
+    if (!channel) return;
+
+    verifChannelFeedback.textContent = 'Agregando canal y verificando...';
+    verifChannelFeedback.className = 'verify-feedback';
+
+    const updated = [...cachedVerifChannels, channel];
+    try {
+      const res = await secureFetch(`${API_PREFIX}/config/verification-channels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channels: updated }),
+      });
       const data = await res.json();
       if (data.ok) {
-        await fetchBots();
-        await fetchStats();
+        inputNewVerifChannel.value = '';
+        verifChannelFeedback.textContent = '✓ Canal agregado con éxito.';
+        verifChannelFeedback.className = 'verify-feedback success';
+        fetchVerificationChannels();
       } else {
-        alert(`Error: ${data.error}`);
+        verifChannelFeedback.textContent = `✗ ${data.error}`;
+        verifChannelFeedback.className = 'verify-feedback error';
       }
-    } catch (err) {
-      alert(`Error: ${err.message}`);
+    } catch (e) {
+      verifChannelFeedback.textContent = `✗ Error: ${e.message}`;
+      verifChannelFeedback.className = 'verify-feedback error';
+    }
+  });
+
+  window.removeVerifChannel = async (index) => {
+    if (!confirm('¿Eliminar este canal de los requisitos obligatorios de verificación?')) return;
+    const updated = cachedVerifChannels.filter((_, i) => i !== index);
+    try {
+      const res = await secureFetch(`${API_PREFIX}/config/verification-channels`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channels: updated }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        fetchVerificationChannels();
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`);
     }
   };
+
+  // ══════════════════════════════════════════════════════
+  // 4. AJUSTES DE COMUNIDAD (/set commands)
+  // ══════════════════════════════════════════════════════
+
+  async function fetchCommunitySettings() {
+    try {
+      const res = await secureFetch(`${API_PREFIX}/config/community`);
+      const data = await res.json();
+      if (data.ok && data.settings) {
+        const s = data.settings;
+        document.getElementById('set_escrow_group_id').value = s.escrow_group_id || '';
+        document.getElementById('set_staff_chat_id').value = s.staff_chat_id || '';
+        document.getElementById('set_staff_thread_id').value = s.staff_thread_id || '';
+        document.getElementById('set_log_channel_id').value = s.log_channel_id || '';
+        document.getElementById('set_log_thread_id').value = s.log_thread_id || '';
+        document.getElementById('set_public_burn_channel_id').value = s.public_burn_channel_id || '';
+        document.getElementById('set_public_burn_thread_id').value = s.public_burn_thread_id || '';
+        document.getElementById('set_groups_folder_link').value = s.groups_folder_link || '';
+      }
+    } catch (e) {
+      console.warn('Error cargando ajustes de comunidad:', e);
+    }
+  }
+
+  formCommunity.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    communityFeedback.textContent = 'Guardando ajustes en base de datos...';
+    communityFeedback.className = 'verify-feedback';
+
+    const payload = {
+      escrow_group_id: document.getElementById('set_escrow_group_id').value.trim(),
+      staff_chat_id: document.getElementById('set_staff_chat_id').value.trim(),
+      staff_thread_id: document.getElementById('set_staff_thread_id').value.trim(),
+      log_channel_id: document.getElementById('set_log_channel_id').value.trim(),
+      log_thread_id: document.getElementById('set_log_thread_id').value.trim(),
+      public_burn_channel_id: document.getElementById('set_public_burn_channel_id').value.trim(),
+      public_burn_thread_id: document.getElementById('set_public_burn_thread_id').value.trim(),
+      groups_folder_link: document.getElementById('set_groups_folder_link').value.trim(),
+    };
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/config/community`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        communityFeedback.textContent = '✓ Configuración maestra de canales y grupos guardada con éxito.';
+        communityFeedback.className = 'verify-feedback success';
+      } else {
+        communityFeedback.textContent = `✗ ${data.error}`;
+        communityFeedback.className = 'verify-feedback error';
+      }
+    } catch (err) {
+      communityFeedback.textContent = `✗ Error: ${err.message}`;
+      communityFeedback.className = 'verify-feedback error';
+    }
+  });
 
   function escapeHtml(text) {
     if (!text) return '';

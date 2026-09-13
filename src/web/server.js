@@ -138,19 +138,36 @@ function createWebApp() {
 
   const dashboardPath = config.DASHBOARD_PATH || '/vlp-master-portal-7849';
   const apiPrefix = config.API_SECRET_PREFIX || '/api-sec-vlp';
+  const panelHandler = require('../modules/security/panelHandler');
 
-  // ── Middleware de Autenticación de Admin (Anti-Dumpeo) ──
-  const requireAdminAuth = (req, res, next) => {
+  // ── Middleware de Autenticación Unificado (Master Key o Token de Sesión /panel) ──
+  const requireAdminAuth = async (req, res, next) => {
     const key = req.headers['x-admin-key'] || req.query.key || req.body?.admin_key;
+    const authToken = req.headers['x-auth-token'] || req.query.auth_token || req.body?.auth_token;
     const expectedKey = config.ADMIN_KEY || 'vlp_master_key_99x_2026_sec';
 
-    if (!key || key !== expectedKey) {
-      return res.status(401).json({
-        ok: false,
-        error: 'Acceso no autorizado. Clave de seguridad requerida.',
-      });
+    // 1. Clave Maestra
+    if (key && key === expectedKey) {
+      return next();
     }
-    next();
+
+    // 2. Token de Sesión Temporal de /panel
+    if (authToken) {
+      try {
+        const session = await panelHandler.validatePanelSession(authToken);
+        if (session && session.userId) {
+          req.sessionUser = session;
+          return next();
+        }
+      } catch (err) {
+        console.warn('⟡ Error validando sesión de panel:', err.message);
+      }
+    }
+
+    return res.status(401).json({
+      ok: false,
+      error: 'Acceso no autorizado. Inicia sesión con /panel en Telegram o ingresa tu clave.',
+    });
   };
 
   // ── 1. Ruta Pública Raíz: Cloaking / Anti-Escaneo ──
@@ -603,6 +620,459 @@ function createWebApp() {
       await db.deleteSubBot(id);
 
       res.json({ ok: true, message: 'Sub-bot eliminado.' });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════
+  // ⟡ NUEVOS ENDPOINTS: GESTIÓN DE GRUPOS & SEGURIDAD EN TIEMPO REAL
+  // ══════════════════════════════════════════════════════
+
+  const antiRaid = require('../modules/security/antiRaid');
+  const antiFlood = require('../modules/security/antiFlood');
+  const locksModule = require('../modules/security/locks');
+
+  // ── 1. Listar Grupos en Vivo (con Miembros y Permisos de Admin) ──
+  app.get(`${apiPrefix}/bot/groups`, requireAdminAuth, async (req, res) => {
+    try {
+      const { botId } = req.query;
+      let token = config.BOT_TOKEN;
+
+      // Si se pasa botId (es un sub-bot)
+      if (botId && botId !== 'main') {
+        const subBot = await db.getSubBotById(botId);
+        if (subBot && subBot.bot_token) {
+          token = subBot.bot_token;
+        }
+      }
+
+      // Obtener info del bot actual
+      const me = await telegramApiCall(token, 'getMe');
+
+      // Consultar grupos registrados en base de datos
+      const rawGroups = await db.getAllGroups();
+
+      // Enriquecer cada grupo consultando Telegram API
+      const enriched = await Promise.all(
+        rawGroups.map(async (grp) => {
+          let memberCount = null;
+          let isAdm = false;
+          let permissions = {};
+          let realTitle = grp.title;
+
+          try {
+            const chat = await telegramApiCall(token, 'getChat', { chat_id: grp.chat_id });
+            realTitle = chat.title || grp.title;
+
+            try {
+              memberCount = await telegramApiCall(token, 'getChatMemberCount', { chat_id: grp.chat_id });
+            } catch {}
+
+            try {
+              const botMember = await telegramApiCall(token, 'getChatMember', { chat_id: grp.chat_id, user_id: me.id });
+              isAdm = botMember.status === 'administrator' || botMember.status === 'creator';
+              if (isAdm) {
+                permissions = {
+                  can_delete_messages: botMember.can_delete_messages !== false,
+                  can_restrict_members: botMember.can_restrict_members !== false,
+                  can_invite_users: botMember.can_invite_users !== false,
+                  can_pin_messages: botMember.can_pin_messages !== false,
+                };
+              }
+            } catch {}
+          } catch (e) {
+            // El bot probablemente ya no esté en ese chat
+          }
+
+          const isLockedDown = await antiRaid.isLockdownActive(grp.chat_id);
+
+          return {
+            chat_id: grp.chat_id,
+            title: realTitle,
+            type: grp.type || 'supergroup',
+            username: grp.username,
+            memberCount: memberCount || 'N/D',
+            isBotAdmin: isAdm,
+            permissions,
+            isLockedDown,
+          };
+        })
+      );
+
+      res.json({
+        ok: true,
+        bot: { id: me.id, username: me.username, name: me.first_name },
+        groups: enriched,
+      });
+    } catch (err) {
+      console.error('⟡ Error obteniendo grupos:', err.message);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 2. Obtener Ajustes de Seguridad de un Grupo ──
+  app.get(`${apiPrefix}/group-settings/:chatId`, requireAdminAuth, async (req, res) => {
+    try {
+      const chatId = Number(req.params.chatId);
+      const raidConf = await antiRaid.getAntiRaidConfig(chatId);
+      const floodConf = await antiFlood.getAntiFloodConfig(chatId);
+      const locks = await locksModule.getGroupLocks(chatId);
+      const isLockedDown = await antiRaid.isLockdownActive(chatId);
+
+      // Verificación
+      const isVerifyDisabled = (await db.getSetting(`verify_disabled_${chatId}`)) === 'true';
+
+      res.json({
+        ok: true,
+        chatId,
+        settings: {
+          antiRaid: raidConf,
+          antiFlood: floodConf,
+          locks: locks,
+          isLockedDown,
+          verifyEnabled: !isVerifyDisabled,
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 3. Guardar Ajustes de Seguridad de un Grupo en Tiempo Real ──
+  app.post(`${apiPrefix}/group-settings/:chatId`, requireAdminAuth, async (req, res) => {
+    try {
+      const chatId = Number(req.params.chatId);
+      const { antiRaid: newRaid, antiFlood: newFlood, locks: newLocks, verifyEnabled } = req.body;
+
+      if (newRaid) {
+        await antiRaid.setAntiRaidConfig(chatId, newRaid);
+      }
+      if (newFlood) {
+        await antiFlood.setAntiFloodConfig(chatId, newFlood);
+      }
+      if (newLocks) {
+        await locksModule.setGroupLocks(chatId, newLocks);
+      }
+      if (verifyEnabled !== undefined) {
+        await db.setSetting(`verify_disabled_${chatId}`, verifyEnabled ? 'false' : 'true');
+      }
+
+      res.json({ ok: true, message: 'Configuración actualizada y aplicada en vivo.' });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 4. Botón de Emergencia: Disparar / Levantar Modo Pánico (Lockdown) ──
+  app.post(`${apiPrefix}/group/:chatId/panic`, requireAdminAuth, async (req, res) => {
+    try {
+      const chatId = Number(req.params.chatId);
+      const { action, botId } = req.body; // 'activate' | 'deactivate'
+
+      let token = config.BOT_TOKEN;
+      if (botId && botId !== 'main') {
+        const subBot = await db.getSubBotById(botId);
+        if (subBot?.bot_token) token = subBot.bot_token;
+      }
+
+      // Dummy api object compatible con telegramApiCall
+      const apiWrapper = {
+        setChatPermissions: (cId, perms) => telegramApiCall(token, 'setChatPermissions', { chat_id: cId, permissions: perms }),
+        sendMessage: (cId, txt, opts = {}) => telegramApiCall(token, 'sendMessage', { chat_id: cId, text: txt, ...opts }),
+      };
+
+      if (action === 'activate') {
+        await antiRaid.triggerLockdown(apiWrapper, chatId, 'Chat Grupal', 'Lockdown disparado desde el Dashboard Web');
+        res.json({ ok: true, isLockedDown: true, message: 'Modo Pánico activado. Chat cerrado en 1 segundo.' });
+      } else {
+        await antiRaid.disableLockdown(apiWrapper, chatId);
+        res.json({ ok: true, isLockedDown: false, message: 'Modo Pánico levantado. Permisos de chat normalizados.' });
+      }
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 5. Gestión Integral de Staff en Tiempo Real (Nekotina style) ──
+  app.get(`${apiPrefix}/staff`, requireAdminAuth, async (req, res) => {
+    try {
+      const { tenantId } = req.query;
+      const staffList = await db.getAllStaff(tenantId || null);
+      
+      // Enriquecer con info de dueños fijados si aplica
+      const enriched = await Promise.all(
+        staffList.map(async (st) => {
+          let avatarUrl = null;
+          try {
+            const photos = await telegramApiCall(config.BOT_TOKEN, 'getUserProfilePhotos', { user_id: st.user_id, limit: 1 });
+            if (photos.total_count > 0 && photos.photos[0]?.length > 0) {
+              const fileId = photos.photos[0][0].file_id;
+              const fileInfo = await telegramApiCall(config.BOT_TOKEN, 'getFile', { file_id: fileId });
+              if (fileInfo.file_path) {
+                avatarUrl = `https://api.telegram.org/file/bot${config.BOT_TOKEN}/${fileInfo.file_path}`;
+              }
+            }
+          } catch {}
+          return {
+            ...st,
+            avatarUrl,
+          };
+        })
+      );
+
+      res.json({ ok: true, staff: enriched, owners: config.OWNER_IDS });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Asignar o actualizar rol de Staff
+  app.post(`${apiPrefix}/staff`, requireAdminAuth, async (req, res) => {
+    try {
+      const { userId, role, customTitle, tenantId, promoteInGroups } = req.body;
+      if (!userId || !role) {
+        return res.status(400).json({ ok: false, error: 'userId y role son requeridos.' });
+      }
+
+      const numId = Number(userId);
+      let username = null;
+      let firstName = 'Staff Member';
+
+      // Obtener datos del usuario desde Telegram
+      try {
+        const chatInfo = await telegramApiCall(config.BOT_TOKEN, 'getChat', { chat_id: numId });
+        username = chatInfo.username || null;
+        firstName = chatInfo.first_name ? `${chatInfo.first_name} ${chatInfo.last_name || ''}`.trim() : 'Staff';
+      } catch {}
+
+      const assignedBy = req.sessionUser?.userId || 7849224682;
+      const result = await db.setStaffRole(
+        numId,
+        username,
+        firstName,
+        role,
+        assignedBy,
+        customTitle || null,
+        tenantId || null
+      );
+
+      // Si se solicita promover en todos los grupos donde el bot es admin
+      if (promoteInGroups) {
+        try {
+          const groups = await db.getAllGroups();
+          for (const grp of groups) {
+            try {
+              await telegramApiCall(config.BOT_TOKEN, 'promoteChatMember', {
+                chat_id: grp.chat_id,
+                user_id: numId,
+                can_manage_chat: true,
+                can_delete_messages: true,
+                can_restrict_members: true,
+                can_invite_users: true,
+                can_pin_messages: true,
+                can_manage_topics: true,
+              });
+              if (customTitle) {
+                await telegramApiCall(config.BOT_TOKEN, 'setChatAdministratorCustomTitle', {
+                  chat_id: grp.chat_id,
+                  user_id: numId,
+                  custom_title: customTitle.slice(0, 16),
+                });
+              }
+            } catch {}
+          }
+        } catch (e) {
+          console.warn('⟡ Error promoviendo staff en grupos:', e.message);
+        }
+      }
+
+      res.json({ ok: true, message: `Rol [${role}] asignado correctamente a ${firstName}.`, staff: result });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Remover staff
+  app.delete(`${apiPrefix}/staff/:userId`, requireAdminAuth, async (req, res) => {
+    try {
+      const numId = Number(req.params.userId);
+      const { tenantId, demoteInGroups } = req.body || {};
+
+      await db.removeStaff(numId, tenantId || null);
+
+      if (demoteInGroups) {
+        try {
+          const groups = await db.getAllGroups();
+          for (const grp of groups) {
+            try {
+              await telegramApiCall(config.BOT_TOKEN, 'promoteChatMember', {
+                chat_id: grp.chat_id,
+                user_id: numId,
+                can_manage_chat: false,
+                can_delete_messages: false,
+                can_restrict_members: false,
+                can_invite_users: false,
+                can_pin_messages: false,
+              });
+            } catch {}
+          }
+        } catch {}
+      }
+
+      res.json({ ok: true, message: `Usuario ${numId} removido del Staff.` });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 6. Canales de Verificación Obligatoria ──
+  app.get(`${apiPrefix}/config/verification-channels`, requireAdminAuth, async (req, res) => {
+    try {
+      let channels = [];
+      const saved = await db.getSetting('channels_to_verify');
+      if (saved) {
+        try { channels = JSON.parse(saved); } catch {}
+      }
+      if (!channels.length) {
+        channels = config.CHANNELS_TO_VERIFY || [];
+      }
+
+      // Probar estado de cada canal en Telegram
+      const enrichedChannels = await Promise.all(
+        channels.map(async (ch) => {
+          let title = ch;
+          let isValid = false;
+          let memberCount = null;
+          let isBotAdmin = false;
+
+          try {
+            if (ch.startsWith('@') || /^-?\d+$/.test(ch)) {
+              const chat = await telegramApiCall(config.BOT_TOKEN, 'getChat', { chat_id: ch });
+              title = chat.title || ch;
+              isValid = true;
+              try { memberCount = await telegramApiCall(config.BOT_TOKEN, 'getChatMemberCount', { chat_id: ch }); } catch {}
+              try {
+                const me = await telegramApiCall(config.BOT_TOKEN, 'getMe');
+                const botM = await telegramApiCall(config.BOT_TOKEN, 'getChatMember', { chat_id: ch, user_id: me.id });
+                isBotAdmin = botM.status === 'administrator' || botM.status === 'creator';
+              } catch {}
+            } else {
+              isValid = true;
+            }
+          } catch (e) {
+            isValid = false;
+          }
+
+          return {
+            target: ch,
+            title,
+            isValid,
+            memberCount,
+            isBotAdmin,
+          };
+        })
+      );
+
+      res.json({ ok: true, channels: enrichedChannels });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post(`${apiPrefix}/config/verification-channels`, requireAdminAuth, async (req, res) => {
+    try {
+      const { channels } = req.body;
+      if (!Array.isArray(channels)) {
+        return res.status(400).json({ ok: false, error: 'Formato de canales inválido.' });
+      }
+
+      await db.setSetting('channels_to_verify', JSON.stringify(channels));
+      config.CHANNELS_TO_VERIFY = channels;
+
+      res.json({ ok: true, message: 'Canales de verificación actualizados correctamente.', channels });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 7. Ajustes Maestros de la Comunidad (/set_grupo_tratos, /set_logs, /set_burn_channel, etc) ──
+  app.get(`${apiPrefix}/config/community`, requireAdminAuth, async (req, res) => {
+    try {
+      const escrowGroupId = (await db.getSetting('escrow_group_id')) || config.ESCROW_GROUP_ID;
+      const staffChatId = (await db.getSetting('staff_chat_id')) || config.STAFF_CHAT_ID;
+      const staffThreadId = (await db.getSetting('staff_thread_id')) || config.STAFF_THREAD_ID;
+      const logChannelId = (await db.getSetting('log_channel_id')) || config.LOG_CHANNEL_ID;
+      const logThreadId = (await db.getSetting('log_thread_id')) || config.LOG_THREAD_ID;
+      const publicBurnChannelId = (await db.getSetting('public_burn_channel_id')) || config.PUBLIC_BURN_CHANNEL_ID;
+      const publicBurnThreadId = (await db.getSetting('public_burn_thread_id')) || config.PUBLIC_BURN_THREAD_ID;
+      const groupsFolderLink = (await db.getSetting('groups_folder_link')) || config.GROUPS_FOLDER_LINK;
+
+      res.json({
+        ok: true,
+        settings: {
+          escrow_group_id: escrowGroupId,
+          staff_chat_id: staffChatId,
+          staff_thread_id: staffThreadId,
+          log_channel_id: logChannelId,
+          log_thread_id: logThreadId,
+          public_burn_channel_id: publicBurnChannelId,
+          public_burn_thread_id: publicBurnThreadId,
+          groups_folder_link: groupsFolderLink,
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post(`${apiPrefix}/config/community`, requireAdminAuth, async (req, res) => {
+    try {
+      const {
+        escrow_group_id,
+        staff_chat_id,
+        staff_thread_id,
+        log_channel_id,
+        log_thread_id,
+        public_burn_channel_id,
+        public_burn_thread_id,
+        groups_folder_link,
+      } = req.body;
+
+      if (escrow_group_id !== undefined) {
+        await db.setSetting('escrow_group_id', String(escrow_group_id));
+        config.ESCROW_GROUP_ID = Number(escrow_group_id);
+      }
+      if (staff_chat_id !== undefined) {
+        await db.setSetting('staff_chat_id', String(staff_chat_id));
+        config.STAFF_CHAT_ID = Number(staff_chat_id);
+      }
+      if (staff_thread_id !== undefined) {
+        await db.setSetting('staff_thread_id', String(staff_thread_id));
+        config.STAFF_THREAD_ID = Number(staff_thread_id);
+      }
+      if (log_channel_id !== undefined) {
+        await db.setSetting('log_channel_id', String(log_channel_id));
+        config.LOG_CHANNEL_ID = Number(log_channel_id);
+      }
+      if (log_thread_id !== undefined) {
+        await db.setSetting('log_thread_id', String(log_thread_id));
+        config.LOG_THREAD_ID = Number(log_thread_id);
+      }
+      if (public_burn_channel_id !== undefined) {
+        await db.setSetting('public_burn_channel_id', String(public_burn_channel_id));
+        config.PUBLIC_BURN_CHANNEL_ID = Number(public_burn_channel_id);
+      }
+      if (public_burn_thread_id !== undefined) {
+        await db.setSetting('public_burn_thread_id', String(public_burn_thread_id));
+        config.PUBLIC_BURN_THREAD_ID = Number(public_burn_thread_id);
+      }
+      if (groups_folder_link !== undefined) {
+        await db.setSetting('groups_folder_link', String(groups_folder_link));
+        config.GROUPS_FOLDER_LINK = String(groups_folder_link);
+      }
+
+      res.json({ ok: true, message: 'Ajustes maestros de canales y grupos actualizados con éxito.' });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }
