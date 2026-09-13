@@ -838,11 +838,13 @@ async function getAdminAvgRating(adminId) {
 // ⟡ CRUD — Grupos Oficiales
 // ══════════════════════════════════════════════════════
 
-async function registerGroup(chatId, title, type = 'supergroup', username = null) {
+async function registerGroup(chatId, title, type = 'supergroup', username = null, tenantId = null) {
   if (useSupabase && supabase) {
+    const payload = { chat_id: chatId, title, type, username };
+    if (tenantId) payload.tenant_id = tenantId;
     const { data, error } = await supabase
       .from('official_groups')
-      .upsert({ chat_id: chatId, title, type, username }, { onConflict: 'chat_id' })
+      .upsert(payload, { onConflict: 'chat_id' })
       .select()
       .maybeSingle();
     if (error) console.error('⟡ Supabase registerGroup error:', error.message);
@@ -850,11 +852,11 @@ async function registerGroup(chatId, title, type = 'supergroup', username = null
   }
   if (pool) {
     const res = await pool.query(
-      `INSERT INTO official_groups (chat_id, title, type, username)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (chat_id) DO UPDATE SET title = $2, type = $3, username = $4
+      `INSERT INTO official_groups (chat_id, title, type, username, tenant_id)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (chat_id) DO UPDATE SET title = $2, type = $3, username = $4, tenant_id = $5
        RETURNING *`,
-      [chatId, title, type, username]
+      [chatId, title, type, username, tenantId]
     );
     return res.rows[0];
   }
@@ -863,14 +865,20 @@ async function registerGroup(chatId, title, type = 'supergroup', username = null
 
 const registerOfficialGroup = registerGroup;
 
-async function removeGroup(chatId) {
+async function removeGroup(chatId, tenantId = null) {
   if (useSupabase && supabase) {
-    const { error } = await supabase.from('official_groups').delete().eq('chat_id', chatId);
+    let q = supabase.from('official_groups').delete().eq('chat_id', chatId);
+    if (tenantId) q = q.eq('tenant_id', tenantId);
+    const { error } = await q;
     if (error) console.error('⟡ Supabase removeGroup error:', error.message);
     return;
   }
   if (pool) {
-    await pool.query(`DELETE FROM official_groups WHERE chat_id = $1`, [chatId]);
+    if (tenantId) {
+      await pool.query(`DELETE FROM official_groups WHERE chat_id = $1 AND tenant_id = $2`, [chatId, tenantId]);
+    } else {
+      await pool.query(`DELETE FROM official_groups WHERE chat_id = $1`, [chatId]);
+    }
   }
 }
 

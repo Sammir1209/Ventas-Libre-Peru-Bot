@@ -835,6 +835,22 @@ function createWebApp() {
     }
   });
 
+  // ── Desvincular / Eliminar Grupo del Bot ──
+  app.delete(`${apiPrefix}/bot/groups/:chatId`, requireAdminAuth, async (req, res) => {
+    try {
+      const chatId = Number(req.params.chatId);
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || req.query.tenantId || null;
+
+      await db.removeGroup(chatId, tenantId);
+      groupsCache.delete(String(tenantId || 'main'));
+
+      res.json({ ok: true, message: `Grupo ${chatId} desvinculado correctamente.` });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // ── 2. Obtener Ajustes de Seguridad de un Grupo ──
   app.get(`${apiPrefix}/group-settings/:chatId`, requireAdminAuth, async (req, res) => {
     try {

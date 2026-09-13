@@ -38,20 +38,21 @@ function register(bot) {
 
       const chat = update.chat;
       const newStatus = update.new_chat_member?.status;
+      const tenantId = ctx.tenant?.id || null;
 
       // El bot fue añadido como admin o miembro
       if (newStatus === 'administrator' || newStatus === 'member') {
         if (chat.type === 'group' || chat.type === 'supergroup' || chat.type === 'channel') {
-          await db.registerGroup(chat.id, chat.title || 'Sin título');
-          console.log(`⟡ Groups: Grupo/Canal registrado: ${chat.title} (${chat.id})`);
+          await db.registerGroup(chat.id, chat.title || 'Sin título', chat.type, chat.username || null, tenantId);
+          console.log(`⟡ Groups: Grupo/Canal registrado: ${chat.title} (${chat.id}) [Tenant: ${tenantId || 'Principal'}]`);
         }
       }
 
       // El bot fue removido del grupo
       if (newStatus === 'left' || newStatus === 'kicked') {
         if (chat.type === 'group' || chat.type === 'supergroup' || chat.type === 'channel') {
-          await db.removeGroup(chat.id);
-          console.log(`⟡ Groups: Grupo/Canal removido: ${chat.title} (${chat.id})`);
+          await db.removeGroup(chat.id, tenantId);
+          console.log(`⟡ Groups: Grupo/Canal removido: ${chat.title} (${chat.id}) [Tenant: ${tenantId || 'Principal'}]`);
         }
       }
     } catch (err) {
