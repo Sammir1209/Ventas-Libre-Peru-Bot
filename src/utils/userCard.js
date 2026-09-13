@@ -189,6 +189,31 @@ async function generateUserCardBuffer(api, target, options = {}) {
     }
   }
 
+  let trackName = options.musicTrack || null;
+  if (!trackName) {
+    if (isDealAdmin) {
+      trackName = `⭐ Mediador Oficial ${rating}/5.0 (${dealsCount} tratos)`;
+    } else if (rolesList.includes('OWNER')) {
+      trackName = dealsCount > 0
+        ? `Ventas Libres Perú — ${dealsCount} tratos completados`
+        : `👑 Staff Oficial (Owner)`;
+    } else if (rolesList.some((r) => r.includes('CO-OWNER') || r.includes('COOWNER'))) {
+      trackName = dealsCount > 0
+        ? `⚜️ Co-Owner Oficial (${dealsCount} tratos)`
+        : `⚜️ Co-Owner Oficial`;
+    } else if (rolesList.includes('ADMIN') || rolesList.includes('ADMINISTRADOR')) {
+      trackName = dealsCount > 0
+        ? `⚔️ Administrador Oficial (${dealsCount} tratos)`
+        : `⚔️ Administrador Oficial`;
+    } else if (rolesList.includes('MOD') || rolesList.includes('MODERADOR')) {
+      trackName = dealsCount > 0
+        ? `🛡️ Moderador Oficial (${dealsCount} tratos)`
+        : `🛡️ Moderador Oficial`;
+    } else {
+      trackName = `Ventas Libres Perú — ${dealsCount} tratos completados`;
+    }
+  }
+
   const displayId = userId ? String(userId) : (target.displayId || 'No identificado');
 
   const cardBuffer = await generateTelegramProfileModal({
@@ -199,6 +224,7 @@ async function generateUserCardBuffer(api, target, options = {}) {
     avatarBuffer: avatarBuffer,
     isOnline: true,
     isVerified: isVerified,
+    musicTrack: trackName,
     isBurned: isBurned,
     burnReason: null,
     dealsCount: dealsCount,

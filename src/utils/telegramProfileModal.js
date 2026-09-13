@@ -579,8 +579,30 @@ async function generateTelegramProfileModal({
     ctx.fillStyle = '#eceff1';
     let trackName = musicTrack;
     if (!trackName) {
-      if (role && (role.includes('TRATO') || role.includes('ADMIN'))) {
+      const isMediator = role && (role.includes('TRATO') || role.includes('MEDIADOR'));
+      const isOwner = role && role.includes('OWNER');
+      const isCoOwner = role && (role.includes('CO-OWNER') || role.includes('COOWNER'));
+      const isAdmin = role && (role.includes('ADMIN') || role.includes('ADMINISTRADOR'));
+      const isMod = role && (role.includes('MOD') || role.includes('MODERADOR'));
+
+      if (isMediator) {
         trackName = `⭐ Mediador Oficial ${rating}/5.0 (${dealsCount} tratos)`;
+      } else if (isOwner) {
+        trackName = dealsCount > 0
+          ? `Ventas Libres Perú — ${dealsCount} tratos completados`
+          : `👑 Staff Oficial (Owner)`;
+      } else if (isCoOwner) {
+        trackName = dealsCount > 0
+          ? `⚜️ Co-Owner Oficial (${dealsCount} tratos)`
+          : `⚜️ Co-Owner Oficial`;
+      } else if (isAdmin) {
+        trackName = dealsCount > 0
+          ? `⚔️ Administrador Oficial (${dealsCount} tratos)`
+          : `⚔️ Administrador Oficial`;
+      } else if (isMod) {
+        trackName = dealsCount > 0
+          ? `🛡️ Moderador Oficial (${dealsCount} tratos)`
+          : `🛡️ Moderador Oficial`;
       } else {
         trackName = `Ventas Libres Perú — ${dealsCount} tratos completados`;
       }
