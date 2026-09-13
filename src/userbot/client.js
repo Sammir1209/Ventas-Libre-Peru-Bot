@@ -256,5 +256,6 @@ module.exports = {
   initialize,
   createDealGroup,
   isConnected,
+  getClient: () => client,
   close,
 };
