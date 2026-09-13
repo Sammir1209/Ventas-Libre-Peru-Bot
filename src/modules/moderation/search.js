@@ -94,9 +94,9 @@ async function executeSearch(ctx, rawQuery) {
     );
   }
 
-  // Filtrar y enriquecer resultados de la comunidad
+  // Enriquecer resultados con estado de pertenencia a la comunidad
   const groups = await db.getAllGroups().catch(() => []);
-  const communityResults = [];
+  const finalResults = [];
   
   for (const user of results) {
     let isInActiveGroup = false;
@@ -113,36 +113,78 @@ async function executeSearch(ctx, rawQuery) {
         }
       } catch {}
     }
-    
-    // Si está en la base de datos de usuarios, quemados o en un grupo activo
-    const isCommunityMember = isInActiveGroup || user.in_database || user.is_burned || results.length === 1;
 
-    if (isCommunityMember) {
-      if (!communityResults.find((u) => Number(u.user_id) === Number(user.user_id))) {
-        communityResults.push({
-          ...user,
-          isInActiveGroup,
-          detectedGroupName,
-        });
-      }
+    let isDbUser = !!user.in_database;
+    if (!isDbUser) {
+      try {
+        const existing = await db.getUser(user.user_id);
+        if (existing) isDbUser = true;
+      } catch {}
     }
-    
-    if (communityResults.length >= 6) break;
+
+    // Determinar etiqueta clara de pertenencia a la comunidad
+    let communityStatus = '';
+    let communityShortStatus = '';
+    if (isInActiveGroup) {
+      communityStatus = `🟢 <b>Sí pertenece</b> (Miembro activo en: <code>${escapeHtml(detectedGroupName || 'Grupo Oficial')}</code>)`;
+      communityShortStatus = '✓ En Comunidad';
+    } else if (isDbUser) {
+      communityStatus = '🟢 <b>Sí pertenece</b> (Registrado en la Base de Datos Oficial)';
+      communityShortStatus = '✓ En Comunidad';
+    } else if (user.is_burned) {
+      communityStatus = '🔴 <b>Lista Negra</b> (Fichado como Estafador)';
+      communityShortStatus = '🔴 Quemado';
+    } else {
+      communityStatus = '⚪ <b>No pertenece</b> (Usuario Externo de Telegram)';
+      communityShortStatus = 'Externo';
+    }
+
+    if (!finalResults.find((u) => Number(u.user_id) === Number(user.user_id))) {
+      finalResults.push({
+        ...user,
+        isInActiveGroup,
+        detectedGroupName,
+        isDbUser,
+        communityStatus,
+        communityShortStatus,
+      });
+    }
   }
 
-  if (communityResults.length === 0) {
-    return ctx.reply(
-      `${SYM.DIVIDER}\n` +
-      `🔍 <b>RADAR DE RASTREO — RESULTADO</b>\n` +
-      `${SYM.DIVIDER}\n\n` +
-      `${SYM.CROSS} Se localizó el usuario en Telegram, pero <b>no registra actividad</b> en nuestros grupos ni historial en la comunidad.\n\n` +
-      `💡 <i>El radar prioriza usuarios registrados dentro de nuestros grupos oficiales.</i>`,
-      { parse_mode: 'HTML' }
-    );
+  // Ordenar con algoritmo de relevancia inteligente:
+  // Prioriza coincidencias exactas en nombre/alias, miembros de la comunidad y personas reales sobre bots
+  const cleanNorm = query.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const queryWords = cleanNorm.split(/\s+/).filter(Boolean);
+  const queryNoSpaces = cleanNorm.replace(/[\s_\-\.]+/g, '');
+
+  function calculateUserScore(u) {
+    let s = 0;
+    const normFirst = (u.first_name || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const normUser = (u.username || '').toLowerCase();
+    const normFirstNoSpaces = normFirst.replace(/[\s_\-\.]+/g, '');
+    const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
+
+    // Coincidencia de nombre
+    if (normFirstNoSpaces.startsWith(queryNoSpaces)) s += 150;
+    if (normFirstNoSpaces.includes(queryNoSpaces)) s += 80;
+    if (queryWords.length > 1 && queryWords.every((w) => normFirst.includes(w) || normFirstNoSpaces.includes(w))) s += 100;
+    if (normUserNoSpaces.startsWith(queryNoSpaces)) s += 40;
+
+    // Pertenencia a la comunidad
+    if (u.isInActiveGroup) s += 80;
+    if (u.isDbUser) s += 50;
+    if (u.is_burned) s += 30;
+
+    // Penalizar bots
+    if (normUser.endsWith('bot')) s -= 120;
+
+    return s;
   }
 
-  // Mostrar el primer resultado en una tarjeta grande
-  const firstUser = communityResults[0];
+  finalResults.sort((a, b) => calculateUserScore(b) - calculateUserScore(a));
+
+  // Mostrar el primer resultado en una tarjeta grande con su estado de pertenencia
+  const firstUser = finalResults[0];
   const userMention = mentionFromData(firstUser.user_id, firstUser.username, firstUser.first_name);
   const usernameDisplay = firstUser.username 
     ? `@${firstUser.username}` 
@@ -163,16 +205,17 @@ async function executeSearch(ctx, rawQuery) {
     `➜ <b>Username:</b> ${usernameDisplay}\n` +
     `➜ <b>ID Numérico:</b> <code>${firstUser.user_id}</code>\n` +
     `➜ <b>Mención:</b> ${userMention}\n` +
-    `➜ <b>Estado:</b> ${statusBadge}\n\n` +
+    `➜ <b>Estado:</b> ${statusBadge}\n` +
+    `➜ <b>Comunidad:</b> ${firstUser.communityStatus}\n\n` +
     `${SYM.THIN_LINE}`;
 
   // Si hay más personas con nombres similares, ponerlos en una lista abajo
-  if (communityResults.length > 1) {
-    replyText += `\n\n👥 <b>Otros posibles resultados (${communityResults.length - 1}):</b>\n`;
-    for (let i = 1; i < communityResults.length; i++) {
-      const u = communityResults[i];
+  if (finalResults.length > 1) {
+    replyText += `\n\n👥 <b>Otros posibles resultados (${finalResults.length - 1}):</b>\n`;
+    for (let i = 1; i < finalResults.length; i++) {
+      const u = finalResults[i];
       const otherMention = mentionFromData(u.user_id, u.username, u.first_name);
-      replyText += `• ${otherMention} (<code>${u.user_id}</code>)\n`;
+      replyText += `• ${otherMention} (<code>${u.user_id}</code>) — <i>${u.communityShortStatus}</i>\n`;
     }
   }
 
