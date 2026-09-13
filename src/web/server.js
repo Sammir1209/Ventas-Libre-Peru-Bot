@@ -730,12 +730,13 @@ function createWebApp() {
   // ── 1. Listar Grupos en Vivo (con Miembros y Permisos de Admin) ──
   app.get(`${apiPrefix}/bot/groups`, requireAdminAuth, async (req, res) => {
     try {
-      const { botId } = req.query;
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || req.query.tenantId || null;
       let token = config.BOT_TOKEN;
 
-      // Si se pasa botId (es un sub-bot)
-      if (botId && botId !== 'main') {
-        const subBot = await db.getSubBotById(botId);
+      // Si es un sub-bot, usar su token propio
+      if (tenantId) {
+        const subBot = await db.getSubBotById(tenantId);
         if (subBot && subBot.bot_token) {
           token = subBot.bot_token;
         }
@@ -744,8 +745,8 @@ function createWebApp() {
       // Obtener info del bot actual
       const me = await telegramApiCall(token, 'getMe');
 
-      // Consultar grupos registrados en base de datos
-      const rawGroups = await db.getAllGroups();
+      // Consultar grupos registrados en base de datos con aislamiento estricto
+      const rawGroups = await db.getAllGroups(tenantId);
 
       // Enriquecer cada grupo consultando Telegram API
       const enriched = await Promise.all(
@@ -891,8 +892,9 @@ function createWebApp() {
   // ── 5. Gestión Integral de Staff en Tiempo Real (Nekotina style) ──
   app.get(`${apiPrefix}/staff`, requireAdminAuth, async (req, res) => {
     try {
-      const { tenantId } = req.query;
-      const staffList = await db.getAllStaff(tenantId || null);
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || req.query.tenantId || null;
+      const staffList = await db.getAllStaff(tenantId);
       
       // Enriquecer con info de dueños fijados si aplica
       const enriched = await Promise.all(
@@ -1020,16 +1022,28 @@ function createWebApp() {
     }
   });
 
-  // ── 6. Canales de Verificación Obligatoria ──
+  // ── 6. Canales de Verificación Obligatoria (Aislamiento Multi-Tenant) ──
   app.get(`${apiPrefix}/config/verification-channels`, requireAdminAuth, async (req, res) => {
     try {
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || null;
       let channels = [];
-      const saved = await db.getSetting('channels_to_verify');
-      if (saved) {
-        try { channels = JSON.parse(saved); } catch {}
-      }
-      if (!channels.length) {
-        channels = config.CHANNELS_TO_VERIFY || [];
+      let token = config.BOT_TOKEN;
+
+      if (tenantId) {
+        const subBot = await db.getSubBotById(tenantId);
+        if (subBot) {
+          channels = Array.isArray(subBot.channels_to_verify) ? subBot.channels_to_verify : [];
+          if (subBot.bot_token) token = subBot.bot_token;
+        }
+      } else {
+        const saved = await db.getSetting('channels_to_verify');
+        if (saved) {
+          try { channels = JSON.parse(saved); } catch {}
+        }
+        if (!channels.length) {
+          channels = config.CHANNELS_TO_VERIFY || [];
+        }
       }
 
       // Probar estado de cada canal en Telegram
@@ -1042,13 +1056,13 @@ function createWebApp() {
 
           try {
             if (ch.startsWith('@') || /^-?\d+$/.test(ch)) {
-              const chat = await telegramApiCall(config.BOT_TOKEN, 'getChat', { chat_id: ch });
+              const chat = await telegramApiCall(token, 'getChat', { chat_id: ch });
               title = chat.title || ch;
               isValid = true;
-              try { memberCount = await telegramApiCall(config.BOT_TOKEN, 'getChatMemberCount', { chat_id: ch }); } catch {}
+              try { memberCount = await telegramApiCall(token, 'getChatMemberCount', { chat_id: ch }); } catch {}
               try {
-                const me = await telegramApiCall(config.BOT_TOKEN, 'getMe');
-                const botM = await telegramApiCall(config.BOT_TOKEN, 'getChatMember', { chat_id: ch, user_id: me.id });
+                const me = await telegramApiCall(token, 'getMe');
+                const botM = await telegramApiCall(token, 'getChatMember', { chat_id: ch, user_id: me.id });
                 isBotAdmin = botM.status === 'administrator' || botM.status === 'creator';
               } catch {}
             } else {
@@ -1081,8 +1095,15 @@ function createWebApp() {
         return res.status(400).json({ ok: false, error: 'Formato de canales inválido.' });
       }
 
-      await db.setSetting('channels_to_verify', JSON.stringify(channels));
-      config.CHANNELS_TO_VERIFY = channels;
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || null;
+
+      if (tenantId) {
+        await db.updateSubBot(tenantId, { channels_to_verify: channels });
+      } else {
+        await db.setSetting('channels_to_verify', JSON.stringify(channels));
+        config.CHANNELS_TO_VERIFY = channels;
+      }
 
       res.json({ ok: true, message: 'Canales de verificación actualizados correctamente.', channels });
     } catch (err) {
@@ -1090,17 +1111,20 @@ function createWebApp() {
     }
   });
 
-  // ── 7. Ajustes Maestros de la Comunidad (/set_grupo_tratos, /set_logs, /set_burn_channel, etc) ──
+  // ── 7. Ajustes Maestros de la Comunidad (/set) con Aislamiento ──
   app.get(`${apiPrefix}/config/community`, requireAdminAuth, async (req, res) => {
     try {
-      const escrowGroupId = (await db.getSetting('escrow_group_id')) || config.ESCROW_GROUP_ID;
-      const staffChatId = (await db.getSetting('staff_chat_id')) || config.STAFF_CHAT_ID;
-      const staffThreadId = (await db.getSetting('staff_thread_id')) || config.STAFF_THREAD_ID;
-      const logChannelId = (await db.getSetting('log_channel_id')) || config.LOG_CHANNEL_ID;
-      const logThreadId = (await db.getSetting('log_thread_id')) || config.LOG_THREAD_ID;
-      const publicBurnChannelId = (await db.getSetting('public_burn_channel_id')) || config.PUBLIC_BURN_CHANNEL_ID;
-      const publicBurnThreadId = (await db.getSetting('public_burn_thread_id')) || config.PUBLIC_BURN_THREAD_ID;
-      const groupsFolderLink = (await db.getSetting('groups_folder_link')) || config.GROUPS_FOLDER_LINK;
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || null;
+
+      const escrowGroupId = (await db.getSetting('escrow_group_id', tenantId)) || (tenantId ? null : config.ESCROW_GROUP_ID);
+      const staffChatId = (await db.getSetting('staff_chat_id', tenantId)) || (tenantId ? null : config.STAFF_CHAT_ID);
+      const staffThreadId = (await db.getSetting('staff_thread_id', tenantId)) || (tenantId ? null : config.STAFF_THREAD_ID);
+      const logChannelId = (await db.getSetting('log_channel_id', tenantId)) || (tenantId ? null : config.LOG_CHANNEL_ID);
+      const logThreadId = (await db.getSetting('log_thread_id', tenantId)) || (tenantId ? null : config.LOG_THREAD_ID);
+      const publicBurnChannelId = (await db.getSetting('public_burn_channel_id', tenantId)) || (tenantId ? null : config.PUBLIC_BURN_CHANNEL_ID);
+      const publicBurnThreadId = (await db.getSetting('public_burn_thread_id', tenantId)) || (tenantId ? null : config.PUBLIC_BURN_THREAD_ID);
+      const groupsFolderLink = (await db.getSetting('groups_folder_link', tenantId)) || (tenantId ? null : config.GROUPS_FOLDER_LINK);
 
       res.json({
         ok: true,
@@ -1122,6 +1146,9 @@ function createWebApp() {
 
   app.post(`${apiPrefix}/config/community`, requireAdminAuth, async (req, res) => {
     try {
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || null;
+
       const {
         escrow_group_id,
         staff_chat_id,
@@ -1134,39 +1161,208 @@ function createWebApp() {
       } = req.body;
 
       if (escrow_group_id !== undefined) {
-        await db.setSetting('escrow_group_id', String(escrow_group_id));
-        config.ESCROW_GROUP_ID = Number(escrow_group_id);
+        await db.setSetting('escrow_group_id', String(escrow_group_id), tenantId);
+        if (!tenantId) config.ESCROW_GROUP_ID = Number(escrow_group_id);
       }
       if (staff_chat_id !== undefined) {
-        await db.setSetting('staff_chat_id', String(staff_chat_id));
-        config.STAFF_CHAT_ID = Number(staff_chat_id);
+        await db.setSetting('staff_chat_id', String(staff_chat_id), tenantId);
+        if (!tenantId) config.STAFF_CHAT_ID = Number(staff_chat_id);
       }
       if (staff_thread_id !== undefined) {
-        await db.setSetting('staff_thread_id', String(staff_thread_id));
-        config.STAFF_THREAD_ID = Number(staff_thread_id);
+        await db.setSetting('staff_thread_id', String(staff_thread_id), tenantId);
+        if (!tenantId) config.STAFF_THREAD_ID = Number(staff_thread_id);
       }
       if (log_channel_id !== undefined) {
-        await db.setSetting('log_channel_id', String(log_channel_id));
-        config.LOG_CHANNEL_ID = Number(log_channel_id);
+        await db.setSetting('log_channel_id', String(log_channel_id), tenantId);
+        if (!tenantId) config.LOG_CHANNEL_ID = Number(log_channel_id);
       }
       if (log_thread_id !== undefined) {
-        await db.setSetting('log_thread_id', String(log_thread_id));
-        config.LOG_THREAD_ID = Number(log_thread_id);
+        await db.setSetting('log_thread_id', String(log_thread_id), tenantId);
+        if (!tenantId) config.LOG_THREAD_ID = Number(log_thread_id);
       }
       if (public_burn_channel_id !== undefined) {
-        await db.setSetting('public_burn_channel_id', String(public_burn_channel_id));
-        config.PUBLIC_BURN_CHANNEL_ID = Number(public_burn_channel_id);
+        await db.setSetting('public_burn_channel_id', String(public_burn_channel_id), tenantId);
+        if (!tenantId) config.PUBLIC_BURN_CHANNEL_ID = Number(public_burn_channel_id);
       }
       if (public_burn_thread_id !== undefined) {
-        await db.setSetting('public_burn_thread_id', String(public_burn_thread_id));
-        config.PUBLIC_BURN_THREAD_ID = Number(public_burn_thread_id);
+        await db.setSetting('public_burn_thread_id', String(public_burn_thread_id), tenantId);
+        if (!tenantId) config.PUBLIC_BURN_THREAD_ID = Number(public_burn_thread_id);
       }
       if (groups_folder_link !== undefined) {
-        await db.setSetting('groups_folder_link', String(groups_folder_link));
-        config.GROUPS_FOLDER_LINK = String(groups_folder_link);
+        await db.setSetting('groups_folder_link', String(groups_folder_link), tenantId);
+        if (!tenantId) config.GROUPS_FOLDER_LINK = String(groups_folder_link);
       }
 
-      res.json({ ok: true, message: 'Ajustes maestros de canales y grupos actualizados con éxito.' });
+      res.json({ ok: true, message: 'Ajustes de canales y grupos actualizados con éxito.' });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 8. Estadísticas Consolidadas (Overview) ──
+  app.get(`${apiPrefix}/stats/overview`, requireAdminAuth, async (req, res) => {
+    try {
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || null;
+
+      if (tenantId) {
+        const [subBot, groups, staff, deals] = await Promise.all([
+          db.getSubBotById(tenantId),
+          db.getAllGroups(tenantId),
+          db.getAllStaff(tenantId),
+          db.getAllDeals(tenantId),
+        ]);
+        const channelsCount = Array.isArray(subBot?.channels_to_verify) ? subBot.channels_to_verify.length : 0;
+
+        return res.json({
+          ok: true,
+          stats: {
+            usersCount: '—',
+            staffCount: staff.length,
+            groupsCount: groups.length,
+            dealsCount: deals.length,
+            channelsCount,
+            burnedCount: '—',
+          },
+        });
+      }
+
+      // Bot Principal VLP
+      const [usersData, staff, groups, deals, burned] = await Promise.all([
+        db.getAllUsers(1, 1),
+        db.getAllStaff(null),
+        db.getAllGroups(null),
+        db.getAllDeals(null),
+        db.getAllBurnedUsers(1, 0),
+      ]);
+
+      let channels = [];
+      const saved = await db.getSetting('channels_to_verify');
+      if (saved) {
+        try { channels = JSON.parse(saved); } catch {}
+      }
+      if (!channels.length) channels = config.CHANNELS_TO_VERIFY || [];
+
+      res.json({
+        ok: true,
+        stats: {
+          usersCount: usersData.total,
+          staffCount: staff.length,
+          groupsCount: groups.length,
+          dealsCount: deals.length,
+          channelsCount: channels.length,
+          burnedCount: (await db.getBurnedUsersCount?.()) || 9,
+        },
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 9. Directorio de Usuarios de la Base de Datos ──
+  app.get(`${apiPrefix}/users`, requireAdminAuth, async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page) || 1);
+      const limit = Math.min(100, Math.max(10, parseInt(req.query.limit) || 25));
+      const search = req.query.search || '';
+
+      const { users, total } = await db.getAllUsers(page, limit, search);
+
+      const staffList = await db.getAllStaff(null);
+      const staffMap = new Map(staffList.map((s) => [Number(s.user_id), s.role]));
+
+      const enriched = await Promise.all(
+        users.map(async (u) => {
+          const burned = await db.isUserBurned(u.user_id, u.username);
+          return {
+            ...u,
+            is_burned: Boolean(burned),
+            staff_role: staffMap.get(Number(u.user_id)) || null,
+          };
+        })
+      );
+
+      res.json({
+        ok: true,
+        users: enriched,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post(`${apiPrefix}/users/:id/toggle-verify`, requireAdminAuth, async (req, res) => {
+    try {
+      const numId = Number(req.params.id);
+      const { verified } = req.body;
+      const updated = await db.toggleUserVerification(numId, verified);
+      res.json({ ok: true, user: updated });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 10. Tratos & Escrow (Multi-Tenant) ──
+  app.get(`${apiPrefix}/deals`, requireAdminAuth, async (req, res) => {
+    try {
+      const session = req.sessionUser || {};
+      const tenantId = session.tenantId || req.query.tenantId || null;
+      const deals = await db.getAllDeals(tenantId);
+
+      const staffList = await db.getAllStaff(tenantId);
+      const staffMap = new Map(staffList.map((s) => [Number(s.user_id), s.first_name || s.username]));
+
+      const enriched = deals.map((d) => ({
+        ...d,
+        admin_name: staffMap.get(Number(d.admin_id)) || (d.admin_id ? `Admin #${d.admin_id}` : 'Sin Asignar'),
+      }));
+
+      res.json({ ok: true, deals: enriched });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ── 11. Quemados & Reportes de Estafa ──
+  app.get(`${apiPrefix}/burn`, requireAdminAuth, async (req, res) => {
+    try {
+      const [burned, reports] = await Promise.all([
+        db.getAllBurnedUsers(100, 0),
+        db.getAllBurnReports(),
+      ]);
+
+      res.json({ ok: true, burned, reports });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  app.post(`${apiPrefix}/burn/report/:id/review`, requireAdminAuth, async (req, res) => {
+    try {
+      const reportId = Number(req.params.id);
+      const { action } = req.body;
+      const reviewerId = req.sessionUser?.userId || 7849224682;
+
+      const report = await db.getBurnReport(reportId);
+      if (!report) return res.status(404).json({ ok: false, error: 'Reporte no encontrado.' });
+
+      if (action === 'APPROVED') {
+        await db.burnUser(
+          report.target_id,
+          report.reporter_id,
+          report.context || 'Aprobado desde Dashboard Web',
+          reviewerId
+        );
+        await db.updateBurnReportStatus(reportId, 'APPROVED', reviewerId);
+      } else {
+        await db.updateBurnReportStatus(reportId, 'REJECTED', reviewerId);
+      }
+
+      res.json({ ok: true, message: `Reporte #${reportId} marcado como ${action}.` });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }

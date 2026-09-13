@@ -19,6 +19,7 @@ async function initialize() {
     client = new TelegramClient(session, config.USERBOT_API_ID, config.USERBOT_API_HASH, {
       connectionRetries: 5,
     });
+    client.setLogLevel('error');
 
     await client.connect();
     const me = await client.getMe();
@@ -34,6 +35,10 @@ async function initialize() {
     }
   } catch (err) {
     console.error('⟡ Userbot: Error al conectar:', err.message);
+    if (client) {
+      try { await client.disconnect(); } catch {}
+      try { await client.destroy(); } catch {}
+    }
     client = null;
   }
 }

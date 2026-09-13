@@ -92,6 +92,78 @@ async function verifyUser(userId) {
   }
 }
 
+async function getAllUsers(page = 1, limit = 50, search = '') {
+  const offset = (Math.max(1, page) - 1) * limit;
+  if (useSupabase && supabase) {
+    let query = supabase.from('users').select('*', { count: 'exact' });
+
+    if (search && search.trim()) {
+      const q = search.trim().replace(/^@/, '');
+      if (/^\d+$/.test(q)) {
+        query = query.eq('user_id', Number(q));
+      } else {
+        query = query.or(`username.ilike.%${q}%,first_name.ilike.%${q}%`);
+      }
+    }
+
+    const { data, count, error } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) console.error('⟡ Supabase getAllUsers error:', error.message);
+    return { users: data || [], total: count || 0 };
+  }
+  if (pool) {
+    let whereClause = '';
+    const params = [];
+    if (search && search.trim()) {
+      const q = search.trim().replace(/^@/, '');
+      if (/^\d+$/.test(q)) {
+        params.push(Number(q));
+        whereClause = `WHERE user_id = $1`;
+      } else {
+        params.push(`%${q}%`);
+        whereClause = `WHERE username ILIKE $1 OR first_name ILIKE $1`;
+      }
+    }
+    const countRes = await pool.query(`SELECT COUNT(*) as total FROM users ${whereClause}`, params);
+    const total = parseInt(countRes.rows[0]?.total || '0', 10);
+
+    const listParams = [...params, limit, offset];
+    const limitIdx = params.length + 1;
+    const offsetIdx = params.length + 2;
+    const listRes = await pool.query(
+      `SELECT * FROM users ${whereClause} ORDER BY created_at DESC LIMIT $${limitIdx} OFFSET $${offsetIdx}`,
+      listParams
+    );
+    return { users: listRes.rows, total };
+  }
+  return { users: [], total: 0 };
+}
+
+async function toggleUserVerification(userId, status) {
+  const verified = Boolean(status);
+  const now = verified ? new Date().toISOString() : null;
+  if (useSupabase && supabase) {
+    const { data, error } = await supabase
+      .from('users')
+      .update({ verified, is_verified: verified, verified_at: now })
+      .eq('user_id', userId)
+      .select()
+      .maybeSingle();
+    if (error) console.error('⟡ Supabase toggleUserVerification error:', error.message);
+    return data;
+  }
+  if (pool) {
+    const res = await pool.query(
+      `UPDATE users SET verified = $1, is_verified = $1, verified_at = $2 WHERE user_id = $3 RETURNING *`,
+      [verified, now, userId]
+    );
+    return res.rows[0] || null;
+  }
+  return null;
+}
+
 // ══════════════════════════════════════════════════════
 // ⟡ CRUD — Verificaciones Pendientes (Nuevos Miembros)
 // ══════════════════════════════════════════════════════
@@ -647,6 +719,36 @@ async function getUserDeals(userId) {
   return [];
 }
 
+async function getAllDeals(tenantId = null) {
+  if (useSupabase && supabase) {
+    let q = supabase.from('deals').select('*').order('created_at', { ascending: false });
+    if (tenantId) {
+      q = q.eq('tenant_id', tenantId);
+    } else {
+      q = q.is('tenant_id', null);
+    }
+    const { data, error } = await q;
+    if (error && !error.message.includes('tenant_id')) {
+      console.error('⟡ Supabase getAllDeals error:', error.message);
+    }
+    if (!data && !tenantId) {
+      const fb = await supabase.from('deals').select('*').order('created_at', { ascending: false });
+      return fb.data || [];
+    }
+    return data || [];
+  }
+  if (pool) {
+    let res;
+    if (tenantId) {
+      res = await pool.query(`SELECT * FROM deals WHERE tenant_id = $1 ORDER BY created_at DESC`, [tenantId]);
+    } else {
+      res = await pool.query(`SELECT * FROM deals WHERE tenant_id IS NULL ORDER BY created_at DESC`);
+    }
+    return res.rows;
+  }
+  return [];
+}
+
 // ══════════════════════════════════════════════════════
 // ⟡ CRUD — Calificaciones
 // ══════════════════════════════════════════════════════
@@ -772,17 +874,31 @@ async function removeGroup(chatId) {
   }
 }
 
-async function getAllGroups() {
+async function getAllGroups(tenantId = null) {
   if (useSupabase && supabase) {
-    const { data, error } = await supabase
-      .from('official_groups')
-      .select('*')
-      .order('added_at');
-    if (error) console.error('⟡ Supabase getAllGroups error:', error.message);
+    let q = supabase.from('official_groups').select('*').order('added_at');
+    if (tenantId) {
+      q = q.eq('tenant_id', tenantId);
+    } else {
+      q = q.is('tenant_id', null);
+    }
+    const { data, error } = await q;
+    if (error && !error.message.includes('tenant_id')) {
+      console.error('⟡ Supabase getAllGroups error:', error.message);
+    }
+    if (!data && !tenantId) {
+      const fb = await supabase.from('official_groups').select('*').order('added_at');
+      return fb.data || [];
+    }
     return data || [];
   }
   if (pool) {
-    const res = await pool.query(`SELECT * FROM official_groups ORDER BY added_at`);
+    let res;
+    if (tenantId) {
+      res = await pool.query(`SELECT * FROM official_groups WHERE tenant_id = $1 ORDER BY added_at`, [tenantId]);
+    } else {
+      res = await pool.query(`SELECT * FROM official_groups WHERE tenant_id IS NULL ORDER BY added_at`);
+    }
     return res.rows;
   }
   return [];
@@ -811,13 +927,28 @@ function saveLocalSettings(settings) {
   } catch {}
 }
 
-async function setSetting(key, value) {
-  // 1. Guardar en archivo local JSON
+async function setSetting(key, value, tenantId = null) {
+  // Aislamiento Multi-Tenant: Si es un Sub-Bot, guardar en su propio registro
+  if (tenantId) {
+    const subBot = await getSubBotById(tenantId);
+    if (subBot) {
+      const custom = (typeof subBot.custom_settings === 'object' && subBot.custom_settings) ? { ...subBot.custom_settings } : {};
+      custom[key] = value.toString();
+      const updates = { custom_settings: custom };
+      if (['escrow_group_id', 'staff_chat_id', 'staff_thread_id', 'log_channel_id', 'log_thread_id', 'burn_chat_id', 'burn_thread_id', 'public_burn_channel_id', 'public_burn_thread_id', 'groups_folder_link'].includes(key)) {
+        updates[key] = /^-?\d+$/.test(value) ? Number(value) : value;
+      }
+      await updateSubBot(tenantId, updates);
+      return;
+    }
+  }
+
+  // 1. Guardar en archivo local JSON (Bot Principal)
   const local = loadLocalSettings();
   local[key] = value.toString();
   saveLocalSettings(local);
 
-  // 2. Guardar en Supabase
+  // 2. Guardar en Supabase bot_settings (Bot Principal)
   if (useSupabase && supabase) {
     try {
       await supabase
@@ -828,8 +959,18 @@ async function setSetting(key, value) {
   }
 }
 
-async function getSetting(key) {
-  // 1. Intentar desde Supabase
+async function getSetting(key, tenantId = null) {
+  // Aislamiento Multi-Tenant: Si es un Sub-Bot, leer de su registro exclusivo
+  if (tenantId) {
+    const subBot = await getSubBotById(tenantId);
+    if (subBot) {
+      if (subBot[key] !== undefined && subBot[key] !== null) return String(subBot[key]);
+      if (subBot.custom_settings && subBot.custom_settings[key] !== undefined) return String(subBot.custom_settings[key]);
+    }
+    return null;
+  }
+
+  // Bot Principal: Intentar desde Supabase
   if (useSupabase && supabase) {
     try {
       const { data } = await supabase
@@ -841,7 +982,7 @@ async function getSetting(key) {
     } catch {}
   }
 
-  // 2. Fallback a archivo local JSON
+  // Fallback a archivo local JSON
   const local = loadLocalSettings();
   if (local[key]) return local[key];
 
@@ -947,6 +1088,28 @@ async function updateBurnReportStatus(reportId, status, reviewerId) {
   } else {
     return rejectBurnReport(reportId, reviewerId);
   }
+}
+
+async function getAllBurnReports(status = null) {
+  if (useSupabase && supabase) {
+    let q = supabase.from('burn_reports').select('*').order('created_at', { ascending: false });
+    if (status) q = q.eq('status', status.toUpperCase());
+    const { data, error } = await q;
+    if (error) console.error('⟡ Supabase getAllBurnReports error:', error.message);
+    return data || [];
+  }
+  if (pool) {
+    let query = `SELECT * FROM burn_reports`;
+    const params = [];
+    if (status) {
+      query += ` WHERE status = $1`;
+      params.push(status.toUpperCase());
+    }
+    query += ` ORDER BY created_at DESC`;
+    const res = await pool.query(query, params);
+    return res.rows;
+  }
+  return [];
 }
 
 async function burnUser(target, reportedBy = null, context = null, approvedBy = null, username = null, firstName = null) {
@@ -1561,6 +1724,8 @@ module.exports = {
   // Users
   upsertUser,
   verifyUser,
+  toggleUserVerification,
+  getAllUsers,
   getUser,
   getUserByUsername,
   searchUsers,
@@ -1581,6 +1746,7 @@ module.exports = {
   updateDealStatus,
   updateDealGroup,
   getUserDeals,
+  getAllDeals,
   getUserDealsCount,
   // Ratings
   addRating,
@@ -1596,6 +1762,7 @@ module.exports = {
   // Burn / Lista Negra
   createBurnReport,
   getBurnReport,
+  getAllBurnReports,
   approveBurnReport,
   rejectBurnReport,
   updateBurnReportStatus,

@@ -8,14 +8,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Navigation Views ──
   const navItems = {
     groups: document.getElementById('nav-groups'),
+    users: document.getElementById('nav-users'),
     staff: document.getElementById('nav-staff'),
+    deals: document.getElementById('nav-deals'),
+    burn: document.getElementById('nav-burn'),
     verification: document.getElementById('nav-verification'),
     community: document.getElementById('nav-community'),
   };
 
   const views = {
     groups: document.getElementById('view-groups'),
+    users: document.getElementById('view-users'),
     staff: document.getElementById('view-staff'),
+    deals: document.getElementById('view-deals'),
+    burn: document.getElementById('view-burn'),
     verification: document.getElementById('view-verification'),
     community: document.getElementById('view-community'),
   };
@@ -29,6 +35,14 @@ document.addEventListener('DOMContentLoaded', () => {
         navItems[k].classList.toggle('active', k === target);
       }
     });
+
+    if (target === 'users') fetchUsers();
+    else if (target === 'deals') fetchDeals();
+    else if (target === 'burn') fetchBurnData();
+    else if (target === 'groups') fetchGroups();
+    else if (target === 'staff') fetchStaff();
+    else if (target === 'verification') fetchVerificationChannels();
+    else if (target === 'community') fetchCommunitySettings();
   }
 
   Object.keys(navItems).forEach((key) => {
@@ -331,8 +345,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loadAllData() {
+    fetchOverviewStats();
     fetchGroups();
+    fetchUsers();
     fetchStaff();
+    fetchDeals();
+    fetchBurnData();
     fetchVerificationChannels();
     fetchCommunitySettings();
   }
@@ -954,6 +972,462 @@ document.addEventListener('DOMContentLoaded', () => {
         brandingFeedback.className = 'verify-feedback error';
       }
     });
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 6. ESTADÍSTICAS GLOBALES CONSOLIDADAS (OVERVIEW)
+  // ══════════════════════════════════════════════════════
+
+  async function fetchOverviewStats() {
+    try {
+      const res = await secureFetch(`${API_PREFIX}/stats/overview`);
+      const data = await res.json();
+      if (data.ok && data.stats) {
+        const s = data.stats;
+        const elGroups = document.getElementById('stat-groups-count');
+        const elUsers = document.getElementById('stat-users-count');
+        const elStaff = document.getElementById('stat-staff-count');
+        const elDeals = document.getElementById('stat-deals-count');
+        const elChannels = document.getElementById('stat-channels-count');
+        const elBurned = document.getElementById('stat-burned-count');
+
+        if (elGroups) elGroups.textContent = s.groupsCount ?? 0;
+        if (elUsers) elUsers.textContent = s.usersCount ?? '—';
+        if (elStaff) elStaff.textContent = s.staffCount ?? 0;
+        if (elDeals) elDeals.textContent = s.dealsCount ?? 0;
+        if (elChannels) elChannels.textContent = s.channelsCount ?? 0;
+        if (elBurned) elBurned.textContent = s.burnedCount ?? 0;
+      }
+    } catch (e) {
+      console.warn('Error cargando estadísticas consolidadas:', e);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 7. DIRECTORIO DE USUARIOS
+  // ══════════════════════════════════════════════════════
+
+  let currentUsersPage = 1;
+  let currentUsersSearch = '';
+  const usersTableBody = document.getElementById('users-table-body');
+  const inputSearchUsers = document.getElementById('input-search-users');
+  const btnSearchUsers = document.getElementById('btn-search-users');
+  const btnPrevUsers = document.getElementById('btn-prev-users');
+  const btnNextUsers = document.getElementById('btn-next-users');
+  const usersPaginationLabel = document.getElementById('users-pagination-label');
+  const usersCountSummary = document.getElementById('users-count-summary');
+  const btnRefreshUsers = document.getElementById('btn-refresh-users');
+
+  // Modal Usuario
+  const modalUserDetail = document.getElementById('modal-user-detail');
+  const btnCloseUserModal = document.getElementById('btn-close-user-modal');
+  const btnToggleVerifyUser = document.getElementById('btn-toggle-verify-user');
+  let activeSelectedUser = null;
+
+  async function fetchUsers(page = currentUsersPage, search = currentUsersSearch) {
+    currentUsersPage = page;
+    currentUsersSearch = search;
+    if (!usersTableBody) return;
+
+    usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;"><div class="spinner" style="margin: 0 auto 10px;"></div>Cargando usuarios de la base de datos...</td></tr>`;
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/users?page=${page}&limit=20&search=${encodeURIComponent(search)}`);
+      const data = await res.json();
+
+      if (data.ok) {
+        renderUsers(data.users || []);
+        if (usersPaginationLabel) {
+          usersPaginationLabel.textContent = `Página ${data.page} de ${data.totalPages || 1} (${data.total} registrados)`;
+        }
+        if (usersCountSummary) {
+          usersCountSummary.textContent = `${data.total} usuarios registrados en la base de datos`;
+        }
+        if (btnPrevUsers) btnPrevUsers.disabled = data.page <= 1;
+        if (btnNextUsers) btnNextUsers.disabled = data.page >= data.totalPages;
+      } else {
+        usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--danger); padding: 2rem;">✗ Error: ${escapeHtml(data.error)}</td></tr>`;
+      }
+    } catch (e) {
+      usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--danger); padding: 2rem;">✗ Error de conexión: ${escapeHtml(e.message)}</td></tr>`;
+    }
+  }
+
+  function renderUsers(users) {
+    if (!users.length) {
+      usersTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;">No se encontraron usuarios coincidentes.</td></tr>`;
+      return;
+    }
+
+    usersTableBody.innerHTML = users
+      .map((u) => {
+        const isVerif = u.verified || u.is_verified;
+        const verifBadge = isVerif
+          ? `<span class="badge badge-green" style="cursor: pointer;" onclick="toggleUserVerifyClick(${u.user_id}, false)" title="Pulsar para desverificar">✓ VERIFICADO</span>`
+          : `<span class="badge badge-orange" style="cursor: pointer;" onclick="toggleUserVerifyClick(${u.user_id}, true)" title="Pulsar para verificar">⏳ PENDIENTE</span>`;
+
+        const staffBadge = u.staff_role
+          ? `<span class="badge badge-purple">${escapeHtml(u.staff_role)}</span>`
+          : `<span style="color: var(--text-dim); font-size: 0.85rem;">Miembro</span>`;
+
+        const burnBadge = u.is_burned
+          ? `<span class="badge badge-red">⚠️ QUEMADO</span>`
+          : `<span class="badge badge-green" style="background: rgba(34,197,94,0.08); border-color: transparent;">LIMPIO</span>`;
+
+        const displayName = u.first_name || u.username || 'Usuario';
+        const userTag = u.username ? `@${escapeHtml(u.username)}` : '<i>Sin @alias</i>';
+
+        return `
+          <tr>
+            <td>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 34px; height: 34px; border-radius: 50%; background: var(--bg-hover); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">
+                  ${escapeHtml(displayName.charAt(0).toUpperCase())}
+                </div>
+                <div>
+                  <strong>${escapeHtml(displayName)}</strong>
+                  <div style="font-size: 0.75rem; color: var(--text-dim);">${userTag}</div>
+                </div>
+              </div>
+            </td>
+            <td><code>${u.user_id}</code></td>
+            <td>${staffBadge}</td>
+            <td>${verifBadge}</td>
+            <td>${burnBadge}</td>
+            <td>
+              <button class="btn btn-secondary btn-sm" onclick="openUserDetailModal(${JSON.stringify(u).replace(/"/g, '&quot;')})">Ficha</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  window.toggleUserVerifyClick = async (userId, newStatus) => {
+    try {
+      const res = await secureFetch(`${API_PREFIX}/users/${userId}/toggle-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verified: newStatus }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        fetchUsers();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    }
+  };
+
+  window.openUserDetailModal = (u) => {
+    activeSelectedUser = u;
+    const modal = document.getElementById('modal-user-detail');
+    if (!modal) return;
+
+    document.getElementById('modal-user-title').textContent = u.first_name || u.username || 'Ficha de Usuario';
+    document.getElementById('modal-user-subtitle').textContent = `ID de Telegram: ${u.user_id}`;
+    document.getElementById('user-detail-avatar').textContent = (u.first_name || u.username || 'U').charAt(0).toUpperCase();
+    document.getElementById('user-detail-name').textContent = u.first_name || 'Sin nombre registrado';
+    document.getElementById('user-detail-username').textContent = u.username ? `@${u.username}` : 'Sin @username';
+    document.getElementById('user-detail-verified').innerHTML = (u.verified || u.is_verified)
+      ? '<span style="color: #22c55e;">✓ Verificado Oficial</span>'
+      : '<span style="color: #f59e0b;">⏳ No Verificado</span>';
+    document.getElementById('user-detail-staff').textContent = u.staff_role || 'Miembro Regular';
+    document.getElementById('user-detail-burned').innerHTML = u.is_burned
+      ? '<span style="color: #ef4444; font-weight: 700;">⚠️ ALERTA: REGISTRADO EN LISTA NEGRA</span>'
+      : '<span style="color: #22c55e;">✓ Sin antecedentes</span>';
+    document.getElementById('user-detail-created').textContent = u.created_at
+      ? new Date(u.created_at).toLocaleString()
+      : 'Desconocida';
+
+    const feedback = document.getElementById('user-modal-feedback');
+    if (feedback) feedback.textContent = '';
+
+    modal.classList.add('active');
+  };
+
+  if (btnCloseUserModal) {
+    btnCloseUserModal.addEventListener('click', () => {
+      modalUserDetail.classList.remove('active');
+    });
+  }
+
+  if (btnToggleVerifyUser) {
+    btnToggleVerifyUser.addEventListener('click', async () => {
+      if (!activeSelectedUser) return;
+      const current = Boolean(activeSelectedUser.verified || activeSelectedUser.is_verified);
+      const newStatus = !current;
+      const feedback = document.getElementById('user-modal-feedback');
+      if (feedback) {
+        feedback.textContent = 'Actualizando estado de verificación...';
+        feedback.className = 'verify-feedback';
+      }
+
+      try {
+        const res = await secureFetch(`${API_PREFIX}/users/${activeSelectedUser.user_id}/toggle-verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ verified: newStatus }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          activeSelectedUser.verified = newStatus;
+          activeSelectedUser.is_verified = newStatus;
+          document.getElementById('user-detail-verified').innerHTML = newStatus
+            ? '<span style="color: #22c55e;">✓ Verificado Oficial</span>'
+            : '<span style="color: #f59e0b;">⏳ No Verificado</span>';
+          if (feedback) {
+            feedback.textContent = '✓ Estado de verificación actualizado con éxito.';
+            feedback.className = 'verify-feedback success';
+          }
+          fetchUsers();
+        } else {
+          if (feedback) {
+            feedback.textContent = `✗ ${data.error}`;
+            feedback.className = 'verify-feedback error';
+          }
+        }
+      } catch (e) {
+        if (feedback) {
+          feedback.textContent = `✗ Error: ${e.message}`;
+          feedback.className = 'verify-feedback error';
+        }
+      }
+    });
+  }
+
+  if (btnSearchUsers && inputSearchUsers) {
+    btnSearchUsers.addEventListener('click', () => {
+      fetchUsers(1, inputSearchUsers.value.trim());
+    });
+    inputSearchUsers.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        fetchUsers(1, inputSearchUsers.value.trim());
+      }
+    });
+  }
+
+  if (btnPrevUsers) {
+    btnPrevUsers.addEventListener('click', () => {
+      if (currentUsersPage > 1) fetchUsers(currentUsersPage - 1, currentUsersSearch);
+    });
+  }
+
+  if (btnNextUsers) {
+    btnNextUsers.addEventListener('click', () => {
+      fetchUsers(currentUsersPage + 1, currentUsersSearch);
+    });
+  }
+
+  if (btnRefreshUsers) {
+    btnRefreshUsers.addEventListener('click', () => {
+      fetchUsers(currentUsersPage, currentUsersSearch);
+    });
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 8. TRATOS & ESCROW
+  // ══════════════════════════════════════════════════════
+
+  const dealsTableBody = document.getElementById('deals-table-body');
+  const btnRefreshDeals = document.getElementById('btn-refresh-deals');
+
+  async function fetchDeals() {
+    if (!dealsTableBody) return;
+    dealsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;"><div class="spinner" style="margin: 0 auto 10px;"></div>Cargando salas de intermediación...</td></tr>`;
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/deals`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.deals)) {
+        renderDeals(data.deals);
+      } else {
+        dealsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--danger); padding: 2rem;">✗ Error: ${escapeHtml(data.error)}</td></tr>`;
+      }
+    } catch (e) {
+      dealsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--danger); padding: 2rem;">✗ Error: ${escapeHtml(e.message)}</td></tr>`;
+    }
+  }
+
+  function renderDeals(deals) {
+    if (!deals.length) {
+      dealsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;">No hay tratos registrados aún.</td></tr>`;
+      return;
+    }
+
+    dealsTableBody.innerHTML = deals
+      .map((d) => {
+        const st = (d.status || 'PENDING').toUpperCase();
+        let badgeClass = 'badge-deal-pending';
+        if (st === 'COMPLETED') badgeClass = 'badge-deal-completed';
+        else if (st === 'IN_PROGRESS' || st === 'ASSIGNED') badgeClass = 'badge-deal-progress';
+        else if (st === 'CANCELLED') badgeClass = 'badge-deal-cancelled';
+
+        const roomBtn = d.invite_link
+          ? `<a href="${escapeHtml(d.invite_link)}" target="_blank" class="btn btn-secondary btn-sm">Unirse a Sala</a>`
+          : `<span style="color: var(--text-dim); font-size: 0.8rem;">Sin enlace</span>`;
+
+        return `
+          <tr>
+            <td><strong>#${d.id}</strong></td>
+            <td><code>${d.creator_id}</code></td>
+            <td><strong>${escapeHtml(d.admin_name || 'Sin Asignar')}</strong></td>
+            <td><span class="${badgeClass}">${st}</span></td>
+            <td>${d.created_at ? new Date(d.created_at).toLocaleDateString() : '—'}</td>
+            <td>${roomBtn}</td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  if (btnRefreshDeals) {
+    btnRefreshDeals.addEventListener('click', () => fetchDeals());
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 9. QUEMADOS & REPORTES DE ESTAFA
+  // ══════════════════════════════════════════════════════
+
+  const burnedTableBody = document.getElementById('burned-table-body');
+  const burnReportsContainer = document.getElementById('burn-reports-container');
+  const btnRefreshBurn = document.getElementById('btn-refresh-burn');
+  const tabBurnScammers = document.getElementById('tab-burn-scammers');
+  const tabBurnReports = document.getElementById('tab-burn-reports');
+  const subviewBurnScammers = document.getElementById('subview-burn-scammers');
+  const subviewBurnReports = document.getElementById('subview-burn-reports');
+  const countBurnedTab = document.getElementById('count-burned-tab');
+  const countReportsTab = document.getElementById('count-reports-tab');
+
+  if (tabBurnScammers && tabBurnReports) {
+    tabBurnScammers.addEventListener('click', () => {
+      tabBurnScammers.className = 'btn btn-primary btn-sm';
+      tabBurnReports.className = 'btn btn-secondary btn-sm';
+      subviewBurnScammers.style.display = 'block';
+      subviewBurnReports.style.display = 'none';
+    });
+
+    tabBurnReports.addEventListener('click', () => {
+      tabBurnReports.className = 'btn btn-primary btn-sm';
+      tabBurnScammers.className = 'btn btn-secondary btn-sm';
+      subviewBurnScammers.style.display = 'none';
+      subviewBurnReports.style.display = 'block';
+    });
+  }
+
+  async function fetchBurnData() {
+    if (!burnedTableBody) return;
+    try {
+      const res = await secureFetch(`${API_PREFIX}/burn`);
+      const data = await res.json();
+      if (data.ok) {
+        renderBurnedUsers(data.burned || []);
+        renderBurnReports(data.reports || []);
+        if (countBurnedTab) countBurnedTab.textContent = (data.burned || []).length;
+        if (countReportsTab) countReportsTab.textContent = (data.reports || []).length;
+      }
+    } catch (e) {
+      console.warn('Error cargando datos de lista negra y reportes:', e);
+    }
+  }
+
+  function renderBurnedUsers(burnedList) {
+    if (!burnedList.length) {
+      burnedTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 2rem;">No hay estafadores registrados en lista negra.</td></tr>`;
+      return;
+    }
+
+    burnedTableBody.innerHTML = burnedList
+      .map((b) => {
+        const userTag = b.username ? `@${escapeHtml(b.username)}` : (b.first_name || 'Estafador');
+        return `
+          <tr>
+            <td><strong>${userTag}</strong></td>
+            <td><code>${b.user_id}</code></td>
+            <td style="max-width: 320px; font-size: 0.85rem;">${escapeHtml(b.context || 'Sin detalles')}</td>
+            <td><code>${b.reported_by || b.approved_by || 'Staff'}</code></td>
+            <td>${b.burned_at ? new Date(b.burned_at).toLocaleDateString() : '—'}</td>
+          </tr>
+        `;
+      })
+      .join('');
+  }
+
+  function renderBurnReports(reports) {
+    if (!burnReportsContainer) return;
+    const pending = reports.filter((r) => (r.status || 'PENDING') === 'PENDING');
+
+    if (!pending.length) {
+      burnReportsContainer.innerHTML = `<p style="color: var(--text-dim); text-align: center; padding: 2rem;">✓ No hay reportes pendientes de revisión. La comunidad está al día.</p>`;
+      return;
+    }
+
+    burnReportsContainer.innerHTML = pending
+      .map((r) => {
+        const proofs = Array.isArray(r.proof_urls) ? r.proof_urls : [];
+        const proofHtml = proofs.length > 0
+          ? `
+            <div class="proof-gallery">
+              ${proofs.map((url) => `
+                <div class="proof-thumbnail-wrap">
+                  <a href="${escapeHtml(url)}" target="_blank">
+                    <img src="${escapeHtml(url)}" class="proof-thumbnail" alt="Prueba">
+                  </a>
+                </div>
+              `).join('')}
+            </div>
+          `
+          : `<div style="color: var(--text-dim); font-size: 0.8rem; margin-top: 8px;">Sin capturas fotográficas adjuntas.</div>`;
+
+        return `
+          <div class="burn-report-card">
+            <div class="burn-report-header">
+              <div>
+                <strong>Reporte #${r.id}</strong> — Acusado: <code>${r.target_id}</code>
+              </div>
+              <span class="badge badge-orange">PENDIENTE DE REVISIÓN</span>
+            </div>
+            <div>
+              <div style="font-size: 0.8rem; color: var(--text-dim);">Denunciante: <code>${r.reporter_id}</code> | Fecha: ${r.created_at ? new Date(r.created_at).toLocaleString() : '—'}</div>
+              <p style="margin-top: 8px; font-size: 0.9rem; line-height: 1.4;">${escapeHtml(r.context || 'Sin descripción')}</p>
+            </div>
+            ${proofHtml}
+            <div class="burn-actions">
+              <button class="btn btn-secondary btn-sm" onclick="reviewBurnReportClick(${r.id}, 'REJECTED')">RECHAZAR</button>
+              <button class="btn btn-danger btn-sm" onclick="reviewBurnReportClick(${r.id}, 'APPROVED')">APROBAR & QUEMAR</button>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  window.reviewBurnReportClick = async (reportId, action) => {
+    const verb = action === 'APPROVED' ? 'aprobar y quemar' : 'rechazar';
+    if (!confirm(`¿Confirmas que deseas ${verb} el reporte #${reportId}?`)) return;
+
+    try {
+      const res = await secureFetch(`${API_PREFIX}/burn/report/${reportId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        fetchBurnData();
+        fetchOverviewStats();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    }
+  };
+
+  if (btnRefreshBurn) {
+    btnRefreshBurn.addEventListener('click', () => fetchBurnData());
   }
 
   function escapeHtml(text) {

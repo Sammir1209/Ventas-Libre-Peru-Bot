@@ -33,9 +33,21 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span>Grupos y Seguridad</span>
         </a>
+        <a href="#users" class="nav-item" id="nav-users">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Directorio Usuarios</span>
+        </a>
         <a href="#staff" class="nav-item" id="nav-staff">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
           <span>Gestión de Staff</span>
+        </a>
+        <a href="#deals" class="nav-item" id="nav-deals">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h0M2 9.5h20"/></svg>
+          <span>Tratos & Escrow</span>
+        </a>
+        <a href="#burn" class="nav-item" id="nav-burn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          <span>Quemados & Reportes</span>
         </a>
         <a href="#verification" class="nav-item" id="nav-verification">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
@@ -92,35 +104,65 @@
           </div>
         </header>
 
-        <!-- Stats Overview -->
-        <section class="stats-grid">
+        <!-- Stats Overview (6 Métricas Consolidadas) -->
+        <section class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
           <div class="stat-card">
             <div class="stat-icon orange">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <div class="stat-details">
-              <span class="stat-label">Grupos Monitoreados</span>
+              <span class="stat-label">Grupos Oficiales</span>
               <h3 id="stat-groups-count">0</h3>
             </div>
           </div>
 
           <div class="stat-card">
-            <div class="stat-icon green">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+            <div class="stat-icon" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <div class="stat-details">
-              <span class="stat-label">Bot Administrador</span>
-              <h3 id="stat-admin-count">0</h3>
+              <span class="stat-label">Usuarios en DB</span>
+              <h3 id="stat-users-count">0</h3>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: #a855f7;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </div>
+            <div class="stat-details">
+              <span class="stat-label">Staff Oficial</span>
+              <h3 id="stat-staff-count">0</h3>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon green">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h0M2 9.5h20"/></svg>
+            </div>
+            <div class="stat-details">
+              <span class="stat-label">Tratos Escrow</span>
+              <h3 id="stat-deals-count">0</h3>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon" style="background: rgba(14, 165, 233, 0.15); color: #0ea5e9;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="stat-details">
+              <span class="stat-label">Canales Verif</span>
+              <h3 id="stat-channels-count">0</h3>
             </div>
           </div>
 
           <div class="stat-card">
             <div class="stat-icon red">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
             </div>
             <div class="stat-details">
-              <span class="stat-label">Grupos en Lockdown</span>
-              <h3 id="stat-lockdown-count">0</h3>
+              <span class="stat-label">Estafadores Quemados</span>
+              <h3 id="stat-burned-count">0</h3>
             </div>
           </div>
         </section>
@@ -307,6 +349,162 @@
               </div>
               <div class="verify-feedback" id="branding-feedback"></div>
             </form>
+          </div>
+        </section>
+      </div>
+
+      <!-- Section: Users Directory (#view-users) -->
+      <div id="view-users" class="dashboard-view" style="display: none;">
+        <header class="top-header">
+          <div class="header-title">
+            <div class="header-tag">BASE DE DATOS SUPABASE / POSTGRES</div>
+            <h1>Directorio Oficial de Usuarios</h1>
+            <p>Consulta en vivo los miembros registrados en el bot, su estado de verificación, rol de staff y antecedentes de estafa.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-users">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span>Actualizar Usuarios</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="card-section">
+          <div class="config-card">
+            <div class="users-toolbar" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; align-items: center; justify-content: space-between;">
+              <div class="input-with-action" style="max-width: 480px; flex: 1;">
+                <input type="text" id="input-search-users" placeholder="🔍 Buscar por @username, ID de Telegram o nombre...">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-search-users">Buscar</button>
+              </div>
+              <div style="color: var(--text-dim); font-size: 0.85rem;" id="users-count-summary">
+                Cargando registros...
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>ID de Telegram</th>
+                    <th>Rango / Rol</th>
+                    <th>Estado de Verificación</th>
+                    <th>Alerta Lista Negra</th>
+                    <th>Acción</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body">
+                  <tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;">Cargando usuarios...</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Paginación -->
+            <div class="pagination-bar" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+              <button class="btn btn-secondary btn-sm" id="btn-prev-users" disabled>&larr; Anterior</button>
+              <span id="users-pagination-label" style="font-size: 0.85rem; color: var(--text-dim);">Página 1</span>
+              <button class="btn btn-secondary btn-sm" id="btn-next-users">Siguiente &rarr;</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Section: Deals & Escrow (#view-deals) -->
+      <div id="view-deals" class="dashboard-view" style="display: none;">
+        <header class="top-header">
+          <div class="header-title">
+            <div class="header-tag">INTERMEDIACIÓN SEGURA (ESCROW)</div>
+            <h1>Gestión de Tratos y Salas Privadas</h1>
+            <p>Monitorea los tratos creados con <code>/trato</code>, mediadores asignados, estados y enlaces de acceso a las salas de negociación.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-deals">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span>Actualizar Tratos</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="card-section">
+          <div class="config-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID Trato</th>
+                    <th>Creador / Comprador</th>
+                    <th>Mediador Asignado</th>
+                    <th>Estado</th>
+                    <th>Fecha de Emisión</th>
+                    <th>Sala Privada</th>
+                  </tr>
+                </thead>
+                <tbody id="deals-table-body">
+                  <tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;">Cargando tratos...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Section: Burned Scammers & Reports (#view-burn) -->
+      <div id="view-burn" class="dashboard-view" style="display: none;">
+        <header class="top-header">
+          <div class="header-title">
+            <div class="header-tag">SEGURIDAD & JUSTICIA COMUNITARIA</div>
+            <h1>Lista Negra & Reportes de Estafadores</h1>
+            <p>Audita la lista negra oficial de estafadores quemados y revisa reportes con capturas de prueba enviadas por miembros.</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-refresh-burn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              <span>Actualizar Lista</span>
+            </button>
+          </div>
+        </header>
+
+        <section class="card-section">
+          <!-- Pestañas internas -->
+          <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem;">
+            <button class="btn btn-primary btn-sm" id="tab-burn-scammers">🔥 Lista Negra Oficial (<span id="count-burned-tab">0</span>)</button>
+            <button class="btn btn-secondary btn-sm" id="tab-burn-reports">📋 Reportes Pendientes (<span id="count-reports-tab">0</span>)</button>
+          </div>
+
+          <!-- Sub-vista 1: Lista Negra de Quemados -->
+          <div id="subview-burn-scammers" class="config-card">
+            <h3>Estafadores Registrados en Lista Negra (GBAN)</h3>
+            <p class="card-desc">Cuentas sancionadas globalmente y expulsadas automáticamente de todos los grupos vinculados.</p>
+
+            <div class="table-responsive" style="margin-top: 1rem;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>ID de Telegram</th>
+                    <th>Motivo / Contexto</th>
+                    <th>Sancionado Por</th>
+                    <th>Fecha de Quema</th>
+                  </tr>
+                </thead>
+                <tbody id="burned-table-body">
+                  <tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 2rem;">Cargando lista negra...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Sub-vista 2: Reportes con Pruebas -->
+          <div id="subview-burn-reports" class="config-card" style="display: none;">
+            <h3>Reportes de Estafa para Revisión Oficial</h3>
+            <p class="card-desc">Revisa el contexto y las capturas de pantalla de prueba antes de aprobar o rechazar la quema del usuario.</p>
+
+            <div id="burn-reports-container" style="display: grid; gap: 1.25rem; margin-top: 1.25rem;">
+              <div class="loading-state">
+                <div class="spinner"></div>
+                <p>Cargando reportes pendientes...</p>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -574,6 +772,59 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal: Inspección y Perfil de Usuario -->
+  <div class="modal-overlay" id="modal-user-detail">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <div class="modal-icon-badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div>
+            <h3 id="modal-user-title">Ficha del Usuario</h3>
+            <p class="modal-subtitle" id="modal-user-subtitle">ID: 00000000</p>
+          </div>
+        </div>
+        <button class="modal-close" id="btn-close-user-modal">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 1.5rem;">
+        <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+          <div id="user-detail-avatar" style="width: 64px; height: 64px; border-radius: 50%; background: var(--bg-hover); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; color: var(--primary);">
+            U
+          </div>
+          <div>
+            <h3 id="user-detail-name" style="margin: 0 0 4px 0; font-size: 1.2rem;">Nombre</h3>
+            <p id="user-detail-username" style="margin: 0; color: var(--text-dim); font-size: 0.9rem;">@username</p>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+          <div style="background: var(--bg-card); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Estado Verificación</div>
+            <div id="user-detail-verified" style="font-weight: 600; margin-top: 4px;">—</div>
+          </div>
+          <div style="background: var(--bg-card); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Rol Staff</div>
+            <div id="user-detail-staff" style="font-weight: 600; margin-top: 4px;">Usuario Regular</div>
+          </div>
+          <div style="background: var(--bg-card); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Alerta Lista Negra</div>
+            <div id="user-detail-burned" style="font-weight: 600; margin-top: 4px;">Limpio</div>
+          </div>
+          <div style="background: var(--bg-card); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Fecha de Registro</div>
+            <div id="user-detail-created" style="font-weight: 600; margin-top: 4px;">—</div>
+          </div>
+        </div>
+
+        <div class="form-actions" style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-toggle-verify-user">Cambiar Estado Verificación</button>
+        </div>
+        <div class="verify-feedback" id="user-modal-feedback" style="margin-top: 0.75rem;"></div>
+      </div>
     </div>
   </div>
 
