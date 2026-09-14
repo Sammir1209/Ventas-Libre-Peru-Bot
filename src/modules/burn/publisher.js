@@ -112,6 +112,7 @@ async function publishBurnAlert(api, report) {
         firstName: targetName,
       }, {
         isBurned: false, // El usuario no quiere el tema rojo, sino la tarjeta limpia idéntica a /perfil
+        communityName: 'Ventas Libres Perú',
       });
       cardBuffer = res.cardBuffer;
       if (res.userId) targetId = res.userId;

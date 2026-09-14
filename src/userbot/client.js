@@ -107,7 +107,8 @@ async function close() {
 }
 
 /**
- * Resuelve cualquier @username o ID de Telegram a través de MTProto directamente
+ * Resuelve cualquier @username o ID de Telegram a través de MTProto directamente.
+ * Obtiene nombre completo, username, ID numérico, biografía (about) y estado.
  */
 async function resolveUser(usernameOrId) {
   if (!client || !isConnected()) return null;
@@ -118,11 +119,33 @@ async function resolveUser(usernameOrId) {
       const rawId = entity.id ? (entity.id.value !== undefined ? entity.id.value : entity.id) : null;
       const userId = Number(rawId);
 
+      let bio = null;
+      let isOnline = false;
+
+      // Intentar obtener el perfil completo (GetFullUser) para extraer biografía y estado real
+      try {
+        const full = await client.invoke(new Api.users.GetFullUser({ id: entity }));
+        if (full) {
+          const userFull = full.fullUser || full;
+          if (userFull && userFull.about) {
+            bio = userFull.about;
+          }
+        }
+      } catch (fullErr) {
+        // En caso de usuarios con privacidad estricta, continuar con entity básica
+      }
+
+      if (entity.status) {
+        isOnline = entity.status.className === 'UserStatusOnline';
+      }
+
       return {
         userId: userId,
         username: entity.username || (typeof target === 'string' && !/^\d+$/.test(target) ? target : null),
         firstName: entity.firstName || entity.title || null,
         lastName: entity.lastName || null,
+        bio: bio,
+        isOnline: isOnline,
       };
     }
   } catch (err) {

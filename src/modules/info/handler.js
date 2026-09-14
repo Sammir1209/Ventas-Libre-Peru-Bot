@@ -168,6 +168,7 @@ function register(bot) {
       const { cardBuffer, userId: resolvedId } = await generateUserCardBuffer(ctx.api, target, {
         tenantId: ctx.tenant?.id,
         ownerIds: ctx.tenant?.owner_ids,
+        communityName: ctx.tenant?.community_name || 'Comunidad Oficial',
       });
       const cardFile = new InputFile(cardBuffer, `perfil_${resolvedId || target.userId || 'user'}.png`);
 

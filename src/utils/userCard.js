@@ -58,8 +58,9 @@ async function generateUserCardBuffer(api, target, options = {}) {
     } catch {}
   }
 
-  // 2. Verificar vía Agentbot / MTProto Userbot (resuelve cualquier usuario, ID y foto en HD)
-  if ((!userId || !username || !avatarBuffer) && (username || userId)) {
+  // 2. Verificar vía Agentbot / MTProto Userbot (resuelve cualquier usuario, ID, biografía, estado y foto en HD)
+  let isOnline = true;
+  if ((!userId || !username || !avatarBuffer || !targetBio) && (username || userId)) {
     try {
       if (userbot.isConnected()) {
         const targetQuery = username || userId;
@@ -69,6 +70,12 @@ async function generateUserCardBuffer(api, target, options = {}) {
           if (!username && ubRes.username) username = ubRes.username.replace(/^@/, '');
           if ((!firstName || firstName === 'Estafador' || firstName === 'Usuario') && (ubRes.firstName || ubRes.lastName)) {
             firstName = [ubRes.firstName, ubRes.lastName].filter(Boolean).join(' ') || null;
+          }
+          if (!targetBio && ubRes.bio) {
+            targetBio = ubRes.bio;
+          }
+          if (ubRes.isOnline !== undefined) {
+            isOnline = ubRes.isOnline;
           }
         }
 
@@ -91,7 +98,7 @@ async function generateUserCardBuffer(api, target, options = {}) {
         if ((!firstName || firstName === 'Estafador') && (chatInfo.first_name || chatInfo.last_name)) {
           firstName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ');
         }
-        if (chatInfo.bio) targetBio = chatInfo.bio;
+        if (!targetBio && chatInfo.bio) targetBio = chatInfo.bio;
       }
     } catch {}
   }
@@ -103,7 +110,7 @@ async function generateUserCardBuffer(api, target, options = {}) {
       if ((!firstName || firstName === 'Estafador' || firstName === 'Usuario') && (chatInfo.first_name || chatInfo.last_name)) {
         firstName = [chatInfo.first_name, chatInfo.last_name].filter(Boolean).join(' ');
       }
-      if (chatInfo.bio) targetBio = chatInfo.bio;
+      if (!targetBio && chatInfo.bio) targetBio = chatInfo.bio;
     } catch {}
 
     if (!avatarBuffer) {
@@ -128,6 +135,7 @@ async function generateUserCardBuffer(api, target, options = {}) {
   let rolesList = [];
   const effectiveOwners = options.ownerIds || config.OWNER_IDS || [];
   const tenantId = options.tenantId || null;
+  const communityName = options.communityName || 'Comunidad Oficial';
 
   if (userId && effectiveOwners.includes(userId)) {
     rolesList = ['OWNER'];
@@ -185,7 +193,7 @@ async function generateUserCardBuffer(api, target, options = {}) {
     if (primaryRole) {
       modalBio = `Staff Oficial: ${primaryRole}\nTratos: ${dealsCount} completados`;
     } else {
-      modalBio = `Usuario de la Comunidad\nTratos: ${dealsCount} completados`;
+      modalBio = `Miembro de la Comunidad\nTratos: ${dealsCount} completados`;
     }
   }
 
@@ -195,7 +203,7 @@ async function generateUserCardBuffer(api, target, options = {}) {
       trackName = `⟡ Mediador Certificado ★ ${rating}/5.0 (${dealsCount} tratos)`;
     } else if (rolesList.includes('OWNER')) {
       trackName = dealsCount > 0
-        ? `Ventas Libres Perú — ${dealsCount} tratos completados`
+        ? `${communityName} — ${dealsCount} tratos completados`
         : `⟡ Staff Oficial (Owner)`;
     } else if (rolesList.some((r) => r.includes('CO-OWNER') || r.includes('COOWNER'))) {
       trackName = dealsCount > 0
@@ -210,7 +218,7 @@ async function generateUserCardBuffer(api, target, options = {}) {
         ? `▪ Moderador Oficial (${dealsCount} tratos)`
         : `▪ Moderador Oficial`;
     } else {
-      trackName = `Ventas Libres Perú — ${dealsCount} tratos completados`;
+      trackName = `${communityName} — ${dealsCount} tratos completados`;
     }
   }
 
@@ -222,9 +230,10 @@ async function generateUserCardBuffer(api, target, options = {}) {
     id: displayId,
     bio: modalBio,
     avatarBuffer: avatarBuffer,
-    isOnline: true,
+    isOnline: isOnline,
     isVerified: isVerified,
     musicTrack: trackName,
+    communityName: communityName,
     isBurned: isBurned,
     burnReason: null,
     dealsCount: dealsCount,

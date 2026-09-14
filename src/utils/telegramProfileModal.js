@@ -370,6 +370,7 @@ async function generateTelegramProfileModal({
   isVerified = false,
   statusSubtitle = null,
   musicTrack = null,
+  communityName = 'Comunidad Oficial',
   isBurned = false,
   burnReason = null,
   dealsCount = 0,
@@ -388,7 +389,7 @@ async function generateTelegramProfileModal({
     if (role) {
       effectiveBio = `Staff Oficial: ${role}\nTratos: ${dealsCount} completados`;
     } else {
-      effectiveBio = `Comunidad Ventas Libres Perú\nTratos: ${dealsCount} completados`;
+      effectiveBio = `${communityName}\nTratos: ${dealsCount} completados`;
     }
   }
 
@@ -589,7 +590,7 @@ async function generateTelegramProfileModal({
         trackName = `⟡ Mediador Certificado ★ ${rating}/5.0 (${dealsCount} tratos)`;
       } else if (isOwner) {
         trackName = dealsCount > 0
-          ? `Ventas Libres Perú — ${dealsCount} tratos completados`
+          ? `${communityName} — ${dealsCount} tratos completados`
           : `⟡ Staff Oficial (Owner)`;
       } else if (isCoOwner) {
         trackName = dealsCount > 0
@@ -604,7 +605,7 @@ async function generateTelegramProfileModal({
           ? `▪ Moderador Oficial (${dealsCount} tratos)`
           : `▪ Moderador Oficial`;
       } else {
-        trackName = `Ventas Libres Perú — ${dealsCount} tratos completados`;
+        trackName = `${communityName} — ${dealsCount} tratos completados`;
       }
     }
     const cleanTrack = cleanText(trackName, 36);
