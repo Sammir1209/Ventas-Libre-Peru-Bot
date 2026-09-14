@@ -408,27 +408,51 @@ function levenshteinDistance(s1, s2) {
 }
 
 /**
- * Normaliza nombres para detección estricta de clones y multicuentas:
- * Remueve emojis, acentos, caracteres invisibles, unicodes raros y palabras de suplantación.
+ * Limpia y normaliza el texto completo de un nombre.
  */
-function normalizeNameForMultiCheck(firstName) {
-  if (!firstName) return '';
-  let str = String(firstName);
-  // 1. Quitar emojis
-  str = str.replace(/\p{Extended_Pictographic}/gu, '');
-  // 2. Normalizar NFKD y quitar marcas diacríticas
-  str = str.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
-  // 3. Quitar símbolos decorativos y puntuación (dejar letras, números, espacios)
-  str = str.replace(/[^\p{L}\p{N}\s]/gu, '');
-  // 4. Quitar palabras de suplantación o rangos típicos
-  str = str.replace(/\b(admin|administrador|staff|soporte|support|oficial|official|mod|moderador|owner|coowner|peru|ventas|bot)\b/gi, '');
-  // 5. Normalizar espacios a 1 solo y pasar a minúsculas
-  return str.replace(/\s+/g, ' ').trim().toLowerCase();
+function cleanFullText(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Extrae los segmentos de un nombre separados por delimitadores de tags/teams (| / • - ~ [ ] ( ) : ; « »)
+ */
+function extractNameSegments(name) {
+  if (!name) return [];
+  const parts = String(name).split(/[|/•\-~[\]():;«»]/);
+  const segments = [];
+  for (const part of parts) {
+    const cleaned = cleanFullText(part);
+    if (cleaned.length >= 2) {
+      segments.push(cleaned);
+    }
+  }
+  return segments;
+}
+
+/**
+ * Extrae la raíz base de un @username (remueve números finales y sufijos típicos como ofc, ofx, bot, vip, peru)
+ */
+function getBaseUsername(username) {
+  if (!username) return '';
+  let u = String(username).toLowerCase().replace(/^@/, '');
+  u = u.replace(/[\d_-]+$/g, '');
+  u = u.replace(/(?:ofc|ofx|bot|vip|peru|pe)$/g, '');
+  u = u.replace(/[\d_-]+$/g, '');
+  return u.trim();
 }
 
 /**
  * Radar de Detección de Multicuentas y Clones en la Comunidad Activa.
- * Agrupa cuentas con nombres idénticos o variaciones sospechosas (first_name similar).
+ * Discrimina etiquetas de team/clan para evitar falsos positivos entre compañeros de comunidad.
  */
 async function findMultiAccounts(tenantId = null) {
   const users = await getCommunityUsers(tenantId);
@@ -436,90 +460,106 @@ async function findMultiAccounts(tenantId = null) {
     return { groups: [], totalUsersAnalyzed: 0 };
   }
 
-  const validUsers = [];
-  for (const u of users) {
-    const rawName = u.first_name || '';
-    const norm = normalizeNameForMultiCheck(rawName);
-    if (norm.length >= 2) {
-      validUsers.push({
-        ...u,
-        normName: norm,
-        firstWord: norm.split(' ')[0],
-      });
+  const processed = users.map(u => ({
+    ...u,
+    fullNameClean: cleanFullText(u.first_name || ''),
+    segments: extractNameSegments(u.first_name || ''),
+    baseUser: getBaseUsername(u.username || '')
+  })).filter(u => u.fullNameClean.length >= 2 || u.baseUser.length >= 3);
+
+  // 1. Identificar tags de team / clan que comparten múltiples usuarios con diferentes nombres
+  const segmentUsers = new Map();
+  for (const u of processed) {
+    for (const s of u.segments) {
+      if (!segmentUsers.has(s)) segmentUsers.set(s, new Set());
+      segmentUsers.get(s).add(u.baseUser || u.fullNameClean);
+    }
+  }
+
+  const teamTagSet = new Set();
+  const knownTagWords = ['team', 'clan', 'peru', 'desperupe', 'shieldgram', 'cmpe', 'sabuesos', 'redconpe', 'bloodcipher', 'santa', 'rdp', 'dox', 'fbi', 'ink', 'bitperu', 'oficial', 'official', 'staff', 'ventas'];
+  for (const [seg, userSet] of segmentUsers.entries()) {
+    if (userSet.size >= 2 || knownTagWords.some(w => seg.includes(w))) {
+      teamTagSet.add(seg);
     }
   }
 
   const clusters = [];
   const assignedUserIds = new Set();
 
-  // 1. Agrupar por nombre normalizado idéntico (ej: "carlos" y "carlos" o "carlos admin")
-  const exactMap = new Map();
-  for (const u of validUsers) {
-    const key = u.normName;
-    if (!exactMap.has(key)) exactMap.set(key, []);
-    exactMap.get(key).push(u);
+  // 1. Coincidencia EXACTA de nombre completo normalizado (ej: AgarMaker vs AgarMaker, BLACK/APOLO/BLACK)
+  const fullMap = new Map();
+  for (const u of processed) {
+    if (u.fullNameClean.length >= 3 && !teamTagSet.has(u.fullNameClean)) {
+      if (!fullMap.has(u.fullNameClean)) fullMap.set(u.fullNameClean, []);
+      fullMap.get(u.fullNameClean).push(u);
+    }
   }
 
-  for (const [key, group] of exactMap.entries()) {
-    if (group.length >= 2) {
+  for (const [key, grp] of fullMap.entries()) {
+    if (grp.length >= 2) {
       clusters.push({
         pattern: key,
         reason: 'Nombre idéntico (normalizado)',
-        users: group,
+        users: grp
       });
-      for (const u of group) assignedUserIds.add(Number(u.user_id));
+      for (const u of grp) assignedUserIds.add(Number(u.user_id));
     }
   }
 
-  // 2. Agrupar por raíz o primer nombre común (si tiene longitud >= 4)
-  const remaining = validUsers.filter((u) => !assignedUserIds.has(Number(u.user_id)));
-  const rootMap = new Map();
+  // 2. Clones por Alias / @Username derivado (ej: @APOLO_686 y @APOLO_636, @Alisson9841 y @Alisson2564)
+  const remaining = processed.filter(u => !assignedUserIds.has(Number(u.user_id)));
+  const userMap = new Map();
   for (const u of remaining) {
-    const root = u.firstWord;
-    if (root && root.length >= 4) {
-      if (!rootMap.has(root)) rootMap.set(root, []);
-      rootMap.get(root).push(u);
+    if (u.baseUser && u.baseUser.length >= 4 && !teamTagSet.has(u.baseUser)) {
+      if (!userMap.has(u.baseUser)) userMap.set(u.baseUser, []);
+      userMap.get(u.baseUser).push(u);
     }
   }
 
-  for (const [root, group] of rootMap.entries()) {
-    if (group.length >= 2) {
+  for (const [base, grp] of userMap.entries()) {
+    if (grp.length >= 2) {
       clusters.push({
-        pattern: root,
-        reason: 'Primer nombre / raíz compartida',
-        users: group,
+        pattern: `@${base}*`,
+        reason: 'Alias (@user) clonado o derivado',
+        users: grp
       });
-      for (const u of group) assignedUserIds.add(Number(u.user_id));
+      for (const u of grp) assignedUserIds.add(Number(u.user_id));
     }
   }
 
-  // 3. Similitud difusa (Levenshtein <= 1 para nombres de >= 5 caracteres)
-  const stillRemaining = validUsers.filter((u) => !assignedUserIds.has(Number(u.user_id)));
-  const visitedFuzzy = new Set();
+  // 3. Clones por nombre personal idéntico (ignorando los tags de clan compartidos)
+  const stillRemaining = processed.filter(u => !assignedUserIds.has(Number(u.user_id)));
   for (let i = 0; i < stillRemaining.length; i++) {
     const u1 = stillRemaining[i];
-    if (visitedFuzzy.has(Number(u1.user_id))) continue;
-    const fuzzyGroup = [u1];
+    if (assignedUserIds.has(Number(u1.user_id))) continue;
+
+    const personalSegs1 = u1.segments.filter(s => !teamTagSet.has(s) && s.length >= 3);
+    if (personalSegs1.length === 0) continue;
+
+    const segGroup = [u1];
 
     for (let j = i + 1; j < stillRemaining.length; j++) {
       const u2 = stillRemaining[j];
-      if (visitedFuzzy.has(Number(u2.user_id))) continue;
+      if (assignedUserIds.has(Number(u2.user_id))) continue;
 
-      if (u1.normName.length >= 5 && u2.normName.length >= 5) {
-        if (levenshteinDistance(u1.normName, u2.normName) <= 1) {
-          fuzzyGroup.push(u2);
-          visitedFuzzy.add(Number(u2.user_id));
-        }
+      const personalSegs2 = u2.segments.filter(s => !teamTagSet.has(s) && s.length >= 3);
+      if (personalSegs2.length === 0) continue;
+
+      // Comparar el segmento de nombre personal real
+      const sharesPersonal = personalSegs1.some(s1 => personalSegs2.some(s2 => s1 === s2));
+      if (sharesPersonal) {
+        segGroup.push(u2);
       }
     }
 
-    if (fuzzyGroup.length >= 2) {
-      visitedFuzzy.add(Number(u1.user_id));
+    if (segGroup.length >= 2) {
       clusters.push({
-        pattern: u1.normName,
-        reason: 'Variación de nombre o posible clon',
-        users: fuzzyGroup,
+        pattern: personalSegs1.join(' '),
+        reason: 'Mismo nombre personal (con tags de clan)',
+        users: segGroup
       });
+      for (const u of segGroup) assignedUserIds.add(Number(u.user_id));
     }
   }
 
