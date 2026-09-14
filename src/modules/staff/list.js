@@ -106,6 +106,7 @@ function register(bot) {
       await ctx.reply(message, {
         parse_mode: 'HTML',
         reply_markup: kb,
+        link_preview_options: { is_disabled: true },
       });
     } catch (err) {
       console.error('⟡ Staff: Error en /staff:', err.message);

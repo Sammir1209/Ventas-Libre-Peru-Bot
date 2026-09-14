@@ -708,7 +708,7 @@ function register(bot) {
     try {
       await clearDealForm(ctx.from.id);
       await ctx.answerCallbackQuery({ text: '⟡ Solicitud cancelada.' });
-      await ctx.editMessageText(templates.dealCancelledMessage('de Trato'), {
+      await ctx.editMessageText(templates.dealCancelledMessage(), {
         parse_mode: 'HTML',
       });
     } catch (err) {

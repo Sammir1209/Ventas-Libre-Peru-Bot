@@ -303,8 +303,29 @@ function dealRatingMessage(dealId, adminUsername) {
   );
 }
 
-function dealCancelledMessage(dealId) {
-  return `⟡ <b>TRATO #${dealId} CANCELADO</b> ⊱ <code>CERRADO</code> ⊰`;
+function dealCancelledMessage(dealId = null) {
+  const isNumeric = dealId && !isNaN(Number(dealId)) && Number(dealId) > 0;
+  const tag = isNumeric ? `TRATO #${dealId}` : 'TRATO ADMIN';
+
+  return (
+    `⟡ <b>SOLICITUD CANCELADA</b> ⊱ <code>${tag}</code> ⊰\n` +
+    `══════\n\n` +
+    `✗ <b>La operación ha sido cancelada.</b>\n` +
+    `No se ha creado el hilo ni se ha retenido ningún fondo.\n\n` +
+    `──────\n` +
+    `▪ <i>Para iniciar una nueva mediación usa <code>/tratoadm</code>.</i>`
+  );
+}
+
+function burnCancelledMessage() {
+  return (
+    `⟡ <b>REPORTE CANCELADO</b> ⊱ <code>SISTEMA QUEMAR</code> ⊰\n` +
+    `══════\n\n` +
+    `✗ <b>La denuncia ha sido cancelada.</b>\n` +
+    `No se ha registrado ningún reporte en la base de datos ni se ha notificado al Staff.\n\n` +
+    `──────\n` +
+    `▪ <i>Para reportar a un estafador usa <code>/quemar</code>.</i>`
+  );
 }
 
 function burnInitialPrompt() {
@@ -423,21 +444,10 @@ function burnAlertBroadcast(targetId, context = null, targetUsername = null, tar
 
 function formatStaffUser(username, userId, firstName = null, customTitle = null) {
   const cleanUser = username ? String(username).replace(/^@/, '').trim() : null;
-  const rawName = (firstName && firstName !== 'Owner' && firstName !== 'Propietario') ? String(firstName).trim() : null;
-  const name = rawName ? escapeHtml(rawName) : (cleanUser ? `@${escapeHtml(cleanUser)}` : 'Perfil');
-
-  let userLink;
-  if (cleanUser) {
-    userLink = `<a href="https://t.me/${cleanUser}"><b>${name}</b></a> (@${escapeHtml(cleanUser)})`;
-  } else if (userId) {
-    userLink = `<a href="tg://user?id=${userId}"><b>${name}</b></a>`;
-  } else {
-    userLink = `<b>${name}</b>`;
-  }
-
-  const titleBadge = customTitle ? ` ⊱ <i>${escapeHtml(customTitle)}</i> ⊰` : '';
-  const idTag = userId ? ` | <code>${userId}</code>` : '';
-  return `${userLink}${titleBadge}${idTag}`;
+  const userTag = cleanUser ? `@${escapeHtml(cleanUser)}` : `<a href="tg://user?id=${userId}">Perfil</a>`;
+  const idTag = userId ? `<code>${userId}</code>` : '';
+  const titleTag = customTitle ? ` ⊱ <i>${escapeHtml(customTitle)}</i> ⊰` : '';
+  return `${userTag}${titleTag} | ${idTag}`;
 }
 
 function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
@@ -565,6 +575,7 @@ module.exports = {
   escrowGroupNoPermissionError,
   dealRatingMessage,
   dealCancelledMessage,
+  burnCancelledMessage,
   burnInitialPrompt,
   burnAskIdPrompt,
   burnAskUsernamePrompt,

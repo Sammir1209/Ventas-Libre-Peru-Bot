@@ -190,13 +190,9 @@ function register(bot) {
     try {
       const userId = ctx.from.id;
       await redisDb.clearBurnState(userId);
-      await ctx.answerCallbackQuery({ text: 'Reporte cancelado.' });
+      await ctx.answerCallbackQuery({ text: '⟡ Reporte cancelado.' });
 
-      const cancelText =
-        `${SYM.DIVIDER}\n` +
-        `${SYM.CROSS} <b>REPORTE CANCELADO</b>\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `La operación fue cancelada. Puedes iniciar un nuevo reporte cuando gustes con <code>/quemar</code>.`;
+      const cancelText = templates.burnCancelledMessage();
 
       try {
         await ctx.editMessageText(cancelText, { parse_mode: 'HTML' });

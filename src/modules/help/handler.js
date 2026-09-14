@@ -294,7 +294,10 @@ function register(bot) {
           }
         }
       } catch {}
-      await ctx.reply(templates.renderStaffList(grouped, communityName), { parse_mode: 'HTML' });
+      await ctx.reply(templates.renderStaffList(grouped, communityName), {
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+      });
     } catch {}
   });
 
