@@ -226,7 +226,9 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     </td>
                     <td>
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        {Array.isArray(b.owner_ids) && b.owner_ids.length > 0 ? b.owner_ids.join(', ') : 'Heredado'}
+                        {Array.isArray(b.owners_details) && b.owners_details.length > 0
+                          ? b.owners_details.map(o => o.display || o.user_id).join(', ')
+                          : (Array.isArray(b.owner_ids) && b.owner_ids.length > 0 ? b.owner_ids.join(', ') : 'Heredado')}
                       </span>
                     </td>
                     <td>
@@ -377,15 +379,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
 
                     <div className="form-grid-2">
                       <div className="form-group">
-                        <label className="form-label">IDs de Propietarios (Owners de la Instancia)</label>
+                        <label className="form-label">Propietarios (Owners de la Instancia)</label>
                         <input
                           type="text"
-                          placeholder="7794982496, 7849224682"
+                          placeholder="Ej: @kingFakingz o 5038905458, 7794982496"
                           className="input-field"
                           value={createForm.ownerIds}
                           onChange={(e) => setCreateForm({ ...createForm, ownerIds: e.target.value })}
                         />
-                        <span className="form-hint">Separados por coma. Tienen acceso total a los comandos /staff y /setup.</span>
+                        <span className="form-hint">Puedes ingresar @usernames o IDs numéricos separados por coma. Tienen acceso total a /staff y administración.</span>
                       </div>
                       <div className="form-group">
                         <label className="form-label">Fecha de Expiración / Vigencia (Opcional)</label>
@@ -753,14 +755,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
 
                     <div className="form-grid-2">
                       <div className="form-group">
-                        <label className="form-label">IDs de Propietarios (Owners)</label>
+                        <label className="form-label">Propietarios (Owners de la Instancia)</label>
                         <input
                           type="text"
-                          placeholder="7794982496, 7849224682"
+                          placeholder="Ej: @kingFakingz o 5038905458, 7794982496"
                           className="input-field"
                           value={editForm.ownerIds}
                           onChange={(e) => setEditForm({ ...editForm, ownerIds: e.target.value })}
                         />
+                        <span className="form-hint">Puedes ingresar @usernames o IDs numéricos separados por coma.</span>
                       </div>
                       <div className="form-group">
                         <label className="form-label">Fecha de Expiración</label>

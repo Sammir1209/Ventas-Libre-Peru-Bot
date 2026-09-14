@@ -1,6 +1,7 @@
 const { InlineKeyboard } = require('grammy');
 const config = require('../../config/env');
 const db = require('../../database/postgres');
+const helpers = require('../../utils/helpers');
 const { SYM, ROLES } = require('../../config/constants');
 
 // ══════
@@ -255,14 +256,10 @@ function register(bot) {
 
       const grouped = { owners: [], coowners: [], admins: [], dealAdmins: [] };
       for (const ownerId of effectiveOwnerIds) {
-        let username = null;
-        let firstName = 'Owner';
-        try {
-          const chatInfo = await ctx.api.getChat(ownerId);
-          username = chatInfo.username || null;
-          firstName = chatInfo.first_name || firstName;
-        } catch {}
-        grouped.owners.push({ user_id: ownerId, username, first_name: firstName });
+        const ownerDetails = await helpers.resolveStaffUserDetails(ownerId, tenantId, ctx);
+        if (ownerDetails) {
+          grouped.owners.push(ownerDetails);
+        }
       }
       try {
         const staffMembers = await db.getAllStaff(tenantId);
@@ -270,17 +267,30 @@ function register(bot) {
 
         for (const member of staffMembers) {
           const roles = (member.role || '').split(',').map((r) => r.trim().toUpperCase());
+          let enriched = member;
+          if (!member.first_name || !member.username) {
+            const extra = await helpers.resolveStaffUserDetails(member.user_id, tenantId, ctx);
+            if (extra) {
+              enriched = {
+                ...member,
+                username: member.username || extra.username,
+                first_name: member.first_name || extra.first_name,
+                custom_title: member.custom_title || extra.custom_title,
+              };
+            }
+          }
+
           if (roles.includes('OWNER') && !ownerIdSet.has(member.user_id)) {
-            grouped.owners.push(member);
+            grouped.owners.push(enriched);
           }
           if (roles.includes('CO-OWNER') || roles.includes('COOWNER')) {
-            grouped.coowners.push(member);
+            grouped.coowners.push(enriched);
           }
           if (roles.includes('ADMIN') || roles.includes('ADMINISTRADOR')) {
-            grouped.admins.push(member);
+            grouped.admins.push(enriched);
           }
           if (roles.includes('TRATO ADMIN') || roles.includes('TRATOADMIN')) {
-            grouped.dealAdmins.push({ ...member, avgRating: '5.0' });
+            grouped.dealAdmins.push({ ...enriched, avgRating: '5.0' });
           }
         }
       } catch {}

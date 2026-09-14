@@ -216,10 +216,98 @@ async function safeEditMessage(ctx, text, options = {}) {
   }
 }
 
+/**
+ * Resuelve todos los detalles de un miembro del Staff u Owner con resiliencia multi-capa:
+ * 1. Base de datos Staff (específico de tenant o global)
+ * 2. Base de datos Users (global)
+ * 3. Telegram Bot API (getChat)
+ * 4. Userbot MTProto (resolveUser)
+ * 5. Auto-cache en BD si se encontraron datos nuevos
+ */
+async function resolveStaffUserDetails(userId, tenantId = null, ctx = null) {
+  if (!userId) return null;
+  const numId = Number(userId);
+  if (isNaN(numId) || numId <= 0) return null;
+
+  let username = null;
+  let firstName = null;
+  let customTitle = null;
+
+  // 1. Verificar en tabla staff del tenant
+  try {
+    const staffMember = await db.getStaffMember(numId, tenantId);
+    if (staffMember) {
+      if (staffMember.username) username = staffMember.username.replace(/^@/, '');
+      if (staffMember.first_name) firstName = staffMember.first_name;
+      if (staffMember.custom_title) customTitle = staffMember.custom_title;
+    }
+  } catch {}
+
+  // Si no se encontró en staff del tenant o faltan datos, chequear registro staff global
+  if (tenantId && (!username || !firstName || !customTitle)) {
+    try {
+      const globalStaff = await db.getStaffMember(numId, null);
+      if (globalStaff) {
+        if (!username && globalStaff.username) username = globalStaff.username.replace(/^@/, '');
+        if (!firstName && globalStaff.first_name) firstName = globalStaff.first_name;
+        if (!customTitle && globalStaff.custom_title) customTitle = globalStaff.custom_title;
+      }
+    } catch {}
+  }
+
+  // 2. Verificar en tabla users (global)
+  if (!username || !firstName) {
+    try {
+      const user = await db.getUser(numId);
+      if (user) {
+        if (!username && user.username) username = user.username.replace(/^@/, '');
+        if (!firstName && user.first_name) firstName = user.first_name;
+      }
+    } catch {}
+  }
+
+  // 3. Consultar Telegram Bot API (getChat)
+  if ((!username || !firstName) && ctx?.api) {
+    try {
+      const chatInfo = await ctx.api.getChat(numId);
+      if (chatInfo) {
+        if (!username && chatInfo.username) username = chatInfo.username.replace(/^@/, '');
+        if (!firstName && chatInfo.first_name) firstName = chatInfo.first_name;
+      }
+    } catch {}
+  }
+
+  // 4. Consultar MTProto Userbot
+  if ((!username || !firstName) && userbot?.isConnected && userbot.isConnected()) {
+    try {
+      const ub = await userbot.resolveUser(numId);
+      if (ub) {
+        if (!username && ub.username) username = ub.username.replace(/^@/, '');
+        if (!firstName && ub.firstName) firstName = ub.firstName;
+      }
+    } catch {}
+  }
+
+  // 5. Cachear/actualizar en users para que futuros accesos sean inmediatos
+  if (username || firstName) {
+    try {
+      await db.upsertUser(numId, username, firstName);
+    } catch {}
+  }
+
+  return {
+    user_id: numId,
+    username: username || null,
+    first_name: (firstName && firstName !== 'Owner' && firstName !== 'Propietario') ? firstName : null,
+    custom_title: customTitle || null,
+  };
+}
+
 module.exports = {
   isOwner,
   extractTarget,
   resolveTarget,
+  resolveStaffUserDetails,
   delay,
   forEachGroup,
   safeEditMessage,

@@ -14,45 +14,122 @@ function maskToken(token) {
   return `${prefix}...${suffix}`;
 }
 
-async function listSubBots() {
-  const bots = await db.getAllSubBots();
-  const activeBotsMap = botManager.getActiveSubBots ? botManager.getActiveSubBots() : new Map();
-
-  return (bots || []).map(b => {
-    const isRunning = activeBotsMap.has(b.id);
-    const runtimeInfo = activeBotsMap.get(b.id);
-    return {
-      ...b,
-      bot_token_masked: maskToken(b.bot_token),
-      is_running: isRunning,
-      started_at: runtimeInfo ? runtimeInfo.startedAt : null,
-    };
-  });
-}
-
-async function getSubBot(id) {
-  const b = await db.getSubBotById(id);
-  if (!b) return null;
-
+async function enrichBotOwners(b) {
+  if (!b) return b;
   const activeBotsMap = botManager.getActiveSubBots ? botManager.getActiveSubBots() : new Map();
   const isRunning = activeBotsMap.has(b.id);
   const runtimeInfo = activeBotsMap.get(b.id);
+
+  const ownersDetails = [];
+  if (Array.isArray(b.owner_ids) && b.owner_ids.length > 0) {
+    for (const oid of b.owner_ids) {
+      try {
+        const u = await db.getUser(oid);
+        const staff = (await db.getStaffMember(oid, b.id)) || (await db.getStaffMember(oid, null));
+        ownersDetails.push({
+          user_id: oid,
+          username: u?.username || staff?.username || null,
+          first_name: u?.first_name || staff?.first_name || null,
+          custom_title: staff?.custom_title || null,
+          display: u?.username ? `@${u.username}` : (u?.first_name || String(oid)),
+        });
+      } catch {
+        ownersDetails.push({ user_id: oid, display: String(oid) });
+      }
+    }
+  }
 
   return {
     ...b,
     bot_token_masked: maskToken(b.bot_token),
     is_running: isRunning,
     started_at: runtimeInfo ? runtimeInfo.startedAt : null,
+    owners_details: ownersDetails,
   };
 }
 
-function parseOwnerIds(val) {
-  if (Array.isArray(val)) return val.map(Number).filter(Boolean);
-  if (typeof val === 'string') {
-    return val.split(',').map(s => Number(s.trim())).filter(Boolean);
+async function listSubBots() {
+  const bots = await db.getAllSubBots();
+  const enriched = [];
+  for (const b of bots || []) {
+    enriched.push(await enrichBotOwners(b));
   }
-  if (typeof val === 'number') return [val];
-  return [];
+  return enriched;
+}
+
+async function getSubBot(id) {
+  const b = await db.getSubBotById(id);
+  if (!b) return null;
+  return await enrichBotOwners(b);
+}
+
+async function resolveOwnerIds(val) {
+  if (!val && val !== 0) return [];
+  let rawList = [];
+  if (Array.isArray(val)) rawList = val;
+  else if (typeof val === 'number') rawList = [val];
+  else if (typeof val === 'string') rawList = val.split(/[\s,]+/);
+
+  const resolved = [];
+  for (const item of rawList) {
+    if (!item && item !== 0) continue;
+    const str = String(item).trim();
+    if (!str) continue;
+
+    // Si es numérico
+    if (/^\d+$/.test(str)) {
+      resolved.push(Number(str));
+      continue;
+    }
+
+    // Si es un username (ej: @kingFakingz o kingFakingz)
+    const cleanUser = str.replace(/^@/, '');
+    try {
+      const u = await db.getUserByUsername(cleanUser);
+      if (u && u.user_id) {
+        resolved.push(Number(u.user_id));
+        continue;
+      }
+      const userbot = require('../../userbot/client');
+      if (userbot?.isConnected && userbot.isConnected()) {
+        const ub = await userbot.resolveUser(cleanUser);
+        if (ub && ub.userId) {
+          await db.upsertUser(ub.userId, ub.username, ub.firstName);
+          resolved.push(Number(ub.userId));
+          continue;
+        }
+      }
+    } catch {}
+  }
+  return [...new Set(resolved)];
+}
+
+async function syncOwnersToStaff(tenantId, ownerIds) {
+  if (!tenantId || !Array.isArray(ownerIds)) return;
+  for (const ownerId of ownerIds) {
+    try {
+      const numId = Number(ownerId);
+      if (!numId) continue;
+      const u = await db.getUser(numId);
+      const globalStaff = await db.getStaffMember(numId, null);
+      const currentStaff = await db.getStaffMember(numId, tenantId);
+      const customTitle = currentStaff?.custom_title || globalStaff?.custom_title || 'OWNER';
+      const username = u?.username || globalStaff?.username || null;
+      const firstName = u?.first_name || globalStaff?.first_name || 'Propietario';
+
+      await db.setStaffRole(
+        numId,
+        username,
+        firstName,
+        'OWNER',
+        numId,
+        customTitle,
+        tenantId
+      );
+    } catch (err) {
+      console.warn(`⟡ [SaaS] Error sincronizando owner ${ownerId} a staff:`, err.message);
+    }
+  }
 }
 
 function parseChannels(val) {
@@ -96,12 +173,14 @@ async function createSubBot(data) {
     verify_web_url: data.verifyWebUrl || data.custom_settings?.verify_web_url || '',
   };
 
+  const resolvedOwnerIds = await resolveOwnerIds(data.ownerIds || data.owner_ids);
+
   // 3. Guardar en Base de Datos con todos los campos completos
   const newBot = await db.createSubBot({
     bot_token: token,
     bot_username: botUsername,
     community_name: data.communityName || data.community_name || botFirstName || 'Comunidad Afiliada',
-    owner_ids: parseOwnerIds(data.ownerIds || data.owner_ids),
+    owner_ids: resolvedOwnerIds,
     plan_status: data.planStatus || data.plan_status || 'ACTIVE',
     expires_at: data.expiresAt || data.expires_at || null,
     channels_to_verify: parseChannels(data.channelsToVerify || data.channels_to_verify),
@@ -118,7 +197,10 @@ async function createSubBot(data) {
     custom_settings: customSettings,
   });
 
-  // 4. Iniciar instancia automáticamente si se solicita
+  // 4. Sincronizar Owners a la tabla staff del sub-bot
+  await syncOwnersToStaff(newBot.id, resolvedOwnerIds);
+
+  // 5. Iniciar instancia automáticamente si se solicita
   if (data.autoStart !== false) {
     try {
       await botManager.startSubBot(newBot);
@@ -154,7 +236,7 @@ async function updateSubBot(id, updates = {}) {
 
   // Owners
   if (updates.ownerIds !== undefined || updates.owner_ids !== undefined) {
-    payload.owner_ids = parseOwnerIds(updates.ownerIds || updates.owner_ids);
+    payload.owner_ids = await resolveOwnerIds(updates.ownerIds || updates.owner_ids);
   }
 
   // Estado del Plan y Expiración
@@ -225,6 +307,10 @@ async function updateSubBot(id, updates = {}) {
   payload.custom_settings = updatedSettings;
 
   await db.updateSubBot(id, payload);
+
+  if (payload.owner_ids && payload.owner_ids.length > 0) {
+    await syncOwnersToStaff(id, payload.owner_ids);
+  }
 
   // Si estaba corriendo, reiniciar para aplicar los nuevos ajustes en memoria
   const activeBotsMap = botManager.getActiveSubBots ? botManager.getActiveSubBots() : new Map();

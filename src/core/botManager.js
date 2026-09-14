@@ -39,6 +39,9 @@ class BotManager {
     // Inyectar contexto multi-tenant en cada request y registrar actividad
     bot.use(async (ctx, next) => {
       ctx.tenant = tenant;
+      if (ctx.from?.id) {
+        db.upsertUser(ctx.from.id, ctx.from.username, ctx.from.first_name).catch(() => {});
+      }
       if (ctx.message?.text) {
         console.log(`⟡ [Sub-Bot: @${bot.botInfo?.username || tenant.community_name}] Mensaje de ${ctx.from?.id} (${ctx.chat?.type}): "${ctx.message.text}"`);
       }

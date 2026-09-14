@@ -2,6 +2,7 @@ const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { ROLES } = require('../../config/constants');
 const templates = require('../../utils/templates');
+const helpers = require('../../utils/helpers');
 const { getReputation } = require('../escrow/rating');
 
 // ══════
@@ -26,19 +27,10 @@ function register(bot) {
 
       // 1. Cargar Owners garantizados (de la comunidad correspondiente)
       for (const ownerId of effectiveOwnerIds) {
-        let username = null;
-        let firstName = 'Owner';
-        try {
-          const chatInfo = await ctx.api.getChat(ownerId);
-          username = chatInfo.username || null;
-          firstName = chatInfo.first_name || firstName;
-        } catch {}
-
-        grouped.owners.push({
-          user_id: ownerId,
-          username,
-          first_name: firstName,
-        });
+        const ownerDetails = await helpers.resolveStaffUserDetails(ownerId, tenantId, ctx);
+        if (ownerDetails) {
+          grouped.owners.push(ownerDetails);
+        }
       }
 
       // 2. Cargar Staff de Supabase / BD (Aislado por tenant_id)
@@ -50,34 +42,18 @@ function register(bot) {
       }
 
       for (const member of staffMembers) {
-        let username = member.username || null;
-        let firstName = member.first_name || null;
-
-        // Si el username no está en la tabla staff, buscarlo en users o en Telegram API
-        if (!username) {
-          const u = await db.getUser(member.user_id);
-          if (u && u.username) {
-            username = u.username;
-            firstName = firstName || u.first_name;
-          } else {
-            try {
-              const chat = await ctx.api.getChat(member.user_id);
-              if (chat) {
-                username = chat.username || null;
-                firstName = firstName || chat.first_name;
-                if (username) {
-                  await db.upsertStaffMember(member.user_id, username, member.role, tenantId);
-                }
-              }
-            } catch {}
+        let enrichedMember = member;
+        if (!member.username || !member.first_name) {
+          const extra = await helpers.resolveStaffUserDetails(member.user_id, tenantId, ctx);
+          if (extra) {
+            enrichedMember = {
+              ...member,
+              username: member.username || extra.username,
+              first_name: member.first_name || extra.first_name,
+              custom_title: member.custom_title || extra.custom_title,
+            };
           }
         }
-
-        const enrichedMember = {
-          ...member,
-          username,
-          first_name: firstName,
-        };
 
         const roleStr = String(member.role || '').toUpperCase();
         const roles = roleStr.split(/[,/|]+/).map((r) => r.trim());
