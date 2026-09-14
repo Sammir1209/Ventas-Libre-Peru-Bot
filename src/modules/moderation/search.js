@@ -15,16 +15,29 @@ async function isAuthorizedForSearch(ctx) {
   if (!userId) return false;
 
   const effectiveOwners = getEffectiveOwners(ctx);
-  if (effectiveOwners.includes(userId)) return true;
+  if (Array.isArray(effectiveOwners) && effectiveOwners.some(id => Number(id) === Number(userId))) {
+    return true;
+  }
 
   const tenantId = ctx.tenant?.id || null;
   const member = await db.getStaffMember(userId, tenantId);
   if (member && member.role) {
     const rolesUpper = member.role.toUpperCase();
-    if (rolesUpper.includes('OWNER') || rolesUpper.includes('ADMIN') || rolesUpper.includes('MOD')) {
+    if (rolesUpper.includes('OWNER') || rolesUpper.includes('ADMIN') || rolesUpper.includes('MOD') || rolesUpper.includes('TRATO')) {
       return true;
     }
   }
+
+  // Si se ejecuta dentro de un grupo oficial, permitir a los administradores del grupo
+  if (ctx.chat && (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup')) {
+    try {
+      const chatMember = await ctx.api.getChatMember(ctx.chat.id, userId);
+      if (['creator', 'administrator'].includes(chatMember.status)) {
+        return true;
+      }
+    } catch {}
+  }
+
   return false;
 }
 

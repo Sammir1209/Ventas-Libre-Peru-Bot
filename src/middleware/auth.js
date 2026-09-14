@@ -127,6 +127,7 @@ function requireOwnerOrCoOwner() {
 }
 
 module.exports = {
+  getEffectiveOwners,
   requireOwner,
   requireStaff,
   requireDealAdmin,
