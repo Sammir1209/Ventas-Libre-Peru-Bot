@@ -176,15 +176,16 @@ class BotManager {
    */
   async restartSubBot(subBotId) {
     const instance = this.instances.get(subBotId);
-    if (!instance) {
-      const dbTenant = await db.getSubBotById(subBotId);
-      if (dbTenant) return await this.startSubBot(dbTenant);
-      throw new Error('Sub-bot no encontrado.');
+    const dbTenant = await db.getSubBotById(subBotId);
+    const tenantToRun = dbTenant || instance?.tenant;
+    if (!tenantToRun) {
+      throw new Error('Sub-bot no encontrado en el sistema.');
     }
 
-    const tenant = instance.tenant;
-    await this.stopSubBot(subBotId);
-    return await this.startSubBot(tenant);
+    if (instance) {
+      await this.stopSubBot(subBotId);
+    }
+    return await this.startSubBot(tenantToRun);
   }
 
   /**
@@ -224,6 +225,13 @@ class BotManager {
       });
     }
     return list;
+  }
+
+  /**
+   * Retorna el mapa en memoria de instancias activas.
+   */
+  getActiveSubBots() {
+    return this.instances;
   }
 }
 

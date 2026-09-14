@@ -9,16 +9,15 @@ const { SYM, CB } = require('../../config/constants');
 /**
  * Teclado de bienvenida con botones cortos alineados uno al costado del otro
  */
-function welcomeKeyboard(targetUserId = null) {
+function welcomeKeyboard(targetUserId = null, customFolderUrl = null) {
   const kb = new InlineKeyboard();
 
-  const folderLink = config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh';
-  const webPortalUrl = config.VERIFY_WEB_URL || 'https://ventas-libre-peru-bot.onrender.com/verificar';
+  const folderLink = customFolderUrl || config.VERIFY_WEB_URL || config.GROUPS_FOLDER_LINK || 'https://ventas-libre-peru-bot.onrender.com/verificar';
   const verifyData = targetUserId ? `verify:${targetUserId}` : CB.VERIFY;
   const cancelData = targetUserId ? `verify_cancel:${targetUserId}` : 'verify_cancel';
 
   // Fila 1: [ UNIRME ] (Lleva a la web/carpeta oficial de canales) | [ VERIFICAR ] (Evalúa si ya se unió)
-  kb.url('UNIRME', webPortalUrl);
+  kb.url('UNIRME', folderLink);
   kb.text('VERIFICAR', verifyData);
 
   // Fila 2: [ CANCELAR ]

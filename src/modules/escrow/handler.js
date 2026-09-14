@@ -43,7 +43,8 @@ async function clearDealForm(userId) {
 /**
  * Obtiene el ID del grupo oficial de tratos (desde memoria, env, redis o base de datos).
  */
-async function getEscrowGroupId() {
+async function getEscrowGroupId(ctx = null) {
+  if (ctx?.tenant?.escrow_group_id) return Number(ctx.tenant.escrow_group_id);
   if (config.ESCROW_GROUP_ID) return config.ESCROW_GROUP_ID;
   const cached = await redisDb.getCache(ESCROW_GROUP_KEY);
   if (cached) {
@@ -150,7 +151,7 @@ function register(bot) {
   // ── Listener: Revocar enlace en cuanto el usuario entra al grupo ──
   bot.on('chat_member', async (ctx, next) => {
     try {
-      const escrowGroupId = await getEscrowGroupId();
+      const escrowGroupId = await getEscrowGroupId(ctx);
       if (escrowGroupId && ctx.chat?.id === escrowGroupId) {
         const update = ctx.chatMember;
         const newStatus = update?.new_chat_member?.status;
@@ -176,7 +177,7 @@ function register(bot) {
   // ── Listener: Si un topic es cerrado manualmente por un admin en Telegram ──
   bot.on(['message:forum_topic_closed', 'message:forum_topic_edited'], async (ctx, next) => {
     try {
-      const escrowGroupId = await getEscrowGroupId();
+      const escrowGroupId = await getEscrowGroupId(ctx);
       const threadId = ctx.message?.message_thread_id;
       if (escrowGroupId && ctx.chat?.id === escrowGroupId && threadId) {
         const dealId = await redisDb.getCache(`thread_deal:${threadId}`);
@@ -192,7 +193,7 @@ function register(bot) {
   // ── Listener: Control de privacidad y guardado de historial del Hilo ──
   bot.on('message', async (ctx, next) => {
     try {
-      const escrowGroupId = await getEscrowGroupId();
+      const escrowGroupId = await getEscrowGroupId(ctx);
       const threadId = ctx.message?.message_thread_id;
       const chatId = ctx.chat?.id;
 
@@ -813,7 +814,7 @@ function register(bot) {
       }
 
       // 3. Verificar si el grupo oficial de tratos con temas está configurado
-      const escrowGroupId = await getEscrowGroupId();
+      const escrowGroupId = await getEscrowGroupId(ctx);
       if (!escrowGroupId) {
         return ctx.answerCallbackQuery({
           text: '✗ Falta configurar el grupo de tratos. Un Owner debe ejecutar /set_grupo_tratos en el supergrupo con temas.',
@@ -1036,7 +1037,7 @@ function register(bot) {
       const adminMember = await db.getStaffMember(deal.admin_id, ctx.tenant?.id);
       const adminUsername = adminMember?.username || ctx.from.username || 'Admin';
 
-      const escrowGroupId = await getEscrowGroupId();
+      const escrowGroupId = await getEscrowGroupId(ctx);
       const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
 
       // 2. PUBLICAR SOLICITUD DE CALIFICACIÓN DENTRO DEL HILO / TOPIC (Para que todos lo vean)
@@ -1206,7 +1207,7 @@ function register(bot) {
 
       await dealQueue.cancelDeal(dealId);
 
-      const escrowGroupId = await getEscrowGroupId();
+      const escrowGroupId = await getEscrowGroupId(ctx);
       const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
 
       if (escrowGroupId && threadId) {
@@ -1274,7 +1275,7 @@ function register(bot) {
       } catch {}
 
       // Eliminar el Topic limpiamente y retirar solo a invitados no-staff
-      const escrowGroupId = await getEscrowGroupId();
+      const escrowGroupId = await getEscrowGroupId(ctx);
       const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
 
       if (escrowGroupId && threadId) {

@@ -1731,24 +1731,24 @@ async function initialize() {
 
 async function createSubBot(data) {
   const payload = {
-    bot_token: data.bot_token,
-    bot_username: data.bot_username || null,
-    community_name: data.community_name || 'Ventas Libres Perú',
-    owner_ids: data.owner_ids || [],
-    plan_status: data.plan_status || 'ACTIVE',
-    expires_at: data.expires_at || null,
-    channels_to_verify: data.channels_to_verify || [],
-    groups_folder_link: data.groups_folder_link || null,
-    staff_chat_id: data.staff_chat_id ? Number(data.staff_chat_id) : null,
-    staff_thread_id: data.staff_thread_id ? Number(data.staff_thread_id) : null,
-    log_channel_id: data.log_channel_id ? Number(data.log_channel_id) : null,
-    log_thread_id: data.log_thread_id ? Number(data.log_thread_id) : null,
-    burn_chat_id: data.burn_chat_id ? Number(data.burn_chat_id) : null,
-    burn_thread_id: data.burn_thread_id ? Number(data.burn_thread_id) : null,
-    public_burn_channel_id: data.public_burn_channel_id ? Number(data.public_burn_channel_id) : null,
-    public_burn_thread_id: data.public_burn_thread_id ? Number(data.public_burn_thread_id) : null,
-    escrow_group_id: data.escrow_group_id ? Number(data.escrow_group_id) : null,
-    custom_settings: data.custom_settings || {},
+    bot_token: data.bot_token || data.botToken,
+    bot_username: data.bot_username || data.botUsername || null,
+    community_name: data.community_name || data.communityName || 'Ventas Libres Perú',
+    owner_ids: Array.isArray(data.owner_ids || data.ownerIds) ? (data.owner_ids || data.ownerIds) : [],
+    plan_status: data.plan_status || data.planStatus || 'ACTIVE',
+    expires_at: data.expires_at || data.expiresAt || null,
+    channels_to_verify: Array.isArray(data.channels_to_verify || data.channelsToVerify) ? (data.channels_to_verify || data.channelsToVerify) : [],
+    groups_folder_link: data.groups_folder_link || data.groupsFolderLink || null,
+    staff_chat_id: (data.staff_chat_id || data.staffChatId) ? Number(data.staff_chat_id || data.staffChatId) : null,
+    staff_thread_id: (data.staff_thread_id || data.staffThreadId) ? Number(data.staff_thread_id || data.staffThreadId) : null,
+    log_channel_id: (data.log_channel_id || data.logChannelId) ? Number(data.log_channel_id || data.logChannelId) : null,
+    log_thread_id: (data.log_thread_id || data.logThreadId) ? Number(data.log_thread_id || data.logThreadId) : null,
+    burn_chat_id: (data.burn_chat_id || data.burnChatId) ? Number(data.burn_chat_id || data.burnChatId) : null,
+    burn_thread_id: (data.burn_thread_id || data.burnThreadId) ? Number(data.burn_thread_id || data.burnThreadId) : null,
+    public_burn_channel_id: (data.public_burn_channel_id || data.publicBurnChannelId) ? Number(data.public_burn_channel_id || data.publicBurnChannelId) : null,
+    public_burn_thread_id: (data.public_burn_thread_id || data.publicBurnThreadId) ? Number(data.public_burn_thread_id || data.publicBurnThreadId) : null,
+    escrow_group_id: (data.escrow_group_id || data.escrowGroupId) ? Number(data.escrow_group_id || data.escrowGroupId) : null,
+    custom_settings: data.custom_settings || data.customSettings || {},
   };
 
   if (useSupabase && supabase) {
@@ -1846,11 +1846,13 @@ async function getSubBotByToken(token) {
 }
 
 async function updateSubBot(id, updates) {
-  updates.updated_at = new Date().toISOString();
+  const cleanUpdates = { ...updates };
+  cleanUpdates.updated_at = new Date().toISOString();
+
   if (useSupabase && supabase) {
     const { data, error } = await supabase
       .from('sub_bots')
-      .update(updates)
+      .update(cleanUpdates)
       .eq('id', id)
       .select()
       .maybeSingle();
@@ -1858,9 +1860,15 @@ async function updateSubBot(id, updates) {
     return data;
   }
   if (pool) {
-    const keys = Object.keys(updates);
+    if (cleanUpdates.channels_to_verify && typeof cleanUpdates.channels_to_verify !== 'string') {
+      cleanUpdates.channels_to_verify = JSON.stringify(cleanUpdates.channels_to_verify);
+    }
+    if (cleanUpdates.custom_settings && typeof cleanUpdates.custom_settings !== 'string') {
+      cleanUpdates.custom_settings = JSON.stringify(cleanUpdates.custom_settings);
+    }
+    const keys = Object.keys(cleanUpdates);
     const setClause = keys.map((k, idx) => `${k} = $${idx + 2}`).join(', ');
-    const values = Object.values(updates);
+    const values = Object.values(cleanUpdates);
     const res = await pool.query(`UPDATE sub_bots SET ${setClause} WHERE id = $1 RETURNING *`, [id, ...values]);
     return res.rows[0] || null;
   }

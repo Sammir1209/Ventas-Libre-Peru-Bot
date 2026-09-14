@@ -5,13 +5,17 @@ const { escapeHtml } = require('./formatting');
 // ⟡ Plantillas Estéticas Oficiales — Ventas Libres Perú
 // ══════
 
-function welcomeMessage(username, firstName) {
+function welcomeMessage(username, firstName, communityName = 'Ventas Libres Perú') {
   const mention = username
     ? `@${username}`
     : `<b>${escapeHtml(firstName || 'Usuario')}</b>`;
 
+  const header = communityName && communityName !== 'Ventas Libres Perú'
+    ? escapeHtml(communityName.toUpperCase())
+    : '𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔';
+
   return (
-    `⟡ <b>𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔</b> ⊱ <code>VERIFICACIÓN</code> ⊰\n` +
+    `⟡ <b>${header}</b> ⊱ <code>VERIFICACIÓN</code> ⊰\n` +
     `══════\n\n` +
     `¡Hola, ${mention}! Te damos la bienvenida oficial.\n` +
     `Actualmente te encuentras en modo <b>silenciado preventivo</b>.\n\n` +
@@ -23,17 +27,21 @@ function welcomeMessage(username, firstName) {
   );
 }
 
-function verificationSuccess(username, firstName) {
+function verificationSuccess(username, firstName, communityName = 'Ventas Libres Perú') {
   const mention = username
     ? `@${username}`
     : `<b>${escapeHtml(firstName || 'Usuario')}</b>`;
 
+  const header = communityName && communityName !== 'Ventas Libres Perú'
+    ? escapeHtml(communityName.toUpperCase())
+    : '𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔';
+
   return (
-    `⟡ <b>𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔</b> ⊱ <code>ACCESO AUTORIZADO</code> ⊰\n` +
+    `⟡ <b>${header}</b> ⊱ <code>ACCESO AUTORIZADO</code> ⊰\n` +
     `══════\n\n` +
     `✓ <b>Membresía validada:</b> ${mention}\n` +
     `▸ <b>Estado:</b> ⊱ <code>DESMUTEO EXITOSO</code> ⊰\n` +
-    `▸ <b>Comunidad:</b> Ventas Libres Perú\n\n` +
+    `▸ <b>Comunidad:</b> ${escapeHtml(communityName)}\n\n` +
     `──────\n` +
     `▪ <i>Acceso otorgado: puedes participar, comerciar y chatear libremente.</i>`
   );

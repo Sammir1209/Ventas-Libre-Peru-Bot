@@ -646,9 +646,9 @@ function register(bot) {
       // Confirmar al usuario en DM actualizando su mensaje maestro
       await updateMasterMessage(ctx, state, templates.burnSentMessage(report.id), undefined);
 
-      // Enviar al canal/hilo de Staff
-      const burnDestChat = config.BURN_CHAT_ID || config.STAFF_CHAT_ID;
-      const burnDestThread = config.BURN_THREAD_ID || (burnDestChat === config.STAFF_CHAT_ID ? config.STAFF_THREAD_ID : null);
+      // Enviar al canal/hilo de Staff (priorizando configuración del Sub-Bot si existe)
+      const burnDestChat = ctx.tenant?.burn_chat_id || config.BURN_CHAT_ID || ctx.tenant?.staff_chat_id || config.STAFF_CHAT_ID;
+      const burnDestThread = ctx.tenant?.burn_thread_id || config.BURN_THREAD_ID || (burnDestChat === (ctx.tenant?.staff_chat_id || config.STAFF_CHAT_ID) ? (ctx.tenant?.staff_thread_id || config.STAFF_THREAD_ID) : null);
 
       if (burnDestChat) {
         const reporterMention = ctx.from.username
