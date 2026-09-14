@@ -42,7 +42,8 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
   };
 
   return (
-    <section className="panel-card">
+    <>
+      <section className="panel-card">
       <div className="panel-header">
         <div className="panel-header-left">
           <h3>Lista Negra de Estafadores (GBan Centralizado)</h3>
@@ -139,6 +140,7 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
           </tbody>
         </table>
       </div>
+      </section>
 
       {/* Modal: Editar GBan */}
       {editingUser && (
@@ -274,6 +276,6 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }

@@ -77,7 +77,7 @@ async function createSubBot(data) {
   // 3. Iniciar instancia automáticamente si se solicita
   if (data.autoStart !== false) {
     try {
-      await botManager.startSubBot(newBot.id);
+      await botManager.startSubBot(newBot);
     } catch (startErr) {
       console.warn(`⟡ Sub-bot creado pero no pudo arrancar de inmediato:`, startErr.message);
     }
@@ -119,7 +119,7 @@ async function executeAction(id, action) {
   let result = false;
   switch (action) {
     case 'start':
-      result = await botManager.startSubBot(id);
+      result = await botManager.startSubBot(existing);
       break;
     case 'stop':
       result = await botManager.stopSubBot(id);
@@ -132,7 +132,7 @@ async function executeAction(id, action) {
   }
 
   return {
-    success: result,
+    success: !!result,
     action,
     subBot: await getSubBot(id),
   };

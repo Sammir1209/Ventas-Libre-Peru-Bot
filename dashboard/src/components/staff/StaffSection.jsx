@@ -43,7 +43,8 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
   };
 
   return (
-    <section className="panel-card">
+    <>
+      <section className="panel-card">
       <div className="panel-header">
         <div className="panel-header-left">
           <h3>Gestión Oficial de Staff & Mediadores</h3>
@@ -154,6 +155,7 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
           </tbody>
         </table>
       </div>
+      </section>
 
       {/* Modal: Editar Staff */}
       {editingMember && (
@@ -291,6 +293,6 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }

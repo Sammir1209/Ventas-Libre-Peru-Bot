@@ -48,7 +48,8 @@ export default function DealsSection({ deals, staff, onUpdateDeal, onCreateDeal,
   };
 
   return (
-    <section className="panel-card">
+    <>
+      <section className="panel-card">
       <div className="panel-header">
         <div className="panel-header-left">
           <h3>Tratos Admin & Sistema de Intermediación (Escrow)</h3>
@@ -154,6 +155,7 @@ export default function DealsSection({ deals, staff, onUpdateDeal, onCreateDeal,
           </tbody>
         </table>
       </div>
+      </section>
 
       {/* Modal: Editar Trato */}
       {editingDeal && (
@@ -306,6 +308,6 @@ export default function DealsSection({ deals, staff, onUpdateDeal, onCreateDeal,
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }

@@ -69,9 +69,14 @@ class BotManager {
   /**
    * Inicia una nueva instancia de sub-bot.
    */
-  async startSubBot(tenant) {
+  async startSubBot(tenantOrId) {
+    let tenant = tenantOrId;
+    if (typeof tenantOrId === 'string' || typeof tenantOrId === 'number') {
+      tenant = await db.getSubBotById(tenantOrId);
+    }
+
     if (!tenant || !tenant.bot_token) {
-      throw new Error('Token de bot no proporcionado.');
+      throw new Error('Token de bot no proporcionado o sub-bot no encontrado en el sistema.');
     }
 
     const subBotId = tenant.id || tenant.bot_token;

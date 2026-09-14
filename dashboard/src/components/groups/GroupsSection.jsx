@@ -2,16 +2,16 @@
 
 export default function GroupsSection({ groups, onToggleSecurity }) {
   return (
-    <section class="panel-card">
-      <div class="panel-header">
-        <div class="panel-header-left">
+    <section className="panel-card">
+      <div className="panel-header">
+        <div className="panel-header-left">
           <h3>Grupos Oficiales & Protocolos de Seguridad en Vivo</h3>
           <p>Supervisa los chats conectados, los niveles DEFCON y los filtros anti-spam activos en la red.</p>
         </div>
       </div>
 
-      <div class="table-responsive">
-        <table class="custom-table">
+      <div className="table-responsive">
+        <table className="custom-table">
           <thead>
             <tr>
               <th>Título del Chat</th>
@@ -40,7 +40,7 @@ export default function GroupsSection({ groups, onToggleSecurity }) {
                     </code>
                   </td>
                   <td>
-                    <span class="badge badge-muted">
+                    <span className="badge badge-muted">
                       {g.type || 'supergroup'}
                     </span>
                   </td>

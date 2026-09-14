@@ -41,7 +41,8 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
   };
 
   return (
-    <section className="panel-card">
+    <>
+      <section className="panel-card">
       <div className="panel-header">
         <div className="panel-header-left">
           <h3>Instancias de Sub-Bots (Motor SaaS Multi-Tenant)</h3>
@@ -170,133 +171,134 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
           </tbody>
         </table>
       </div>
-
-      {/* Modal: Crear Sub-Bot */}
-      {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Crear Nueva Instancia de Sub-Bot</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setShowCreateModal(false)}>✕</button>
-            </div>
-            <form onSubmit={handleSaveCreate}>
-              <div className="modal-body">
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
-                    Token de BotFather (Telegram API) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="123456789:ABCdefGhIJKlmNoPQRstUVwxyZ"
-                    className="input-field"
-                    value={createForm.botToken}
-                    onChange={(e) => setCreateForm({ ...createForm, botToken: e.target.value })}
-                  />
-                  <span style={{ fontSize: '11px', color: 'var(--text-subtle)', marginTop: '4px', display: 'block' }}>
-                    El sistema validará el token automáticamente con Telegram al guardar.
-                  </span>
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
-                    Nombre de la Comunidad o Proyecto
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ej. Red de Ventas Chiclayo"
-                    className="input-field"
-                    value={createForm.communityName}
-                    onChange={(e) => setCreateForm({ ...createForm, communityName: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
-                    IDs de Telegram de los Owners (Separados por coma)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="7794982496, 7849224682"
-                    className="input-field"
-                    value={createForm.ownerIds}
-                    onChange={(e) => setCreateForm({ ...createForm, ownerIds: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary">Registrar & Lanzar Bot</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Configurar Sub-Bot */}
-      {editingBot && (
-        <div className="modal-overlay" onClick={() => setEditingBot(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Configuración de Sub-Bot: {editingBot.community_name}</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setEditingBot(null)}>✕</button>
-            </div>
-            <form onSubmit={handleSaveEdit}>
-              <div className="modal-body">
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
-                    Nombre de la Comunidad
-                  </label>
-                  <input
-                    type="text"
-                    className="input-field"
-                    value={editingBot.community_name || ''}
-                    onChange={(e) => setEditingBot({ ...editingBot, community_name: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
-                    Enlace de Carpeta de Grupos de Telegram
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="https://t.me/addlist/..."
-                    className="input-field"
-                    value={editingBot.groups_folder_link || ''}
-                    onChange={(e) => setEditingBot({ ...editingBot, groups_folder_link: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
-                    ID de Chat de Staff
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="-100..."
-                    className="input-field"
-                    value={editingBot.staff_chat_id || ''}
-                    onChange={(e) => setEditingBot({ ...editingBot, staff_chat_id: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
-                    ID de Canal de Logs
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="-100..."
-                    className="input-field"
-                    value={editingBot.log_channel_id || ''}
-                    onChange={(e) => setEditingBot({ ...editingBot, log_channel_id: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setEditingBot(null)}>Cancelar</button>
-                <button type="submit" className="btn btn-primary">Guardar Ajustes</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </section>
-  );
+
+    {/* Modal: Crear Sub-Bot */}
+    {showCreateModal && (
+      <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>Crear Nueva Instancia de Sub-Bot</h3>
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowCreateModal(false)}>✕</button>
+          </div>
+          <form onSubmit={handleSaveCreate}>
+            <div className="modal-body">
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
+                  Token de BotFather (Telegram API) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="123456789:ABCdefGhIJKlmNoPQRstUVwxyZ"
+                  className="input-field"
+                  value={createForm.botToken}
+                  onChange={(e) => setCreateForm({ ...createForm, botToken: e.target.value })}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-subtle)', marginTop: '4px', display: 'block' }}>
+                  El sistema validará el token automáticamente con Telegram al guardar.
+                </span>
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
+                  Nombre de la Comunidad o Proyecto
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej. Red de Ventas Chiclayo"
+                  className="input-field"
+                  value={createForm.communityName}
+                  onChange={(e) => setCreateForm({ ...createForm, communityName: e.target.value })}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
+                  IDs de Telegram de los Owners (Separados por coma)
+                </label>
+                <input
+                  type="text"
+                  placeholder="7794982496, 7849224682"
+                  className="input-field"
+                  value={createForm.ownerIds}
+                  onChange={(e) => setCreateForm({ ...createForm, ownerIds: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancelar</button>
+              <button type="submit" className="btn btn-primary">Registrar & Lanzar Bot</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    {/* Modal: Configurar Sub-Bot */}
+    {editingBot && (
+      <div className="modal-overlay" onClick={() => setEditingBot(null)}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3>Configuración de Sub-Bot: {editingBot.community_name}</h3>
+            <button className="btn btn-secondary btn-sm" onClick={() => setEditingBot(null)}>✕</button>
+          </div>
+          <form onSubmit={handleSaveEdit}>
+            <div className="modal-body">
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
+                  Nombre de la Comunidad
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  value={editingBot.community_name || ''}
+                  onChange={(e) => setEditingBot({ ...editingBot, community_name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
+                  Enlace de Carpeta de Grupos de Telegram
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://t.me/addlist/..."
+                  className="input-field"
+                  value={editingBot.groups_folder_link || ''}
+                  onChange={(e) => setEditingBot({ ...editingBot, groups_folder_link: e.target.value })}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
+                  ID de Chat de Staff
+                </label>
+                <input
+                  type="text"
+                  placeholder="-100..."
+                  className="input-field"
+                  value={editingBot.staff_chat_id || ''}
+                  onChange={(e) => setEditingBot({ ...editingBot, staff_chat_id: e.target.value })}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
+                  ID de Canal de Logs
+                </label>
+                <input
+                  type="text"
+                  placeholder="-100..."
+                  className="input-field"
+                  value={editingBot.log_channel_id || ''}
+                  onChange={(e) => setEditingBot({ ...editingBot, log_channel_id: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setEditingBot(null)}>Cancelar</button>
+              <button type="submit" className="btn btn-primary">Guardar Ajustes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+  </>
+);
 }
