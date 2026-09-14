@@ -36,9 +36,12 @@ class BotManager {
     bot.api.config.use(autoRetry({ maxRetryAttempts: 3, maxDelaySeconds: 10 }));
     bot.api.config.use(apiThrottler());
 
-    // Inyectar contexto multi-tenant en cada request
+    // Inyectar contexto multi-tenant en cada request y registrar actividad
     bot.use(async (ctx, next) => {
       ctx.tenant = tenant;
+      if (ctx.message?.text) {
+        console.log(`⟡ [Sub-Bot: @${bot.botInfo?.username || tenant.community_name}] Mensaje de ${ctx.from?.id} (${ctx.chat?.type}): "${ctx.message.text}"`);
+      }
       return next();
     });
 
@@ -96,15 +99,25 @@ class BotManager {
       throw new Error(`Token inválido en Telegram: ${apiErr.message}`);
     }
 
-    // Iniciar long-polling en segundo plano con reintento ante 409 (rolling deploys)
+    // 1. Registrar instancia en el mapa de control activo
+    this.instances.set(subBotId, {
+      bot,
+      tenant,
+      botInfo,
+      status: 'ONLINE',
+      startedAt: new Date(),
+    });
+
+    // 2. Iniciar long-polling en segundo plano con reintento ante 409 (rolling deploys)
     const startPollingWithBackoff = async () => {
       while (this.instances.has(subBotId)) {
         try {
+          console.log(`⟡ [SaaS Sub-Bot] Conectando polling para @${botInfo.username} (${tenant.community_name})...`);
           await bot.start({
-            drop_pending_updates: true,
+            drop_pending_updates: false,
             allowed_updates: ['message', 'callback_query', 'chat_member', 'my_chat_member', 'channel_post', 'chat_join_request'],
             onStart: (info) => {
-              console.log(`✓ [SaaS Sub-Bot] @${info.username} iniciado para "${tenant.community_name}"`);
+              console.log(`✓ [SaaS Sub-Bot] @${info.username} en línea y escuchando eventos para "${tenant.community_name}"`);
             },
           });
           break;
@@ -123,14 +136,6 @@ class BotManager {
     };
 
     startPollingWithBackoff();
-
-    this.instances.set(subBotId, {
-      bot,
-      tenant,
-      botInfo,
-      status: 'ONLINE',
-      startedAt: new Date(),
-    });
 
     return {
       subBotId,
@@ -197,7 +202,7 @@ class BotManager {
       console.log(`⟡ [SaaS Manager] Cargando ${activeBots.length} sub-bots registrados en BD...`);
 
       for (const t of activeBots) {
-        if (t.plan_status === 'ACTIVE') {
+        if (t.plan_status === 'ACTIVE' || t.plan_status === 'TRIAL') {
           try {
             await this.startSubBot(t);
           } catch (err) {

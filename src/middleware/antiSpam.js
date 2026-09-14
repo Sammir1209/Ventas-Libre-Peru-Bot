@@ -11,14 +11,14 @@ function antiSpam(windowSeconds = 10, maxActions = 20) {
     const userId = ctx.from?.id;
     if (!userId) return next();
 
-    // 1. Owners tienen bypass total
-    if (config.OWNER_IDS.includes(userId)) {
+    // 1. Owners tienen bypass total (Global y Sub-Bot)
+    if (config.OWNER_IDS.includes(userId) || (Array.isArray(ctx.tenant?.owner_ids) && ctx.tenant.owner_ids.includes(userId))) {
       return next();
     }
 
     // 2. Staff tiene bypass total
     try {
-      const staff = await db.getStaffMember(userId);
+      const staff = await db.getStaffMember(userId, ctx.tenant?.id);
       if (staff) return next();
     } catch {}
 
@@ -28,7 +28,7 @@ function antiSpam(windowSeconds = 10, maxActions = 20) {
       if (!allowed) {
         if (ctx.callbackQuery) {
           return ctx.answerCallbackQuery({
-            text: '⚠️ Estás realizando acciones muy rápido. Espera unos segundos.',
+            text: '⟡ ⚠ Estás realizando acciones muy rápido. Espera unos segundos.',
             show_alert: true,
           });
         }

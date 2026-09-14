@@ -179,22 +179,28 @@ function register(bot) {
       if (isPrivate) {
         const name = ctx.from.first_name || 'Usuario';
         const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+        const customWelcome = ctx.tenant?.custom_settings?.welcome_message;
+
+        const bodyDesc = customWelcome
+          ? escapeHtml(customWelcome.replace(/\{mention\}/gi, name).replace(/\{community\}/gi, communityName))
+          : `Hola, <b>${escapeHtml(name)}</b>. Bienvenido al ecosistema oficial de comercio seguro.\n\n` +
+            `▸ <b>Trato Admin:</b> Mediación y custodia 100% garantizada.\n` +
+            `▸ <b>Quemar:</b> Denuncias públicas y base de datos contra estafadores.\n` +
+            `▸ <b>Staff:</b> Directorio de moderadores y mediadores autorizados.`;
+
         const startText =
           `⟡ <b>${escapeHtml(communityName.toUpperCase())}</b> ⊱ <code>OFICIAL</code> ⊰\n` +
           `══════\n\n` +
-          `Hola, <b>${escapeHtml(name)}</b>. Bienvenido al ecosistema oficial de comercio seguro.\n\n` +
-          `▸ <b>Trato Admin:</b> Mediación y custodia 100% garantizada.\n` +
-          `▸ <b>Quemar:</b> Denuncias públicas y base de datos contra estafadores.\n` +
-          `▸ <b>Staff:</b> Directorio de moderadores y mediadores autorizados.\n\n` +
+          `${bodyDesc}\n\n` +
           `──────\n` +
-          `✨ <i>Selecciona una opción del menú interactivo para comenzar:</i>`;
+          `⟡ <i>Selecciona una opción del menú interactivo para comenzar:</i>`;
 
         const kb = new InlineKeyboard()
-          .text('TRATO ADMIN', 'start_tratoadm').success()
-          .text('QUEMAR', 'start_quemar').danger()
+          .text('TRATO ADMIN', 'start_tratoadm')
+          .text('QUEMAR', 'start_quemar')
           .row()
-          .text('STAFF', 'start_staff').primary()
-          .text('AYUDA', 'start_help').primary();
+          .text('STAFF', 'start_staff')
+          .text('AYUDA', 'start_help');
 
         return ctx.reply(startText, {
           parse_mode: 'HTML',
