@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { IconPlus, IconRefresh, IconTrash, IconEdit, IconActivity } from '../common/Icons';
 
 export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot, onExecuteAction, onDeleteSubBot }) {
   const [editingBot, setEditingBot] = useState(null);
@@ -40,21 +41,22 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
   };
 
   return (
-    <section class="panel-card">
-      <div class="panel-header">
-        <div class="panel-header-left">
+    <section className="panel-card">
+      <div className="panel-header">
+        <div className="panel-header-left">
           <h3>Instancias de Sub-Bots (Motor SaaS Multi-Tenant)</h3>
           <p>Despliega y controla instancias secundarias independientes con sus propios tokens, grupos y configuraciones.</p>
         </div>
-        <div class="panel-toolbar">
-          <button class="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
-            🤖 Crear Sub-Bot
+        <div className="panel-toolbar">
+          <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
+            <IconPlus size={14} />
+            <span>Crear Sub-Bot</span>
           </button>
         </div>
       </div>
 
-      <div class="table-responsive">
-        <table class="custom-table">
+      <div className="table-responsive">
+        <table className="custom-table">
           <thead>
             <tr>
               <th>Bot & Comunidad</th>
@@ -95,12 +97,12 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                   </td>
                   <td>
                     {b.is_running ? (
-                      <span class="badge badge-success">
-                        🟢 ACTIVO (Online)
+                      <span className="badge badge-success">
+                        [ ACTIVO / ONLINE ]
                       </span>
                     ) : (
-                      <span class="badge badge-muted">
-                        ⚪ DETENIDO
+                      <span className="badge badge-muted">
+                        [ DETENIDO ]
                       </span>
                     )}
                   </td>
@@ -119,42 +121,46 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                       {b.is_running ? (
                         <>
                           <button
-                            class="btn btn-secondary btn-sm"
+                            className="btn btn-secondary btn-sm"
                             style={{ color: 'var(--amber-warning)' }}
                             onClick={() => handleAction(b.id, 'restart')}
                             disabled={loadingActionId === `${b.id}_restart`}
                           >
-                            🔄 Reiniciar
+                            <IconRefresh size={12} />
+                            <span>Reiniciar</span>
                           </button>
                           <button
-                            class="btn btn-secondary btn-sm"
+                            className="btn btn-secondary btn-sm"
                             style={{ color: 'var(--rose-danger)' }}
                             onClick={() => handleAction(b.id, 'stop')}
                             disabled={loadingActionId === `${b.id}_stop`}
                           >
-                            ⏹️ Detener
+                            <IconActivity size={12} />
+                            <span>Detener</span>
                           </button>
                         </>
                       ) : (
                         <button
-                          class="btn btn-primary btn-sm"
+                          className="btn btn-primary btn-sm"
                           onClick={() => handleAction(b.id, 'start')}
                           disabled={loadingActionId === `${b.id}_start`}
                         >
-                          ▶️ Iniciar
+                          <IconActivity size={12} />
+                          <span>Iniciar</span>
                         </button>
                       )}
                       <button
-                        class="btn btn-secondary btn-sm"
+                        className="btn btn-secondary btn-sm"
                         onClick={() => setEditingBot({ ...b })}
                       >
-                        ⚙️ Config
+                        <IconEdit size={12} />
+                        <span>Config</span>
                       </button>
                       <button
-                        class="btn btn-danger btn-sm"
+                        className="btn btn-danger btn-sm"
                         onClick={() => onDeleteSubBot(b.id)}
                       >
-                        🗑️
+                        <IconTrash size={12} />
                       </button>
                     </div>
                   </td>
@@ -167,14 +173,14 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
 
       {/* Modal: Crear Sub-Bot */}
       {showCreateModal && (
-        <div class="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div class="modal-header">
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
               <h3>Crear Nueva Instancia de Sub-Bot</h3>
-              <button class="btn btn-secondary btn-sm" onClick={() => setShowCreateModal(false)}>✕</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowCreateModal(false)}>✕</button>
             </div>
             <form onSubmit={handleSaveCreate}>
-              <div class="modal-body">
+              <div className="modal-body">
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
                     Token de BotFather (Telegram API) *
@@ -183,7 +189,7 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     type="text"
                     required
                     placeholder="123456789:ABCdefGhIJKlmNoPQRstUVwxyZ"
-                    class="input-field"
+                    className="input-field"
                     value={createForm.botToken}
                     onChange={(e) => setCreateForm({ ...createForm, botToken: e.target.value })}
                   />
@@ -198,7 +204,7 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                   <input
                     type="text"
                     placeholder="Ej. Red de Ventas Chiclayo"
-                    class="input-field"
+                    className="input-field"
                     value={createForm.communityName}
                     onChange={(e) => setCreateForm({ ...createForm, communityName: e.target.value })}
                   />
@@ -210,15 +216,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                   <input
                     type="text"
                     placeholder="7794982496, 7849224682"
-                    class="input-field"
+                    className="input-field"
                     value={createForm.ownerIds}
                     onChange={(e) => setCreateForm({ ...createForm, ownerIds: e.target.value })}
                   />
                 </div>
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancelar</button>
-                <button type="submit" class="btn btn-primary">Registrar & Lanzar Bot</button>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Registrar & Lanzar Bot</button>
               </div>
             </form>
           </div>
@@ -227,21 +233,21 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
 
       {/* Modal: Configurar Sub-Bot */}
       {editingBot && (
-        <div class="modal-overlay" onClick={() => setEditingBot(null)}>
-          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div class="modal-header">
+        <div className="modal-overlay" onClick={() => setEditingBot(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
               <h3>Configuración de Sub-Bot: {editingBot.community_name}</h3>
-              <button class="btn btn-secondary btn-sm" onClick={() => setEditingBot(null)}>✕</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setEditingBot(null)}>✕</button>
             </div>
             <form onSubmit={handleSaveEdit}>
-              <div class="modal-body">
+              <div className="modal-body">
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
                     Nombre de la Comunidad
                   </label>
                   <input
                     type="text"
-                    class="input-field"
+                    className="input-field"
                     value={editingBot.community_name || ''}
                     onChange={(e) => setEditingBot({ ...editingBot, community_name: e.target.value })}
                   />
@@ -253,7 +259,7 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                   <input
                     type="text"
                     placeholder="https://t.me/addlist/..."
-                    class="input-field"
+                    className="input-field"
                     value={editingBot.groups_folder_link || ''}
                     onChange={(e) => setEditingBot({ ...editingBot, groups_folder_link: e.target.value })}
                   />
@@ -265,7 +271,7 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                   <input
                     type="text"
                     placeholder="-100..."
-                    class="input-field"
+                    className="input-field"
                     value={editingBot.staff_chat_id || ''}
                     onChange={(e) => setEditingBot({ ...editingBot, staff_chat_id: e.target.value })}
                   />
@@ -277,15 +283,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                   <input
                     type="text"
                     placeholder="-100..."
-                    class="input-field"
+                    className="input-field"
                     value={editingBot.log_channel_id || ''}
                     onChange={(e) => setEditingBot({ ...editingBot, log_channel_id: e.target.value })}
                   />
                 </div>
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onClick={() => setEditingBot(null)}>Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar Ajustes</button>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingBot(null)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Guardar Ajustes</button>
               </div>
             </form>
           </div>

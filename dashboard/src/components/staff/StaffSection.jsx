@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { IconZap, IconEdit, IconTrash, IconPlus, IconAlertTriangle } from '../common/Icons';
 
 export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddStaff, onDeleteStaff }) {
   const [editingMember, setEditingMember] = useState(null);
@@ -42,21 +43,22 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
   };
 
   return (
-    <section class="panel-card">
-      <div class="panel-header">
-        <div class="panel-header-left">
+    <section className="panel-card">
+      <div className="panel-header">
+        <div className="panel-header-left">
           <h3>Gestión Oficial de Staff & Mediadores</h3>
           <p>Supervisa administradores, sincroniza cambios de @ de Telegram en vivo y asigna rangos.</p>
         </div>
-        <div class="panel-toolbar">
-          <button class="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
-            ➕ Nuevo Staff
+        <div className="panel-toolbar">
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)}>
+            <IconPlus size={14} />
+            <span>Nuevo Staff</span>
           </button>
         </div>
       </div>
 
-      <div class="table-responsive">
-        <table class="custom-table">
+      <div className="table-responsive">
+        <table className="custom-table">
           <thead>
             <tr>
               <th>Usuario & Nombre</th>
@@ -105,11 +107,13 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                         @{m.username}
                       </a>
                     ) : (
-                      <span style={{ color: 'var(--amber-warning)', fontSize: '12px' }}>⚠️ Sin @</span>
+                      <span style={{ color: 'var(--amber-warning)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <IconAlertTriangle size={12} /> Sin @
+                      </span>
                     )}
                   </td>
                   <td>
-                    <span class={`badge ${getRoleBadge(m.role)}`}>
+                    <span className={`badge ${getRoleBadge(m.role)}`}>
                       {m.role || 'STAFF'}
                     </span>
                   </td>
@@ -121,24 +125,26 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                   <td>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
-                        class="btn btn-sync btn-sm"
+                        className="btn btn-sync btn-sm"
                         title="Consultar en Telegram si cambió de @ o nombre"
                         onClick={() => handleSync(m.user_id)}
                         disabled={syncingId === m.user_id}
                       >
-                        {syncingId === m.user_id ? '🔄 Sincronizando...' : '⚡ Sync @ Telegram'}
+                        <IconZap size={13} />
+                        <span>{syncingId === m.user_id ? 'Sincronizando...' : 'Sync @ Telegram'}</span>
                       </button>
                       <button
-                        class="btn btn-secondary btn-sm"
+                        className="btn btn-secondary btn-sm"
                         onClick={() => setEditingMember({ ...m })}
                       >
-                        ✏️ Editar
+                        <IconEdit size={13} />
+                        <span>Editar</span>
                       </button>
                       <button
-                        class="btn btn-danger btn-sm"
+                        className="btn btn-danger btn-sm"
                         onClick={() => onDeleteStaff(m.user_id)}
                       >
-                        🗑️
+                        <IconTrash size={13} />
                       </button>
                     </div>
                   </td>
@@ -151,19 +157,19 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
 
       {/* Modal: Editar Staff */}
       {editingMember && (
-        <div class="modal-overlay" onClick={() => setEditingMember(null)}>
-          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div class="modal-header">
+        <div className="modal-overlay" onClick={() => setEditingMember(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
               <h3>Editar Staff: {editingMember.first_name || editingMember.user_id}</h3>
-              <button class="btn btn-secondary btn-sm" onClick={() => setEditingMember(null)}>✕</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setEditingMember(null)}>✕</button>
             </div>
             <form onSubmit={handleSaveEdit}>
-              <div class="modal-body">
+              <div className="modal-body">
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
                     ID de Telegram (Solo Lectura)
                   </label>
-                  <input type="text" class="input-field" value={editingMember.user_id} disabled />
+                  <input type="text" className="input-field" value={editingMember.user_id} disabled />
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
@@ -171,7 +177,7 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                   </label>
                   <input
                     type="text"
-                    class="input-field"
+                    className="input-field"
                     value={editingMember.first_name || ''}
                     onChange={(e) => setEditingMember({ ...editingMember, first_name: e.target.value })}
                   />
@@ -182,7 +188,7 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                   </label>
                   <input
                     type="text"
-                    class="input-field"
+                    className="input-field"
                     placeholder="@usuario"
                     value={editingMember.username || ''}
                     onChange={(e) => setEditingMember({ ...editingMember, username: e.target.value })}
@@ -193,7 +199,7 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                     Rol / Rango
                   </label>
                   <select
-                    class="select-field"
+                    className="select-field"
                     value={editingMember.role || 'ADMIN'}
                     onChange={(e) => setEditingMember({ ...editingMember, role: e.target.value })}
                   >
@@ -210,16 +216,16 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                   </label>
                   <input
                     type="text"
-                    class="input-field"
+                    className="input-field"
                     placeholder="Ej. Mediador Principal"
                     value={editingMember.custom_title || ''}
                     onChange={(e) => setEditingMember({ ...editingMember, custom_title: e.target.value })}
                   />
                 </div>
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onClick={() => setEditingMember(null)}>Cancelar</button>
-                <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingMember(null)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Guardar Cambios</button>
               </div>
             </form>
           </div>
@@ -228,14 +234,14 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
 
       {/* Modal: Agregar Staff */}
       {showAddModal && (
-        <div class="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div class="modal-header">
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
               <h3>Agregar Nuevo Miembro al Staff</h3>
-              <button class="btn btn-secondary btn-sm" onClick={() => setShowAddModal(false)}>✕</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowAddModal(false)}>✕</button>
             </div>
             <form onSubmit={handleSaveAdd}>
-              <div class="modal-body">
+              <div className="modal-body">
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
                     ID Numérico de Telegram *
@@ -244,7 +250,7 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                     type="number"
                     required
                     placeholder="Ej. 123456789"
-                    class="input-field"
+                    className="input-field"
                     value={addForm.userId}
                     onChange={(e) => setAddForm({ ...addForm, userId: e.target.value })}
                   />
@@ -256,7 +262,7 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                   <input
                     type="text"
                     placeholder="@usuario"
-                    class="input-field"
+                    className="input-field"
                     value={addForm.username}
                     onChange={(e) => setAddForm({ ...addForm, username: e.target.value })}
                   />
@@ -266,7 +272,7 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                     Rol / Cargo *
                   </label>
                   <select
-                    class="select-field"
+                    className="select-field"
                     value={addForm.role}
                     onChange={(e) => setAddForm({ ...addForm, role: e.target.value })}
                   >
@@ -277,9 +283,9 @@ export default function StaffSection({ staff, onSyncStaff, onUpdateStaff, onAddS
                   </select>
                 </div>
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cancelar</button>
-                <button type="submit" class="btn btn-primary">Registrar en Staff</button>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Registrar en Staff</button>
               </div>
             </form>
           </div>

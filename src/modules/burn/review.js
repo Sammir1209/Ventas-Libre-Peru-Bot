@@ -74,7 +74,7 @@ function register(bot) {
         });
       }
 
-      await ctx.answerCallbackQuery({ text: '🔥 Procesando baneo y registro oficial...' });
+      await ctx.answerCallbackQuery({ text: '⟡ Procesando baneo y registro oficial...' });
 
       // 1. Aprobar reporte en base de datos
       await db.approveBurnReport(reportId, reviewerId);
@@ -131,15 +131,15 @@ function register(bot) {
       const reviewerMention = ctx.from.username ? `@${ctx.from.username}` : 'Staff';
       const staffApprovedText =
         `${SYM.DIVIDER}\n` +
-        `🔥 <b>REPORTE #${reportId} — APROBADO Y QUEMADO</b> 🔥\n` +
+        `⟡ <b>[ REPORTE APROBADO ] CASO #${reportId}</b> ⟡\n` +
         `${SYM.DIVIDER}\n\n` +
         `${SYM.CHECK} <b>Acusado:</b> <b>${escapeHtml(pubResult.displayName)}</b>\n` +
-        (pubResult.targetUsername ? `🔗 <b>Username:</b> @${pubResult.targetUsername}\n` : '') +
+        (pubResult.targetUsername ? `▸ <b>Username:</b> @${pubResult.targetUsername}\n` : '') +
         (pubResult.targetId && pubResult.targetId > 0
-          ? `🆔 <b>ID Telegram:</b> <code>${pubResult.targetId}</code>\n`
-          : `🆔 <b>ID Telegram:</b> <i>Identificado por @alias oficial</i>\n`) +
+          ? `▸ <b>ID Telegram:</b> <code>${pubResult.targetId}</code>\n`
+          : `▸ <b>ID Telegram:</b> <i>Identificado por @alias oficial</i>\n`) +
         `${SYM.ARROW} <b>Grupos Baneados:</b> <b>${successCount}</b>\n` +
-        `📢 <b>Difusión:</b> Publicado en Canal Oficial de Quemados\n` +
+        `▸ <b>Difusión:</b> Publicado en Canal Oficial de Quemados\n` +
         `${SYM.ARROW} <b>Aprobado por:</b> <b>${reviewerMention}</b>\n\n` +
         `${SYM.THIN_LINE}`;
 
@@ -153,7 +153,7 @@ function register(bot) {
           `${SYM.CHECK} <b>TU REPORTE #${reportId} FUE APROBADO</b>\n` +
           `${SYM.DIVIDER}\n\n` +
           `El usuario ha sido <b>baneado permanentemente</b> de todos los grupos y registrado en la <b>Lista Negra Oficial</b>.\n\n` +
-          `<i>Gracias por colaborar en la seguridad de la comunidad. 🇵🇪</i>`,
+          `<i>Gracias por colaborar en la seguridad de la comunidad.</i>`,
           { parse_mode: 'HTML' }
         );
       } catch {}
@@ -281,7 +281,7 @@ function register(bot) {
       const reviewerMention = ctx.from.username ? `@${ctx.from.username}` : 'Staff';
       const staffBanText =
         `${SYM.DIVIDER}\n` +
-        `🚨 <b>REPORTE #${reportId} — REPORTANTE BANEADO</b> 🚨\n` +
+        `⟡ <b>[ SANCIÓN GLOBAL ] REPORTE #${reportId}</b> ⟡\n` +
         `${SYM.DIVIDER}\n\n` +
         `${SYM.CROSS} Reportante <code>${report.reporter_id}</code> baneado globalmente.\n` +
         `${SYM.ARROW} <b>Grupos Baneados:</b> <b>${successCount}</b>\n` +

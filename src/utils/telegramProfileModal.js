@@ -586,23 +586,23 @@ async function generateTelegramProfileModal({
       const isMod = role && (role.includes('MOD') || role.includes('MODERADOR'));
 
       if (isMediator) {
-        trackName = `⭐ Mediador Oficial ${rating}/5.0 (${dealsCount} tratos)`;
+        trackName = `⟡ Mediador Certificado ★ ${rating}/5.0 (${dealsCount} tratos)`;
       } else if (isOwner) {
         trackName = dealsCount > 0
           ? `Ventas Libres Perú — ${dealsCount} tratos completados`
-          : `👑 Staff Oficial (Owner)`;
+          : `⟡ Staff Oficial (Owner)`;
       } else if (isCoOwner) {
         trackName = dealsCount > 0
-          ? `⚜️ Co-Owner Oficial (${dealsCount} tratos)`
-          : `⚜️ Co-Owner Oficial`;
+          ? `◈ Co-Owner Oficial (${dealsCount} tratos)`
+          : `◈ Co-Owner Oficial`;
       } else if (isAdmin) {
         trackName = dealsCount > 0
-          ? `⚔️ Administrador Oficial (${dealsCount} tratos)`
-          : `⚔️ Administrador Oficial`;
+          ? `✦ Administrador Oficial (${dealsCount} tratos)`
+          : `✦ Administrador Oficial`;
       } else if (isMod) {
         trackName = dealsCount > 0
-          ? `🛡️ Moderador Oficial (${dealsCount} tratos)`
-          : `🛡️ Moderador Oficial`;
+          ? `▪ Moderador Oficial (${dealsCount} tratos)`
+          : `▪ Moderador Oficial`;
       } else {
         trackName = `Ventas Libres Perú — ${dealsCount} tratos completados`;
       }

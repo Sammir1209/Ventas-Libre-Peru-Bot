@@ -349,7 +349,7 @@ function register(bot) {
           `══════\n\n` +
           `Por protocolos de <b>seguridad y protección de datos</b>, las solicitudes de Trato Admin se gestionan <b>únicamente por mensaje privado</b> con el bot.\n\n` +
           `──────\n` +
-          `🛡️ <i>Pulsa el botón oficial de abajo para iniciar tu intermediación:</i>`,
+          `▪ <i>Pulsa el botón oficial de abajo para iniciar tu intermediación:</i>`,
           {
             parse_mode: 'HTML',
             reply_markup: new InlineKeyboard().url(
@@ -766,7 +766,7 @@ function register(bot) {
         await ctx.editMessageText(
           `${SYM.CROSS} <b>Trato #${dealId} Rechazado</b>\n\n` +
           `${SYM.ARROW} <b>Rechazado por:</b> ${adminName}\n` +
-          `${SYM.ARROW} <b>Estado:</b> 🔴 Cancelado`,
+          `${SYM.ARROW} <b>Estado:</b> ⊱ <code>CANCELADO</code> ⊰`,
           { parse_mode: 'HTML' }
         );
       } catch {}
@@ -838,9 +838,9 @@ function register(bot) {
         creatorUsername: dealCreatorUsername,
       };
 
-      // 5. Crear el Hilo / Forum Topic en el Supergrupo
-      let threadId;
-      let topicLink;
+      // 5. Crear el Hilo / Forum Topic en el Supergrupo (con fallback resiliente si el grupo no tiene topics)
+      let threadId = null;
+      let topicLink = null;
       try {
         const topic = await ctx.api.createForumTopic(
           escrowGroupId,
@@ -853,13 +853,19 @@ function register(bot) {
         const cleanChatId = Math.abs(escrowGroupId).toString().replace(/^100/, '');
         topicLink = `https://t.me/c/${cleanChatId}/${threadId}`;
       } catch (topicErr) {
-        console.error('⟡ Error creando Forum Topic:', topicErr.message);
-        await ctx.editMessageText(
-          `${SYM.CROSS} <b>Error creando hilo:</b> ${topicErr.message}\n` +
-          `» Asegúrate de que el bot sea Administrador con permisos de "Gestionar temas" en el grupo.`,
-          { parse_mode: 'HTML' }
-        );
-        return;
+        console.warn('⟡ Aviso creando Forum Topic, aplicando enlace alternativo de grupo:', topicErr.message);
+        try {
+          const chatInfo = await ctx.api.getChat(escrowGroupId);
+          if (chatInfo.username) {
+            topicLink = `https://t.me/${chatInfo.username}`;
+          } else {
+            const exp = await ctx.api.exportChatInviteLink(escrowGroupId);
+            topicLink = exp;
+          }
+        } catch {
+          const cleanChatId = Math.abs(escrowGroupId).toString().replace(/^100/, '');
+          topicLink = `https://t.me/c/${cleanChatId}`;
+        }
       }
 
       // 6. Generar enlaces de invitación de UN SOLO USO (member_limit: 1) para cada participante
@@ -988,8 +994,8 @@ function register(bot) {
         `${SYM.DIAMOND} <b>TRATO ADMIN N°${dealId} ASIGNADO</b> ${SYM.DIAMOND}\n` +
         `${SYM.DIVIDER}\n\n` +
         `${SYM.CHECK} Has tomado la mediación de este caso.\n` +
-        `${SYM.ARROW} Sala creada: <b>Trato Admin N°${dealId}</b>\n\n` +
-        `${SYM.STAR} <b>Enlace a la Sala:</b>\n👉 <a href="${topicLink}">Entrar a la Sala de Negociación</a>\n\n` +
+        `${SYM.ARROW} Sala asignada: <b>Trato Admin N°${dealId}</b>\n\n` +
+        `${SYM.STAR} <b>Enlace a la Sala:</b>\n▸ <a href="${topicLink}">Entrar a la Sala de Negociación</a>\n\n` +
         `${SYM.THIN_LINE}`,
         {
           parse_mode: 'HTML',

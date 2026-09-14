@@ -127,25 +127,25 @@ async function publishBurnAlert(api, report) {
 
     // 3. Generar Leyenda / Caption con diseño estético uniforme
     const idLine = hasNumericId
-      ? `🆔 <b>ID de Telegram:</b> <code>${targetId}</code>\n\n`
-      : `🆔 <b>ID de Telegram:</b> <i>Identificado por @alias oficial</i>\n\n`;
+      ? `▸ <b>ID de Telegram:</b> <code>${targetId}</code>\n\n`
+      : `▸ <b>ID de Telegram:</b> <i>Identificado por @alias oficial</i>\n\n`;
 
     const userLine = targetUsername
-      ? `🔗 <b>Username:</b> @${escapeHtml(targetUsername)}\n`
+      ? `▸ <b>Username:</b> @${escapeHtml(targetUsername)}\n`
       : '';
 
     const publicCaption =
       `${SYM.DIVIDER}\n` +
-      `🚨 <b>NUEVO ESTAFADOR QUEMADO Y REGISTRADO</b> 🚨\n` +
+      `⟡ <b>[ LISTA NEGRA OFICIAL ] ESTAFADOR QUEMADO Y REGISTRADO</b> ⟡\n` +
       `${SYM.DIVIDER}\n\n` +
-      `👤 <b>Nombre / Alias:</b> <b>${escapeHtml(displayName)}</b>\n` +
+      `▸ <b>Nombre / Alias:</b> <b>${escapeHtml(displayName)}</b>\n` +
       userLine +
       idLine +
-      `📝 <b>Motivo / Hechos:</b>\n` +
+      `▸ <b>Motivo / Hechos:</b>\n` +
       `<i>${escapeHtml(cleanContext || 'Estafa comprobada')}</i>\n\n` +
       `${SYM.THIN_LINE}\n` +
-      `⚖️ <b>Sanción:</b> Baneo Permanente y Registro en Lista Negra Oficial.\n` +
-      `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`;
+      `▸ <b>Sanción:</b> Baneo Permanente y Registro en Lista Negra Oficial.\n` +
+      `▪ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`;
 
     // 6. Destino Exclusivo: Canal Oficial de Quemados (@quemando_ventaslibreperu)
     let pubChannel = config.PUBLIC_BURN_CHANNEL_ID;

@@ -1,41 +1,53 @@
 'use client';
 
+import {
+  IconActivity,
+  IconUsers,
+  IconScale,
+  IconAlertTriangle,
+  IconBot,
+  IconShield,
+} from './Icons';
+
 export default function Sidebar({ activeTab, setActiveTab }) {
   const navItems = [
-    { id: 'stats', label: 'Centro de Mando', icon: '📊' },
-    { id: 'staff', label: 'Gestión de Staff', icon: '👑' },
-    { id: 'deals', label: 'Tratos & Escrow', icon: '🤝' },
-    { id: 'gban', label: 'Lista Negra (GBan)', icon: '🚨' },
-    { id: 'subbots', label: 'Instancias Sub-Bots', icon: '🤖' },
-    { id: 'groups', label: 'Grupos & Seguridad', icon: '🛡️' },
+    { id: 'stats', label: 'Centro de Mando', icon: IconActivity },
+    { id: 'staff', label: 'Gestión de Staff', icon: IconUsers },
+    { id: 'deals', label: 'Tratos & Escrow', icon: IconScale },
+    { id: 'gban', label: 'Lista Negra (GBan)', icon: IconAlertTriangle },
+    { id: 'subbots', label: 'Instancias Sub-Bots', icon: IconBot },
+    { id: 'groups', label: 'Grupos & Seguridad', icon: IconShield },
   ];
 
   return (
-    <aside class="app-sidebar">
-      <div class="brand-section">
-        <div class="brand-badge-icon">⟡</div>
-        <div class="brand-title-wrap">
+    <aside className="app-sidebar">
+      <div className="brand-section">
+        <div className="brand-badge-icon">⟡</div>
+        <div className="brand-title-wrap">
           <h2>VENTAS LIBRES</h2>
           <span>COMMAND CENTER</span>
         </div>
       </div>
 
-      <nav class="sidebar-nav">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            class={`nav-btn ${activeTab === item.id ? 'active' : ''}`}
-            onClick={() => setActiveTab(item.id)}
-          >
-            <span style={{ fontSize: '18px' }}>{item.icon}</span>
-            <span>{item.label}</span>
-          </button>
-        ))}
+      <nav className="sidebar-nav">
+        {navItems.map((item) => {
+          const IconComp = item.icon;
+          return (
+            <button
+              key={item.id}
+              className={`nav-btn ${activeTab === item.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(item.id)}
+            >
+              <IconComp size={18} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
 
-      <div class="sidebar-bottom">
-        <div class="status-pill">
-          <span class="pulse-dot"></span>
+      <div className="sidebar-bottom">
+        <div className="status-pill">
+          <span className="pulse-dot"></span>
           <span>Red Telegram Activa</span>
         </div>
       </div>

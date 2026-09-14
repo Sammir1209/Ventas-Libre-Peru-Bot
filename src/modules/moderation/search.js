@@ -28,16 +28,16 @@ async function executeSearch(ctx, rawQuery) {
   if (!query) {
     return ctx.reply(
       `${SYM.DIVIDER}\n` +
-      `🔍 <b>RADAR DE RASTREO DE USUARIOS</b>\n` +
+      `⟡ <b>RADAR DE RASTREO DE USUARIOS</b> ⊱ <code>BÚSQUEDA</code> ⊰\n` +
       `${SYM.DIVIDER}\n\n` +
-      `➜ <b>Uso Natural:</b> <code>Búscame a [nombre, @user o ID]</code>\n` +
-      `➜ <b>O también:</b> <code>Busca a el usuario [nombre, @user o ID]</code>\n\n` +
-      `💡 <i>Especialmente optimizado para localizar estafadores que no tienen @username en su cuenta de Telegram.</i>\n\n` +
+      `▸ <b>Uso Natural:</b> <code>Búscame a [nombre, @user o ID]</code>\n` +
+      `▸ <b>O también:</b> <code>Busca a el usuario [nombre, @user o ID]</code>\n\n` +
+      `▪ <i>Especialmente optimizado para localizar estafadores que no tienen @username en su cuenta de Telegram.</i>\n\n` +
       `${SYM.THIN_LINE}\n` +
-      `➜ <b>Ejemplo:</b> <code>Búscame a exotic</code>\n` +
-      `➜ <b>Ejemplo:</b> <code>Busca a el usuario Carlos</code>\n` +
-      `➜ <b>Ejemplo:</b> <code>Búscame a @cinefastperu</code>\n` +
-      `➜ <b>Ejemplo:</b> <code>Busca a 7794982496</code>`,
+      `▸ <b>Ejemplo:</b> <code>Búscame a exotic</code>\n` +
+      `▸ <b>Ejemplo:</b> <code>Busca a el usuario Carlos</code>\n` +
+      `▸ <b>Ejemplo:</b> <code>Búscame a @cinefastperu</code>\n` +
+      `▸ <b>Ejemplo:</b> <code>Busca a 7794982496</code>`,
       { parse_mode: 'HTML' }
     );
   }
@@ -89,7 +89,7 @@ async function executeSearch(ctx, rawQuery) {
       `══════\n\n` +
       `✗ <i>No se localizaron coincidencias para:</i> <code>${escapeHtml(query)}</code>\n\n` +
       `──────\n` +
-      `💡 <i>Verifica que el nombre o @username esté bien escrito. Puedes buscar por nombre completo, alias (@user) o ID numérico.</i>`,
+      `▪ <i>Verifica que el nombre o @username esté bien escrito. Puedes buscar por nombre completo, alias (@user) o ID numérico.</i>`,
       { parse_mode: 'HTML' }
     );
   }
@@ -126,16 +126,16 @@ async function executeSearch(ctx, rawQuery) {
     let communityStatus = '';
     let communityShortStatus = '';
     if (isInActiveGroup) {
-      communityStatus = `🟢 <b>Sí pertenece</b> (Miembro activo en: <code>${escapeHtml(detectedGroupName || 'Grupo Oficial')}</code>)`;
+      communityStatus = `[ ACTIVO ] (Miembro en: <code>${escapeHtml(detectedGroupName || 'Grupo Oficial')}</code>)`;
       communityShortStatus = '✓ En Comunidad';
     } else if (isDbUser) {
-      communityStatus = '🟢 <b>Sí pertenece</b> (Registrado en la Base de Datos Oficial)';
+      communityStatus = '[ REGISTRADO ] (Base de Datos Oficial)';
       communityShortStatus = '✓ En Comunidad';
     } else if (user.is_burned) {
-      communityStatus = '🔴 <b>Lista Negra</b> (Fichado como Estafador)';
-      communityShortStatus = '🔴 Quemado';
+      communityStatus = '[ LISTA NEGRA ] (Fichado como Estafador)';
+      communityShortStatus = '✗ Lista Negra';
     } else {
-      communityStatus = '⚪ <b>No pertenece</b> (Usuario Externo de Telegram)';
+      communityStatus = '[ EXTERNO ] (Usuario Externo de Telegram)';
       communityShortStatus = 'Externo';
     }
 
@@ -193,19 +193,19 @@ async function executeSearch(ctx, rawQuery) {
 
   let matchNote = '';
   if (finalResults.length > 1) {
-    matchNote = `\n\n🔎 Se encontraron ${finalResults.length} coincidencias. Mostrando la primera.`;
+    matchNote = `\n\n▸ Coincidencias encontradas: ${finalResults.length}. Mostrando la primera.`;
   } else {
-    matchNote = `\n\n🔎 Se encontró 1 coincidencia.`;
+    matchNote = `\n\n▸ Se encontró 1 coincidencia.`;
   }
 
   const replyText =
     `Lo encontré para ti <b>${escapeHtml(requesterName)}</b>, toma:\n\n` +
     `<b>☰ [ MODO FURTIVO ]</b>\n` +
     `──────\n\n` +
-    `👤 <b>Nombre:</b> ${targetName}\n` +
-    `🆔 <b>ID:</b> <a href="tg://user?id=${firstUser.user_id}">${firstUser.user_id}</a>\n` +
-    `🆀 <b>User:</b> ${targetUsername}\n` +
-    `🔗 <b>Link:</b> <a href="tg://user?id=${firstUser.user_id}">Presiona aquí</a>` +
+    `▸ <b>Nombre:</b> ${targetName}\n` +
+    `▸ <b>ID:</b> <a href="tg://user?id=${firstUser.user_id}">${firstUser.user_id}</a>\n` +
+    `▸ <b>User:</b> ${targetUsername}\n` +
+    `▸ <b>Link:</b> <a href="tg://user?id=${firstUser.user_id}">Presiona aquí</a>` +
     matchNote;
 
   await ctx.reply(replyText, {
@@ -243,16 +243,16 @@ function register(bot) {
       const userMention = mentionFromData(targetId, user.username, user.first_name);
 
       const kb = new InlineKeyboard()
-        .text('🔥 Sí, Quemar y GBan', `search_gban_confirm:${targetId}`).danger()
-        .text('❌ Cancelar', 'info_close').primary();
+        .text('✓ Sí, Quemar y GBan', `search_gban_confirm:${targetId}`).danger()
+        .text('✗ Cancelar', 'info_close').primary();
 
       await ctx.reply(
         `${SYM.DIVIDER}\n` +
-        `⚠️ <b>CONFIRMAR QUEMADO Y BANEO GLOBAL (GBAN)</b>\n` +
+        `⟡ <b>CONFIRMAR QUEMADO Y BANEO GLOBAL (GBAN)</b>\n` +
         `${SYM.DIVIDER}\n\n` +
-        `➜ <b>Objetivo:</b> ${userMention}\n` +
-        `➜ <b>ID:</b> <code>${targetId}</code>\n\n` +
-        `🚨 <b>Acción:</b> El usuario será expulsado y bloqueado de <b>TODOS los grupos y canales oficiales</b> y quedará registrado en la Lista Negra permanentemente.\n\n` +
+        `▸ <b>Objetivo:</b> ${userMention}\n` +
+        `▸ <b>ID:</b> <code>${targetId}</code>\n\n` +
+        `▸ <b>Acción:</b> El usuario será expulsado y bloqueado de <b>TODOS los grupos y canales oficiales</b> y quedará registrado en la Lista Negra permanentemente.\n\n` +
         `${SYM.THIN_LINE}\n` +
         `¿Estás seguro de que deseas proceder?`,
         {
@@ -269,7 +269,7 @@ function register(bot) {
   bot.callbackQuery(/^search_gban_confirm:(\d+)$/, requireOwner(), async (ctx) => {
     try {
       const targetId = parseInt(ctx.match[1]);
-      await ctx.answerCallbackQuery({ text: '🔥 Ejecutando GBan...' });
+      await ctx.answerCallbackQuery({ text: '⟡ Ejecutando GBan...' });
 
       const user = await db.getUser(targetId) || { user_id: targetId };
       const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
@@ -299,12 +299,12 @@ function register(bot) {
 
       await ctx.editMessageText(
         `${SYM.DIVIDER}\n` +
-        `🔥 <b>USUARIO QUEMADO Y BANEADO GLOBALMENTE</b>\n` +
+        `⟡ <b>[ LISTA NEGRA OFICIAL ] USUARIO QUEMADO Y BANEADO</b>\n` +
         `${SYM.DIVIDER}\n\n` +
-        `➜ <b>Estafador:</b> ${userMention}\n` +
-        `➜ <b>ID:</b> <code>${targetId}</code>\n` +
-        `➜ <b>Grupos Baneados:</b> ${bannedCount}\n` +
-        `➜ <b>Estado:</b> 🔴 LISTA NEGRA PERMANENTE\n\n` +
+        `▸ <b>Estafador:</b> ${userMention}\n` +
+        `▸ <b>ID:</b> <code>${targetId}</code>\n` +
+        `▸ <b>Grupos Baneados:</b> ${bannedCount}\n` +
+        `▸ <b>Estado:</b> ⊱ <code>LISTA NEGRA PERMANENTE</code> ⊰\n\n` +
         `${SYM.THIN_LINE}\n` +
         `<i>Ejecutado por: ${adminMention}</i>`,
         { parse_mode: 'HTML' }

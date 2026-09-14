@@ -409,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : '<span class="badge badge-red">MIEMBRO</span>';
 
         const panicBadge = g.isLockedDown
-          ? '<span class="badge badge-red">🚨 DEFCON 1</span>'
+          ? '<span class="badge badge-red">[ DEFCON 1 ]</span>'
           : '<span class="badge badge-orange">NORMAL</span>';
 
         const membersDisplay = g.memberCount ? `${g.memberCount.toLocaleString()} miembros` : 'Desconocido';
@@ -521,7 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activeGroupIsLockedDown = isLocked;
     if (isLocked) {
       panicBanner.classList.add('active');
-      panicBannerTitle.textContent = '🚨 MODO PÁNICO ACTIVO (CHAT BLOQUEADO)';
+      panicBannerTitle.textContent = '[ MODO PÁNICO ACTIVO ] (CHAT BLOQUEADO)';
       panicBannerDesc.textContent = 'Nadie puede enviar mensajes en este momento.';
       btnTogglePanic.textContent = 'LEVANTAR PÁNICO / NORMALIZAR';
       btnTogglePanic.className = 'btn btn-secondary btn-sm';
@@ -1077,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : `<span style="color: var(--text-dim); font-size: 0.85rem;">Miembro</span>`;
 
         const burnBadge = u.is_burned
-          ? `<span class="badge badge-red">⚠️ QUEMADO</span>`
+          ? `<span class="badge badge-red">[ QUEMADO ]</span>`
           : `<span class="badge badge-green" style="background: rgba(34,197,94,0.08); border-color: transparent;">LIMPIO</span>`;
 
         const displayName = u.first_name || u.username || 'Usuario';
@@ -1139,10 +1139,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('user-detail-username').textContent = u.username ? `@${u.username}` : 'Sin @username';
     document.getElementById('user-detail-verified').innerHTML = (u.verified || u.is_verified)
       ? '<span style="color: #22c55e;">✓ Verificado Oficial</span>'
-      : '<span style="color: #f59e0b;">⏳ No Verificado</span>';
+      : '<span style="color: #f59e0b;">Pendiente</span>';
     document.getElementById('user-detail-staff').textContent = u.staff_role || 'Miembro Regular';
     document.getElementById('user-detail-burned').innerHTML = u.is_burned
-      ? '<span style="color: #ef4444; font-weight: 700;">⚠️ ALERTA: REGISTRADO EN LISTA NEGRA</span>'
+      ? '<span style="color: #ef4444; font-weight: 700;">[ ALERTA: REGISTRADO EN LISTA NEGRA ]</span>'
       : '<span style="color: #22c55e;">✓ Sin antecedentes</span>';
     document.getElementById('user-detail-created').textContent = u.created_at
       ? new Date(u.created_at).toLocaleString()
@@ -1634,7 +1634,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const usernameDisplay = s.username
           ? `<a href="https://t.me/${escapeHtml(s.username)}" target="_blank" style="color: var(--primary); text-decoration: none;">@${escapeHtml(s.username)}</a>`
-          : `<span style="color: var(--warning); font-size: 0.8rem;">⚠️ Sin @</span>`;
+          : `<span style="color: var(--warning); font-size: 0.8rem;">Sin @</span>`;
 
         return `
           <div class="bot-card">
@@ -1653,9 +1653,9 @@ document.addEventListener('DOMContentLoaded', () => {
               ${s.custom_title ? `<div style="margin-top: 4px;">Título: <strong>${escapeHtml(s.custom_title)}</strong></div>` : ''}
             </div>
             <div class="bot-card-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn btn-secondary btn-sm" onclick="syncStaffClick(${s.user_id})" title="Consultar en Telegram si cambió de @ o nombre">⚡ Sync @ Telegram</button>
-              <button class="btn btn-secondary btn-sm" onclick="editStaffClick(${s.user_id}, '${escapeHtml(s.username || '')}', '${escapeHtml(s.first_name || '')}', '${escapeHtml(s.role || 'ADMIN')}')">✏️ Editar</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteStaffClick(${s.user_id})">🗑️</button>
+              <button class="btn btn-secondary btn-sm" onclick="syncStaffClick(${s.user_id})" title="Consultar en Telegram si cambió de @ o nombre">Sync @ Telegram</button>
+              <button class="btn btn-secondary btn-sm" onclick="editStaffClick(${s.user_id}, '${escapeHtml(s.username || '')}', '${escapeHtml(s.first_name || '')}', '${escapeHtml(s.role || 'ADMIN')}')">Editar</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteStaffClick(${s.user_id})">Eliminar</button>
             </div>
           </div>
         `;

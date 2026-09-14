@@ -100,7 +100,7 @@ async function buildUserProfile(ctx, targetUser) {
 
   let roleName = 'Usuario';
   if (burnInfo) {
-    roleName = 'Estafador (Lista Negra 🔴)';
+    roleName = 'Estafador [ LISTA NEGRA ]';
   } else if (isOwner) {
     roleName = 'Owner';
   } else if (isCoOwner) {
@@ -120,13 +120,13 @@ async function buildUserProfile(ctx, targetUser) {
   const dateFormatted = getSuperscriptDate();
 
   const text =
-    `<b>🤖 [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
+    `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
     `──────\n\n` +
-    `👤 <b>Nombre:</b> ${nameDisplay}\n` +
-    `🆔 <b>ID:</b> <a href="tg://user?id=${userId}">${userId}</a>\n` +
-    `🆀 <b>User:</b> ${userDisplay}\n` +
-    `💼 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
-    `🔗 <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>\n\n` +
+    `▸ <b>Nombre:</b> ${nameDisplay}\n` +
+    `▸ <b>ID:</b> <a href="tg://user?id=${userId}">${userId}</a>\n` +
+    `▸ <b>User:</b> ${userDisplay}\n` +
+    `▸ <b>Rol:</b> ${escapeHtml(roleName)}\n` +
+    `▸ <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>\n\n` +
     `──────\n` +
     `${dateFormatted}`;
 
@@ -163,7 +163,7 @@ function register(bot) {
         );
       }
 
-      const statusMsg = await ctx.reply('⏳ <i>Generando tarjeta de perfil...</i>', { parse_mode: 'HTML' });
+      const statusMsg = await ctx.reply('▪ <i>Generando tarjeta de perfil...</i>', { parse_mode: 'HTML' });
 
       const { cardBuffer, userId: resolvedId } = await generateUserCardBuffer(ctx.api, target, {
         tenantId: ctx.tenant?.id,
@@ -280,10 +280,10 @@ function register(bot) {
       const text =
         `⟡ <b>ENLACE DE INVITACIÓN OFICIAL</b> ⊱ <code>ACCESO</code> ⊰\n` +
         `══════\n\n` +
-        (isGroup ? `▸ <b>Grupo:</b> ${escapeHtml(groupTitle)}\n\n` : `▸ <b>Comunidad:</b> Ventas Libres Perú 🇵🇪\n\n`) +
+        (isGroup ? `▸ <b>Grupo:</b> ${escapeHtml(groupTitle)}\n\n` : `▸ <b>Comunidad:</b> Ventas Libres Perú\n\n`) +
         `▸ <b>Enlace Verificado:</b>\n  ↳ <code>${finalLink}</code>\n\n` +
         `──────\n` +
-        `✨ <i>Comparte este enlace para invitar a comerciantes y amigos a la red oficial.</i>`;
+        `▪ <i>Comparte este enlace para invitar a comerciantes a la red oficial.</i>`;
 
       const kb = new InlineKeyboard();
       if (groupInviteLink) {
@@ -327,7 +327,7 @@ function register(bot) {
           `══════\n\n` +
           `▸ <b>Usuario:</b> ${userMention}\n` +
           `▸ <b>ID:</b> <code>${targetId}</code>\n` +
-          `▸ <b>Estado:</b> ⊱ <code>LIMPIO 🟢</code> ⊰\n\n` +
+          `▸ <b>Estado:</b> ⊱ <code>LIMPIO [ VERIFICADO ]</code> ⊰\n\n` +
           `──────\n` +
           `✓ <i>Este usuario NO registra antecedentes de estafa ni sanciones en la base de datos oficial.</i>`;
 
@@ -360,16 +360,16 @@ function register(bot) {
           : 'Fecha no registrada';
 
         const burnText =
-          `🚨 <b>REGISTRO DE ESTAFADOR</b> ⊱ <code>LISTA NEGRA</code> ⊰\n` +
+          `⟡ <b>[ LISTA NEGRA OFICIAL ] REGISTRO DE ESTAFADOR</b>\n` +
           `══════\n\n` +
           `▸ <b>Usuario:</b> ${userMention}\n` +
           `▸ <b>ID:</b> <code>${targetId}</code>\n` +
-          `▸ <b>Estado:</b> ⊱ <code>QUEMADO / ESTAFADOR 🔴</code> ⊰\n` +
+          `▸ <b>Estado:</b> ⊱ <code>QUEMADO / ESTAFADOR [ SANCIONADO ]</code> ⊰\n` +
           `▸ <b>Fecha:</b> <code>${dateStr}</code>\n` +
           `▸ <b>Motivo / Hechos:</b>\n  ↳ <i>${escapeHtml(burnInfo.context || 'Reporte de estafa confirmado')}</i>\n\n` +
           `▸ <b>Reportado por:</b> <code>${burnInfo.reported_by || 'Staff'}</code>\n` +
           `──────\n` +
-          `⚠️ <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
+          `⟡ <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
           `<i>No realices transferencias, pagos ni entregas con este usuario bajo ninguna circunstancia.</i>`;
 
         const kb = new InlineKeyboard()

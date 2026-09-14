@@ -9,8 +9,18 @@ import DealsSection from '../components/deals/DealsSection';
 import GbanSection from '../components/gban/GbanSection';
 import SubBotsSection from '../components/subbots/SubBotsSection';
 import GroupsSection from '../components/groups/GroupsSection';
+import LandingPage from '../components/landing/LandingPage';
+import {
+  IconUsers,
+  IconScale,
+  IconAlertTriangle,
+  IconBot,
+  IconShield,
+  IconExternalLink,
+} from '../components/common/Icons';
 
 export default function DashboardPage() {
+  const [viewMode, setViewMode] = useState('landing'); // 'landing' | 'admin'
   const [activeTab, setActiveTab] = useState('stats');
   const [adminKey, setAdminKey] = useState('vlp_master_key_99x_2026_sec');
   const [stats, setStats] = useState(null);
@@ -20,6 +30,14 @@ export default function DashboardPage() {
   const [subbots, setSubbots] = useState([]);
   const [groups, setGroups] = useState([]);
   const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (window.location.hash.includes('admin') || window.location.pathname.includes('portal')) {
+        setViewMode('admin');
+      }
+    }
+  }, []);
 
   const addToast = (message, type = 'success') => {
     const id = Date.now() + Math.random();
@@ -239,7 +257,7 @@ export default function DashboardPage() {
         method: 'POST',
         body: JSON.stringify({ action }),
       });
-      addToast(res.message || `Acción ${action} completada`);
+      addToast(res.message || `Acción '${action}' completada`);
       loadAllData();
     } catch (err) {
       addToast(err.message, 'error');
@@ -257,61 +275,103 @@ export default function DashboardPage() {
     }
   };
 
+  // Si está en modo Landing Page pública
+  if (viewMode === 'landing') {
+    return <LandingPage onGoToAdmin={() => setViewMode('admin')} stats={stats} />;
+  }
+
   return (
-    <div class="app-shell">
+    <div className="app-shell">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <div class="main-wrapper">
-        <Header adminKey={adminKey} setAdminKey={setAdminKey} onRefresh={loadAllData} />
+      <div className="main-wrapper">
+        <header className="top-bar">
+          <div className="page-title">
+            <h1>Ventas Libres Perú — Consola Central</h1>
+            <p>Control operativo de seguridad, mediaciones y ecosistema de bots</p>
+          </div>
 
-        <main class="content-body">
+          <div className="top-actions">
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setViewMode('landing')}
+              title="Volver a la vista pública"
+            >
+              <IconExternalLink size={13} />
+              <span>Ver Landing Pública</span>
+            </button>
+            <input
+              type="password"
+              placeholder="Clave de Administrador"
+              value={adminKey}
+              onChange={(e) => setAdminKey(e.target.value)}
+              className="input-field"
+              style={{ width: '220px' }}
+            />
+            <button className="btn btn-secondary btn-sm" onClick={loadAllData}>
+              Actualizar Datos
+            </button>
+          </div>
+        </header>
+
+        <main className="content-body">
           {/* Tab: Stats Overview */}
           {activeTab === 'stats' && (
             <div>
-              <div class="stats-grid">
-                <div class="stat-card">
-                  <div class="stat-icon-wrap cyan">👑</div>
-                  <div class="stat-meta">
-                    <span class="stat-label">Staff Oficial</span>
-                    <div class="stat-value">{stats ? stats.totalStaff : staff.length}</div>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <div className="stat-icon-wrap cyan">
+                    <IconUsers size={22} />
+                  </div>
+                  <div className="stat-meta">
+                    <span className="stat-label">Staff Oficial</span>
+                    <div className="stat-value">{stats ? stats.totalStaff : staff.length}</div>
                   </div>
                 </div>
 
-                <div class="stat-card">
-                  <div class="stat-icon-wrap emerald">🤝</div>
-                  <div class="stat-meta">
-                    <span class="stat-label">Tratos Escrow</span>
-                    <div class="stat-value">{stats ? stats.totalDeals : deals.length}</div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrap emerald">
+                    <IconScale size={22} />
+                  </div>
+                  <div className="stat-meta">
+                    <span className="stat-label">Tratos Escrow</span>
+                    <div className="stat-value">{stats ? stats.totalDeals : deals.length}</div>
                   </div>
                 </div>
 
-                <div class="stat-card">
-                  <div class="stat-icon-wrap rose">🚨</div>
-                  <div class="stat-meta">
-                    <span class="stat-label">Lista Negra (GBan)</span>
-                    <div class="stat-value">{stats ? stats.totalBurned : burned.length}</div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrap rose">
+                    <IconAlertTriangle size={22} />
+                  </div>
+                  <div className="stat-meta">
+                    <span className="stat-label">Lista Negra (GBan)</span>
+                    <div className="stat-value">{stats ? stats.totalBurned : burned.length}</div>
                   </div>
                 </div>
 
-                <div class="stat-card">
-                  <div class="stat-icon-wrap purple">🤖</div>
-                  <div class="stat-meta">
-                    <span class="stat-label">Sub-Bots SaaS</span>
-                    <div class="stat-value">{subbots.length}</div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrap purple">
+                    <IconBot size={22} />
+                  </div>
+                  <div className="stat-meta">
+                    <span className="stat-label">Sub-Bots SaaS</span>
+                    <div className="stat-value">{subbots.length}</div>
                   </div>
                 </div>
 
-                <div class="stat-card">
-                  <div class="stat-icon-wrap amber">🛡️</div>
-                  <div class="stat-meta">
-                    <span class="stat-label">Grupos Oficiales</span>
-                    <div class="stat-value">{stats ? stats.totalGroups : groups.length}</div>
+                <div className="stat-card">
+                  <div className="stat-icon-wrap amber">
+                    <IconShield size={22} />
+                  </div>
+                  <div className="stat-meta">
+                    <span className="stat-label">Grupos Oficiales</span>
+                    <div className="stat-value">{stats ? stats.totalGroups : groups.length}</div>
                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px' }}>
-                <div class="panel-card" style={{ padding: '24px' }}>
+                <div className="panel-card" style={{ padding: '24px' }}>
                   <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '18px', marginBottom: '8px' }}>
                     ⟡ Accesos Rápidos
                   </h3>
@@ -319,24 +379,24 @@ export default function DashboardPage() {
                     Administra rápidamente las funciones críticas de la red oficial.
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <button class="btn btn-secondary" onClick={() => setActiveTab('staff')}>
-                      👑 Gestionar y Sincronizar Staff
+                    <button className="btn btn-secondary" onClick={() => setActiveTab('staff')}>
+                      Gestionar y Sincronizar Staff
                     </button>
-                    <button class="btn btn-secondary" onClick={() => setActiveTab('deals')}>
-                      🤝 Asignar y Reasignar Tratos Admin
+                    <button className="btn btn-secondary" onClick={() => setActiveTab('deals')}>
+                      Asignar y Reasignar Tratos Admin
                     </button>
-                    <button class="btn btn-secondary" onClick={() => setActiveTab('gban')}>
-                      🚨 Registrar o Consultar Lista Negra
+                    <button className="btn btn-secondary" onClick={() => setActiveTab('gban')}>
+                      Registrar o Consultar Lista Negra
                     </button>
-                    <button class="btn btn-secondary" onClick={() => setActiveTab('subbots')}>
-                      🤖 Monitor de Instancias Sub-Bots
+                    <button className="btn btn-secondary" onClick={() => setActiveTab('subbots')}>
+                      Monitor de Instancias Sub-Bots
                     </button>
                   </div>
                 </div>
 
-                <div class="panel-card" style={{ padding: '24px' }}>
+                <div className="panel-card" style={{ padding: '24px' }}>
                   <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '18px', marginBottom: '8px' }}>
-                    ⚡ Telemetría del Sistema
+                    Telemetría del Sistema
                   </h3>
                   <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>
                     Métricas de salud del servidor y del bot en vivo.
@@ -356,7 +416,7 @@ export default function DashboardPage() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text-muted)' }}>Modo Motor:</span>
-                      <span style={{ fontWeight: 600, color: 'var(--purple-royal)' }}>Multi-TenantgrammY</span>
+                      <span style={{ fontWeight: 600, color: 'var(--purple-royal)' }}>Multi-Tenant grammY</span>
                     </div>
                   </div>
                 </div>

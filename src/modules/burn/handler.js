@@ -118,7 +118,7 @@ function register(bot) {
           `══════\n\n` +
           `Por protocolos de <b>seguridad y confidencialidad pericial</b>, los reportes de estafa se realizan <b>exclusivamente por mensaje privado</b> con el bot.\n\n` +
           `──────\n` +
-          `🔥 <i>Pulsa el botón oficial de abajo para iniciar tu denuncia con pruebas:</i>`,
+          `▪ <i>Pulsa el botón oficial de abajo para iniciar tu denuncia con pruebas:</i>`,
           {
             parse_mode: 'HTML',
             reply_markup: new InlineKeyboard().url(
@@ -386,8 +386,8 @@ function register(bot) {
           if (!text || text.length < 15) {
             const errLen =
               `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
-              `👤 <b>Acusado:</b> ${state.targetLabel}\n\n` +
-              `⚠️ <b>Texto demasiado corto.</b> La descripción debe tener al menos <b>15 caracteres</b>.\n\n` +
+              `▸ <b>Acusado:</b> ${state.targetLabel}\n\n` +
+              `▪ <b>Texto demasiado corto.</b> La descripción debe tener al menos <b>15 caracteres</b>.\n\n` +
               `Describe detalladamente qué sucedió (monto, método de pago, engaño):`;
             return updateMasterMessage(ctx, state, errLen, burnCancelOnlyKeyboard());
           }
@@ -419,9 +419,9 @@ function register(bot) {
           if (!fileId) {
             const errPhoto =
               `${SYM.DIAMOND} <b>SISTEMA ANTI-ESTAFAS — REPORTE</b>\n\n` +
-              `👤 <b>Acusado:</b> ${state.targetLabel}\n\n` +
-              `⚠️ Por favor, envía una <b>imagen o captura de pantalla</b> válida.\n` +
-              `📸 <b>Capturas subidas:</b> <b>${state.proofs?.length || 0}</b>`;
+              `▸ <b>Acusado:</b> ${state.targetLabel}\n\n` +
+              `▪ Por favor, envía una <b>imagen o captura de pantalla</b> válida.\n` +
+              `▸ <b>Capturas subidas:</b> <b>${state.proofs?.length || 0}</b>`;
             return updateMasterMessage(
               ctx,
               state,
@@ -571,7 +571,7 @@ function register(bot) {
         `${SYM.DIAMOND} <b>REEMPLAZAR CAPTURAS</b>\n\n` +
         `Las capturas anteriores fueron eliminadas.\n` +
         `Envía las nuevas imágenes ahora:\n\n` +
-        `📸 <b>Capturas subidas:</b> <b>0</b>`;
+        `▸ <b>Capturas subidas:</b> <b>0</b>`;
 
       await updateMasterMessage(
         ctx,
@@ -618,7 +618,7 @@ function register(bot) {
         });
       }
 
-      await ctx.answerCallbackQuery({ text: '🔥 Enviando reporte al Staff...' });
+      await ctx.answerCallbackQuery({ text: '⟡ Enviando reporte al Staff...' });
 
       const proofUrls = state.proofUrls || [];
       const proofFileIds = state.proofs || [];
@@ -766,7 +766,7 @@ function register(bot) {
         name: targetName,
         username: targetUsername,
         id: targetUser.userId,
-        bio: isBurned ? `🚨 LISTA NEGRA: ${burnInfo.context || 'Estafa comprobada'}` : 'Usuario de la Comunidad Ventas Libres Perú',
+        bio: isBurned ? `[ LISTA NEGRA ] ${burnInfo.context || 'Estafa comprobada'}` : 'Usuario de la Comunidad Ventas Libres Perú',
         avatarBuffer: avatarBuffer,
         isOnline: !isBurned,
         isBurned: isBurned,
@@ -782,9 +782,9 @@ function register(bot) {
           `▸ <b>Nombre:</b> <b>${escapeHtml(targetName)}</b>\n` +
           (targetUsername ? `▸ <b>Username:</b> @${targetUsername}\n` : '') +
           `▸ <b>ID de Usuario:</b> <code>${targetUser.userId}</code>\n` +
-          (isBurned ? `▸ <b>Antecedentes:</b> 🚨 <b>LISTA NEGRA (ESTAFADOR QUEMADO)</b>\n` : '') +
+          (isBurned ? `▸ <b>Antecedentes:</b> <b>[ LISTA NEGRA ] ESTAFADOR QUEMADO</b>\n` : '') +
           `──────\n` +
-          `📸 <i>Renderizado forense nativo en ultra definición.</i>`,
+          `▪ <i>Renderizado forense nativo en ultra definición.</i>`,
         parse_mode: 'HTML',
       });
 

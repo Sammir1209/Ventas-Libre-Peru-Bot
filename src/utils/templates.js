@@ -2,7 +2,7 @@ const { SYM } = require('../config/constants');
 const { escapeHtml } = require('./formatting');
 
 // ══════
-// ⟡ Plantillas Estéticas Oficiales — Ventas Libres Perú 🇵🇪
+// ⟡ Plantillas Estéticas Oficiales — Ventas Libres Perú
 // ══════
 
 function welcomeMessage(username, firstName) {
@@ -19,7 +19,7 @@ function welcomeMessage(username, firstName) {
     `▸ <b>Paso 2:</b> Pulsa el botón <b>[ ✓ VERIFICAR MEMBRESÍA ]</b>.\n` +
     `  ↳ <i>Proceso 100% automático y seguro en 3 segundos.</i>\n\n` +
     `──────\n` +
-    `🛡️ <i>Manteniendo la comunidad libre de estafadores y cuentas falsas.</i>`
+    `▪ <i>Manteniendo la comunidad libre de estafadores y cuentas falsas.</i>`
   );
 }
 
@@ -33,9 +33,9 @@ function verificationSuccess(username, firstName) {
     `══════\n\n` +
     `✓ <b>Membresía validada:</b> ${mention}\n` +
     `▸ <b>Estado:</b> ⊱ <code>DESMUTEO EXITOSO</code> ⊰\n` +
-    `▸ <b>Comunidad:</b> Ventas Libres Perú 🇵🇪\n\n` +
+    `▸ <b>Comunidad:</b> Ventas Libres Perú\n\n` +
     `──────\n` +
-    `✨ <i>¡Ya puedes participar, comerciar y chatear libremente!</i>`
+    `▪ <i>Acceso otorgado: puedes participar, comerciar y chatear libremente.</i>`
   );
 }
 
@@ -43,13 +43,13 @@ function verificationFailed(missingChannels) {
   const list = missingChannels.map(ch => {
     const raw = String(ch).trim();
     if (raw.includes('3My6QWWVjMw2Mzc8') || raw === '-1002561445231' || raw.includes('MADRE')) {
-      return `▸ 📢 <a href="https://t.me/+3My6QWWVjMw2Mzc8"><b>Madre de las Ventas TV2</b></a>`;
+      return `▸ [ CANAL ] <a href="https://t.me/+3My6QWWVjMw2Mzc8"><b>Madre de las Ventas TV2</b></a>`;
     }
     if (raw.includes('quemando_ventaslibreperu')) {
-      return `▸ 🔥 <a href="https://t.me/quemando_ventaslibreperu"><b>Quemando VLP (Lista Negra)</b></a>`;
+      return `▸ [ LISTA NEGRA ] <a href="https://t.me/quemando_ventaslibreperu"><b>Quemando VLP</b></a>`;
     }
-    if (raw.startsWith('http')) return `▸ 🔗 <a href="${raw}"><b>Canal Oficial</b></a>`;
-    if (raw.startsWith('@')) return `▸ 🔗 <a href="https://t.me/${raw.replace('@', '')}"><b>${raw}</b></a>`;
+    if (raw.startsWith('http')) return `▸ [ OFICIAL ] <a href="${raw}"><b>Canal Oficial</b></a>`;
+    if (raw.startsWith('@')) return `▸ [ CANAL ] <a href="https://t.me/${raw.replace('@', '')}"><b>${raw}</b></a>`;
     return `▸ <code>${raw}</code>`;
   }).join('\n');
 
@@ -58,7 +58,7 @@ function verificationFailed(missingChannels) {
     `══════\n\n` +
     `Aún no registras suscripción activa a nuestros canales:\n\n${list}\n\n` +
     `──────\n` +
-    `⚠️ <i>Únete a todos los canales arriba y pulsa nuevamente <b>[ ✓ VERIFICAR ]</b>.</i>`
+    `▪ <i>Únete a todos los canales arriba y pulsa nuevamente <b>[ ✓ VERIFICAR ]</b>.</i>`
   );
 }
 
@@ -71,7 +71,7 @@ function howItWorksMessage() {
     `▸ <b>3.</b> Presionas el botón <b>[ ✓ Verificar ]</b>.\n` +
     `▸ <b>4.</b> El bot confirma tu membresía y desbloquea tu chat.\n\n` +
     `──────\n` +
-    `💡 <i>Para transacciones seguras utiliza siempre <code>/tratoadm</code>.</i>`
+    `▪ <i>Para transacciones seguras utiliza siempre <code>/tratoadm</code>.</i>`
   );
 }
 
@@ -84,7 +84,7 @@ function dealMainMenuMessage() {
     `▸ <b>Tiempo estimado:</b> <code>1 a 5 minutos</code>\n` +
     `▸ <b>Garantía:</b> 100% libre de robos y estafas\n\n` +
     `──────\n` +
-    `👇 <i>Selecciona una opción en el menú inferior para iniciar:</i>`
+    `▪ <i>Selecciona una opción en el menú inferior para iniciar:</i>`
   );
 }
 
@@ -104,7 +104,7 @@ function dealDetailedInfoMessage() {
     `  ↳ S/ 50.00 → Comisión S/ 5.00\n` +
     `  ↳ S/ 100.00 → Comisión S/ 10.00\n\n` +
     `──────\n` +
-    `⚠️ <i>¡Nunca realices pagos por fuera de la sala oficial!</i>`
+    `▪ <i>Aviso: Nunca realices pagos por fuera de la sala oficial.</i>`
   );
 }
 
@@ -161,7 +161,7 @@ function dealWaitingMessage(dealId, role, counterpart, description) {
     `▸ <b>Contraparte:</b> <code>${escapeHtml(counterpart)}</code>\n` +
     `▸ <b>Detalles:</b> <i>${escapeHtml(description)}</i>\n\n` +
     `──────\n` +
-    `⏳ <i>El equipo de <b>Trato Admins</b> ha sido notificado. En breve un mediador tomará tu caso.</i>`
+    `▪ <i>El equipo de <b>Trato Admins</b> ha sido notificado. En breve un mediador tomará tu caso.</i>`
   );
 }
 
@@ -185,7 +185,7 @@ function dealAcceptedGroup(dealId, adminUsername) {
     `⟡ <b>TRATO #${dealId} ACEPTADO</b> ⊱ <code>EN PROCESO</code> ⊰\n` +
     `══════\n\n` +
     `✓ <b>${adminTag}</b> ha tomado la mediación de este caso.\n` +
-    `⚡ <i>Creando sala privada y generando enlaces de acceso...</i>`
+    `▪ <i>Creando sala privada y generando enlaces de acceso...</i>`
   );
 }
 
@@ -203,9 +203,9 @@ function dealInviteMessage(dealId, inviteLink, topicLink, counterpart, role, des
     `▸ <b>Tu Rol:</b> <code>${myRole}</code>\n` +
     `▸ <b>${counterpartRole}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
     `▸ <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `👉 <a href="${inviteLink}"><b>[ ENTRAR A LA SALA #${dealId} ]</b></a>\n\n` +
+    `▸ <a href="${inviteLink}"><b>[ ENTRAR A LA SALA #${dealId} ]</b></a>\n\n` +
     `──────\n` +
-    `🛡️ <i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo oficial.</i>`
+    `▪ <i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo oficial.</i>`
   );
 }
 
@@ -216,9 +216,9 @@ function dealCounterpartInviteMessage(dealId, inviteLink, creatorMention, myRole
     `▸ <b>Tu Rol:</b> <code>${myRole || 'Participante'}</code>\n` +
     `▸ <b>${creatorRole || 'Solicitante'}:</b> ${creatorMention}\n` +
     `▸ <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `👉 <a href="${inviteLink}"><b>[ ENTRAR A LA SALA #${dealId} ]</b></a>\n\n` +
+    `▸ <a href="${inviteLink}"><b>[ ENTRAR A LA SALA #${dealId} ]</b></a>\n\n` +
     `──────\n` +
-    `🛡️ <i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo oficial.</i>`
+    `▪ <i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo oficial.</i>`
   );
 }
 
@@ -238,7 +238,7 @@ function dealTopicWelcomeBanner(dealId, creatorMention, counterpart, adminMentio
     `▸ <b>Mediador Asignado:</b> ${adminMention}\n` +
     `▸ <b>Detalles del Trato:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
     `──────\n` +
-    `📌 <b>PROTOCOLO OFICIAL DE SEGURIDAD:</b>\n` +
+    `⟡ <b>PROTOCOLO OFICIAL DE SEGURIDAD:</b>\n` +
     `• <b>1.</b> Todo comprobante y dato debe enviarse únicamente en este hilo.\n` +
     `• <b>2.</b> El Comprador paga directamente al Mediador (Trato Admin).\n` +
     `• <b>3.</b> El Vendedor entrega el producto SOLO cuando el Mediador confirme el dinero retenido.\n` +
@@ -303,7 +303,7 @@ function burnInitialPrompt() {
   return (
     `⟡ <b>SISTEMA ANTI-ESTAFAS</b> ⊱ <code>REPORTE DE ESTAFA</code> ⊰\n` +
     `══════\n\n` +
-    `⚠️ <i>El uso indebido o denuncias falsas conllevan Baneo Global Permanente (GBAN).</i>\n\n` +
+    `▪ <i>Advertencia: El uso indebido o denuncias falsas conllevan Baneo Global Permanente (GBAN).</i>\n\n` +
     `▸ <b>Paso 1 de 3:</b> Selecciona cómo deseas identificar al acusado:`
   );
 }
@@ -314,7 +314,7 @@ function burnAskIdPrompt() {
     `══════\n\n` +
     `▸ <b>Paso 1 de 3:</b> Envía el <b>ID numérico de Telegram</b> del acusado.\n\n` +
     `──────\n` +
-    `💡 <i>Ejemplo: <code>8579513055</code></i>`
+    `▪ <i>Ejemplo: <code>8579513055</code></i>`
   );
 }
 
@@ -324,7 +324,7 @@ function burnAskUsernamePrompt() {
     `══════\n\n` +
     `▸ <b>Paso 1 de 3:</b> Envía el <b>@Username</b> del acusado.\n\n` +
     `──────\n` +
-    `💡 <i>Ejemplo: <code>@usuario_estafador</code></i>`
+    `▪ <i>Ejemplo: <code>@usuario_estafador</code></i>`
   );
 }
 
@@ -335,7 +335,7 @@ function burnContextPrompt(targetLabel) {
     `▸ <b>Acusado:</b> ${targetLabel}\n\n` +
     `▸ <b>Paso 2 de 3:</b> Describe detalladamente lo sucedido (monto robado, método, fecha).\n` +
     `──────\n` +
-    `📝 <i>(Mínimo 15 caracteres | Máximo 400 caracteres)</i>`
+    `▪ <i>(Mínimo 15 caracteres | Máximo 400 caracteres)</i>`
   );
 }
 
@@ -361,7 +361,7 @@ function burnSummaryMessage(targetLabel, context, proofsCount) {
     `▸ <b>Descripción de los Hechos:</b>\n` +
     `  ↳ <i>${escapeHtml(context)}</i>\n\n` +
     `──────\n` +
-    `⚠️ <i>Al pulsar <b>[ QUEMAR ]</b>, el reporte se enviará al Staff para revisión y baneo global.</i>`
+    `▪ <i>Al pulsar <b>[ QUEMAR ]</b>, el reporte se enviará al Staff para revisión y baneo global.</i>`
   );
 }
 
@@ -372,7 +372,7 @@ function burnSentMessage(reportId = '') {
     `══════\n\n` +
     `✓ Tu denuncia y evidencias han sido recibidas por los moderadores de <b>Ventas Libres Perú</b>.\n\n` +
     `──────\n` +
-    `🛡️ <i>Revisaremos tu caso a la brevedad. Gracias por mantener limpia la comunidad. 🇵🇪</i>`
+    `▪ <i>Revisaremos tu caso a la brevedad. Gracias por mantener limpia la comunidad.</i>`
   );
 }
 
@@ -396,7 +396,7 @@ function burnAlertBroadcast(targetId, context = null, targetUsername = null, tar
   const nameDisplay = targetName || (targetUsername ? `@${targetUsername}` : 'Estafador');
 
   let text =
-    `🚨 <b>𝐄𝐒𝐓𝐀𝐅𝐀𝐃𝐎𝐑 𝐐𝐔𝐄𝐌𝐀𝐃𝐎 𝐘 𝐑𝐄𝐆𝐈𝐒𝐓𝐑𝐀𝐃𝐎</b> 🚨\n` +
+    `⟡ <b>[ LISTA NEGRA OFICIAL ] 𝐄𝐒𝐓𝐀𝐅𝐀𝐃𝐎𝐑 𝐐𝐔𝐄𝐌𝐀𝐃𝐎 𝐘 𝐑𝐄𝐆𝐈𝐒𝐓𝐑𝐀𝐃𝐎</b> ⟡\n` +
     `══════\n\n` +
     `▸ <b>Nombre / Alias:</b> <b>${escapeHtml(nameDisplay)}</b>\n` +
     (targetUsername ? `▸ <b>Username:</b> @${escapeHtml(targetUsername)}\n` : '') +
@@ -409,7 +409,7 @@ function burnAlertBroadcast(targetId, context = null, targetUsername = null, tar
 
   text +=
     `──────\n` +
-    `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad absoluta.</i>`;
+    `▪ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad absoluta.</i>`;
   return text;
 }
 
@@ -425,7 +425,7 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
     `⟡ <b>𝐒𝐓𝐀𝐅𝐅 𝐎𝐅𝐈𝐂𝐈𝐀𝐋</b> ⊱ <code>${escapeHtml(communityName.toUpperCase())}</code> ⊰\n` +
     `══════\n\n`;
 
-  output += `👑 <b>𝐎𝐖𝐍𝐄𝐑𝐒 (Propietarios)</b>\n`;
+  output += `⟡ <b>𝐎𝐖𝐍𝐄𝐑𝐒 (Propietarios)</b>\n`;
   if (groupedStaff.owners && groupedStaff.owners.length > 0) {
     for (const m of groupedStaff.owners) {
       output += `▸ ${formatStaffUser(m.username, m.user_id)}\n`;
@@ -435,7 +435,7 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   }
   output += `\n`;
 
-  output += `⚔️ <b>𝐂𝐎-𝐎𝐖𝐍𝐄𝐑𝐒</b>\n`;
+  output += `◈ <b>𝐂𝐎-𝐎𝐖𝐍𝐄𝐑𝐒</b>\n`;
   if (groupedStaff.coowners && groupedStaff.coowners.length > 0) {
     for (const m of groupedStaff.coowners) {
       output += `▸ ${formatStaffUser(m.username, m.user_id)}\n`;
@@ -445,7 +445,7 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   }
   output += `\n`;
 
-  output += `🛡️ <b>𝐀𝐃𝐌𝐈𝐍𝐈𝐒𝐓𝐑𝐀𝐃𝐎𝐑𝐄𝐒</b>\n`;
+  output += `✦ <b>𝐀𝐃𝐌𝐈𝐍𝐈𝐒𝐓𝐑𝐀𝐃𝐎𝐑𝐄𝐒</b>\n`;
   if (groupedStaff.admins && groupedStaff.admins.length > 0) {
     for (const m of groupedStaff.admins) {
       output += `▸ ${formatStaffUser(m.username, m.user_id)}\n`;
@@ -455,10 +455,10 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   }
   output += `\n`;
 
-  output += `⚖️ <b>𝐓𝐑𝐀𝐓𝐎 𝐀𝐃𝐌𝐈𝐍𝐒 (Mediadores Certificados)</b>\n`;
+  output += `⟡ <b>𝐓𝐑𝐀𝐓𝐎 𝐀𝐃𝐌𝐈𝐍𝐒 (Mediadores Certificados)</b>\n`;
   if (groupedStaff.dealAdmins && groupedStaff.dealAdmins.length > 0) {
     for (const m of groupedStaff.dealAdmins) {
-      const score = m.avgRating ? `${m.avgRating}/5.0 ⭐` : `5.0/5.0 ⭐`;
+      const score = m.avgRating ? `${m.avgRating}/5.0 ★` : `5.0/5.0 ★`;
       output += `▸ ${formatStaffUser(m.username, m.user_id)} ⊱ ${score} ⊰\n`;
     }
   } else {
@@ -467,7 +467,7 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
 
   output +=
     `\n──────\n` +
-    `🛡️ <i>Para compras y ventas 100% seguras usa <code>/tratoadm</code>.</i>`;
+    `▪ <i>Para compras y ventas 100% seguras usa <code>/tratoadm</code>.</i>`;
   return output;
 }
 
@@ -488,22 +488,22 @@ function periodicSecurityNotice() {
   return (
     `⟡ <b>𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔</b> ⊱ <code>AVISO DE SEGURIDAD</code> ⊰\n` +
     `══════\n\n` +
-    `🛡️ <b>Recomendaciones para un comercio 100% seguro:</b>\n\n` +
+    `⟡ <b>Recomendaciones para un comercio 100% seguro:</b>\n\n` +
     `▸ Verifica siempre al equipo oficial con <code>/staff</code>.\n` +
     `▸ Usa <code>/tratoadm</code> para retener y proteger tu dinero.\n` +
     `▸ No confíes en tratos por mensajes privados con desconocidos.\n\n` +
     `──────\n` +
-    `✓ <i>Staff Oficial — Ventas Libres Perú 🇵🇪</i>`
+    `✓ <i>Staff Oficial — Ventas Libres Perú</i>`
   );
 }
 
 function periodicNoticeKeyboard(botUsername = 'ventas_libres_peru_Bot') {
   const { InlineKeyboard } = require('grammy');
   return new InlineKeyboard()
-    .url('🤝 TRATO ADMIN', `https://t.me/${botUsername}?start=tratoadm`)
-    .url('🛡️ STAFF', `https://t.me/${botUsername}?start=staff`)
+    .url('[ TRATO ADMIN ]', `https://t.me/${botUsername}?start=tratoadm`)
+    .url('[ STAFF ]', `https://t.me/${botUsername}?start=staff`)
     .row()
-    .url('🚨 REPORTAR ESTAFA', `https://t.me/${botUsername}?start=quemar`);
+    .url('[ REPORTAR ESTAFA ]', `https://t.me/${botUsername}?start=quemar`);
 }
 
 function scamKeywordReply(firstName, username) {
@@ -516,7 +516,7 @@ function scamKeywordReply(firstName, username) {
     `▸ <b>2.</b> Escribe <code>/quemar</code> al bot por privado.\n` +
     `▸ <b>3.</b> El Staff investigará y emitirá Baneo Global.\n\n` +
     `──────\n` +
-    `🛡️ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`
+    `▪ <i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>`
   );
 }
 

@@ -28,8 +28,19 @@ function createWebApp(mainBot = null) {
   const dashboardPath = config.DASHBOARD_PATH || '/vlp-master-portal-7849';
   const apiPrefix = config.API_SECRET_PREFIX || '/api-sec-vlp';
 
-  // ── 1. Ruta Pública Raíz: Cloaking / Anti-Escaneo ──
-  app.get('/', (req, res) => {
+  // Servir estáticos Next.js (dashboard/out) o fallback público
+  const nextOutDir = path.join(__dirname, '..', '..', 'dashboard', 'out');
+  const publicDir = path.join(__dirname, 'public');
+  const staticRoot = fs.existsSync(nextOutDir) ? nextOutDir : publicDir;
+
+  // ── 1. Ruta Pública Raíz: Landing Page para navegadores / JSON para monitores ──
+  app.get('/', (req, res, next) => {
+    if (req.accepts('html')) {
+      const indexPath = path.join(staticRoot, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        return res.sendFile(indexPath);
+      }
+    }
     res.json({
       status: 'ok',
       bot: 'Ventas Libres Perú Enterprise',
@@ -182,15 +193,11 @@ function createWebApp(mainBot = null) {
   });
 
   // ── 6. Servir Frontend: Next.js Export (dashboard/out) o Public Clásico ──
-  const nextOutDir = path.join(__dirname, '..', '..', 'dashboard', 'out');
-  const publicDir = path.join(__dirname, 'public');
-  const staticRoot = fs.existsSync(nextOutDir) ? nextOutDir : publicDir;
-
   // Servir estáticos en ruta secreta y en raíz
   app.use(dashboardPath, express.static(staticRoot));
   app.use(express.static(staticRoot));
 
-  app.get(dashboardPath, (req, res) => {
+  app.get([dashboardPath, `${dashboardPath}/*`], (req, res) => {
     const indexPath = path.join(staticRoot, 'index.html');
     if (fs.existsSync(indexPath)) {
       res.sendFile(indexPath);

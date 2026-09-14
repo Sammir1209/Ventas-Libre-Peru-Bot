@@ -175,10 +175,10 @@ async function generateUserCardBuffer(api, target, options = {}) {
   const isBurned = options.isBurned === true;
 
   let primaryRole = null;
-  if (rolesList.includes('OWNER')) primaryRole = '👑 OWNER';
-  else if (rolesList.some((r) => r.includes('CO-OWNER') || r.includes('COOWNER'))) primaryRole = '⚜️ CO-OWNER';
-  else if (isDealAdmin) primaryRole = '🤝 TRATO ADMIN';
-  else if (rolesList.includes('ADMIN')) primaryRole = '⚔️ ADMINISTRADOR';
+  if (rolesList.includes('OWNER')) primaryRole = '⟡ OWNER';
+  else if (rolesList.some((r) => r.includes('CO-OWNER') || r.includes('COOWNER'))) primaryRole = '◈ CO-OWNER';
+  else if (isDealAdmin) primaryRole = '⟡ TRATO ADMIN';
+  else if (rolesList.includes('ADMIN')) primaryRole = '✦ ADMINISTRADOR';
 
   let modalBio = targetBio;
   if (!modalBio) {
@@ -192,23 +192,23 @@ async function generateUserCardBuffer(api, target, options = {}) {
   let trackName = options.musicTrack || null;
   if (!trackName) {
     if (isDealAdmin) {
-      trackName = `⭐ Mediador Oficial ${rating}/5.0 (${dealsCount} tratos)`;
+      trackName = `⟡ Mediador Certificado ★ ${rating}/5.0 (${dealsCount} tratos)`;
     } else if (rolesList.includes('OWNER')) {
       trackName = dealsCount > 0
         ? `Ventas Libres Perú — ${dealsCount} tratos completados`
-        : `👑 Staff Oficial (Owner)`;
+        : `⟡ Staff Oficial (Owner)`;
     } else if (rolesList.some((r) => r.includes('CO-OWNER') || r.includes('COOWNER'))) {
       trackName = dealsCount > 0
-        ? `⚜️ Co-Owner Oficial (${dealsCount} tratos)`
-        : `⚜️ Co-Owner Oficial`;
+        ? `◈ Co-Owner Oficial (${dealsCount} tratos)`
+        : `◈ Co-Owner Oficial`;
     } else if (rolesList.includes('ADMIN') || rolesList.includes('ADMINISTRADOR')) {
       trackName = dealsCount > 0
-        ? `⚔️ Administrador Oficial (${dealsCount} tratos)`
-        : `⚔️ Administrador Oficial`;
+        ? `✦ Administrador Oficial (${dealsCount} tratos)`
+        : `✦ Administrador Oficial`;
     } else if (rolesList.includes('MOD') || rolesList.includes('MODERADOR')) {
       trackName = dealsCount > 0
-        ? `🛡️ Moderador Oficial (${dealsCount} tratos)`
-        : `🛡️ Moderador Oficial`;
+        ? `▪ Moderador Oficial (${dealsCount} tratos)`
+        : `▪ Moderador Oficial`;
     } else {
       trackName = `Ventas Libres Perú — ${dealsCount} tratos completados`;
     }

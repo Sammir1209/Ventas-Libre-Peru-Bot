@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { IconAlertTriangle, IconZap, IconEdit, IconCheck, IconPlus } from '../common/Icons';
 
 export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRemoveBurned, onEnforceGban }) {
   const [editingUser, setEditingUser] = useState(null);
@@ -41,21 +42,22 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
   };
 
   return (
-    <section class="panel-card">
-      <div class="panel-header">
-        <div class="panel-header-left">
+    <section className="panel-card">
+      <div className="panel-header">
+        <div className="panel-header-left">
           <h3>Lista Negra de Estafadores (GBan Centralizado)</h3>
           <p>Supervisa usuarios vetados, administra motivos de sanción y fuerza la expulsión en todos los grupos oficiales.</p>
         </div>
-        <div class="panel-toolbar">
-          <button class="btn btn-danger btn-sm" onClick={() => setShowAddModal(true)}>
-            🚨 Registrar GBan
+        <div className="panel-toolbar">
+          <button className="btn btn-danger btn-sm" onClick={() => setShowAddModal(true)}>
+            <IconPlus size={14} />
+            <span>Registrar GBan</span>
           </button>
         </div>
       </div>
 
-      <div class="table-responsive">
-        <table class="custom-table">
+      <div className="table-responsive">
+        <table className="custom-table">
           <thead>
             <tr>
               <th>Usuario & ID</th>
@@ -105,26 +107,29 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
                   <td>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
-                        class="btn btn-danger btn-sm"
+                        className="btn btn-danger btn-sm"
                         title="Expulsar de todos los grupos oficiales de la comunidad"
                         onClick={() => handleEnforce(b.user_id)}
                         disabled={enforcingId === b.user_id}
                       >
-                        {enforcingId === b.user_id ? 'Baneando...' : '⚡ Expulsar en Red'}
+                        <IconZap size={13} />
+                        <span>{enforcingId === b.user_id ? 'Baneando...' : 'Expulsar en Red'}</span>
                       </button>
                       <button
-                        class="btn btn-secondary btn-sm"
+                        className="btn btn-secondary btn-sm"
                         onClick={() => setEditingUser({ ...b })}
                       >
-                        ✏️ Editar
+                        <IconEdit size={13} />
+                        <span>Editar</span>
                       </button>
                       <button
-                        class="btn btn-secondary btn-sm"
+                        className="btn btn-secondary btn-sm"
                         style={{ color: 'var(--emerald-success)', borderColor: 'rgba(16, 185, 129, 0.3)' }}
                         title="Revocar GBan y permitir acceso nuevamente"
                         onClick={() => onRemoveBurned(b.user_id)}
                       >
-                        ✓ Desbanear
+                        <IconCheck size={13} />
+                        <span>Desbanear</span>
                       </button>
                     </div>
                   </td>
@@ -137,21 +142,21 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
 
       {/* Modal: Editar GBan */}
       {editingUser && (
-        <div class="modal-overlay" onClick={() => setEditingUser(null)}>
-          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div class="modal-header">
+        <div className="modal-overlay" onClick={() => setEditingUser(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
               <h3>Editar Ficha de Estafador (ID: {editingUser.user_id})</h3>
-              <button class="btn btn-secondary btn-sm" onClick={() => setEditingUser(null)}>✕</button>
+              <button className="btn btn-secondary btn-sm" onClick={() => setEditingUser(null)}>✕</button>
             </div>
             <form onSubmit={handleSaveEdit}>
-              <div class="modal-body">
+              <div className="modal-body">
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
                     Nombre del Estafador
                   </label>
                   <input
                     type="text"
-                    class="input-field"
+                    className="input-field"
                     value={editingUser.first_name || ''}
                     onChange={(e) => setEditingUser({ ...editingUser, first_name: e.target.value })}
                   />
@@ -162,7 +167,7 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
                   </label>
                   <input
                     type="text"
-                    class="input-field"
+                    className="input-field"
                     value={editingUser.username || ''}
                     onChange={(e) => setEditingUser({ ...editingUser, username: e.target.value })}
                   />
@@ -173,15 +178,15 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
                   </label>
                   <textarea
                     rows={4}
-                    class="textarea-field"
+                    className="textarea-field"
                     value={editingUser.context || ''}
                     onChange={(e) => setEditingUser({ ...editingUser, context: e.target.value })}
                   />
                 </div>
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onClick={() => setEditingUser(null)}>Cancelar</button>
-                <button type="submit" class="btn btn-primary">Actualizar Ficha</button>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingUser(null)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">Actualizar Ficha</button>
               </div>
             </form>
           </div>
@@ -190,14 +195,14 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
 
       {/* Modal: Agregar GBan */}
       {showAddModal && (
-        <div class="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div class="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div class="modal-header">
-              <h3>🚨 Registrar Estafador en Lista Negra (GBan)</h3>
-              <button class="btn btn-secondary btn-sm" onClick={() => setShowAddModal(false)}>✕</button>
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Registrar Estafador en Lista Negra (GBan)</h3>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowAddModal(false)}>✕</button>
             </div>
             <form onSubmit={handleSaveAdd}>
-              <div class="modal-body">
+              <div className="modal-body">
                 <div>
                   <label style={{ fontSize: '12px', color: 'var(--text-subtle)', marginBottom: '6px', display: 'block' }}>
                     ID Numérico de Telegram *
@@ -206,7 +211,7 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
                     type="number"
                     required
                     placeholder="Ej. 123456789"
-                    class="input-field"
+                    className="input-field"
                     value={addForm.userId}
                     onChange={(e) => setAddForm({ ...addForm, userId: e.target.value })}
                   />
@@ -218,7 +223,7 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
                   <input
                     type="text"
                     placeholder="Nombre registrado"
-                    class="input-field"
+                    className="input-field"
                     value={addForm.firstName}
                     onChange={(e) => setAddForm({ ...addForm, firstName: e.target.value })}
                   />
@@ -230,7 +235,7 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
                   <input
                     type="text"
                     placeholder="@estafador"
-                    class="input-field"
+                    className="input-field"
                     value={addForm.username}
                     onChange={(e) => setAddForm({ ...addForm, username: e.target.value })}
                   />
@@ -243,7 +248,7 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
                     rows={3}
                     required
                     placeholder="Estafa por monto de S/. 200 en venta de cuenta..."
-                    class="textarea-field"
+                    className="textarea-field"
                     value={addForm.context}
                     onChange={(e) => setAddForm({ ...addForm, context: e.target.value })}
                   />
@@ -255,15 +260,15 @@ export default function GbanSection({ burned, onAddBurned, onUpdateBurned, onRem
                   <textarea
                     rows={2}
                     placeholder="https://...supabase.co/storage/v1/..."
-                    class="textarea-field"
+                    className="textarea-field"
                     value={addForm.proofUrls}
                     onChange={(e) => setAddForm({ ...addForm, proofUrls: e.target.value })}
                   />
                 </div>
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cancelar</button>
-                <button type="submit" class="btn btn-danger">Confirmar GBan</button>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-danger">Confirmar GBan</button>
               </div>
             </form>
           </div>
