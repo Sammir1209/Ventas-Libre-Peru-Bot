@@ -255,7 +255,300 @@ async function getUser(userId) {
   return null;
 }
 
-async function searchUsers(query) {
+// ══════
+// ⟡ Registro y Aislamiento de Miembros de Comunidad por Tenant
+// ══════
+const tenantUsersMemory = new Map(); // tenantId -> Map<userId, userObject>
+let tenantUsersDirty = new Set();
+let persistTenantTimer = null;
+
+/**
+ * Registra o actualiza la actividad de un usuario dentro de un tenant específico.
+ */
+async function recordTenantUser(tenantId, userId, username, firstName) {
+  if (!userId) return;
+  const numId = Number(userId);
+
+  // Asegurar siempre el registro base en users
+  upsertUser(numId, username, firstName).catch(() => {});
+
+  if (!tenantId) {
+    return; // Para el bot oficial principal, la tabla users es la fuente directa
+  }
+
+  // Para sub-bots, registrar en su mapa en memoria
+  if (!tenantUsersMemory.has(tenantId)) {
+    tenantUsersMemory.set(tenantId, new Map());
+  }
+  const tMap = tenantUsersMemory.get(tenantId);
+  tMap.set(numId, {
+    user_id: numId,
+    username: username || null,
+    first_name: firstName || null,
+    last_seen: new Date().toISOString(),
+  });
+
+  tenantUsersDirty.add(tenantId);
+  if (!persistTenantTimer) {
+    persistTenantTimer = setTimeout(async () => {
+      persistTenantTimer = null;
+      const toPersist = Array.from(tenantUsersDirty);
+      tenantUsersDirty.clear();
+      for (const tId of toPersist) {
+        try {
+          const map = tenantUsersMemory.get(tId);
+          if (map) {
+            const arr = Array.from(map.values()).slice(-2000);
+            await setSetting('community_users', JSON.stringify(arr), tId);
+          }
+        } catch {}
+      }
+    }, 5000);
+  }
+}
+
+/**
+ * Obtiene todos los usuarios pertenecientes exclusivamente a la comunidad especificada (Multi-Tenant).
+ * Si tenantId es null, retorna los usuarios de la comunidad principal de Ventas Libres Perú.
+ * Si tenantId es provisto, retorna ÚNICAMENTE los usuarios del sub-bot (jamás se mezclan).
+ */
+async function getCommunityUsers(tenantId = null) {
+  if (tenantId) {
+    // ── Comunidad de Sub-Bot ──
+    let tMap = tenantUsersMemory.get(tenantId);
+    if (!tMap || tMap.size === 0) {
+      try {
+        const raw = await getSetting('community_users', tenantId);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            tMap = new Map();
+            for (const u of parsed) {
+              if (u && u.user_id) tMap.set(Number(u.user_id), u);
+            }
+            tenantUsersMemory.set(tenantId, tMap);
+          }
+        }
+      } catch {}
+    }
+
+    const resultMap = new Map(tMap ? tMap.entries() : []);
+
+    // Enriquecer con Staff exclusivo de este sub-bot
+    try {
+      const staffList = await getAllStaff(tenantId);
+      for (const s of staffList) {
+        const uid = Number(s.user_id);
+        if (!resultMap.has(uid)) {
+          resultMap.set(uid, {
+            user_id: uid,
+            username: s.username || null,
+            first_name: s.first_name || null,
+          });
+        }
+      }
+    } catch {}
+
+    // Enriquecer con Tratos de este sub-bot
+    try {
+      const dealsList = await getAllDeals(tenantId);
+      for (const d of dealsList) {
+        if (d.creator_id && !resultMap.has(Number(d.creator_id))) {
+          const u = await getUser(d.creator_id);
+          if (u) resultMap.set(Number(d.creator_id), u);
+        }
+        if (d.admin_id && !resultMap.has(Number(d.admin_id))) {
+          const u = await getUser(d.admin_id);
+          if (u) resultMap.set(Number(d.admin_id), u);
+        }
+      }
+    } catch {}
+
+    return Array.from(resultMap.values());
+  }
+
+  // ── Comunidad Oficial Principal (Ventas Libres Perú) ──
+  let allUsers = [];
+  if (useSupabase && supabase) {
+    const { data, error } = await supabase.from('users').select('*').limit(3000);
+    if (!error && data) allUsers = data;
+  } else if (pool) {
+    try {
+      const res = await pool.query(`SELECT * FROM users LIMIT 3000`);
+      allUsers = res.rows || [];
+    } catch {}
+  }
+
+  // Asegurar que usuarios registrados en sub-bots que no pertenecen a la principal no se filtren
+  return allUsers;
+}
+
+/**
+ * Distancia de Levenshtein para similitud tipográfica entre nombres
+ */
+function levenshteinDistance(s1, s2) {
+  if (s1 === s2) return 0;
+  if (!s1.length) return s2.length;
+  if (!s2.length) return s1.length;
+  const prev = [];
+  for (let i = 0; i <= s2.length; i++) prev[i] = i;
+  for (let i = 0; i < s1.length; i++) {
+    const current = [i + 1];
+    for (let j = 0; j < s2.length; j++) {
+      const cost = s1[i] === s2[j] ? 0 : 1;
+      current[j + 1] = Math.min(
+        current[j] + 1,
+        prev[j + 1] + 1,
+        prev[j] + cost
+      );
+    }
+    for (let k = 0; k <= s2.length; k++) prev[k] = current[k];
+  }
+  return prev[s2.length];
+}
+
+/**
+ * Normaliza nombres para detección estricta de clones y multicuentas:
+ * Remueve emojis, acentos, caracteres invisibles, unicodes raros y palabras de suplantación.
+ */
+function normalizeNameForMultiCheck(firstName) {
+  if (!firstName) return '';
+  let str = String(firstName);
+  // 1. Quitar emojis
+  str = str.replace(/\p{Extended_Pictographic}/gu, '');
+  // 2. Normalizar NFKD y quitar marcas diacríticas
+  str = str.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  // 3. Quitar símbolos decorativos y puntuación (dejar letras, números, espacios)
+  str = str.replace(/[^\p{L}\p{N}\s]/gu, '');
+  // 4. Quitar palabras de suplantación o rangos típicos
+  str = str.replace(/\b(admin|administrador|staff|soporte|support|oficial|official|mod|moderador|owner|coowner|peru|ventas|bot)\b/gi, '');
+  // 5. Normalizar espacios a 1 solo y pasar a minúsculas
+  return str.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+/**
+ * Radar de Detección de Multicuentas y Clones en la Comunidad Activa.
+ * Agrupa cuentas con nombres idénticos o variaciones sospechosas (first_name similar).
+ */
+async function findMultiAccounts(tenantId = null) {
+  const users = await getCommunityUsers(tenantId);
+  if (!users || users.length === 0) {
+    return { groups: [], totalUsersAnalyzed: 0 };
+  }
+
+  const validUsers = [];
+  for (const u of users) {
+    const rawName = u.first_name || '';
+    const norm = normalizeNameForMultiCheck(rawName);
+    if (norm.length >= 2) {
+      validUsers.push({
+        ...u,
+        normName: norm,
+        firstWord: norm.split(' ')[0],
+      });
+    }
+  }
+
+  const clusters = [];
+  const assignedUserIds = new Set();
+
+  // 1. Agrupar por nombre normalizado idéntico (ej: "carlos" y "carlos" o "carlos admin")
+  const exactMap = new Map();
+  for (const u of validUsers) {
+    const key = u.normName;
+    if (!exactMap.has(key)) exactMap.set(key, []);
+    exactMap.get(key).push(u);
+  }
+
+  for (const [key, group] of exactMap.entries()) {
+    if (group.length >= 2) {
+      clusters.push({
+        pattern: key,
+        reason: 'Nombre idéntico (normalizado)',
+        users: group,
+      });
+      for (const u of group) assignedUserIds.add(Number(u.user_id));
+    }
+  }
+
+  // 2. Agrupar por raíz o primer nombre común (si tiene longitud >= 4)
+  const remaining = validUsers.filter((u) => !assignedUserIds.has(Number(u.user_id)));
+  const rootMap = new Map();
+  for (const u of remaining) {
+    const root = u.firstWord;
+    if (root && root.length >= 4) {
+      if (!rootMap.has(root)) rootMap.set(root, []);
+      rootMap.get(root).push(u);
+    }
+  }
+
+  for (const [root, group] of rootMap.entries()) {
+    if (group.length >= 2) {
+      clusters.push({
+        pattern: root,
+        reason: 'Primer nombre / raíz compartida',
+        users: group,
+      });
+      for (const u of group) assignedUserIds.add(Number(u.user_id));
+    }
+  }
+
+  // 3. Similitud difusa (Levenshtein <= 1 para nombres de >= 5 caracteres)
+  const stillRemaining = validUsers.filter((u) => !assignedUserIds.has(Number(u.user_id)));
+  const visitedFuzzy = new Set();
+  for (let i = 0; i < stillRemaining.length; i++) {
+    const u1 = stillRemaining[i];
+    if (visitedFuzzy.has(Number(u1.user_id))) continue;
+    const fuzzyGroup = [u1];
+
+    for (let j = i + 1; j < stillRemaining.length; j++) {
+      const u2 = stillRemaining[j];
+      if (visitedFuzzy.has(Number(u2.user_id))) continue;
+
+      if (u1.normName.length >= 5 && u2.normName.length >= 5) {
+        if (levenshteinDistance(u1.normName, u2.normName) <= 1) {
+          fuzzyGroup.push(u2);
+          visitedFuzzy.add(Number(u2.user_id));
+        }
+      }
+    }
+
+    if (fuzzyGroup.length >= 2) {
+      visitedFuzzy.add(Number(u1.user_id));
+      clusters.push({
+        pattern: u1.normName,
+        reason: 'Variación de nombre o posible clon',
+        users: fuzzyGroup,
+      });
+    }
+  }
+
+  clusters.sort((a, b) => b.users.length - a.users.length);
+
+  return {
+    groups: clusters,
+    totalUsersAnalyzed: users.length,
+  };
+}
+
+/**
+ * Obtiene los usuarios de la comunidad que no tienen @username asignado
+ */
+async function getUsersWithoutUsername(tenantId = null, limit = 30) {
+  const users = await getCommunityUsers(tenantId);
+  const withoutAt = users.filter((u) => !u.username || String(u.username).trim() === '');
+  return {
+    users: withoutAt.slice(0, limit),
+    total: withoutAt.length,
+    totalCommunity: users.length,
+  };
+}
+
+/**
+ * Búsqueda inteligente de usuarios en la comunidad aislada.
+ * Soporta IDs numéricos, @usernames, nombres completos y palabras cortas (>= 2 caracteres).
+ */
+async function searchUsers(query, tenantId = null) {
   if (!query) return [];
   const clean = query.replace(/^@/, '').trim();
   const isNumeric = /^\d+$/.test(clean);
@@ -268,108 +561,67 @@ async function searchUsers(query) {
   const words = cleanNormalized.split(/\s+/).filter(Boolean);
   const cleanNoSpaces = cleanNormalized.replace(/[\s_\-\.]+/g, '');
 
-  let results = [];
-  if (useSupabase && supabase) {
-    let q = supabase.from('users').select('*');
+  let communityUsers = await getCommunityUsers(tenantId);
+
+  // Filtrado inicial sobre los miembros de la comunidad activa
+  let results = communityUsers.filter((u) => {
+    const uidStr = String(u.user_id || '');
     if (isNumeric) {
-      q = q.or(`user_id.eq.${clean},first_name.ilike.%${clean}%,username.ilike.%${clean}%`);
-    } else {
-      q = q.or(`first_name.ilike.%${clean}%,username.ilike.%${clean}%,first_name.ilike.%${cleanNoSpaces}%,username.ilike.%${cleanNoSpaces}%`);
+      return uidStr === clean || uidStr.includes(clean);
     }
-    const { data, error } = await q.limit(15);
-    if (error) console.error('⟡ Supabase searchUsers error:', error.message);
-    results = data || [];
-  } else if (pool) {
-    if (isNumeric) {
-      const res = await pool.query(
-        `SELECT * FROM users WHERE user_id = $1 OR first_name ILIKE $2 OR username ILIKE $2 LIMIT 15`,
-        [Number(clean), `%${clean}%`]
-      );
-      results = res.rows || [];
-    } else {
-      const res = await pool.query(
-        `SELECT * FROM users 
-         WHERE first_name ILIKE $1 OR username ILIKE $1 
-            OR first_name ILIKE $2 OR username ILIKE $2 
-            OR REPLACE(first_name, ' ', '') ILIKE $2
-         LIMIT 15`,
-        [`%${clean}%`, `%${cleanNoSpaces}%`]
-      );
-      results = res.rows || [];
-    }
-  }
 
-  // Fallback Universal: Si SQL no encontró por fuentes raras/unicodes/espacios/decoraciones
-  if (results.length === 0 && !isNumeric && cleanNormalized.length >= 2) {
-    try {
-      let allUsers = [];
-      if (useSupabase && supabase) {
-        const { data } = await supabase.from('users').select('*').limit(2500);
-        allUsers = data || [];
-      } else if (pool) {
-        const res = await pool.query(`SELECT * FROM users LIMIT 2500`);
-        allUsers = res.rows || [];
+    const normFirst = (u.first_name || '')
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const normUser = (u.username || '')
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const normFirstNoSpaces = normFirst.replace(/[\s_\-\.]+/g, '');
+    const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
+
+    const directMatch = normFirst.includes(cleanNormalized) || normUser.includes(cleanNormalized);
+    const startsMatch = normFirst.startsWith(cleanNormalized) || normUser.startsWith(cleanNormalized);
+    const noSpacesMatch = cleanNoSpaces.length >= 2 && (normFirstNoSpaces.includes(cleanNoSpaces) || normUserNoSpaces.includes(cleanNoSpaces));
+    const wordsMatch = words.length > 1 && words.every((w) => normFirst.includes(w) || normUser.includes(w) || normFirstNoSpaces.includes(w));
+
+    return directMatch || startsMatch || noSpacesMatch || wordsMatch;
+  });
+
+  // Si es la comunidad principal y hay pocos resultados, consultar en la base de datos completa
+  if (!tenantId && results.length === 0) {
+    if (useSupabase && supabase) {
+      let q = supabase.from('users').select('*');
+      if (isNumeric) {
+        q = q.or(`user_id.eq.${clean},first_name.ilike.%${clean}%,username.ilike.%${clean}%`);
+      } else {
+        q = q.or(`first_name.ilike.%${clean}%,username.ilike.%${clean}%,first_name.ilike.%${cleanNoSpaces}%,username.ilike.%${cleanNoSpaces}%`);
       }
-
-      results = allUsers.filter((u) => {
-        const normFirst = (u.first_name || '')
-          .normalize('NFKD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase();
-        const normUser = (u.username || '')
-          .normalize('NFKD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase();
-        const normFirstNoSpaces = normFirst.replace(/[\s_\-\.]+/g, '');
-        const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
-
-        const directMatch = normFirst.includes(cleanNormalized) || normUser.includes(cleanNormalized);
-        const noSpacesMatch = cleanNoSpaces.length >= 2 && (normFirstNoSpaces.includes(cleanNoSpaces) || normUserNoSpaces.includes(cleanNoSpaces));
-        const wordsMatch = words.length > 1 && words.every((w) => normFirst.includes(w) || normUser.includes(w) || normFirstNoSpaces.includes(w));
-
-        return directMatch || noSpacesMatch || wordsMatch;
-      }).slice(0, 15);
-    } catch (err) {
-      console.warn('⟡ Error en fallback unicode search:', err.message);
+      const { data } = await q.limit(20);
+      if (data && data.length > 0) results = data;
+    } else if (pool) {
+      if (isNumeric) {
+        const res = await pool.query(
+          `SELECT * FROM users WHERE user_id = $1 OR first_name ILIKE $2 OR username ILIKE $2 LIMIT 20`,
+          [Number(clean), `%${clean}%`]
+        );
+        results = res.rows || [];
+      } else {
+        const res = await pool.query(
+          `SELECT * FROM users 
+           WHERE first_name ILIKE $1 OR username ILIKE $1 
+              OR first_name ILIKE $2 OR username ILIKE $2 
+              OR REPLACE(first_name, ' ', '') ILIKE $2
+           LIMIT 20`,
+          [`%${clean}%`, `%${cleanNoSpaces}%`]
+        );
+        results = res.rows || [];
+      }
     }
   }
 
-  // También buscar en burned_users para garantizar que estafadores registrados aparezcan siempre
-  if (!isNumeric && cleanNormalized.length >= 2) {
-    try {
-      const allBurned = await getAllBurnedUsers(50, 0);
-      for (const b of allBurned) {
-        const normFirst = (b.first_name || '')
-          .normalize('NFKD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase();
-        const normUser = (b.username || '')
-          .normalize('NFKD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase();
-        const normFirstNoSpaces = normFirst.replace(/[\s_\-\.]+/g, '');
-        const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
-
-        const directMatch = normFirst.includes(cleanNormalized) || normUser.includes(cleanNormalized);
-        const noSpacesMatch = cleanNoSpaces.length >= 2 && (normFirstNoSpaces.includes(cleanNoSpaces) || normUserNoSpaces.includes(cleanNoSpaces));
-        const wordsMatch = words.length > 1 && words.every((w) => normFirst.includes(w) || normUser.includes(w) || normFirstNoSpaces.includes(w));
-
-        if (directMatch || noSpacesMatch || wordsMatch) {
-          if (!results.some((r) => Number(r.user_id) === Number(b.user_id))) {
-            results.push({
-              user_id: Number(b.user_id),
-              username: b.username || null,
-              first_name: b.first_name || 'Estafador Fichado',
-              is_burned: true,
-              in_database: true,
-            });
-          }
-        }
-      }
-    } catch {}
-  }
-
-  // Comprobar estado de estafa y marcar registro en cada resultado
+  // Comprobar estado de estafa y marcar registro
   for (const u of results) {
     u.in_database = true;
     if (u.is_burned === undefined) {
@@ -382,7 +634,7 @@ async function searchUsers(query) {
     }
   }
 
-  return results;
+  return results.slice(0, 20);
 }
 
 async function isUserBurned(userId, username = null) {
@@ -1905,6 +2157,10 @@ module.exports = {
   getUser,
   getUserByUsername,
   searchUsers,
+  recordTenantUser,
+  getCommunityUsers,
+  findMultiAccounts,
+  getUsersWithoutUsername,
   // Verificaciones Pendientes
   addPendingVerification,
   removePendingVerification,
