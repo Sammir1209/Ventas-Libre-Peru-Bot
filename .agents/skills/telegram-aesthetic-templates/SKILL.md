@@ -22,12 +22,13 @@ Evitar emojis genéricos o infantiles sin propósito. Usar combinaciones elegant
 - `🛡️` (Para sistemas de protección, anti-raid, defensas)
 - `⚡` (Para acciones instantáneas o automáticas)
 
-### B. Separadores de Sección & Líneas Divisorias
+### B. Separadores de Sección & Líneas Divisorias (Máximo 6 Guiones en Móvil)
 ```text
-══════════════════════════════════════════════════════
-──────────────────────────────────────────────────────
-⟡ ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ ⟡
+══════
+──────
+━━━━━━
 ```
+> **Norma Móvil Estricta:** No usar más de 6 guiones continuos (`──────`), ya que líneas más largas se desbordan y saturan la visualización vertical en pantallas de smartphones.
 
 ### C. Viñetas & Jerarquía de Datos
 - `•` (Bullet point limpio)

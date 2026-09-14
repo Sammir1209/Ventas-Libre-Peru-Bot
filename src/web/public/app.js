@@ -1594,6 +1594,159 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ══════
+  // 11. GESTIÓN OFICIAL DE STAFF Y SYNC TELEGRAM
+  // ══════
+
+  const staffContainer = document.getElementById('staff-container');
+  const btnOpenStaffModal = document.getElementById('btn-open-staff-modal');
+
+  async function fetchStaff() {
+    if (!staffContainer) return;
+    staffContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando equipo de Staff oficial...</p></div>`;
+
+    try {
+      const res = await secureFetch(`/api/staff`);
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.staff)) {
+        renderStaff(data.staff);
+      } else {
+        staffContainer.innerHTML = `<p style="color: var(--danger); text-align: center; padding: 2rem;">Error cargando staff: ${escapeHtml(data.error)}</p>`;
+      }
+    } catch (e) {
+      staffContainer.innerHTML = `<p style="color: var(--danger); text-align: center; padding: 2rem;">Error de conexión: ${escapeHtml(e.message)}</p>`;
+    }
+  }
+
+  function renderStaff(staffList) {
+    if (!staffContainer) return;
+    if (!staffList.length) {
+      staffContainer.innerHTML = `<p style="color: var(--text-dim); text-align: center; padding: 2rem;">No hay miembros de staff registrados.</p>`;
+      return;
+    }
+
+    staffContainer.innerHTML = staffList
+      .map((s) => {
+        const roleUpper = (s.role || 'ADMIN').toUpperCase();
+        let badgeColor = 'badge-purple';
+        if (roleUpper.includes('OWNER')) badgeColor = 'badge-orange';
+        else if (roleUpper.includes('TRATO')) badgeColor = 'badge-green';
+
+        const usernameDisplay = s.username
+          ? `<a href="https://t.me/${escapeHtml(s.username)}" target="_blank" style="color: var(--primary); text-decoration: none;">@${escapeHtml(s.username)}</a>`
+          : `<span style="color: var(--warning); font-size: 0.8rem;">⚠️ Sin @</span>`;
+
+        return `
+          <div class="bot-card">
+            <div class="bot-card-header">
+              <div class="bot-avatar">
+                ${escapeHtml((s.first_name || 'S').charAt(0).toUpperCase())}
+              </div>
+              <div class="bot-info">
+                <h3>${escapeHtml(s.first_name || 'Staff')}</h3>
+                <span class="bot-username">${usernameDisplay}</span>
+              </div>
+              <span class="badge ${badgeColor}">${escapeHtml(roleUpper)}</span>
+            </div>
+            <div class="bot-card-body" style="padding: 1rem 0; font-size: 0.85rem; color: var(--text-dim);">
+              <div>ID Telegram: <code>${s.user_id}</code></div>
+              ${s.custom_title ? `<div style="margin-top: 4px;">Título: <strong>${escapeHtml(s.custom_title)}</strong></div>` : ''}
+            </div>
+            <div class="bot-card-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-secondary btn-sm" onclick="syncStaffClick(${s.user_id})" title="Consultar en Telegram si cambió de @ o nombre">⚡ Sync @ Telegram</button>
+              <button class="btn btn-secondary btn-sm" onclick="editStaffClick(${s.user_id}, '${escapeHtml(s.username || '')}', '${escapeHtml(s.first_name || '')}', '${escapeHtml(s.role || 'ADMIN')}')">✏️ Editar</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteStaffClick(${s.user_id})">🗑️</button>
+            </div>
+          </div>
+        `;
+      })
+      .join('');
+  }
+
+  window.syncStaffClick = async (userId) => {
+    try {
+      const res = await secureFetch(`/api/staff/${userId}/sync`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        alert(`✓ Sincronizado exitosamente con Telegram:\nNombre: ${data.data.firstName}\n@Username: @${data.data.username || 'Sin alias'}`);
+        fetchStaff();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (e) {
+      alert(`Error de red: ${e.message}`);
+    }
+  };
+
+  window.editStaffClick = async (userId, currentUsername, currentName, currentRole) => {
+    const newUsername = prompt(`Nuevo @username para ID ${userId}:`, currentUsername ? `@${currentUsername}` : '');
+    if (newUsername === null) return;
+
+    const newRole = prompt(`Nuevo rol (OWNER, CO-OWNER, ADMIN, TRATO ADMIN):`, currentRole);
+    if (!newRole) return;
+
+    try {
+      const res = await secureFetch(`/api/staff/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: newUsername.replace('@', '').trim(),
+          role: newRole.toUpperCase().trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        alert('✓ Staff actualizado con éxito.');
+        fetchStaff();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    }
+  };
+
+  window.deleteStaffClick = async (userId) => {
+    if (!confirm(`¿Estás seguro de remover al staff #${userId}?`)) return;
+    try {
+      const res = await secureFetch(`/api/staff/${userId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.ok) {
+        fetchStaff();
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (e) {
+      alert(`Error: ${e.message}`);
+    }
+  };
+
+  if (btnOpenStaffModal) {
+    btnOpenStaffModal.addEventListener('click', async () => {
+      const userId = prompt('Ingresa el ID de Telegram del nuevo staff:');
+      if (!userId) return;
+      const role = prompt('Rol del Staff (TRATO ADMIN, ADMIN, CO-OWNER, OWNER):', 'TRATO ADMIN');
+      if (!role) return;
+
+      try {
+        const res = await secureFetch(`/api/staff`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: Number(userId.trim()), role: role.trim() }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert('✓ Miembro de Staff registrado con éxito.');
+          fetchStaff();
+        } else {
+          alert(`Error: ${data.error}`);
+        }
+      } catch (e) {
+        alert(`Error: ${e.message}`);
+      }
+    });
+  }
+
   function escapeHtml(text) {
     if (!text) return '';
     return String(text).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));

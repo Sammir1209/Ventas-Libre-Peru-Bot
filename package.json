@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "build:web": "cd dashboard && npm run build",
+    "dev:web": "cd dashboard && npm run dev",
     "migrate": "node src/database/migrate.js",
     "session": "node scripts/generate_session.js"
   },
