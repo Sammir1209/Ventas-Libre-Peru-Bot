@@ -203,13 +203,14 @@ async function executeSearch(ctx, rawQuery) {
     `<b>☰ [ MODO FURTIVO ]</b>\n` +
     `──────\n\n` +
     `▸ <b>Nombre:</b> ${targetName}\n` +
-    `▸ <b>ID:</b> <a href="tg://user?id=${firstUser.user_id}">${firstUser.user_id}</a>\n` +
+    `▸ <b>ID:</b> <code>${firstUser.user_id}</code>\n` +
     `▸ <b>User:</b> ${targetUsername}\n` +
     `▸ <b>Link:</b> <a href="tg://user?id=${firstUser.user_id}">Presiona aquí</a>` +
     matchNote;
 
   await ctx.reply(replyText, {
     parse_mode: 'HTML',
+    link_preview_options: { is_disabled: true },
   });
 }
 

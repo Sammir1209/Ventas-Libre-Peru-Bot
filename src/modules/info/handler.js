@@ -123,7 +123,7 @@ async function buildUserProfile(ctx, targetUser) {
     `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
     `──────\n\n` +
     `▸ <b>Nombre:</b> ${nameDisplay}\n` +
-    `▸ <b>ID:</b> <a href="tg://user?id=${userId}">${userId}</a>\n` +
+    `▸ <b>ID:</b> <code>${userId}</code>\n` +
     `▸ <b>User:</b> ${userDisplay}\n` +
     `▸ <b>Rol:</b> ${escapeHtml(roleName)}\n` +
     `▸ <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>\n\n` +
