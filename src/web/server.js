@@ -197,13 +197,13 @@ function createWebApp(mainBot = null) {
   app.use(dashboardPath, express.static(staticRoot));
   app.use(express.static(staticRoot));
 
-  app.get([dashboardPath, `${dashboardPath}/*`], (req, res) => {
+  // Servir SPA index.html en cualquier subruta del portal administrativo
+  app.use(dashboardPath, (req, res) => {
     const indexPath = path.join(staticRoot, 'index.html');
     if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      res.sendFile(path.join(publicDir, 'index.html'));
+      return res.sendFile(indexPath);
     }
+    res.sendFile(path.join(publicDir, 'index.html'));
   });
 
   return app;
