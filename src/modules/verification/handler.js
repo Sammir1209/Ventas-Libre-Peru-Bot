@@ -296,6 +296,12 @@ function register(bot) {
       return;
     }
 
+    // Si no se han configurado canales obligatorios para este bot o sub-bot, no activar el sistema de mutear
+    const channelsRequired = await getChannelsToVerify(ctx);
+    if (!channelsRequired || channelsRequired.length === 0) {
+      return;
+    }
+
     // Comprobar si el usuario ya está verificado previamente
     const cachedVerified = await redisDb.getCache(`verified_user:${userId}`);
     if (cachedVerified) return;
@@ -366,10 +372,15 @@ function register(bot) {
 
     // 4. Enviar mensaje de bienvenida con teclado interactivo y registrar en pending_verifications
     try {
-      const customFolder = ctx.tenant?.groups_folder_link || ctx.tenant?.custom_settings?.verify_web_url;
+      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+      let verifyUrl = `${domain}/verificar`;
+      if (ctx.tenant) {
+        const slug = ctx.tenant.bot_username || ctx.tenant.id;
+        verifyUrl = `${domain}/portal/${slug}`;
+      }
       const welcomeMsg = await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName, ctx.tenant?.community_name), {
         parse_mode: 'HTML',
-        reply_markup: welcomeKeyboard(userId, customFolder),
+        reply_markup: welcomeKeyboard(userId, verifyUrl),
       });
       await db.addPendingVerification(chatId, userId, username, firstName, welcomeMsg?.message_id);
     } catch (sendErr) {

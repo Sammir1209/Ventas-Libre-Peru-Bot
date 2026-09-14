@@ -454,8 +454,8 @@ function getBaseUsername(username) {
  * Radar de Detección de Multicuentas y Clones en la Comunidad Activa.
  * Discrimina etiquetas de team/clan para evitar falsos positivos entre compañeros de comunidad.
  */
-async function findMultiAccounts(tenantId = null) {
-  const users = await getCommunityUsers(tenantId);
+async function findMultiAccounts(tenantId = null, prefilteredUsers = null) {
+  const users = (Array.isArray(prefilteredUsers)) ? prefilteredUsers : await getCommunityUsers(tenantId);
   if (!users || users.length === 0) {
     return { groups: [], totalUsersAnalyzed: 0 };
   }
@@ -574,8 +574,8 @@ async function findMultiAccounts(tenantId = null) {
 /**
  * Obtiene los usuarios de la comunidad que no tienen @username asignado
  */
-async function getUsersWithoutUsername(tenantId = null, limit = 30) {
-  const users = await getCommunityUsers(tenantId);
+async function getUsersWithoutUsername(tenantId = null, limit = 30, prefilteredUsers = null) {
+  const users = (Array.isArray(prefilteredUsers)) ? prefilteredUsers : await getCommunityUsers(tenantId);
   const withoutAt = users.filter((u) => !u.username || String(u.username).trim() === '');
   return {
     users: withoutAt.slice(0, limit),

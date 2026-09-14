@@ -6,6 +6,87 @@ const { InlineKeyboard } = require('grammy');
 const { mentionFromData, escapeHtml } = require('../../utils/formatting');
 const userbot = require('../../userbot/client');
 
+// ── Cache en Memoria de Membresía Activa en Grupos Oficiales (TTL: 10 minutos) ──
+const groupMembershipCache = new Map(); // `${chatId}:${userId}` -> { isMember: boolean, groupTitle: string, expires: number }
+
+function markMemberInGroup(chatId, userId, isMember, groupTitle = null) {
+  if (!chatId || !userId) return;
+  groupMembershipCache.set(`${chatId}:${userId}`, {
+    isMember: !!isMember,
+    groupTitle: groupTitle || null,
+    expires: Date.now() + 10 * 60 * 1000,
+  });
+}
+
+function getCachedMembership(chatId, userId) {
+  const entry = groupMembershipCache.get(`${chatId}:${userId}`);
+  if (entry && entry.expires > Date.now()) {
+    return entry;
+  }
+  return null;
+}
+
+/**
+ * Comprueba si un usuario es miembro activo de al menos uno de los grupos oficiales provistos.
+ */
+async function checkUserInOfficialGroups(api, groups, userId) {
+  for (const grp of groups) {
+    if (!grp.chat_id) continue;
+    const cached = getCachedMembership(grp.chat_id, userId);
+    if (cached) {
+      if (cached.isMember) {
+        return { inGroup: true, groupTitle: cached.groupTitle || grp.title || 'Grupo Oficial' };
+      }
+      continue;
+    }
+
+    try {
+      const member = await api.getChatMember(grp.chat_id, userId);
+      const isMember = ['member', 'administrator', 'creator', 'restricted'].includes(member.status);
+      markMemberInGroup(grp.chat_id, userId, isMember, grp.title);
+      if (isMember) {
+        return { inGroup: true, groupTitle: grp.title || 'Grupo Oficial' };
+      }
+    } catch {
+      markMemberInGroup(grp.chat_id, userId, false, grp.title);
+    }
+  }
+  return { inGroup: false, groupTitle: null };
+}
+
+/**
+ * Filtra concurrentemente una lista de usuarios candidatos para conservar ÚNICAMENTE
+ * a aquellos que están presentes dentro de al menos un grupo oficial del tenant.
+ */
+async function getActiveMembersInCommunity(api, groups, candidates) {
+  if (!groups || groups.length === 0 || !candidates || candidates.length === 0) return [];
+  const activeMembers = [];
+  const BATCH_SIZE = 15;
+
+  for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
+    const chunk = candidates.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      chunk.map(async (u) => {
+        const { inGroup, groupTitle } = await checkUserInOfficialGroups(api, groups, u.user_id);
+        if (inGroup) {
+          return {
+            ...u,
+            isInActiveGroup: true,
+            detectedGroupName: groupTitle,
+          };
+        }
+        return null;
+      })
+    );
+
+    for (const res of results) {
+      if (res) activeMembers.push(res);
+    }
+  }
+
+  return activeMembers;
+}
+
 /**
  * Comprueba si el usuario tiene autorización para utilizar el radar de búsqueda
  * (Owner del bot principal, Owner del sub-bot o Staff autorizado con rol administrativo).
@@ -57,23 +138,40 @@ function cleanSearchQuery(rawText) {
 }
 
 /**
- * Radar de Detección de Multicuentas y Clones en la Comunidad Aislada
+ * Radar de Detección de Multicuentas y Clones en la Comunidad Aislada.
+ * Filtra estrictamente solo usuarios que estén dentro de los grupos oficiales.
  */
 async function executeMultiRadar(ctx) {
   const tenantId = ctx.tenant?.id || null;
   const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
-
-  await ctx.replyWithChatAction('typing');
-
-  const { groups, totalUsersAnalyzed } = await db.findMultiAccounts(tenantId);
+  const groups = await db.getAllGroups(tenantId).catch(() => []);
 
   if (!groups || groups.length === 0) {
     return ctx.reply(
       `⟡ <b>RADAR DE DETECCIÓN</b> ⊱ <code>MULTICUENTAS Y CLONES</code> ⊰\n` +
       `══════\n\n` +
+      `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n\n` +
+      `✗ <i>No hay grupos oficiales registrados para esta comunidad. Registra grupos con /addgrupo.</i>`,
+      { parse_mode: 'HTML', link_preview_options: { is_disabled: true } }
+    );
+  }
+
+  await ctx.replyWithChatAction('typing');
+
+  // 1. Obtener candidatos y filtrar ÚNICAMENTE a los que están físicamente en los grupos oficiales
+  const candidates = await db.getCommunityUsers(tenantId);
+  const activeMembersInGroups = await getActiveMembersInCommunity(ctx.api, groups, candidates);
+
+  const { groups: multiGroups, totalUsersAnalyzed } = await db.findMultiAccounts(tenantId, activeMembersInGroups);
+
+  if (!multiGroups || multiGroups.length === 0) {
+    return ctx.reply(
+      `⟡ <b>RADAR DE DETECCIÓN</b> ⊱ <code>MULTICUENTAS Y CLONES</code> ⊰\n` +
+      `══════\n\n` +
       `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n` +
-      `▸ <b>Cuentas Analizadas:</b> <code>${totalUsersAnalyzed}</code>\n\n` +
-      `✓ <i>No se detectaron cuentas sospechosas de duplicidad o nombres clonados en la comunidad activa.</i>`,
+      `▸ <b>Grupos Oficiales Analizados:</b> <code>${groups.length}</code>\n` +
+      `▸ <b>Miembros en Grupos Analizados:</b> <code>${totalUsersAnalyzed}</code>\n\n` +
+      `✓ <i>No se detectaron cuentas sospechosas de multicuentas entre los miembros activos de los grupos de la comunidad.</i>`,
       {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
@@ -85,12 +183,12 @@ async function executeMultiRadar(ctx) {
     `⟡ <b>RADAR DE DETECCIÓN</b> ⊱ <code>MULTICUENTAS Y CLONES</code> ⊰\n` +
     `══════\n\n` +
     `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n` +
-    `▸ <b>Cuentas Analizadas:</b> <code>${totalUsersAnalyzed}</code>\n` +
-    `▸ <b>Patrones Detectados:</b> <b>${groups.length} grupos sospechosos</b>\n\n` +
+    `▸ <b>Grupos Oficiales:</b> <code>${groups.length}</code>\n` +
+    `▸ <b>Miembros en Grupos Analizados:</b> <code>${totalUsersAnalyzed}</code>\n` +
+    `▸ <b>Patrones Detectados:</b> <b>${multiGroups.length} grupos sospechosos</b>\n\n` +
     `──────\n\n`;
 
-  // Limitar a los 10 grupos más notorios para no exceder límites de Telegram
-  const displayGroups = groups.slice(0, 10);
+  const displayGroups = multiGroups.slice(0, 10);
 
   for (let idx = 0; idx < displayGroups.length; idx++) {
     const grp = displayGroups[idx];
@@ -101,16 +199,17 @@ async function executeMultiRadar(ctx) {
       const u = grp.users[uIdx];
       const userAt = u.username ? `@${escapeHtml(u.username)}` : '<i>Sin @</i>';
       const uName = escapeHtml(u.first_name || 'Sin nombre');
-      text += `  ▸ <b>${uIdx + 1}.</b> ${userAt} | <code>${u.user_id}</code> ⊰ (${uName})\n`;
+      const grpInfo = u.detectedGroupName ? ` | Grupo: <code>${escapeHtml(u.detectedGroupName)}</code>` : '';
+      text += `  ▸ <b>${uIdx + 1}.</b> ${userAt} | <code>${u.user_id}</code> ⊰ (${uName}${grpInfo})\n`;
     }
     text += `\n`;
   }
 
-  if (groups.length > 10) {
-    text += `▪ <i>... y ${groups.length - 10} patrones adicionales detectados.</i>\n\n`;
+  if (multiGroups.length > 10) {
+    text += `▪ <i>... y ${multiGroups.length - 10} patrones adicionales detectados en los grupos.</i>\n\n`;
   }
 
-  text += `══════\n▪ <i>Verificado en la comunidad exclusiva. Monitorea o investiga los usuarios sospechosos.</i>`;
+  text += `══════\n▪ <i>Verificado exclusivamente entre usuarios presentes en los grupos oficiales de la comunidad.</i>`;
 
   await ctx.reply(text, {
     parse_mode: 'HTML',
@@ -119,23 +218,39 @@ async function executeMultiRadar(ctx) {
 }
 
 /**
- * Radar de Rastrear Cuentas sin @ (Ghost / Burner accounts)
+ * Radar de Rastrear Cuentas sin @ (Ghost / Burner accounts).
+ * Filtra estrictamente solo usuarios que estén dentro de los grupos oficiales.
  */
 async function executeNoUsernameRadar(ctx) {
   const tenantId = ctx.tenant?.id || null;
   const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+  const groups = await db.getAllGroups(tenantId).catch(() => []);
+
+  if (!groups || groups.length === 0) {
+    return ctx.reply(
+      `⟡ <b>RADAR DE RASTREO</b> ⊱ <code>USUARIOS SIN ALIAS (@)</code> ⊰\n` +
+      `══════\n\n` +
+      `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n\n` +
+      `✗ <i>No hay grupos oficiales registrados para esta comunidad.</i>`,
+      { parse_mode: 'HTML', link_preview_options: { is_disabled: true } }
+    );
+  }
 
   await ctx.replyWithChatAction('typing');
 
-  const { users, total, totalCommunity } = await db.getUsersWithoutUsername(tenantId, 25);
+  // 1. Obtener candidatos y filtrar ÚNICAMENTE a los que están físicamente en los grupos oficiales
+  const candidates = await db.getCommunityUsers(tenantId);
+  const activeMembersInGroups = await getActiveMembersInCommunity(ctx.api, groups, candidates);
+
+  const { users, total, totalCommunity } = await db.getUsersWithoutUsername(tenantId, 25, activeMembersInGroups);
 
   if (!users || users.length === 0) {
     return ctx.reply(
       `⟡ <b>RADAR DE RASTREO</b> ⊱ <code>USUARIOS SIN ALIAS (@)</code> ⊰\n` +
       `══════\n\n` +
       `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n` +
-      `▸ <b>Total Comunidad:</b> <code>${totalCommunity}</code>\n\n` +
-      `✓ <i>Todos los usuarios registrados en esta comunidad cuentan con un @username público asignado.</i>`,
+      `▸ <b>Total Miembros en Grupos:</b> <code>${totalCommunity}</code>\n\n` +
+      `✓ <i>Todos los miembros presentes en los grupos oficiales cuentan con un @username público asignado.</i>`,
       {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
@@ -147,21 +262,22 @@ async function executeNoUsernameRadar(ctx) {
     `⟡ <b>RADAR DE RASTREO</b> ⊱ <code>USUARIOS SIN ALIAS (@)</code> ⊰\n` +
     `══════\n\n` +
     `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n` +
-    `▸ <b>Total sin @:</b> <b>${total}</b> (de <code>${totalCommunity}</code> miembros)\n\n` +
+    `▸ <b>Miembros en Grupos sin @:</b> <b>${total}</b> (de <code>${totalCommunity}</code> miembros activos)\n\n` +
     `──────\n\n`;
 
   for (let i = 0; i < users.length; i++) {
     const u = users[i];
     const targetName = escapeHtml(u.first_name || 'Sin nombre registrado');
-    text += `▸ <b>${i + 1}.</b> ${targetName} | <code>${u.user_id}</code> ⊰\n`;
+    const grpInfo = u.detectedGroupName ? ` | Grupo: <code>${escapeHtml(u.detectedGroupName)}</code>` : '';
+    text += `▸ <b>${i + 1}.</b> ${targetName} | <code>${u.user_id}</code> ⊰${grpInfo}\n`;
     text += `  ↳ <a href="tg://user?id=${u.user_id}">Ver Perfil en Telegram</a>\n`;
   }
 
   if (total > users.length) {
-    text += `\n▪ <i>Mostrando los primeros ${users.length} de ${total} usuarios sin @username.</i>\n`;
+    text += `\n▪ <i>Mostrando los primeros ${users.length} de ${total} miembros sin @username dentro de los grupos.</i>\n`;
   }
 
-  text += `\n══════\n▪ <i>Las cuentas sin @ son comúnmente empleadas como burner accounts para evasión de radar.</i>`;
+  text += `\n══════\n▪ <i>Verificado exclusivamente entre usuarios presentes en los grupos oficiales de la comunidad.</i>`;
 
   await ctx.reply(text, {
     parse_mode: 'HTML',
@@ -170,12 +286,14 @@ async function executeNoUsernameRadar(ctx) {
 }
 
 /**
- * Ejecución del Radar de Búsqueda Individual o por Palabras Cortas
+ * Ejecución del Radar de Búsqueda Individual o por Palabras Cortas.
+ * Filtra estrictamente solo usuarios que estén dentro de los grupos oficiales.
  */
 async function executeSearch(ctx, rawQuery) {
   const query = cleanSearchQuery(rawQuery);
   const tenantId = ctx.tenant?.id || null;
   const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+  const groups = await db.getAllGroups(tenantId).catch(() => []);
 
   if (!query) {
     return ctx.reply(
@@ -185,7 +303,7 @@ async function executeSearch(ctx, rawQuery) {
       `▸ <b>Búsqueda Natural:</b> <code>Búscame a [nombre, @user o ID]</code>\n` +
       `▸ <b>Multicuentas:</b> <code>Búscame a todas las cuentas multis que hay</code>\n` +
       `▸ <b>Cuentas sin @:</b> <code>Búscame a todo los que no tienen @</code>\n\n` +
-      `▪ <i>Optimizado con tolerancia a palabras cortas, nombres parciales y detección multi-tenant aislada.</i>\n\n` +
+      `▪ <i>Exclusivo para miembros presentes en los grupos oficiales registrados (${groups.length} grupos).</i>\n\n` +
       `${SYM.THIN_LINE}\n` +
       `▸ <b>Comandos Directos:</b>\n` +
       `• <code>/buscar [nombre, @ o ID]</code>\n` +
@@ -199,11 +317,10 @@ async function executeSearch(ctx, rawQuery) {
 
   const cleanNoAt = query.replace(/^@/, '').trim();
 
-  // 1. Buscar en la Comunidad Aislada (respetando tenantId)
+  // 1. Buscar coincidencias en la Comunidad Aislada (respetando tenantId)
   let results = await db.searchUsers(cleanNoAt, tenantId);
 
   // 1.5. Si no hay en BD o hay pocos resultados y estamos en el BOT PRINCIPAL, usar Userbot MTProto
-  // (IMPORTANTE: Nunca ejecutar userbot en sub-bots para preservar aislamiento estricto)
   if (!tenantId && userbot.isConnected()) {
     try {
       const ubResults = await userbot.searchCommunityUsers(cleanNoAt);
@@ -220,22 +337,6 @@ async function executeSearch(ctx, rawQuery) {
     }
   }
 
-  // 2. Revisar en la Lista Negra / Quemados si no se encontró en la comunidad
-  if (!results || results.length === 0) {
-    try {
-      const burnedInfo = await db.getBurnedUserInfo(cleanNoAt);
-      if (burnedInfo) {
-        results = [{
-          user_id: Number(burnedInfo.user_id),
-          username: burnedInfo.username || null,
-          first_name: burnedInfo.first_name || 'Estafador Fichado',
-          is_burned: true,
-          in_database: true,
-        }];
-      }
-    } catch {}
-  }
-
   if (!results || results.length === 0) {
     return ctx.reply(
       `⟡ <b>RADAR DE RASTREO</b> ⊱ <code>SIN RESULTADOS</code> ⊰\n` +
@@ -243,68 +344,46 @@ async function executeSearch(ctx, rawQuery) {
       `✗ <i>No se localizaron coincidencias para:</i> <code>${escapeHtml(query)}</code>\n` +
       `▸ <b>Comunidad analizada:</b> <code>${escapeHtml(communityName)}</code>\n\n` +
       `──────\n` +
-      `▪ <i>Verifica que el nombre o @username esté bien escrito. Puedes buscar por nombre, alias (@user), palabra clave o ID numérico.</i>`,
+      `▪ <i>Verifica que el nombre o @username esté bien escrito.</i>`,
       { parse_mode: 'HTML' }
     );
   }
 
-  // Enriquecer resultados con estado de pertenencia a los grupos de este tenant
-  const groups = await db.getAllGroups(tenantId).catch(() => []);
+  // 2. Comprobar membresía activa: ÚNICAMENTE usuarios presentes en los grupos oficiales
   const finalResults = [];
 
   for (const user of results) {
-    let isInActiveGroup = false;
-    let detectedGroupName = null;
+    const { inGroup, groupTitle } = await checkUserInOfficialGroups(ctx.api, groups, user.user_id);
 
-    for (const grp of groups) {
-      if (!grp.chat_id) continue;
-      try {
-        const member = await ctx.api.getChatMember(grp.chat_id, user.user_id);
-        if (['member', 'administrator', 'creator', 'restricted'].includes(member.status)) {
-          isInActiveGroup = true;
-          detectedGroupName = grp.title || grp.group_name || null;
-          break;
-        }
-      } catch {}
-    }
-
-    let isDbUser = !!user.in_database;
-    if (!isDbUser) {
-      try {
-        const existing = await db.getUser(user.user_id);
-        if (existing) isDbUser = true;
-      } catch {}
-    }
-
-    let communityStatus = '';
-    let communityShortStatus = '';
-    if (isInActiveGroup) {
-      communityStatus = `[ ACTIVO ] (Miembro en: <code>${escapeHtml(detectedGroupName || 'Grupo Oficial')}</code>)`;
-      communityShortStatus = '✓ En Comunidad';
-    } else if (isDbUser) {
-      communityStatus = '[ REGISTRADO ] (Base de Datos)';
-      communityShortStatus = '✓ Registrado';
-    } else if (user.is_burned) {
-      communityStatus = '[ LISTA NEGRA ] (Fichado como Estafador)';
-      communityShortStatus = '✗ Lista Negra';
-    } else {
-      communityStatus = '[ EXTERNO ] (Usuario Externo de Telegram)';
-      communityShortStatus = 'Externo';
+    // REGLA ESTRICTA: Ignorar a cualquiera que no esté dentro de ningún grupo oficial de este tenant
+    if (!inGroup) {
+      continue;
     }
 
     if (!finalResults.find((u) => Number(u.user_id) === Number(user.user_id))) {
       finalResults.push({
         ...user,
-        isInActiveGroup,
-        detectedGroupName,
-        isDbUser,
-        communityStatus,
-        communityShortStatus,
+        isInActiveGroup: true,
+        detectedGroupName: groupTitle,
+        communityShortStatus: '✓ En Grupo Oficial',
       });
     }
   }
 
-  // Ordenar por relevancia inteligente (coincidencia de prefijo, exacto, pertenencia a comunidad)
+  if (finalResults.length === 0) {
+    return ctx.reply(
+      `⟡ <b>RADAR DE RASTREO</b> ⊱ <code>SIN RESULTADOS EN GRUPOS</code> ⊰\n` +
+      `══════\n\n` +
+      `✗ <i>No se localizó a ningún miembro activo <b>dentro de los grupos oficiales</b> para:</i> <code>${escapeHtml(query)}</code>\n` +
+      `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n` +
+      `▸ <b>Grupos Verificados:</b> <code>${groups.length}</code>\n\n` +
+      `──────\n` +
+      `▪ <i>El radar únicamente muestra usuarios que pertenezcan activamente a los grupos oficiales de la comunidad.</i>`,
+      { parse_mode: 'HTML' }
+    );
+  }
+
+  // Ordenar por relevancia inteligente
   const cleanNorm = query.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   const queryWords = cleanNorm.split(/\s+/).filter(Boolean);
   const queryNoSpaces = cleanNorm.replace(/[\s_\-\.]+/g, '');
@@ -331,8 +410,6 @@ async function executeSearch(ctx, rawQuery) {
 
     // Pertenencia a la comunidad
     if (u.isInActiveGroup) s += 80;
-    if (u.isDbUser) s += 50;
-    if (u.is_burned) s += 30;
 
     // Penalizar cuentas de bot
     if (normUser.endsWith('bot')) s -= 120;
@@ -342,7 +419,6 @@ async function executeSearch(ctx, rawQuery) {
 
   finalResults.sort((a, b) => calculateUserScore(b) - calculateUserScore(a));
 
-  // Mostrar el primer resultado en Modo Furtivo con detalles completos
   const firstUser = finalResults[0];
   const requesterName = ctx.from?.first_name || 'amigo';
   const targetName = escapeHtml(firstUser.first_name || 'Sin nombre registrado');
@@ -357,12 +433,12 @@ async function executeSearch(ctx, rawQuery) {
     `▸ <b>Nombre:</b> ${targetName}\n` +
     `▸ <b>ID:</b> <code>${firstUser.user_id}</code>\n` +
     `▸ <b>User:</b> ${targetUsername}\n` +
-    `▸ <b>Estado:</b> <i>${firstUser.communityShortStatus || 'Registrado'}</i>\n` +
+    `▸ <b>Ubicación:</b> <code>${escapeHtml(firstUser.detectedGroupName || 'Grupo Oficial')}</code>\n` +
+    `▸ <b>Estado:</b> <i>${firstUser.communityShortStatus || '✓ En Grupo'}</i>\n` +
     `▸ <b>Link:</b> <a href="tg://user?id=${firstUser.user_id}">Presiona aquí</a>`;
 
-  // Si hay más coincidencias, desplegar lista compacta de las demás encontradas
   if (finalResults.length > 1) {
-    replyText += `\n\n${SYM.THIN_LINE}\n▸ <b>Otras coincidencias encontradas (${finalResults.length - 1}):</b>\n`;
+    replyText += `\n\n${SYM.THIN_LINE}\n▸ <b>Otras coincidencias en los grupos (${finalResults.length - 1}):</b>\n`;
     const others = finalResults.slice(1, 6);
     for (const other of others) {
       const oName = escapeHtml(other.first_name || 'Sin nombre');
@@ -370,7 +446,7 @@ async function executeSearch(ctx, rawQuery) {
       replyText += `• ${oName} | ${oUser} | <code>${other.user_id}</code> ⊰\n`;
     }
     if (finalResults.length > 6) {
-      replyText += `▪ <i>... y ${finalResults.length - 6} coincidencias adicionales.</i>\n`;
+      replyText += `▪ <i>... y ${finalResults.length - 6} coincidencias más dentro de los grupos.</i>\n`;
     }
   }
 
@@ -386,10 +462,7 @@ async function executeSearch(ctx, rawQuery) {
 async function routeSearch(ctx, rawText) {
   const text = (rawText || '').trim();
 
-  // Patrón de Multicuentas y Clones
   const isMultiQuery = /(?:cuentas?\s+multis?|multicuentas|multis|clones|posibles\s+clones)/i.test(text);
-
-  // Patrón de Cuentas sin @
   const isNoAtQuery = /(?:sin\s*@|sin\s+arroba|sin\s+username|sin\s+alias|que\s+no\s+tienen\s+@)/i.test(text);
 
   if (isMultiQuery) {
@@ -426,6 +499,11 @@ function register(bot) {
 
   // ── Listener de Lenguaje Natural Exclusivo para Owners y Staff Autorizado ──
   bot.on('message:text', async (ctx, next) => {
+    // Si el mensaje se envió en un grupo oficial, cachear de inmediato al emisor como miembro activo
+    if (ctx.chat && (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') && ctx.from?.id) {
+      markMemberInGroup(ctx.chat.id, ctx.from.id, true, ctx.chat.title);
+    }
+
     const text = (ctx.message?.text || '').trim();
     if (!text || text.startsWith('/')) return next();
 
@@ -551,4 +629,5 @@ module.exports = {
   executeSearch,
   executeMultiRadar,
   executeNoUsernameRadar,
+  markMemberInGroup,
 };

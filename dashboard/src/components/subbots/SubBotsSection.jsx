@@ -37,6 +37,7 @@ const initialCreateForm = {
   verifyWebUrl: '',
 
   // 3. Staff & Logs
+  staffInviteLink: '',
   staffChatId: '',
   staffThreadId: '',
   logChannelId: '',
@@ -91,6 +92,7 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
       groupsFolderLink: bot.groups_folder_link || '',
       verifyWebUrl: cs.verify_web_url || '',
 
+      staffInviteLink: cs.staff_invite_link || '',
       staffChatId: bot.staff_chat_id || '',
       staffThreadId: bot.staff_thread_id || '',
       logChannelId: bot.log_channel_id || '',
@@ -272,6 +274,26 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                             <span>Iniciar</span>
                           </button>
                         )}
+                        <a
+                          href={`/portal/?slug=${encodeURIComponent(b.bot_username || b.id)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-secondary btn-sm"
+                          style={{ textDecoration: 'none' }}
+                          title="Ver Web Pública del Sub-Bot (Blanco y Negro)"
+                        >
+                          <span>Web B&W</span>
+                        </a>
+                        <a
+                          href={`/portal/?slug=${encodeURIComponent(b.bot_username || b.id)}&view=admin`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-secondary btn-sm"
+                          style={{ textDecoration: 'none' }}
+                          title="Panel Admin del Sub-Bot"
+                        >
+                          <span>Admin</span>
+                        </a>
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => handleOpenEdit(b)}
@@ -448,6 +470,18 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                 {/* Tab 3: Staff & Logs */}
                 {createActiveTab === 'staff_logs' && (
                   <>
+                    <div className="form-group">
+                      <label className="form-label">Enlace de Invitación al Grupo de Staff (Telegram)</label>
+                      <input
+                        type="url"
+                        placeholder="https://t.me/+IEooR3P..."
+                        className="input-field"
+                        value={createForm.staffInviteLink}
+                        onChange={(e) => setCreateForm({ ...createForm, staffInviteLink: e.target.value })}
+                      />
+                      <span className="form-hint">Este enlace se enviará por mensaje privado al nuevo miembro cuando el Owner use /promote en el sub-bot.</span>
+                    </div>
+
                     <div className="form-grid-2">
                       <div className="form-group">
                         <label className="form-label">ID de Chat de Staff (Grupo Administrativo)</label>
@@ -821,6 +855,18 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                 {/* Tab 3: Staff & Logs */}
                 {editActiveTab === 'staff_logs' && (
                   <>
+                    <div className="form-group">
+                      <label className="form-label">Enlace de Invitación al Grupo de Staff (Telegram)</label>
+                      <input
+                        type="url"
+                        placeholder="https://t.me/+IEooR3P..."
+                        className="input-field"
+                        value={editForm.staffInviteLink}
+                        onChange={(e) => setEditForm({ ...editForm, staffInviteLink: e.target.value })}
+                      />
+                      <span className="form-hint">Enlace que recibe el staff en DM al ser promovido.</span>
+                    </div>
+
                     <div className="form-grid-2">
                       <div className="form-group">
                         <label className="form-label">ID de Chat de Staff</label>

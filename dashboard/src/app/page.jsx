@@ -10,6 +10,7 @@ import GbanSection from '../components/gban/GbanSection';
 import SubBotsSection from '../components/subbots/SubBotsSection';
 import GroupsSection from '../components/groups/GroupsSection';
 import LandingPage from '../components/landing/LandingPage';
+import SubBotPortal from '../components/portal/SubBotPortal';
 import {
   IconUsers,
   IconScale,
@@ -33,7 +34,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (window.location.hash.includes('admin') || window.location.pathname.includes('portal')) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('slug') || params.has('bot') || window.location.pathname.startsWith('/portal')) {
+        setViewMode('portal');
+      } else if (window.location.hash.includes('admin') || window.location.pathname.includes('portal')) {
         setViewMode('admin');
       }
     }
@@ -274,6 +278,11 @@ export default function DashboardPage() {
       addToast(err.message, 'error');
     }
   };
+
+  // Si está en modo Portal de Sub-Bot (Público de Canales o Admin B&W)
+  if (viewMode === 'portal') {
+    return <SubBotPortal onBackToMain={() => setViewMode('landing')} />;
+  }
 
   // Si está en modo Landing Page pública
   if (viewMode === 'landing') {

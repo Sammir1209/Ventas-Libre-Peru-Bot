@@ -71,6 +71,24 @@ function createWebApp(mainBot = null) {
     }
   });
 
+  // ── 3.1 Portal de Sub-Bots Next.js (Público de Canales y Admin B&W) ──
+  app.get(['/portal', '/portal/*', '/c/:slug'], (req, res) => {
+    const portalHtml = path.join(staticRoot, 'portal', 'index.html');
+    const portalDirectHtml = path.join(staticRoot, 'portal.html');
+    const indexHtml = path.join(staticRoot, 'index.html');
+
+    if (fs.existsSync(portalHtml)) {
+      return res.sendFile(portalHtml);
+    }
+    if (fs.existsSync(portalDirectHtml)) {
+      return res.sendFile(portalDirectHtml);
+    }
+    if (fs.existsSync(indexHtml)) {
+      return res.sendFile(indexHtml);
+    }
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+
   // ── 4. Montar la Nueva API REST Modular ──
   app.use('/api', apiRoutes);
   app.use(apiPrefix, apiRoutes); // Alias para compatibilidad con scripts existentes

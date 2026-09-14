@@ -42,6 +42,7 @@ async function enrichBotOwners(b) {
   return {
     ...b,
     bot_token_masked: maskToken(b.bot_token),
+    staff_invite_link: b.custom_settings?.staff_invite_link || null,
     is_running: isRunning,
     started_at: runtimeInfo ? runtimeInfo.startedAt : null,
     owners_details: ownersDetails,
@@ -171,6 +172,7 @@ async function createSubBot(data) {
     anti_links: data.antiLinks !== undefined ? Boolean(data.antiLinks) : true,
     welcome_message: data.welcomeMessage || data.custom_settings?.welcome_message || '',
     verify_web_url: data.verifyWebUrl || data.custom_settings?.verify_web_url || '',
+    staff_invite_link: (data.staffInviteLink || data.staff_invite_link || data.custom_settings?.staff_invite_link || '').trim() || null,
   };
 
   const resolvedOwnerIds = await resolveOwnerIds(data.ownerIds || data.owner_ids);
@@ -303,6 +305,9 @@ async function updateSubBot(id, updates = {}) {
   if (updates.antiLinks !== undefined) updatedSettings.anti_links = Boolean(updates.antiLinks);
   if (updates.welcomeMessage !== undefined) updatedSettings.welcome_message = updates.welcomeMessage;
   if (updates.verifyWebUrl !== undefined) updatedSettings.verify_web_url = updates.verifyWebUrl;
+  if (updates.staffInviteLink !== undefined || updates.staff_invite_link !== undefined) {
+    updatedSettings.staff_invite_link = (updates.staffInviteLink || updates.staff_invite_link || '').trim() || null;
+  }
 
   payload.custom_settings = updatedSettings;
 
@@ -360,6 +365,105 @@ async function deleteSubBot(id) {
   return await db.deleteSubBot(id);
 }
 
+/**
+ * Busca un sub-bot por slug (id o bot_username con o sin @)
+ */
+async function getSubBotBySlug(slug) {
+  if (!slug) return null;
+  const clean = String(slug).trim().replace(/^@/, '').toLowerCase();
+  
+  // Buscar por ID si es UUID
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)) {
+    const b = await db.getSubBotById(clean);
+    if (b) return await enrichBotOwners(b);
+  }
+
+  const all = await db.getAllSubBots();
+  for (const b of all) {
+    const uname = (b.bot_username || '').replace(/^@/, '').toLowerCase();
+    if (uname === clean || b.id === clean) {
+      return await enrichBotOwners(b);
+    }
+  }
+  return null;
+}
+
+/**
+ * Retorna la información pública para la Landing de Verificación en Blanco y Negro del Sub-Bot
+ */
+async function getPublicLandingData(slug) {
+  const b = await getSubBotBySlug(slug);
+  if (!b) return null;
+
+  const rawChannels = Array.isArray(b.channels_to_verify) ? b.channels_to_verify : [];
+  const channels = [];
+
+  for (const ch of rawChannels) {
+    const chStr = String(ch).trim();
+    if (!chStr) continue;
+    let url = chStr;
+    let name = chStr;
+    if (chStr.startsWith('@')) {
+      url = `https://t.me/${chStr.replace(/^@/, '')}`;
+      name = chStr;
+    } else if (!chStr.startsWith('http')) {
+      url = `https://t.me/${chStr}`;
+    }
+    channels.push({
+      identifier: chStr,
+      name: name,
+      url: url,
+    });
+  }
+
+  return {
+    ok: true,
+    id: b.id,
+    bot_username: b.bot_username,
+    community_name: b.community_name || 'Comunidad Oficial',
+    channels: channels,
+    groups_folder_link: b.groups_folder_link || null,
+    welcome_message: b.custom_settings?.welcome_message || null,
+    staff_invite_link: b.custom_settings?.staff_invite_link || null,
+  };
+}
+
+/**
+ * Obtiene el staff de un sub-bot
+ */
+async function getTenantStaff(tenantId) {
+  if (!tenantId) return [];
+  const staff = await db.getAllStaff(tenantId);
+  return staff || [];
+}
+
+/**
+ * Actualiza o agrega un miembro al staff del sub-bot
+ */
+async function updateTenantStaff(tenantId, { userId, username, firstName, role, customTitle, assignedBy }) {
+  if (!tenantId || !userId) throw new Error('Tenant ID y User ID son requeridos.');
+  const numId = Number(userId);
+  const staff = await db.setStaffRole(
+    numId,
+    username || null,
+    firstName || 'Staff',
+    role || 'ADMIN',
+    assignedBy || numId,
+    customTitle || role || 'Staff',
+    tenantId
+  );
+  return staff;
+}
+
+/**
+ * Remueve a un miembro del staff de este sub-bot
+ */
+async function removeTenantStaff(tenantId, userId) {
+  if (!tenantId || !userId) throw new Error('Tenant ID y User ID son requeridos.');
+  await db.removeStaff(Number(userId), tenantId);
+  return true;
+}
+
 module.exports = {
   listSubBots,
   getSubBot,
@@ -367,4 +471,9 @@ module.exports = {
   updateSubBot,
   executeAction,
   deleteSubBot,
+  getSubBotBySlug,
+  getPublicLandingData,
+  getTenantStaff,
+  updateTenantStaff,
+  removeTenantStaff,
 };

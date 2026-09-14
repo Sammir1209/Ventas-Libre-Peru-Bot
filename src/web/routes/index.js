@@ -9,6 +9,7 @@ const gbanRoutes = require('./gban.routes');
 const subbotsRoutes = require('./subbots.routes');
 const groupsRoutes = require('./groups.routes');
 const statsRoutes = require('./stats.routes');
+const portalRoutes = require('./portal.routes');
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use('/gban', gbanRoutes);
 router.use('/subbots', subbotsRoutes);
 router.use('/groups', groupsRoutes);
 router.use('/stats', statsRoutes);
+router.use('/portal', portalRoutes);
 
 module.exports = router;

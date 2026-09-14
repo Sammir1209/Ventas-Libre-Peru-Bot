@@ -179,11 +179,12 @@ function register(bot) {
         );
       }
 
-      // Obtener roles actuales del usuario en BD
+      // Obtener roles actuales del usuario en BD respetando el tenant del bot actual
       let currentRoles = [];
       let currentTitle = null;
+      const tenantId = ctx.tenant?.id || null;
       try {
-        const staffMember = await db.getStaffMember(target.userId);
+        const staffMember = await db.getStaffMember(target.userId, tenantId);
         if (staffMember && staffMember.role) {
           currentRoles = staffMember.role
             .split(',')
@@ -193,8 +194,9 @@ function register(bot) {
         }
       } catch { }
 
-      // Si no tiene roles y es owner en .env
-      if (currentRoles.length === 0 && config.OWNER_IDS.includes(target.userId)) {
+      // Si no tiene roles y es owner en este bot/sub-bot
+      const effectiveOwners = ctx.tenant?.owner_ids || config.OWNER_IDS || [];
+      if (currentRoles.length === 0 && effectiveOwners.some((id) => Number(id) === Number(target.userId))) {
         currentRoles = ['OWNER'];
       }
 
@@ -227,6 +229,7 @@ function register(bot) {
           masterMessageId: masterMsg.message_id,
           chatId: ctx.chat.id,
           step: 'SELECT_ROLES',
+          tenantId: tenantId,
         },
         600
       );
@@ -549,11 +552,74 @@ function register(bot) {
   bot.command(['web', 'panel', 'dashboard'], async (ctx) => {
     try {
       const senderId = ctx.from.id;
+      const tenantId = ctx.tenant?.id || null;
+      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+
+      // ── MODO SUB-BOT: Acceso al Portal Dedicado en Blanco y Negro ──
+      if (tenantId && ctx.tenant) {
+        const effectiveOwners = ctx.tenant.owner_ids || [];
+        const isTenantOwner = effectiveOwners.some((id) => Number(id) === Number(senderId));
+        let hasTenantPerm = isTenantOwner;
+
+        if (!hasTenantPerm) {
+          const staffMember = await db.getStaffMember(senderId, tenantId);
+          if (staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER'))) {
+            hasTenantPerm = true;
+          }
+        }
+
+        if (ctx.chat.type !== 'private') {
+          try { await ctx.deleteMessage(); } catch {}
+        }
+
+        if (!hasTenantPerm) {
+          if (ctx.chat.type === 'private') {
+            return ctx.reply('⚠️ <i>Este comando es exclusivo para los Owners autorizados de este sub-bot.</i>', { parse_mode: 'HTML' });
+          }
+          return;
+        }
+
+        // Generar token para el portal del sub-bot
+        const panelHandler = require('../security/panelHandler');
+        const token = await panelHandler.generatePanelToken(senderId, 'OWNER SUB-BOT', true);
+        const subBotSlug = ctx.tenant.bot_username || ctx.tenant.id;
+        const tenantAdminUrl = `${domain}/portal/${subBotSlug}/admin?token=${token}`;
+        const publicLandingUrl = `${domain}/portal/${subBotSlug}`;
+
+        const subBotMsg =
+          `⟡ <b>PANEL ADMINISTRATIVO</b> ⊱ <code>${escapeHtml(ctx.tenant.community_name)}</code> ⊰\n` +
+          `══════\n\n` +
+          `Hola <b>${escapeHtml(ctx.from.first_name)}</b>, aquí tienes el acceso a tu portal web exclusivo:\n\n` +
+          `🌐 <b>Tu Panel de Administración (Staff y Ajustes):</b>\n` +
+          `<a href="${tenantAdminUrl}">👉 <b>[ ABRIR PANEL DE CONTROL ]</b></a>\n` +
+          `<code>${tenantAdminUrl}</code>\n\n` +
+          `🔗 <b>Tu Landing Web Pública de Canales:</b>\n` +
+          `<code>${publicLandingUrl}</code>\n\n` +
+          `──────\n` +
+          `▪ <i>Diseño exclusivo Monocromático (Blanco y Negro). Gestiona tu staff y enlaces directamente en la web.</i>`;
+
+        try {
+          await ctx.api.sendMessage(senderId, subBotMsg, { parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
+          if (ctx.chat.type !== 'private') {
+            const sent = await ctx.reply(`👑 <i>${escapeHtml(ctx.from.first_name)}, te he enviado el enlace a tu Panel Web por privado.</i>`, { parse_mode: 'HTML' });
+            setTimeout(() => ctx.api.deleteMessage(ctx.chat.id, sent.message_id).catch(() => {}), 6000);
+          }
+        } catch {
+          if (ctx.chat.type !== 'private') {
+            await ctx.reply(`⚠️ <i>No pude enviarte los datos por privado. Inicia el bot en privado primero (/start) y vuelve a ejecutar /panel.</i>`, { parse_mode: 'HTML' });
+          } else {
+            await ctx.reply(subBotMsg, { parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
+          }
+        }
+        return;
+      }
+
+      // ── MODO BOT PRINCIPAL: Portal Maestro Ventas Libres Perú ──
       const isOwner = config.OWNER_IDS.includes(senderId) || senderId === 7849224682 || senderId === 7794982496;
       let hasPerm = isOwner;
 
       if (!hasPerm) {
-        const staffMember = await db.getStaffMember(senderId);
+        const staffMember = await db.getStaffMember(senderId, null);
         if (staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER'))) {
           hasPerm = true;
         }
@@ -571,7 +637,6 @@ function register(bot) {
         return;
       }
 
-      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
       const secretUrl = `${domain}${config.DASHBOARD_PATH}`;
       const masterKey = config.ADMIN_KEY;
 
@@ -751,8 +816,16 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
     `──────\n` +
     `🛡️ <i>Promovido por: ${adminMention}</i>`;
 
-  // 3. Registrar en Redis al nuevo promovido para darle la bienvenida especial cuando ingrese al grupo de Staff
-  const STAFF_INVITE_LINK = 'https://t.me/+IEooR3P_yHVhZTc0';
+  // 3. Determinar enlace del grupo de Staff y nombre de la comunidad
+  const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+  let staffInviteLink = null;
+  if (tenantId && ctx.tenant) {
+    staffInviteLink = ctx.tenant.custom_settings?.staff_invite_link || ctx.tenant.groups_folder_link || null;
+  } else {
+    staffInviteLink = config.STAFF_INVITE_LINK || 'https://t.me/+IEooR3P_yHVhZTc0';
+  }
+
+  // 4. Registrar en Redis al nuevo promovido para bienvenida al entrar
   await redisDb.setCache(
     `recent_staff_promoted:${targetId}`,
     {
@@ -771,29 +844,33 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
     86400 * 7 // Disponible durante 7 días
   );
 
-  // 4. Enviar Mensaje Directo (DM / MD) de Bienvenida al nuevo miembro del Staff con el enlace oficial
+  // 5. Enviar Mensaje Directo (DM / MD) de Bienvenida con enlace oficial de staff correspondiente
   try {
-    const dmWelcome =
+    let dmWelcome =
       `⟡ <b>EQUIPO OFICIAL</b> ⊱ <code>BIENVENIDA AL STAFF</code> ⊰\n` +
       `══════\n\n` +
-      `Hola <b>${nameFormatted}</b>, has sido designado oficialmente como parte del equipo de administración de <b>Ventas Libres Perú</b>.\n\n` +
+      `Hola <b>${nameFormatted}</b>, has sido designado oficialmente como parte del equipo de administración de <b>${escapeHtml(communityName)}</b>.\n\n` +
       `▸ <b>Jerarquía / Roles:</b> <code>${rolesStr}</code>\n` +
       `▸ <b>Distintivo Oficial:</b> <code>${escapeHtml(customTag)}</code>\n` +
       `▸ <b>Asignado por:</b> ${adminMention}\n\n` +
-      `──────\n` +
-      `🛡️ <b>Únete de inmediato al Grupo Oficial del Staff:</b>\n` +
-      `👉 <a href="${STAFF_INVITE_LINK}"><b>[ ENTRAR AL GRUPO DE STAFF ]</b></a>\n\n` +
-      `<i>¡Bienvenido al Staff de Ventas Libres Perú! Compromiso, honorabilidad y seguridad para la comunidad.</i>`;
+      `──────\n`;
 
-    const dmKeyboard = new InlineKeyboard()
-      .url('🛡️ UNIRSE AL GRUPO DE STAFF', STAFF_INVITE_LINK);
+    const dmKeyboard = new InlineKeyboard();
+    if (staffInviteLink) {
+      dmWelcome +=
+        `🛡️ <b>Únete de inmediato al Grupo Oficial del Staff:</b>\n` +
+        `👉 <a href="${staffInviteLink}"><b>[ ENTRAR AL GRUPO DE STAFF ]</b></a>\n\n`;
+      dmKeyboard.url('🛡️ UNIRSE AL GRUPO DE STAFF', staffInviteLink);
+    }
+
+    dmWelcome += `<i>¡Bienvenido al Staff de ${escapeHtml(communityName)}! Compromiso, honorabilidad y seguridad para la comunidad.</i>`;
 
     await ctx.api.sendMessage(targetId, dmWelcome, {
       parse_mode: 'HTML',
-      reply_markup: dmKeyboard,
+      reply_markup: dmKeyboard.inline_keyboard.length > 0 ? dmKeyboard : undefined,
     });
   } catch (dmErr) {
-    console.warn(`⟡ Staff DM: No se pudo enviar MD de bienvenida a ${targetId} (quizás no ha iniciado el bot en privado):`, dmErr.message);
+    console.warn(`⟡ Staff DM: No se pudo enviar MD de bienvenida a ${targetId}:`, dmErr.message);
   }
 
   if (customMasterId) {
