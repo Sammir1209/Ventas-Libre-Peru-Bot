@@ -442,12 +442,11 @@ function burnAlertBroadcast(targetId, context = null, targetUsername = null, tar
   return text;
 }
 
-function formatStaffUser(username, userId, firstName = null, customTitle = null) {
+function formatStaffUser(username, userId) {
   const cleanUser = username ? String(username).replace(/^@/, '').trim() : null;
   const userTag = cleanUser ? `@${escapeHtml(cleanUser)}` : `<a href="tg://user?id=${userId}">Perfil</a>`;
   const idTag = userId ? `<code>${userId}</code>` : '';
-  const titleTag = customTitle ? ` ⊱ <i>${escapeHtml(customTitle)}</i> ⊰` : '';
-  return `${userTag}${titleTag} | ${idTag}`;
+  return `${userTag} | ${idTag}`;
 }
 
 function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
@@ -458,7 +457,7 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   output += `⟡ <b>𝐎𝐖𝐍𝐄𝐑𝐒 (Propietarios)</b>\n`;
   if (groupedStaff.owners && groupedStaff.owners.length > 0) {
     for (const m of groupedStaff.owners) {
-      output += `▸ ${formatStaffUser(m.username, m.user_id, m.first_name, m.custom_title)}\n`;
+      output += `▸ ${formatStaffUser(m.username, m.user_id)}\n`;
     }
   } else {
     output += `<i>• No registrados</i>\n`;
@@ -468,7 +467,7 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   output += `◈ <b>𝐂𝐎-𝐎𝐖𝐍𝐄𝐑𝐒</b>\n`;
   if (groupedStaff.coowners && groupedStaff.coowners.length > 0) {
     for (const m of groupedStaff.coowners) {
-      output += `▸ ${formatStaffUser(m.username, m.user_id, m.first_name, m.custom_title)}\n`;
+      output += `▸ ${formatStaffUser(m.username, m.user_id)}\n`;
     }
   } else {
     output += `<i>• No registrados</i>\n`;
@@ -478,7 +477,7 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   output += `✦ <b>𝐀𝐃𝐌𝐈𝐍𝐈𝐒𝐓𝐑𝐀𝐃𝐎𝐑𝐄𝐒</b>\n`;
   if (groupedStaff.admins && groupedStaff.admins.length > 0) {
     for (const m of groupedStaff.admins) {
-      output += `▸ ${formatStaffUser(m.username, m.user_id, m.first_name, m.custom_title)}\n`;
+      output += `▸ ${formatStaffUser(m.username, m.user_id)}\n`;
     }
   } else {
     output += `<i>• No registrados</i>\n`;
@@ -489,7 +488,7 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   if (groupedStaff.dealAdmins && groupedStaff.dealAdmins.length > 0) {
     for (const m of groupedStaff.dealAdmins) {
       const score = m.avgRating ? `${m.avgRating}/5.0 ★` : `5.0/5.0 ★`;
-      output += `▸ ${formatStaffUser(m.username, m.user_id, m.first_name, m.custom_title)} ⊱ ${score} ⊰\n`;
+      output += `▸ ${formatStaffUser(m.username, m.user_id)} ⊱ ${score} ⊰\n`;
     }
   } else {
     output += `<i>• No registrados</i>\n`;
