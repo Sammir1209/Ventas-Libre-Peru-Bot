@@ -71,8 +71,12 @@ function createWebApp(mainBot = null) {
     }
   });
 
-  // ── 3.1 Portal de Sub-Bots Next.js (Público de Canales y Admin B&W) ──
-  app.get(['/portal', '/portal/*', '/c/:slug'], (req, res) => {
+  // ── 4. Montar la Nueva API REST Modular ──
+  app.use('/api', apiRoutes);
+  app.use(apiPrefix, apiRoutes); // Alias para compatibilidad con scripts existentes
+
+  // ── 4.1 Portal de Sub-Bots Next.js (Público de Canales y Admin B&W) ──
+  app.use(['/portal', '/c'], (req, res) => {
     const portalHtml = path.join(staticRoot, 'portal', 'index.html');
     const portalDirectHtml = path.join(staticRoot, 'portal.html');
     const indexHtml = path.join(staticRoot, 'index.html');
@@ -88,10 +92,6 @@ function createWebApp(mainBot = null) {
     }
     res.sendFile(path.join(publicDir, 'index.html'));
   });
-
-  // ── 4. Montar la Nueva API REST Modular ──
-  app.use('/api', apiRoutes);
-  app.use(apiPrefix, apiRoutes); // Alias para compatibilidad con scripts existentes
 
   // ── 5. Endpoints Especiales de Autenticación y Branding ──
 
