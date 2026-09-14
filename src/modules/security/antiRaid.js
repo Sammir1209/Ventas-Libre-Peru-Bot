@@ -5,9 +5,9 @@ const { SYM } = require('../../config/constants');
 const { escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ ESCUDO ANTI-RAID & LOCKDOWN EN TIEMPO REAL (DEFCON 1)
-// ══════════════════════════════════════════════════════
+// ══════
 
 // Ring buffer en memoria para detección a velocidad de milisegundos
 const joinHistory = new Map(); // chatId -> Array of timestamps { time, userId, username, firstName }

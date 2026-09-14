@@ -2,9 +2,9 @@ const config = require('../config/env');
 const db = require('../database/postgres');
 const redisDb = require('../database/redis');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Middleware Anti-Spam (Con Bypass para Owners y Staff)
-// ══════════════════════════════════════════════════════
+// ══════
 
 function antiSpam(windowSeconds = 10, maxActions = 20) {
   return async (ctx, next) => {

@@ -1,9 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Script de Migración Manual
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function runMigrations() {
   require('dotenv').config();

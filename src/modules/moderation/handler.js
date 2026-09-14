@@ -8,9 +8,9 @@ const logger = require('./logger');
 const sentinel = require('./sentinel');
 const { resolveTargetAndArgs, parseDuration } = sentinel;
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Módulo: Comandos de Moderación Universal y Seguridad
-// ══════════════════════════════════════════════════════
+// ══════
 
 function register(bot) {
   // Registrar subsistema Centinela
@@ -86,12 +86,12 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>USUARIO BANEADO</b> ⊱ <code>SANCIÓN PERMANENTE</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
         `▸ <b>Moderador:</b> ${adminMention}\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `🚫 <i>El usuario ha sido expulsado y bloqueado definitivamente del grupo.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -116,7 +116,7 @@ function register(bot) {
       if (!target || target.unresolved) {
         return ctx.reply(
           `⟡ <b>DESBANEAR USUARIO</b> ⊱ <code>USO DEL COMANDO</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n` +
+          `══════\n` +
           `▸ <b>Uso:</b> <code>/unban [@usuario / ID / Responder]</code>`,
           { parse_mode: 'HTML' }
         );
@@ -128,11 +128,11 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>USUARIO DESBANEADO</b> ⊱ <code>ACCESO RESTABLECIDO</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Moderador:</b> @${ctx.from.username || ctx.from.first_name}\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `✓ <i>El usuario puede volver a unirse a la comunidad.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -157,7 +157,7 @@ function register(bot) {
       if (!target || target.unresolved) {
         return ctx.reply(
           `⟡ <b>SILENCIAR USUARIO</b> ⊱ <code>MODO MUTE</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Uso:</b> <code>/mute [@usuario / ID / Responder] [Tiempo] [Motivo]</code>\n\n` +
           `⏱️ <b>Formatos de Tiempo Soportados:</b>\n` +
           `• <code>1s</code>, <code>30s</code> (Segundos)\n` +
@@ -165,7 +165,7 @@ function register(bot) {
           `• <code>1h</code>, <code>12h</code> (Horas)\n` +
           `• <code>1d</code>, <code>7d</code> (Días)\n` +
           `• <code>1w</code> (Semanas) | <code>1y</code> (Años)\n\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `💡 <i>Ejemplo: <code>/mute @usuario 1h Spam en el chat</code></i>`,
           { parse_mode: 'HTML' }
         );
@@ -207,13 +207,13 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>USUARIO SILENCIADO</b> ⊱ <code>MODO MUTE</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Duración:</b> <code>${durationInfo.humanReadable}</code>\n` +
         `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
         `▸ <b>Moderador:</b> ${adminMention}\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `🤐 <i>Permisos de envío de mensajes suspendidos temporalmente.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -238,7 +238,7 @@ function register(bot) {
       if (!target || target.unresolved) {
         return ctx.reply(
           `⟡ <b>DESILENCIAR USUARIO</b> ⊱ <code>USO DEL COMANDO</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n` +
+          `══════\n` +
           `▸ <b>Uso:</b> <code>/unmute [@usuario / ID / Responder]</code>`,
           { parse_mode: 'HTML' }
         );
@@ -269,11 +269,11 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>SILENCIO REMOVIDO</b> ⊱ <code>PERMISOS ACTIVADOS</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Moderador:</b> @${ctx.from.username || ctx.from.first_name}\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `✓ <i>El usuario puede participar y chatear nuevamente.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -298,7 +298,7 @@ function register(bot) {
       if (!target || target.unresolved) {
         return ctx.reply(
           `⟡ <b>EXPULSAR USUARIO</b> ⊱ <code>KICK</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n` +
+          `══════\n` +
           `▸ <b>Uso:</b> <code>/kick [@usuario / ID / Responder] [Motivo]</code>`,
           { parse_mode: 'HTML' }
         );
@@ -316,12 +316,12 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>USUARIO EXPULSADO</b> ⊱ <code>KICK</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
         `▸ <b>Moderador:</b> ${adminMention}\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `⚡ <i>El usuario fue removido del chat. Puede reingresar con enlace oficial.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -342,7 +342,7 @@ function register(bot) {
       if (!target || target.unresolved) {
         return ctx.reply(
           `⟡ <b>ADVERTIR USUARIO</b> ⊱ <code>WARN</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n` +
+          `══════\n` +
           `▸ <b>Uso:</b> <code>/warn [@usuario / ID / Responder] [Motivo]</code>`,
           { parse_mode: 'HTML' }
         );
@@ -361,7 +361,7 @@ function register(bot) {
 
       let text =
         `⟡ <b>ADVERTENCIA APLICADA</b> ⊱ <code>WARN #${warnCount}</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Acumulado:</b> <b>${warnCount} / 3 advertencias</b>\n` +
@@ -370,7 +370,7 @@ function register(bot) {
 
       if (warnCount >= 3 && (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group')) {
         text +=
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `🚨 <b>LÍMITE ALCANZADO (3/3):</b> El usuario ha sido silenciado automáticamente por 24 horas.\n\n`;
         try {
           const muteDuration = parseDuration('1d');
@@ -394,7 +394,7 @@ function register(bot) {
         } catch {}
       }
 
-      text += `──────────────────────────────────────────────────────\n` +
+      text += `──────\n` +
               `⚠️ <i>Al acumular 3 advertencias oficiales se aplican sanciones automáticas.</i>`;
 
       await ctx.reply(text, { parse_mode: 'HTML' });
@@ -423,12 +423,12 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>ADVERTENCIAS RESTABLECIDAS</b> ⊱ <code>CLEAR WARNS</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Estado:</b> ⊱ <code>0 / 3 ADVERTENCIAS</code> ⊰\n` +
         `▸ <b>Moderador:</b> @${ctx.from.username || ctx.from.first_name}\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `✓ <i>Se han limpiado todas las advertencias en este chat.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -455,7 +455,7 @@ function register(bot) {
 
       let text =
         `⟡ <b>HISTORIAL DE ADVERTENCIAS</b> ⊱ <code>CONSULTA</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Total Acumulado:</b> <b>${warns.length} / 3</b>\n\n`;
@@ -469,7 +469,7 @@ function register(bot) {
         text += '\n';
       }
 
-      text += `──────────────────────────────────────────────────────`;
+      text += `──────`;
       await ctx.reply(text, { parse_mode: 'HTML' });
     } catch (err) {
       console.error('⟡ Mod: Error en /warns:', err.message);
@@ -484,9 +484,9 @@ function register(bot) {
       if (!target || target.unresolved) {
         return ctx.reply(
           `⟡ <b>BANEO GLOBAL (GBAN)</b> ⊱ <code>USO DEL COMANDO</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Uso:</b> <code>/gban [@usuario / ID / Responder] [Motivo]</code>\n\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `🔥 <i>Banea permanentemente de todos los grupos y ficha en la Lista Negra.</i>`,
           { parse_mode: 'HTML' }
         );
@@ -519,11 +519,11 @@ function register(bot) {
 
       await ctx.reply(
         `🚨 <b>CONFIRMACIÓN DE BANEO GLOBAL (GBAN)</b> 🚨\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Objetivo:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `⚠️ <i>Esta acción expulsará al usuario de <b>TODAS las comunidades</b> y lo fichará de forma irreversible en la base de datos oficial.</i>\n\n` +
         `¿Confirmas la ejecución?`,
         {
@@ -580,13 +580,13 @@ function register(bot) {
 
       await ctx.editMessageText(
         `🚨 <b>BANEO GLOBAL APLICADO (GBAN)</b> 🚨\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${targetId}</code>\n` +
         `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
         `▸ <b>Grupos Sancionados:</b> <code>${affectedCount} comunidades</code>\n` +
         `▸ <b>Estado:</b> ⊱ <code>LISTA NEGRA PERMANENTE 🔴</code> ⊰\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `🛡️ <i>Ejecutado por: ${adminMention}</i>`,
         { parse_mode: 'HTML' }
       );
@@ -602,7 +602,7 @@ function register(bot) {
       await ctx.answerCallbackQuery({ text: 'Operación cancelada.' });
       await ctx.editMessageText(
         `⟡ <b>OPERACIÓN CANCELADA</b> ⊱ <code>GBAN DECLINADO</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `<i>No se aplicó ninguna sanción al usuario.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -617,10 +617,10 @@ function register(bot) {
       if (!target || target.unresolved) {
         return ctx.reply(
           `⟡ <b>REHABILITAR USUARIO</b> ⊱ <code>UNGBAN</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Uso:</b> <code>/ungban [@usuario / ID / Responder]</code>\n` +
           `▸ <b>Alternativa:</b> <code>/desquemar [ID / @usuario]</code>\n\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `🔓 <i>Remueve de la lista negra y permite el reingreso a los grupos oficiales.</i>`,
           { parse_mode: 'HTML' }
         );
@@ -646,12 +646,12 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>USUARIO REHABILITADO</b> ⊱ <code>LISTA NEGRA REMOVIDA</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Estado:</b> ⊱ <code>LIMPIO 🟢</code> ⊰\n` +
         `▸ <b>Grupos Desbloqueados:</b> <code>${affectedCount} comunidades</code>\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `✓ <i>El usuario ha sido eliminado de la lista de estafadores y puede volver a participar.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -851,20 +851,20 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
     return {
       text:
         `⟡ <b>LISTA NEGRA OFICIAL</b> ⊱ <code>VENTAS LIBRES PERÚ</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `✓ <b>Estado de la Comunidad:</b> ⊱ <code>LIMPIA 🟢</code> ⊰\n` +
         `Actualmente no hay estafadores registrados en la lista negra.\n\n` +
-        `──────────────────────────────────────────────────────`,
+        `──────`,
       keyboard: new InlineKeyboard().text('CERRAR', closePayload).danger(),
     };
   }
 
   let text =
     `🚨 <b>LISTA NEGRA OFICIAL DE ESTAFADORES</b> 🚨\n` +
-    `══════════════════════════════════════════════════════\n\n` +
+    `══════\n\n` +
     `▸ <b>Total Fichados:</b> <code>${totalCount} estafadores</code>\n` +
     `▸ <b>Página Actual:</b> <code>${currentPage} / ${totalPages}</code>\n\n` +
-    `──────────────────────────────────────────────────────\n\n`;
+    `──────\n\n`;
 
   for (let i = 0; i < users.length; i++) {
     const u = users[i];
@@ -887,7 +887,7 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
       `▸ <b>Username:</b> ${u.username ? `<code>@${u.username}</code>` : '<i>Sin @username</i>'}\n` +
       `▸ <b>Registro:</b> <code>${dateFormatted}</code>\n` +
       `▸ <b>Motivo:</b>\n  ↳ <i>${escapeHtml(reason)}</i>\n\n` +
-      `───────────────────────\n`;
+      `──────\n`;
   }
 
   text += `🛡️ <i>Para ver el expediente completo, escribe: <code>/info [ID o @user]</code></i>`;

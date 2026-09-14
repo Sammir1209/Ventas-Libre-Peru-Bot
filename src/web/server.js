@@ -5,9 +5,9 @@ const botManager = require('../core/botManager');
 const config = require('../config/env');
 const https = require('https');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Servidor Web y API REST Blindada — SaaS Dashboard
-// ══════════════════════════════════════════════════════
+// ══════
 
 const httpsAgent = new https.Agent({
   keepAlive: true,
@@ -734,9 +734,9 @@ function createWebApp(mainBot = null) {
     }
   });
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // ⟡ NUEVOS ENDPOINTS: GESTIÓN DE GRUPOS & SEGURIDAD EN TIEMPO REAL
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   const antiRaid = require('../modules/security/antiRaid');
   const antiFlood = require('../modules/security/antiFlood');

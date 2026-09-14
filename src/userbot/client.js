@@ -4,9 +4,9 @@ const config = require('../config/env');
 
 let client = null;
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Inicialización del Userbot MTProto
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function initialize() {
   if (!config.USERBOT_ENABLED) {
@@ -43,9 +43,9 @@ async function initialize() {
   }
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Crear Grupo Temporal para Trato
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function createDealGroup(dealId, botId) {
   if (!client || !isConnected()) {
@@ -91,9 +91,9 @@ async function createDealGroup(dealId, botId) {
   }
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Utilidades del Userbot
-// ══════════════════════════════════════════════════════
+// ══════
 
 function isConnected() {
   return client !== null && (client.connected || client._connected);

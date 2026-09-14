@@ -2,9 +2,9 @@ const config = require('../config/env');
 const db = require('../database/postgres');
 const userbot = require('../userbot/client');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Utilidades Generales — Ventas Libres Perú
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Verifica si un userId es Owner del bot.

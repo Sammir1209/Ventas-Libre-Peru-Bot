@@ -7,9 +7,9 @@ const { extractTarget, safeEditMessage } = require('../../utils/helpers');
 const { mentionFromData, escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Módulo 3: Staff — Sistema de Roles Múltiples y Tags Dinámicos
-// ══════════════════════════════════════════════════════
+// ══════
 
 const AVAILABLE_ROLES = ['OWNER', 'CO-OWNER', 'ADMIN', 'TRATO ADMIN'];
 
@@ -206,11 +206,11 @@ function register(bot) {
 
       const cardText =
         `⟡ <b>GESTIÓN DE STAFF</b> ⊱ <code>ASIGNACIÓN DE ROLES</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         `▸ <b>Roles Seleccionados:</b> <b>${rolesDisplay}</b>\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `<i>Toca los roles que deseas activar o desactivar:</i>`;
 
       const kb = buildRolesKeyboard(target.userId, initialSelected);
@@ -244,7 +244,7 @@ function register(bot) {
       if (!target) {
         return ctx.reply(
           `⟡ <b>DEGRADACIÓN DE STAFF</b> ⊱ <code>USO DEL COMANDO</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Uso:</b> <code>/demote [ID, @username o responder a mensaje]</code>`,
           { parse_mode: 'HTML' }
         );
@@ -267,10 +267,10 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>REVOCACIÓN DE STAFF</b> ⊱ <code>CONFIRMACIÓN</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `¿Deseas revocar todos los permisos de Administrador y remover al usuario del Staff?`,
         { parse_mode: 'HTML', reply_markup: kb }
       );
@@ -344,10 +344,10 @@ function register(bot) {
 
       const cardText =
         `⟡ <b>DISTINTIVO OFICIAL</b> ⊱ <code>TAG EN GRUPOS</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
         `▸ <b>Jerarquía:</b> <b>${rolesDisplay}</b>\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `<i>Selecciona el título oficial que se mostrará en los grupos o escribe uno personalizado:</i>`;
 
       const kb = buildTagKeyboard(targetId, selected);
@@ -742,13 +742,13 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
 
   const confirmationText =
     `⟡ <b>ASIGNACIÓN DE STAFF</b> ⊱ <code>CONFIGURACIÓN COMPLETADA</code> ⊰\n` +
-    `══════════════════════════════════════════════════════\n\n` +
+    `══════\n\n` +
     `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
     `▸ <b>ID Numérico:</b> <code>${targetId}</code>\n` +
     `▸ <b>Jerarquía Asignada:</b> <b>${rolesStr}</b>\n` +
     `▸ <b>Distintivo Oficial:</b> <code>${escapeHtml(customTag)}</code>\n` +
     `▸ <b>Permisos de Administrador:</b> ⊱ <code>ACTIVOS EN TELEGRAM ✓</code> ⊰\n\n` +
-    `──────────────────────────────────────────────────────\n` +
+    `──────\n` +
     `🛡️ <i>Promovido por: ${adminMention}</i>`;
 
   // 3. Registrar en Redis al nuevo promovido para darle la bienvenida especial cuando ingrese al grupo de Staff
@@ -775,12 +775,12 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
   try {
     const dmWelcome =
       `⟡ <b>EQUIPO OFICIAL</b> ⊱ <code>BIENVENIDA AL STAFF</code> ⊰\n` +
-      `══════════════════════════════════════════════════════\n\n` +
+      `══════\n\n` +
       `Hola <b>${nameFormatted}</b>, has sido designado oficialmente como parte del equipo de administración de <b>Ventas Libres Perú</b>.\n\n` +
       `▸ <b>Jerarquía / Roles:</b> <code>${rolesStr}</code>\n` +
       `▸ <b>Distintivo Oficial:</b> <code>${escapeHtml(customTag)}</code>\n` +
       `▸ <b>Asignado por:</b> ${adminMention}\n\n` +
-      `──────────────────────────────────────────────────────\n` +
+      `──────\n` +
       `🛡️ <b>Únete de inmediato al Grupo Oficial del Staff:</b>\n` +
       `👉 <a href="${STAFF_INVITE_LINK}"><b>[ ENTRAR AL GRUPO DE STAFF ]</b></a>\n\n` +
       `<i>¡Bienvenido al Staff de Ventas Libres Perú! Compromiso, honorabilidad y seguridad para la comunidad.</i>`;

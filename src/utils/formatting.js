@@ -1,6 +1,6 @@
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Funciones de Formateo — Ventas Libres Perú
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Escapa caracteres HTML para evitar inyección.

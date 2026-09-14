@@ -1,9 +1,9 @@
 const Redis = require('ioredis');
 const config = require('../config/env');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Redis con Fallback en Memoria (Zero-Crash)
-// ══════════════════════════════════════════════════════
+// ══════
 
 let redis = null;
 let isRedisConnected = false;
@@ -37,9 +37,9 @@ try {
   isRedisConnected = false;
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Estado temporal de menús (Flujo /quemar)
-// ══════════════════════════════════════════════════════
+// ══════
 
 const BURN_STATE_PREFIX = 'burn_state:';
 const BURN_TTL = 600; // 10 minutos
@@ -89,9 +89,9 @@ async function clearBurnState(userId) {
   memStore.delete(`${BURN_STATE_PREFIX}${userId}`);
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Cola de Tratos Activos
-// ══════════════════════════════════════════════════════
+// ══════
 
 const DEAL_QUEUE_KEY = 'deal_queue';
 const DEAL_STATE_PREFIX = 'deal_state:';
@@ -174,9 +174,9 @@ async function getPendingDealsCount() {
   return (memQueues.get(DEAL_QUEUE_KEY) || []).length;
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Anti-Spam / Rate Limiting
-// ══════════════════════════════════════════════════════
+// ══════
 
 const RATE_PREFIX = 'rate:';
 
@@ -206,9 +206,9 @@ async function checkRateLimit(userId, windowSeconds, maxCommands) {
   return entry.count <= maxCommands;
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Caché general
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function setCache(key, value, ttlSeconds = 300) {
   if (isRedisConnected && redis) {

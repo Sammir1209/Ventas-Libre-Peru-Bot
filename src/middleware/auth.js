@@ -2,9 +2,9 @@ const config = require('../config/env');
 const db = require('../database/postgres');
 const { ROLES } = require('../config/constants');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Middleware de Autenticación y Roles
-// ══════════════════════════════════════════════════════
+// ══════
 
 function getEffectiveOwners(ctx) {
   if (ctx.tenant && Array.isArray(ctx.tenant.owner_ids) && ctx.tenant.owner_ids.length > 0) {

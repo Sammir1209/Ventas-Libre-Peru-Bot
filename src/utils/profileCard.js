@@ -2,9 +2,9 @@ const { createCanvas, loadImage, GlobalFonts, Path2D } = require('@napi-rs/canva
 const fs = require('fs');
 const path = require('path');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Carga y Registro de Fuentes Tipográficas
-// ══════════════════════════════════════════════════════
+// ══════
 
 const FONTS_DIR = path.join(__dirname, '../assets/fonts');
 

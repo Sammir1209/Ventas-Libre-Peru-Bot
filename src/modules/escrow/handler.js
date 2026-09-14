@@ -20,9 +20,9 @@ const { rateAdmin } = require('./rating');
 const config = require('../../config/env');
 const { InlineKeyboard, InputFile } = require('grammy');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Módulo 2: Sistema de Tratos Admin (Escrow con Temas / Hilos)
-// ══════════════════════════════════════════════════════
+// ══════
 
 const DEAL_FORM_PREFIX = 'deal_form:';
 const FORM_TTL = 600; // 10 minutos
@@ -346,9 +346,9 @@ function register(bot) {
 
         return ctx.reply(
           `⟡ <b>SISTEMA TRATO ADMIN</b> ⊱ <code>CUSTODIA SEGURA</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `Por protocolos de <b>seguridad y protección de datos</b>, las solicitudes de Trato Admin se gestionan <b>únicamente por mensaje privado</b> con el bot.\n\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `🛡️ <i>Pulsa el botón oficial de abajo para iniciar tu intermediación:</i>`,
           {
             parse_mode: 'HTML',

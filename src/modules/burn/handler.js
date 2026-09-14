@@ -115,9 +115,9 @@ function register(bot) {
 
         return ctx.reply(
           `⟡ <b>SISTEMA ANTI-FRAUDE</b> ⊱ <code>DENUNCIAS</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `Por protocolos de <b>seguridad y confidencialidad pericial</b>, los reportes de estafa se realizan <b>exclusivamente por mensaje privado</b> con el bot.\n\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `🔥 <i>Pulsa el botón oficial de abajo para iniciar tu denuncia con pruebas:</i>`,
           {
             parse_mode: 'HTML',
@@ -778,12 +778,12 @@ function register(bot) {
       await ctx.replyWithPhoto(cardFile, {
         caption:
           `⟡ <b>FICHA DE IDENTIFICACIÓN</b> ⊱ <code>CANVAS TELEGRAM</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Nombre:</b> <b>${escapeHtml(targetName)}</b>\n` +
           (targetUsername ? `▸ <b>Username:</b> @${targetUsername}\n` : '') +
           `▸ <b>ID de Usuario:</b> <code>${targetUser.userId}</code>\n` +
           (isBurned ? `▸ <b>Antecedentes:</b> 🚨 <b>LISTA NEGRA (ESTAFADOR QUEMADO)</b>\n` : '') +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `📸 <i>Renderizado forense nativo en ultra definición.</i>`,
         parse_mode: 'HTML',
       });

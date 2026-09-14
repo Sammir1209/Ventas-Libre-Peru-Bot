@@ -1,9 +1,9 @@
 const { createClient } = require('@supabase/supabase-js');
 const config = require('../config/env');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Cliente Supabase — Storage + PostgreSQL
-// ══════════════════════════════════════════════════════
+// ══════
 
 let supabase = null;
 

@@ -1,9 +1,9 @@
 const db = require('../../database/postgres');
 const config = require('../../config/env');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ MOTOR DE BLOQUEOS SELECTIVOS DE CONTENIDO (LOCKS)
-// ══════════════════════════════════════════════════════
+// ══════
 
 // Lista de tipos de bloqueos soportados
 const SUPPORTED_LOCKS = [

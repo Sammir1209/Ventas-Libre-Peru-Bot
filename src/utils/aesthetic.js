@@ -1,6 +1,6 @@
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Motor de Tipografía y Estética Unicode — Ventas Libres Perú
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Escapado seguro de caracteres HTML para mensajes de Telegram.
@@ -70,10 +70,10 @@ function toSmallCaps(text) {
 
 // ── Separadores y Estilos de Borde Oficiales ──
 const AESTHETIC_DIVIDERS = {
-  BOX_TOP:    '══════════════════════════════════════════════════════',
-  BOX_BOTTOM: '──────────────────────────────────────────────────────',
-  THIN:       '────────────────────────────────────────',
-  COMPACT:    '━━━━━━━━━━━━',
+  BOX_TOP:    '══════',
+  BOX_BOTTOM: '──────',
+  THIN:       '──────',
+  COMPACT:    '━━━━━━',
 };
 
 /**
@@ -86,11 +86,11 @@ function createCachineroWarningCard({ username, userId, firstName } = {}) {
   return (
     `\n\n` +
     `⟡ <b>ADVERTENCIA DE COMUNIDAD</b> ⊱ <code>ANTÍ-CACHINEO</code> ⊰\n` +
-    `══════════════════════════════════════════════════════\n` +
+    `══════\n` +
     `▸ <b>Infractor:</b> ${escapeHtml(userDisplay)} (${idDisplay})\n` +
     `▸ <b>Conducta:</b> Desvalorización agresiva de precios / Cachineo\n` +
     `▸ <b>Sanción preventiva:</b> ⚠️ Advertencia registrada\n` +
-    `──────────────────────────────────────────────────────\n` +
+    `──────\n` +
     `⚖️ <i>En Ventas Libres Perú se respeta el trabajo de los vendedores. De persistir con ofertas absurdas, el Staff aplicará <code>/warn</code> oficial (3/3 = expulsión).</i>`
   );
 }
@@ -105,11 +105,11 @@ function createFaltosoWarningCard({ username, userId, firstName } = {}) {
   return (
     `\n\n` +
     `⟡ <b>LLAMADO AL ORDEN</b> ⊱ <code>FALTA DE RESPETO</code> ⊰\n` +
-    `══════════════════════════════════════════════════════\n` +
+    `══════\n` +
     `▸ <b>Usuario:</b> ${escapeHtml(userDisplay)} (${idDisplay})\n` +
     `▸ <b>Motivo:</b> Trato irrespetuoso / Falta a las normas de convivencia\n` +
     `▸ <b>Estado:</b> ⚠️ Advertido en el chat\n` +
-    `──────────────────────────────────────────────────────\n` +
+    `──────\n` +
     `🛡️ <i>Mantén la compostura y el respeto hacia los miembros y el Staff. Los insultos conllevan <code>/warn</code> o <code>/mute</code> directo.</i>`
   );
 }

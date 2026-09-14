@@ -3,9 +3,9 @@ const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { parseDuration } = require('../moderation/sentinel');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ MOTOR ANTI-FLOOD EN MEMORIA ULTRA-RÁPIDO
-// ══════════════════════════════════════════════════════
+// ══════
 
 // Ring buffer de mensajes por usuario: Map<"chatId:userId", Array<{ time, text, mediaType }>>
 const userMsgHistory = new Map();

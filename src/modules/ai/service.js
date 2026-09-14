@@ -1,8 +1,8 @@
 const config = require('../../config/env');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Instrucción Maestra del Sistema — Ventas Libres Perú 🇵🇪
-// ══════════════════════════════════════════════════════
+// ══════
 
 const BASE_SYSTEM_PROMPT = `
 Eres la Inteligencia Artificial Oficial de la comunidad "Ventas Libres Perú" 🇵🇪.

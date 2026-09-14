@@ -1,6 +1,6 @@
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ VLP SaaS & Bot Control Center — Client Application
-// ══════════════════════════════════════════════════════
+// ══════
 
 document.addEventListener('DOMContentLoaded', () => {
   const API_PREFIX = '/api-sec-vlp';
@@ -358,9 +358,9 @@ document.addEventListener('DOMContentLoaded', () => {
     switchView(initialView);
   }
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 1. GRUPOS & SEGURIDAD EN TIEMPO REAL
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   async function fetchGroups(fresh = false) {
     groupsContainer.innerHTML = `
@@ -621,9 +621,9 @@ document.addEventListener('DOMContentLoaded', () => {
   btnCloseGroupModal.addEventListener('click', () => modalGroupSecurity.classList.remove('active'));
   btnCancelGroupModal.addEventListener('click', () => modalGroupSecurity.classList.remove('active'));
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 2. GESTIÓN DE STAFF EN TIEMPO REAL
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   async function fetchStaff() {
     staffContainer.innerHTML = `
@@ -769,9 +769,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 3. CANALES DE VERIFICACIÓN
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   async function fetchVerificationChannels() {
     try {
@@ -863,9 +863,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 4. AJUSTES DE COMUNIDAD (/set commands)
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   async function fetchCommunitySettings() {
     try {
@@ -923,9 +923,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 5. PERSONALIZACIÓN VISUAL & BRANDING
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   function populateBrandingInputs(branding, communityName) {
     if (inputBrandingLogo && branding) {
@@ -980,9 +980,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 6. ESTADÍSTICAS GLOBALES CONSOLIDADAS (OVERVIEW)
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   async function fetchOverviewStats() {
     try {
@@ -1009,9 +1009,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 7. DIRECTORIO DE USUARIOS
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   let currentUsersPage = 1;
   let currentUsersSearch = '';
@@ -1233,9 +1233,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 8. TRATOS & ESCROW
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   const dealsTableBody = document.getElementById('deals-table-body');
   const btnRefreshDeals = document.getElementById('btn-refresh-deals');
@@ -1293,9 +1293,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btnRefreshDeals.addEventListener('click', () => fetchDeals());
   }
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 9. QUEMADOS & REPORTES DE ESTAFA
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   const burnedTableBody = document.getElementById('burned-table-body');
   const burnReportsContainer = document.getElementById('burn-reports-container');
@@ -1436,9 +1436,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btnRefreshBurn.addEventListener('click', () => fetchBurnData());
   }
 
-  // ══════════════════════════════════════════════════════
+  // ══════
   // 10. REGISTRO DE AUDITORÍA EN TIEMPO REAL (LIVE AUDIT LOG)
-  // ══════════════════════════════════════════════════════
+  // ══════
 
   let currentAuditPage = 1;
   let currentAuditAction = 'ALL';

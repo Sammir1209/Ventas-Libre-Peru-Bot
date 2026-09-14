@@ -86,9 +86,9 @@ async function executeSearch(ctx, rawQuery) {
   if (!results || results.length === 0) {
     return ctx.reply(
       `⟡ <b>RADAR DE RASTREO</b> ⊱ <code>SIN RESULTADOS</code> ⊰\n` +
-      `══════════════════════════════════════════════════════\n\n` +
+      `══════\n\n` +
       `✗ <i>No se localizaron coincidencias para:</i> <code>${escapeHtml(query)}</code>\n\n` +
-      `──────────────────────────────────────────────────────\n` +
+      `──────\n` +
       `💡 <i>Verifica que el nombre o @username esté bien escrito. Puedes buscar por nombre completo, alias (@user) o ID numérico.</i>`,
       { parse_mode: 'HTML' }
     );
@@ -183,44 +183,33 @@ async function executeSearch(ctx, rawQuery) {
 
   finalResults.sort((a, b) => calculateUserScore(b) - calculateUserScore(a));
 
-  // Mostrar el primer resultado en una tarjeta grande con su estado de pertenencia
+  // Mostrar el primer resultado con el diseño exacto de Modo Furtivo
   const firstUser = finalResults[0];
-  const userMention = mentionFromData(firstUser.user_id, firstUser.username, firstUser.first_name);
-  const usernameDisplay = firstUser.username 
-    ? `@${firstUser.username}` 
-    : '<i>⚠️ Sin @username (Cuenta Anónima)</i>';
-  const statusBadge = firstUser.is_burned 
-    ? '🔴 <b>QUEMADO / ESTAFADOR</b>' 
-    : '🟢 <b>LIMPIO</b>';
+  const requesterName = ctx.from?.first_name || 'amigo';
+  const targetName = escapeHtml(firstUser.first_name || 'Sin nombre registrado');
+  const targetUsername = firstUser.username 
+    ? `@${escapeHtml(firstUser.username)}` 
+    : '<i>Sin @username</i>';
 
-  const kb = new InlineKeyboard()
-    .text('🔍 Verificar Info', `info_profile:${firstUser.user_id}`)
-    .text('🔥 Quemar (GBan)', `search_gban:${firstUser.user_id}`);
-
-  let replyText = 
-    `⟡ <b>RADAR DE RASTREO</b> ⊱ <code>USUARIO LOCALIZADO</code> ⊰\n` +
-    `══════════════════════════════════════════════════════\n\n` +
-    `▸ <b>Nombre:</b> ${escapeHtml(firstUser.first_name || 'Sin nombre registrado')}\n` +
-    `▸ <b>Username:</b> ${usernameDisplay}\n` +
-    `▸ <b>ID de Telegram:</b> <code>${firstUser.user_id}</code>\n` +
-    `▸ <b>Mención:</b> ${userMention}\n` +
-    `▸ <b>Estado:</b> ${statusBadge}\n` +
-    `▸ <b>Comunidad:</b> ${firstUser.communityStatus}\n\n` +
-    `──────────────────────────────────────────────────────`;
-
-  // Si hay más personas con nombres similares, ponerlos en una lista abajo
+  let matchNote = '';
   if (finalResults.length > 1) {
-    replyText += `\n\n👥 <b>Otros posibles resultados (${finalResults.length - 1}):</b>\n`;
-    for (let i = 1; i < finalResults.length; i++) {
-      const u = finalResults[i];
-      const otherMention = mentionFromData(u.user_id, u.username, u.first_name);
-      replyText += `• ${otherMention} (<code>${u.user_id}</code>) — <i>${u.communityShortStatus}</i>\n`;
-    }
+    matchNote = `\n\n🔎 Se encontraron ${finalResults.length} coincidencias. Mostrando la primera.`;
+  } else {
+    matchNote = `\n\n🔎 Se encontró 1 coincidencia.`;
   }
+
+  const replyText =
+    `Lo encontré para ti <b>${escapeHtml(requesterName)}</b>, toma:\n\n` +
+    `<b>☰ [ MODO FURTIVO ]</b>\n` +
+    `──────\n\n` +
+    `👤 <b>Nombre:</b> ${targetName}\n` +
+    `🆔 <b>ID:</b> <a href="tg://user?id=${firstUser.user_id}">${firstUser.user_id}</a>\n` +
+    `🆀 <b>User:</b> ${targetUsername}\n` +
+    `🔗 <b>Link:</b> <a href="tg://user?id=${firstUser.user_id}">Presiona aquí</a>` +
+    matchNote;
 
   await ctx.reply(replyText, {
     parse_mode: 'HTML',
-    reply_markup: kb,
   });
 }
 

@@ -1,6 +1,6 @@
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ VLP SaaS Sub-Bot Manager — Client Application
-// ══════════════════════════════════════════════════════
+// ══════
 
 document.addEventListener('DOMContentLoaded', () => {
   const API_PREFIX = '/api-sec-vlp';

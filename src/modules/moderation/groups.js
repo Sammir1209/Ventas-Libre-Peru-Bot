@@ -4,9 +4,9 @@ const { SYM } = require('../../config/constants');
 const fs = require('fs');
 const path = require('path');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Módulo 5: Gestión y Configuración de Grupos Oficiales
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Actualiza una variable de entorno en el archivo .env físico.
@@ -104,13 +104,13 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>SALA DE TRATOS ADMIN</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Grupo:</b> <b>${targetTitle}</b>\n` +
         `▸ <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
         (targetThreadId ? `▸ <b>Hilo / Tema (Topic ID):</b> <code>${targetThreadId}</code>\n` : `▸ <b>Ubicación:</b> Chat Principal\n`) +
         `▸ <b>Enrutamiento:</b> Solicitudes entrantes de <code>/tratoadm</code> para mediadores.\n` +
         `▸ <b>Persistencia:</b> Almacenado permanentemente en Supabase y .env.\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `✓ <i>Todas las solicitudes de Trato Admin serán derivadas directamente aquí.</i>`,
         {
           parse_mode: 'HTML',
@@ -154,7 +154,7 @@ function register(bot) {
       } else if (ctx.chat.type === 'private') {
         return ctx.reply(
           `⟡ <b>CANAL DE AUDITORÍA & LOGS</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Uso:</b> Ejecuta este comando dentro del canal/hilo de logs, o escribe:\n` +
           `  <code>/set_canal_logs [ID_DEL_CANAL]</code>`,
           { parse_mode: 'HTML' }
@@ -172,13 +172,13 @@ function register(bot) {
 
       const confirmText =
         `⟡ <b>CANAL DE AUDITORÍA & LOGS</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Nombre:</b> <b>${targetTitle}</b>\n` +
         `▸ <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
         (targetThreadId ? `▸ <b>Hilo / Tema (Topic ID):</b> <code>${targetThreadId}</code>\n` : `▸ <b>Ubicación:</b> Canal / Chat Principal\n`) +
         `▸ <b>Destino:</b> Registros de moderación (/ban, /gban), respaldos .json y auditoría.\n` +
         `▸ <b>Persistencia:</b> Almacenado permanentemente en Supabase y .env.\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `🛡️ <i>Canal oficial de auditoría perimetral activado.</i>`;
 
       if (isChannel) {
@@ -231,7 +231,7 @@ function register(bot) {
       } else if (ctx.chat.type === 'private') {
         return ctx.reply(
           `⟡ <b>HILO DE REPORTES /QUEMAR</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Uso:</b> Ejecuta este comando dentro del grupo/hilo donde deben llegar las denuncias, o escribe:\n` +
           `  <code>/set_quemar [ID_DEL_GRUPO]</code>`,
           { parse_mode: 'HTML' }
@@ -248,13 +248,13 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>HILO DE REPORTES /QUEMAR</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Grupo:</b> <b>${targetTitle}</b>\n` +
         `▸ <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
         (targetThreadId ? `▸ <b>Hilo / Tema (Topic ID):</b> <code>${targetThreadId}</code>\n` : `▸ <b>Ubicación:</b> Chat Principal\n`) +
         `▸ <b>Destino:</b> Denuncias y comprobantes de estafa para dictamen del Staff.\n` +
         `▸ <b>Persistencia:</b> Almacenado permanentemente en Supabase y .env.\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `⚖️ <i>Todos los reportes de estafa serán centralizados en esta sala.</i>`,
         {
           parse_mode: 'HTML',
@@ -298,7 +298,7 @@ function register(bot) {
       } else if (ctx.chat.type === 'private') {
         return ctx.reply(
           `⟡ <b>CANAL PÚBLICO DE QUEMADOS</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Uso:</b> Ejecuta este comando dentro del canal de quemados, o escribe:\n` +
           `  <code>/set_canal_quemar [ID_DEL_CANAL]</code>`,
           { parse_mode: 'HTML' }
@@ -316,13 +316,13 @@ function register(bot) {
 
       const confirmText =
         `⟡ <b>CANAL PÚBLICO DE QUEMADOS</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Nombre:</b> <b>${targetTitle}</b>\n` +
         `▸ <b>Chat ID:</b> <code>${targetChatId}</code>\n` +
         (targetThreadId ? `▸ <b>Hilo / Topic:</b> <code>${targetThreadId}</code>\n` : `▸ <b>Ubicación:</b> Canal Principal\n`) +
         `▸ <b>Destino:</b> Publicaciones automáticas de fichas Canvas y fichas periciales de estafadores.\n` +
         `▸ <b>Persistencia:</b> Almacenado permanentemente en Supabase y .env.\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `🔥 <i>Muro público de sentencias y desarticulación de fraude activo.</i>`;
 
       if (isChannel) {

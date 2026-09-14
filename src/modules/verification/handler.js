@@ -6,9 +6,9 @@ const { CB, SYM } = require('../../config/constants');
 const { welcomeKeyboard } = require('./keyboard');
 const { escapeHtml, mentionFromData } = require('../../utils/formatting');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Módulo 1: Verificación de Membresía (Estilo Group Help Profesional)
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Obtiene los canales/grupos requeridos para la verificación (desde BD o config).
@@ -84,11 +84,11 @@ function register(bot) {
         await db.setSetting(`verify_disabled_${chatId}`, 'false');
         await ctx.reply(
           `⟡ <b>SISTEMA DE VERIFICACIÓN</b> ⊱ <code>FILTRO ACTIVADO 🟢</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Este grupo')}</b>\n` +
           `▸ <b>Estado:</b> 🟢 <b>ACTIVO & BLINDADO</b>\n` +
           `▸ <b>Base de Datos:</b> Sincronizado permanentemente en Supabase.\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `🛡️ <i>Todo nuevo miembro será silenciado preventivamente hasta unirse a los canales oficiales.</i>`,
           { parse_mode: 'HTML' }
         );
@@ -98,11 +98,11 @@ function register(bot) {
         await db.setSetting(`verify_disabled_${chatId}`, 'true');
         await ctx.reply(
           `⟡ <b>SISTEMA DE VERIFICACIÓN</b> ⊱ <code>FILTRO SUSPENDIDO 🔴</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Este grupo')}</b>\n` +
           `▸ <b>Estado:</b> 🔴 <b>DESACTIVADO</b>\n` +
           `▸ <b>Base de Datos:</b> Sincronizado permanentemente en Supabase.\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `💡 <i>Los nuevos miembros ya no serán silenciados al entrar (ideal para salas de Staff o Tratos).</i>`,
           { parse_mode: 'HTML' }
         );
@@ -126,11 +126,11 @@ function register(bot) {
       if (args.length === 0) {
         return ctx.reply(
           `⟡ <b>CANALES DE VERIFICACIÓN</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Sintaxis:</b> <code>/set_canales [canal1] [canal2] [canal3]...</code>\n\n` +
           `▸ <b>Ejemplo:</b>\n` +
           `  <code>/set_canales @VentasLibresPeru @CanalRespaldo -1001234567890</code>\n\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `⚠️ <i>El bot debe ser Administrador en todos los canales indicados para consultar membresías.</i>`,
           { parse_mode: 'HTML' }
         );
@@ -144,9 +144,9 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>CANALES REGISTRADOS</b> ⊱ <code>${args.length} CANALES</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         args.map((ch, i) => `▸ <b>${i + 1}.</b> <code>${escapeHtml(ch)}</code>`).join('\n') +
-        `\n\n──────────────────────────────────────────────────────\n` +
+        `\n\n──────\n` +
         `✓ <i>Lista almacenada en base de datos perimetral.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -163,7 +163,7 @@ function register(bot) {
       if (channels.length === 0) {
         return ctx.reply(
           `⟡ <b>CANALES DE VERIFICACIÓN</b> ⊱ <code>ESTADO</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `✗ No hay canales obligatorios registrados actualmente.\n` +
           `▸ Configúralos con: <code>/set_canales [canal1] [canal2]</code>`,
           { parse_mode: 'HTML' }
@@ -194,10 +194,10 @@ function register(bot) {
 
       await ctx.reply(
         `⟡ <b>CANALES DE VERIFICACIÓN</b> ⊱ <code>OBLIGATORIOS</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Total registrados:</b> <code>${channels.length} canales</code>\n\n` +
         statusList.join('\n') +
-        `\n\n──────────────────────────────────────────────────────\n` +
+        `\n\n──────\n` +
         `🛡️ <i>Los nuevos miembros deben unirse a cada uno de ellos para desbloquear su chat.</i>`,
         { parse_mode: 'HTML' }
       );

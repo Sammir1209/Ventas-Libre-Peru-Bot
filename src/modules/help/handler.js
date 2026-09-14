@@ -3,9 +3,9 @@ const config = require('../../config/env');
 const db = require('../../database/postgres');
 const { SYM, ROLES } = require('../../config/constants');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Módulo: Guía de Ayuda y Protocolos de Actuación por Rol
-// ══════════════════════════════════════════════════════
+// ══════
 
 const { toMathBold, toMathSerifBold, toSmallCaps, AESTHETIC_DIVIDERS } = require('../../utils/aesthetic');
 
@@ -15,7 +15,7 @@ const { toMathBold, toMathSerifBold, toSmallCaps, AESTHETIC_DIVIDERS } = require
 function buildOwnerHelp() {
   const text =
     `⟡ <b>PANEL DE CONTROL</b> ⊱ <code>OWNER & CO-OWNER</code> ⊰\n` +
-    `══════════════════════════════════════════════════════\n\n` +
+    `══════\n\n` +
     `▸ <b>ADMINISTRACIÓN & STAFF</b>\n` +
     `  • <code>/promote</code> — Ascender y asignar rangos oficiales\n` +
     `  • <code>/demote</code> — Degradar rango a miembro regular\n` +
@@ -37,7 +37,7 @@ function buildOwnerHelp() {
     `  • <code>/set_canal_quemar</code> — Canal público de estafadores\n` +
     `  • <code>/set_logs</code> — Canal privado de auditoría\n` +
     `  • <code>/verify</code> — Toggle de verificación obligatoria\n` +
-    `──────────────────────────────────────────────────────\n` +
+    `──────\n` +
     `⚖️ <i>Protocolo maestro reservado para la alta dirección.</i>`;
 
   const kb = new InlineKeyboard()
@@ -55,7 +55,7 @@ function buildOwnerHelp() {
 function buildTratoAdminHelp() {
   const text =
     `⟡ <b>PROTOCOLO OPERATIVO</b> ⊱ <code>TRATO ADMIN / ESCROW</code> ⊰\n` +
-    `══════════════════════════════════════════════════════\n\n` +
+    `══════\n\n` +
     `▸ <b>Fase 1: Aceptación</b>\n` +
     `  ↳ Toma la solicitud pendiente e ingresa al hilo privado generado.\n\n` +
     `▸ <b>Fase 2: Conciliación</b>\n` +
@@ -67,7 +67,7 @@ function buildTratoAdminHelp() {
     `  ↳ Una vez confirmado el pago en custodia, autoriza al <b>VENDEDOR</b> a entregar.\n\n` +
     `▸ <b>Fase 5: Cierre & Liberación</b>\n` +
     `  ↳ Comprador da visto bueno → transfieres los fondos al vendedor → cierras el trato.\n` +
-    `──────────────────────────────────────────────────────\n` +
+    `──────\n` +
     `🛡️ <i>El sistema solicita calificación y archiva la auditoría automáticamente.</i>`;
 
   const kb = new InlineKeyboard()
@@ -84,7 +84,7 @@ function buildTratoAdminHelp() {
 function buildAdminHelp() {
   const text =
     `⟡ <b>PANEL DE MODERACIÓN</b> ⊱ <code>ADMINISTRADOR</code> ⊰\n` +
-    `══════════════════════════════════════════════════════\n\n` +
+    `══════\n\n` +
     `▸ <b>CONTROL DE GRUPO</b>\n` +
     `  • <code>/ban</code> — Expulsión definitiva del grupo\n` +
     `  • <code>/unban</code> — Revocar expulsión\n` +
@@ -97,7 +97,7 @@ function buildAdminHelp() {
     `  • <code>/ungban [id/@user]</code> — Retirar de la lista negra\n` +
     `  • <code>/blacklist</code> — Explorar registro oficial de estafadores\n` +
     `  • <code>/info [id/@user]</code> — Ficha penal y antecedentes\n` +
-    `──────────────────────────────────────────────────────\n` +
+    `──────\n` +
     `⚖️ <i>Mantén la disciplina y el respeto en todos los sectores.</i>`;
 
   const kb = new InlineKeyboard()
@@ -114,7 +114,7 @@ function buildAdminHelp() {
 function buildUserHelp() {
   const text =
     `⟡ <b>CENTRO DE AYUDA</b> ⊱ <code>VENTAS LIBRES PERÚ</code> ⊰\n` +
-    `══════════════════════════════════════════════════════\n\n` +
+    `══════\n\n` +
     `▸ <b>COMANDOS PRINCIPALES</b>\n` +
     `  • <code>/tratoadm</code> — Intermediación 100% segura para tus compras\n` +
     `  • <code>/quemar</code> — Denunciar a un estafador con pruebas reales\n` +
@@ -122,7 +122,7 @@ function buildUserHelp() {
     `  • <code>/blacklist</code> — Ver lista pública de usuarios vetados\n` +
     `  • <code>/staff</code> — Conocer al equipo oficial de mediadores\n` +
     `  • <code>/perfil</code> — Ver tu reputación y tratos concretados\n\n` +
-    `──────────────────────────────────────────────────────\n` +
+    `──────\n` +
     `💡 <i>Consejo de Oro: Jamás compres por mensaje privado sin mediador. Usa <code>/tratoadm</code> para proteger tu dinero.</i>`;
 
   const kb = new InlineKeyboard()
@@ -181,12 +181,12 @@ function register(bot) {
         const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
         const startText =
           `⟡ <b>${escapeHtml(communityName.toUpperCase())}</b> ⊱ <code>OFICIAL</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `Hola, <b>${escapeHtml(name)}</b>. Bienvenido al ecosistema oficial de comercio seguro.\n\n` +
           `▸ <b>Trato Admin:</b> Mediación y custodia 100% garantizada.\n` +
           `▸ <b>Quemar:</b> Denuncias públicas y base de datos contra estafadores.\n` +
           `▸ <b>Staff:</b> Directorio de moderadores y mediadores autorizados.\n\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `✨ <i>Selecciona una opción del menú interactivo para comenzar:</i>`;
 
         const kb = new InlineKeyboard()
@@ -337,12 +337,12 @@ function register(bot) {
         const rating = stats.deals_count > 0 ? (stats.total_stars / stats.ratings_count || 5).toFixed(1) : '5.0';
         const statsText =
           `⟡ <b>ESTADÍSTICAS OFICIALES</b> ⊱ <code>TRATO ADMIN</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Mediador:</b> <b>${escapeHtml(ctx.from.first_name || 'Admin')}</b> (<code>${ctx.from.id}</code>)\n` +
           `▸ <b>Tratos Concretados:</b> <code>${stats.deals_count || 0}</code> mediaciones\n` +
           `▸ <b>Calificación Promedio:</b> ⭐ <b>${rating} / 5.0</b>\n` +
           `▸ <b>Reseñas Verificadas:</b> <code>${stats.ratings_count || 0}</code> valoraciones\n\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `⭐ <i>Tu desempeño y honestidad consolidan la confianza de toda la comunidad.</i>`;
 
         const kb = new InlineKeyboard()

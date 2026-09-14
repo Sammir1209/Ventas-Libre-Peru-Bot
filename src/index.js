@@ -1,6 +1,6 @@
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Bot Ventas Libres Perú — Entry Point
-// ══════════════════════════════════════════════════════
+// ══════
 
 const http = require('http');
 const https = require('https');
@@ -32,14 +32,14 @@ const securityHandler = require('./modules/security/handler');
 // ── Middleware ──
 const { antiSpam } = require('./middleware/antiSpam');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Inicialización
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function main() {
-  console.log('\n⊱ ──────────────────────────────────────── ⊰');
+  console.log('\n⊱ ────── ⊰');
   console.log('⟡ INICIANDO VENTAS LIBRES PERÚ BOT (RENDER 24/7)');
-  console.log('⊱ ──────────────────────────────────────── ⊰\n');
+  console.log('⊱ ────── ⊰\n');
 
   // 1. Conectar Supabase
   try {
@@ -200,11 +200,11 @@ async function main() {
           drop_pending_updates: true,
           allowed_updates: ['message', 'callback_query', 'chat_member', 'my_chat_member', 'channel_post', 'chat_join_request'],
           onStart: async (botInfo) => {
-            console.log('\n⊱ ──────────────────────────────────────── ⊰');
+            console.log('\n⊱ ────── ⊰');
             console.log(`⟡ Bot @${botInfo.username} (ID: ${botInfo.id}) iniciado con éxito.`);
             console.log(`⟡ Owners: ${config.OWNER_IDS.join(', ')}`);
             console.log(`⟡ Userbot MTProto: ${userbot.isConnected() ? 'Activo (@cf_4chan)' : 'Inactivo'}`);
-            console.log('⊱ ──────────────────────────────────────── ⊰');
+            console.log('⊱ ────── ⊰');
 
             // Ejecutar Diagnóstico de Permisos en Grupos y Canales
             await runPermissionsDiagnostics(bot, botInfo);
@@ -237,9 +237,9 @@ async function runPermissionsDiagnostics(bot, botInfo) {
     { name: 'Destino Staff / Tratos Admin', id: config.STAFF_CHAT_ID || -1003937265207 },
   ];
 
-  console.log('\n⊱ ──────────────────────────────────────────────── ⊰');
+  console.log('\n⊱ ────── ⊰');
   console.log('⟡ COMPROBACIÓN DE PERMISOS DE ADMINISTRADOR ⟡');
-  console.log('⊱ ──────────────────────────────────────────────── ⊰');
+  console.log('⊱ ────── ⊰');
 
   for (const item of targetChats) {
     if (!item.id) continue;
@@ -274,7 +274,7 @@ async function runPermissionsDiagnostics(bot, botInfo) {
       console.log(`   » ❌ No se pudo consultar: ${err.message} (Verifica que el bot esté añadido al chat).`);
     }
   }
-  console.log('\n⊱ ──────────────────────────────────────────────── ⊰\n');
+  console.log('\n⊱ ────── ⊰\n');
 }
 
 // ── Manejo de señales de cierre ──

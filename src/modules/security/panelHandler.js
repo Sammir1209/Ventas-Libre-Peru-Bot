@@ -6,10 +6,10 @@ const { SYM } = require('../../config/constants');
 const { escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Módulo: Comando /panel & Generador de Acceso Seguro (MD)
 //   Soporta temas dinámicos: Owner VLP (naranja fuego) vs Client (negro/blanco)
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Genera un token y contraseña temporal de un solo clic para el panel web.
@@ -152,14 +152,14 @@ function register(bot) {
       // 4. Preparar mensaje para el chat privado (MD)
       const dmText =
         `⟡ <b>PANEL DE CONTROL WEB</b> ⊱ <code>CREDENCIALES</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `Hola, <b>${escapeHtml(firstName)}</b>. Se ha emitido tu token de acceso seguro al centro de comando:\n\n` +
         `▸ <b>ID de Usuario:</b> <code>${userId}</code>\n` +
         `▸ <b>Usuario:</b> ${username ? `@${username}` : '<i>Sin alias</i>'}\n` +
         `▸ <b>Rango Autorizado:</b> <b>${escapeHtml(roleName)}</b>\n` +
         `▸ <b>Clave Temporal:</b> <code>${tempPassword}</code>\n\n` +
         `⏱️ <b>Vigencia de Sesión:</b> <code>30 minutos</code>\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `🔐 <i>Haz clic en los accesos directos para iniciar sesión de forma automática:</i>`;
 
       const kb = new InlineKeyboard()
@@ -191,7 +191,7 @@ function register(bot) {
         if (sentToDm) {
           const groupNotice = await ctx.reply(
             `⟡ <b>PANEL WEB</b> ⊱ <code>ENLACE ENVIADO</code> ⊰\n` +
-            `──────────────────────────────────────────────────────\n` +
+            `──────\n` +
             `📩 <b>${escapeHtml(firstName)}</b>, se han enviado tus credenciales de acceso por <b>mensaje privado</b>.`,
             { parse_mode: 'HTML' }
           );
@@ -205,7 +205,7 @@ function register(bot) {
           const botUsername = ctx.me.username;
           await ctx.reply(
             `⟡ <b>PANEL WEB</b> ⊱ <code>PRIVADO REQUERIDO</code> ⊰\n` +
-            `──────────────────────────────────────────────────────\n` +
+            `──────\n` +
             `⚠️ <b>${escapeHtml(firstName)}</b>, no fue posible entregarte las claves por privado porque no has iniciado el bot.\n\n` +
             `👉 Inicia el bot aquí: <a href="https://t.me/${botUsername}?start=panel"><b>[ Iniciar Chat Privado ]</b></a> y repite <code>/panel</code>.`,
             { parse_mode: 'HTML' }

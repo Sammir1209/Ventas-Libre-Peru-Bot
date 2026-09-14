@@ -1,8 +1,8 @@
 const db = require('../../database/postgres');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Sistema de Calificación de Admins
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Registra una calificación para un admin.

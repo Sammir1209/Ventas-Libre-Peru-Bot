@@ -2,9 +2,9 @@ const redisDb = require('../../database/redis');
 const db = require('../../database/postgres');
 const { DEAL_STATUS } = require('../../config/constants');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Cola de Tratos (Redis + Supabase)
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Crea un nuevo trato y lo añade a la cola con datos enriquecidos.

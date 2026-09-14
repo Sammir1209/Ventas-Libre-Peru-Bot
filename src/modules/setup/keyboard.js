@@ -1,8 +1,8 @@
 const { InlineKeyboard } = require('grammy');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Teclados para el Centro de Configuración y Guía (/setup)
-// ══════════════════════════════════════════════════════
+// ══════
 
 function setupMainMenuKeyboard() {
   return new InlineKeyboard()

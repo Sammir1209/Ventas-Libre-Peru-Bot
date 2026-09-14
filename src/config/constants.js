@@ -1,6 +1,6 @@
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Constantes Globales — Ventas Libres Perú
-// ══════════════════════════════════════════════════════
+// ══════
 
 // ── Símbolos Estéticos y Separadores de Diseño (Glyphy Aesthetic Symbols) ──
 const SYM = {
@@ -39,10 +39,10 @@ const SYM = {
   // Líneas y Separadores Ultra-Clean (Ajuste estilizado y compacto)
   DASH:       '━',
   DASH_SLIM:  '─',
-  DIVIDER:    '━━━━━━━━━━━━',
-  LINE:       '━━━━━━━━━━━━',
-  THIN_LINE:  '────────────',
-  FRAME_DIV:  '⊱ ━━━━━━━━━━ ⊰',
+  DIVIDER:    '━━━━━━',
+  LINE:       '━━━━━━',
+  THIN_LINE:  '──────',
+  FRAME_DIV:  '⊱ ━━━━━━ ⊰',
 };
 
 // ── Roles del Staff ──

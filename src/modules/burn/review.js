@@ -9,9 +9,9 @@ const https = require('https');
 const userbot = require('../../userbot/client');
 const { publishBurnAlert, extractTargetInfo } = require('./publisher');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Módulo 4: Panel de Revisión del Staff
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function downloadTelegramFile(api, fileId) {
   const file = await api.getFile(fileId);

@@ -2,9 +2,9 @@ const { InlineKeyboard } = require('grammy');
 const config = require('../../config/env');
 const { SYM, CB } = require('../../config/constants');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Teclados de Verificación
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Teclado de bienvenida con botones cortos alineados uno al costado del otro

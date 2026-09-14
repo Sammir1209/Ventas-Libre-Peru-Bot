@@ -4,9 +4,9 @@ const { ROLES } = require('../../config/constants');
 const templates = require('../../utils/templates');
 const { getReputation } = require('../escrow/rating');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Comando /staff — Listar Equipo con Jerarquía
-// ══════════════════════════════════════════════════════
+// ══════
 
 function register(bot) {
   bot.command('staff', async (ctx) => {

@@ -2,9 +2,9 @@ const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
 const fs = require('fs');
 const path = require('path');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Carga y Registro Universal de Fuentes (Linux & Windows)
-// ══════════════════════════════════════════════════════
+// ══════
 
 const FONTS_DIR = path.join(__dirname, '../assets/fonts');
 

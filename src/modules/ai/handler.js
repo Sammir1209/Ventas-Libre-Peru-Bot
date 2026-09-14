@@ -98,7 +98,7 @@ function formatAiReply(raw) {
   text = text.replace(/^#{1,3}\s+(.+)$/gm, '<b>$1</b>');
 
   // 3. Separadores Markdown a Separador Unicode Estético
-  text = text.replace(/^---+$/gm, '────────────────────────────────────────');
+  text = text.replace(/^---+$/gm, '──────');
 
   // 4. Enlaces Markdown [texto](url)
   text = text.replace(/\[(.*?)\]\((https?:\/\/.*?)\)/g, '<a href="$2">$1</a>');
@@ -296,7 +296,7 @@ function register(bot) {
 
       // 3. Notificar en el chat
       let actionResultText = `⚠️ <b>WARN OFICIAL APLICADO POR EL STAFF</b>\n`;
-      actionResultText += `══════════════════════════════════════════════════════\n`;
+      actionResultText += `══════\n`;
       actionResultText += `▸ <b>Infractor:</b> <code>${targetUserId}</code>\n`;
       actionResultText += `▸ <b>Staff Responsable:</b> @${ctx.from.username || ctx.from.first_name}\n`;
       actionResultText += `▸ <b>Motivo:</b> ${reason}\n`;
@@ -305,7 +305,7 @@ function register(bot) {
       if (warnCount >= 3 && (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group')) {
         try {
           await ctx.api.banChatMember(ctx.chat.id, targetUserId);
-          actionResultText += `──────────────────────────────────────────────────────\n`;
+          actionResultText += `──────\n`;
           actionResultText += `🚨 <b>SANCIÓN MÁXIMA:</b> El usuario alcanzó el límite de 3 advertencias y ha sido <b>EXPULSADO</b> del grupo.\n`;
         } catch (banErr) {
           actionResultText += `\n⚠️ <i>No se pudo expulsar automáticamente (verificar permisos del bot).</i>`;
@@ -338,11 +338,11 @@ function register(bot) {
     if (!prompt) {
       return ctx.reply(
         `⟡ <b>ASISTENTE INTELIGENTE</b> ⊱ <code>VENTAS LIBRES PERÚ</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Uso:</b> <code>/ask [tu pregunta o duda]</code>\n` +
         `▸ <b>Ejemplo Serio:</b> <code>/ask Habla con cordura: ¿Cómo inicio un trato seguro?</code>\n` +
         `▸ <b>Ejemplo Charla:</b> <code>/ask Habla causa, ¿qué cuentas recomiendas?</code>\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `💡 <i>También puedes mencionarme con @${botUsername} en cualquier grupo oficial o escribirme directamente al privado.</i>`,
         { parse_mode: 'HTML' }
       );
@@ -357,7 +357,7 @@ function register(bot) {
       await clearSession(ctx.from.id);
       await ctx.reply(
         `⟡ <b>MEMORIA REINICIADA</b> ⊱ <code>SESIÓN IA</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n` +
+        `══════\n` +
         `✓ Tu historial conversacional ha sido restablecido a cero.\n` +
         `Empezaremos una nueva charla limpia. 🔄`,
         { parse_mode: 'HTML' }

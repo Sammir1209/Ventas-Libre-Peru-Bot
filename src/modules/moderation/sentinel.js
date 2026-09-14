@@ -6,10 +6,10 @@ const { formatId, escapeHtml, mentionFromData } = require('../../utils/formattin
 const { InlineKeyboard } = require('grammy');
 const userbot = require('../../userbot/client');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ MOTOR CENTINELA VLP (VLP Sentinel Engine)
 // ⟡ Sistema Propietario de Seguridad e Inteligencia Forense
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Parsea cadenas de duración flexibles para silenciar o penalizar.
@@ -482,9 +482,9 @@ async function syncPenaltyAcrossGroups(botApi, userId, action, options = {}) {
   return { affectedCount, errors };
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Registro de Comandos Propietarios Centinela
-// ══════════════════════════════════════════════════════
+// ══════
 
 function register(bot) {
   // ── /sentinel o /centinela — Panel de Estado del Motor de Seguridad ──
@@ -496,13 +496,13 @@ function register(bot) {
 
       const text =
         `⟡ <b>MOTOR CENTINELA VLP</b> ⊱ <code>RED DE SEGURIDAD</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Estado del Sistema:</b> ⊱ <code>EN LÍNEA / ACTIVO 🟢</code> ⊰\n` +
         `▸ <b>Grupos Protegidos:</b> <code>${groups.length} comunidades</code>\n` +
         `▸ <b>Estafadores en Lista Negra:</b> <code>${burnedCount} fichados</code>\n` +
         `▸ <b>Staff y Guardianes:</b> <code>${staffList.length + config.OWNER_IDS.length} agentes</code>\n` +
         `▸ <b>Motor MTProto Userbot:</b> <code>${userbot.isConnected() ? 'CONECTADO ⚡' : 'STANDBY ⚪'}</code>\n\n` +
-        `──────────────────────────────────────────────────────\n` +
+        `──────\n` +
         `⚡ <b>Módulos Integrados:</b>\n` +
         `• <i>Blacklist Dinámico en Tiempo Real (Anti-Intrusos)</i>\n` +
         `• <i>Anti-Impersonator & Detector de Clones de Staff</i>\n` +
@@ -532,9 +532,9 @@ function register(bot) {
       if (!target) {
         return ctx.reply(
           `⟡ <b>ESCANEO FORENSE</b> ⊱ <code>CENTINELA</code> ⊰\n` +
-          `══════════════════════════════════════════════════════\n\n` +
+          `══════\n\n` +
           `▸ <b>Uso:</b> <code>/analizar [@usuario / ID / Responder]</code>\n\n` +
-          `──────────────────────────────────────────────────────\n` +
+          `──────\n` +
           `🔍 <i>Ejecuta un escaneo forense completo de confiabilidad, antecedentes y riesgo.</i>`,
           { parse_mode: 'HTML' }
         );
@@ -553,13 +553,13 @@ function register(bot) {
 
       let text =
         `⟡ <b>INFORME FORENSE CENTINELA</b> ⊱ <code>PERFIL</code> ⊰\n` +
-        `══════════════════════════════════════════════════════\n\n` +
+        `══════\n\n` +
         `▸ <b>Usuario:</b> ${userMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
         (target.username ? `▸ <b>Username:</b> @${target.username}\n` : '') +
         `▸ <b>Nivel de Confianza:</b> ⊱ <b>${profile.score}%</b> ⊰\n` +
         `▸ <b>Clasificación de Riesgo:</b> ⊱ <b>${profile.riskLevel}</b> ⊰\n\n` +
-        `──────────────────────────────────────────────────────\n`;
+        `──────\n`;
 
       if (profile.isBurned) {
         text +=
@@ -576,7 +576,7 @@ function register(bot) {
         }
       }
 
-      text += `──────────────────────────────────────────────────────\n🛡️ <i>Centinela Engine — Sistema de Protección Oficial</i>`;
+      text += `──────\n🛡️ <i>Centinela Engine — Sistema de Protección Oficial</i>`;
 
       const kb = new InlineKeyboard()
         .text('VER PERFIL COMPLETO', `info_profile:${target.userId}`).primary()

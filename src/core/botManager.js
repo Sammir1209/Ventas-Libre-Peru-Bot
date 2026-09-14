@@ -20,9 +20,9 @@ const searchHandler = require('../modules/moderation/search');
 const setupHandler = require('../modules/setup/handler');
 const securityHandler = require('../modules/security/handler');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Motor Multi-Instancia de Sub-Bots (Plataforma SaaS)
-// ══════════════════════════════════════════════════════
+// ══════
 
 class BotManager {
   constructor() {

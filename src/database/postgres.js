@@ -2,9 +2,9 @@ const { createClient } = require('@supabase/supabase-js');
 const { Pool } = require('pg');
 const config = require('../config/env');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Capa de Base de Datos Híbrida: Supabase REST + PostgreSQL Directo
-// ══════════════════════════════════════════════════════
+// ══════
 
 let supabase = null;
 let pool = null;
@@ -27,9 +27,9 @@ if (config.POSTGRES_URL && !config.POSTGRES_URL.includes('localhost')) {
   });
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ CRUD — Usuarios
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function upsertUser(userId, username, firstName) {
   if (useSupabase && supabase) {
@@ -164,9 +164,9 @@ async function toggleUserVerification(userId, status) {
   return null;
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ CRUD — Verificaciones Pendientes (Nuevos Miembros)
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function addPendingVerification(chatId, userId, username, firstName, welcomeMsgId = null) {
   if (useSupabase && supabase) {
@@ -438,9 +438,9 @@ async function unburnUser(userId) {
   }
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ CRUD — Staff
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function setStaffRole(userId, username, firstName, role, assignedBy, customTitle = null, tenantId = null) {
   if (useSupabase && supabase) {
@@ -593,9 +593,9 @@ async function getStaffByRole(role, tenantId = null) {
   return [];
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ CRUD — Tratos (Deals)
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function createDeal(creatorId, dealInfo = {}) {
   const role = dealInfo.role || null;
@@ -800,9 +800,9 @@ async function getAllDeals(tenantId = null) {
   return [];
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ CRUD — Calificaciones
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function addRating(dealId, adminId, raterId, stars) {
   if (useSupabase && supabase) {
@@ -885,9 +885,9 @@ async function getAdminAvgRating(adminId) {
   return { avg_rating: 0, total_ratings: 0 };
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ CRUD — Grupos Oficiales
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function registerGroup(chatId, title, type = 'supergroup', username = null, tenantId = null) {
   if (useSupabase && supabase) {
@@ -1048,9 +1048,9 @@ async function getSetting(key, tenantId = null) {
   return null;
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ CRUD — Estafadores & Reportes
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function createBurnReport(reporterId, targetId, context, proofFileIds, proofUrls, targetUsername = null, targetName = null) {
   let enrichedContext = context || '';
@@ -1532,9 +1532,9 @@ async function getUserDealsCount(userId) {
   return 0;
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ CRUD — Logs de Moderación
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function addModLog(action, moderatorId, targetId, chatId, reason) {
   if (useSupabase && supabase) {
@@ -1665,9 +1665,9 @@ async function getAuditLogs({ page = 1, limit = 25, action = null, search = '', 
   return { logs: [], total: 0, page, totalPages: 0 };
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Inicialización
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function syncGbanLogsToBurnedUsers() {
   try {
@@ -1725,9 +1725,9 @@ async function initialize() {
   }
 }
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ CRUD — Sub-Bots (Plataforma SaaS Multi-Tenant)
-// ══════════════════════════════════════════════════════
+// ══════
 
 async function createSubBot(data) {
   const payload = {

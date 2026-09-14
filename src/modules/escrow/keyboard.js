@@ -2,9 +2,9 @@ const { InlineKeyboard } = require('grammy');
 const { SYM, CB } = require('../../config/constants');
 const config = require('../../config/env');
 
-// ══════════════════════════════════════════════════════
+// ══════
 // ⟡ Teclados del Sistema Escrow (Tratos Admin)
-// ══════════════════════════════════════════════════════
+// ══════
 
 /**
  * Teclado principal de /tratoadm.
