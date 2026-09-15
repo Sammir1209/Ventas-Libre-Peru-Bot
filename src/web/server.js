@@ -43,14 +43,14 @@ function createWebApp(mainBot = null) {
     }));
   }
 
-  // Prevenir que requests a CSS o JS desactualizados caigan en catch-alls y devuelvan text/html
-  app.use('/_next/static/css/*', (req, res) => {
-    res.status(404).type('text/css').send('/* Stylesheet chunk updated */');
-  });
-  app.use('/_next/static/chunks/*', (req, res) => {
-    res.status(404).type('application/javascript').send('/* JS chunk updated */');
-  });
-  app.use('/_next/*', (req, res) => {
+  // Prevenir que requests a archivos de _next inexistentes caigan en catch-alls y devuelvan text/html
+  app.use('/_next', (req, res) => {
+    if (req.path.endsWith('.css')) {
+      return res.status(404).type('text/css').send('/* Stylesheet chunk updated */');
+    }
+    if (req.path.endsWith('.js')) {
+      return res.status(404).type('application/javascript').send('/* JS chunk updated */');
+    }
     res.status(404).type('text/plain').send('Asset not found');
   });
 
