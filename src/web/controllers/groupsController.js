@@ -31,8 +31,19 @@ async function updateGroupSecurity(req, res) {
   }
 }
 
+async function getAvailableChats(req, res) {
+  try {
+    const mainBot = req.app.get('mainBot');
+    const chats = await groupsService.listAvailableChats(mainBot, null);
+    res.json({ ok: true, chats });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
 module.exports = {
   getGroupsList,
   getGroupSecurity,
   updateGroupSecurity,
+  getAvailableChats,
 };

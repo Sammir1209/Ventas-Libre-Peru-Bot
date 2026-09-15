@@ -4,8 +4,8 @@
 
 const db = require('../../database/postgres');
 
-async function listDeals() {
-  const deals = await db.getAllDeals();
+async function listDeals(tenantId = null) {
+  const deals = await db.getAllDeals(tenantId);
   return deals || [];
 }
 
@@ -67,7 +67,13 @@ async function createDeal(data) {
   const creatorId = Number(data.creatorId);
   if (!creatorId) throw new Error('ID del creador inválido.');
 
-  const deal = await db.createDeal(creatorId);
+  const deal = await db.createDeal(creatorId, {
+    role: data.role,
+    counterpart: data.counterpart,
+    description: data.description,
+    creatorUsername: data.creatorUsername,
+    tenantId: data.tenantId || null,
+  });
   if (!deal) throw new Error('No se pudo crear el trato en la base de datos.');
 
   if (data.adminId || data.status || data.counterpart || data.description) {

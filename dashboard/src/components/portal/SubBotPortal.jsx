@@ -596,6 +596,9 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
               onSaveSettings={handleSaveSettings}
               saving={savingSettings}
               onPreviewLanding={() => setView('public')}
+              slug={slug}
+              adminToken={adminToken}
+              adminKey={adminKey}
             />
           )}
 

@@ -44,8 +44,91 @@ async function updateGroupSecurity(chatId, settings = {}) {
   return await getGroupSecurity(numId);
 }
 
+async function listAvailableChats(botInstance = null, tenantId = null) {
+  const rawGroups = await db.getAllGroups(tenantId);
+  if (!botInstance) {
+    return (rawGroups || []).map(g => ({
+      chatId: String(g.chat_id),
+      title: g.title || 'Chat Oficial',
+      type: g.type || 'supergroup',
+      username: g.username ? `@${String(g.username).replace(/^@/, '')}` : null,
+      isAdmin: false,
+      status: 'unknown',
+      badge: '⚠️ No Verificado',
+    }));
+  }
+
+  let botId = botInstance.botInfo?.id;
+  if (!botId && botInstance.api?.getMe) {
+    try {
+      const me = await botInstance.api.getMe();
+      botId = me?.id;
+    } catch {}
+  }
+
+  const results = [];
+  const checkedChatIds = new Set();
+
+  for (const g of rawGroups || []) {
+    const cid = Number(g.chat_id);
+    if (checkedChatIds.has(cid)) continue;
+    checkedChatIds.add(cid);
+
+    try {
+      let chat = null;
+      let member = null;
+
+      if (botInstance.api) {
+        [chat, member] = await Promise.all([
+          botInstance.api.getChat(cid).catch(() => null),
+          botId ? botInstance.api.getChatMember(cid, botId).catch(() => null) : null,
+        ]);
+      }
+
+      const title = chat?.title || g.title || 'Chat';
+      const type = chat?.type || g.type || 'supergroup';
+      const cleanUser = chat?.username || g.username;
+      const username = cleanUser ? `@${String(cleanUser).replace(/^@/, '')}` : null;
+      const isAdm = member ? (member.status === 'administrator' || member.status === 'creator') : false;
+
+      // Si el bot fue expulsado del grupo
+      if (member?.status === 'left' || member?.status === 'kicked') {
+        await db.removeGroup(cid, tenantId).catch(() => {});
+        continue;
+      }
+
+      results.push({
+        chatId: String(cid),
+        title,
+        type,
+        username,
+        isAdmin: isAdm,
+        status: member?.status || 'unknown',
+        canRestrict: isAdm ? (member.can_restrict_members !== false) : false,
+        canPost: isAdm ? (member.can_post_messages !== false) : false,
+        canDelete: isAdm ? (member.can_delete_messages !== false) : false,
+        canInvite: isAdm ? (member.can_invite_users !== false) : false,
+        badge: isAdm ? '🛡️ Admin' : '⚠️ No Admin',
+      });
+    } catch {
+      results.push({
+        chatId: String(cid),
+        title: g.title || 'Chat',
+        type: g.type || 'supergroup',
+        username: g.username ? `@${String(g.username).replace(/^@/, '')}` : null,
+        isAdmin: false,
+        status: 'unknown',
+        badge: '⚠️ Sin Acceso',
+      });
+    }
+  }
+
+  return results;
+}
+
 module.exports = {
   listGroups,
   getGroupSecurity,
   updateGroupSecurity,
+  listAvailableChats,
 };

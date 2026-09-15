@@ -4,8 +4,8 @@
 
 const db = require('../../database/postgres');
 
-async function listBurnedUsers() {
-  const burned = await db.getAllBurnedUsers();
+async function listBurnedUsers(tenantId = null) {
+  const burned = await db.getAllBurnedUsers(50, 0, tenantId);
   return burned || [];
 }
 
@@ -23,9 +23,10 @@ async function addBurnedUser(data) {
   const context = data.context || 'Registrado desde portal web';
   const username = data.username ? data.username.replace('@', '').trim() : null;
   const firstName = data.firstName || 'Usuario';
+  const tenantId = data.tenantId || null;
 
-  // Registrar en tabla de quemados
-  await db.burnUser(userId, reportedBy, context, approvedBy);
+  // Registrar en tabla de quemados con aislamiento multi-tenant
+  await db.burnUser(userId, reportedBy, context, approvedBy, username, firstName, tenantId);
 
   // Asegurar username y first_name
   if (db.pool) {
@@ -73,25 +74,33 @@ async function updateBurnedUser(userId, updates = {}) {
   return await db.getBurnedUserInfo(numId);
 }
 
-async function removeBurnedUser(userId, executedBy = 1) {
+async function removeBurnedUser(userId, executedBy = 1, tenantId = null) {
   const numId = Number(userId);
-  const result = await db.unburnUser(numId);
+  // Soporte para firma sobrecargada removeBurnedUser(userId, tenantId)
+  let resolvedTenantId = tenantId;
+  let resolvedExecutedBy = executedBy;
+  if (typeof executedBy === 'string' && executedBy.length > 10 && !tenantId) {
+    resolvedTenantId = executedBy;
+    resolvedExecutedBy = 1;
+  }
+
+  const result = await db.unburnUser(numId, resolvedTenantId);
   
   try {
-    await db.addModLog('UNGBAN', executedBy, numId, null, 'Revocado desde portal web');
+    await db.addModLog('UNGBAN', resolvedExecutedBy, numId, null, 'Revocado desde portal web');
   } catch {}
 
   return result;
 }
 
 /**
- * Expulsa al estafador de todos los grupos oficiales registrados en la base de datos
+ * Expulsa al estafador de los grupos oficiales registrados para el tenant
  */
-async function enforceGbanInGroups(userId, mainBot) {
+async function enforceGbanInGroups(userId, botInstance, tenantId = null) {
   const numId = Number(userId);
-  if (!mainBot) throw new Error('Instancia del bot de Telegram no disponible para expulsión.');
+  if (!botInstance) throw new Error('Instancia del bot de Telegram no disponible para expulsión.');
 
-  const groups = await db.getAllGroups();
+  const groups = await db.getAllGroups(tenantId);
   const results = {
     totalGroups: groups.length,
     bannedCount: 0,
@@ -100,7 +109,7 @@ async function enforceGbanInGroups(userId, mainBot) {
 
   for (const g of groups) {
     try {
-      await mainBot.api.banChatMember(g.chat_id, numId);
+      await botInstance.api.banChatMember(g.chat_id, numId);
       results.bannedCount++;
     } catch (err) {
       // Registrar solo si no es error de usuario no encontrado en el chat

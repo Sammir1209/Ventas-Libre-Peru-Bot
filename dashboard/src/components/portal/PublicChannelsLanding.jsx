@@ -9,6 +9,8 @@ import {
   IconExternalLink,
   IconCheck,
   IconFolder,
+  IconActivity,
+  IconLock,
 } from '../common/Icons';
 
 export default function PublicChannelsLanding({ portalData, loading, error, onGoToAdmin }) {
@@ -28,23 +30,23 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
   const communityName = portalData?.community_name || 'Comunidad Oficial';
 
   return (
-    <div className="landing-ultra-wrapper">
+    <div className="heroui-landing-container">
       <style jsx>{`
-        .landing-ultra-wrapper {
+        .heroui-landing-container {
           min-height: 100vh;
           background: #000000;
-          color: #ffffff;
+          color: #f4f4f5;
           display: flex;
           flex-direction: column;
           align-items: center;
           position: relative;
           overflow-x: hidden;
-          padding: 2.5rem 1.2rem;
+          padding: 0 1.25rem 3.5rem;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         }
 
-        /* Rejilla de Fondo Cyberpunk Obsidian */
-        .landing-ultra-wrapper::before {
+        /* HeroUI Ambient Orbs & Grids */
+        .heroui-landing-container::before {
           content: '';
           position: absolute;
           top: 0;
@@ -52,24 +54,88 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
           right: 0;
           bottom: 0;
           background-image: 
-            linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-          background-size: 36px 36px;
+            radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+          background-size: 28px 28px;
           pointer-events: none;
+          z-index: 0;
         }
 
-        /* Halo de Luz Superior */
-        .ambient-glow {
+        .ambient-glow-primary {
           position: absolute;
-          top: -120px;
-          width: 550px;
-          height: 350px;
-          background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
+          top: -100px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 700px;
+          height: 400px;
+          background: radial-gradient(circle, rgba(0, 111, 238, 0.22) 0%, rgba(120, 40, 200, 0.12) 50%, transparent 75%);
+          filter: blur(80px);
           border-radius: 50%;
           pointer-events: none;
           z-index: 0;
         }
 
+        /* HeroUI Sticky Frosted Navbar */
+        .heroui-navbar {
+          width: 100%;
+          max-width: 680px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 1.2rem 0;
+          margin-bottom: 1.5rem;
+          position: relative;
+          z-index: 10;
+        }
+
+        .heroui-nav-brand {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .heroui-brand-avatar {
+          width: 38px;
+          height: 38px;
+          border-radius: 9999px;
+          background: linear-gradient(135deg, #006FEE 0%, #7828c8 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #ffffff;
+          box-shadow: 0 0 16px rgba(0, 111, 238, 0.4);
+        }
+
+        .heroui-brand-name {
+          font-weight: 800;
+          font-size: 1.05rem;
+          letter-spacing: -0.02em;
+          color: #ffffff;
+        }
+
+        .heroui-nav-cta {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.45rem 0.95rem;
+          border-radius: 9999px;
+          background: rgba(39, 39, 42, 0.6);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          color: #d4d4d8;
+          font-size: 0.78rem;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          backdrop-filter: blur(12px);
+          transition: all 0.2s ease;
+        }
+
+        .heroui-nav-cta:hover {
+          background: rgba(63, 63, 70, 0.8);
+          color: #ffffff;
+          border-color: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Contenido Central */
         .landing-content {
           position: relative;
           z-index: 1;
@@ -77,72 +143,93 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
           max-width: 680px;
           display: flex;
           flex-direction: column;
-          gap: 1.8rem;
+          gap: 1.6rem;
         }
 
-        /* Header Card */
-        .hero-card {
-          background: rgba(18, 18, 20, 0.7);
-          backdrop-filter: blur(16px);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 20px;
-          padding: 2.2rem 1.8rem;
+        /* HeroUI Card Principal */
+        .heroui-hero-card {
+          background: rgba(24, 24, 27, 0.75);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 28px;
+          padding: 2.4rem 2rem;
           text-align: center;
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+          position: relative;
+          overflow: hidden;
         }
 
-        .live-tag {
+        .heroui-hero-card::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: linear-gradient(90deg, transparent 0%, rgba(0, 111, 238, 0.6) 50%, transparent 100%);
+        }
+
+        /* HeroUI Chip Badge */
+        .heroui-chip {
           display: inline-flex;
           align-items: center;
           gap: 0.5rem;
-          padding: 0.35rem 0.85rem;
+          padding: 0.35rem 0.9rem;
           border-radius: 9999px;
           font-size: 0.75rem;
           font-weight: 700;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.04em;
           text-transform: uppercase;
-          background: rgba(255, 255, 255, 0.06);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          color: #ffffff;
+          background: rgba(0, 111, 238, 0.15);
+          border: 1px solid rgba(0, 111, 238, 0.35);
+          color: #006FEE;
           margin-bottom: 1.2rem;
         }
 
-        .pulse-dot {
-          width: 8px;
-          height: 8px;
+        .heroui-pulse-dot {
+          width: 7px;
+          height: 7px;
           border-radius: 50%;
-          background: #22c55e;
-          box-shadow: 0 0 10px #22c55e;
+          background: #17c964;
+          box-shadow: 0 0 10px #17c964;
+          animation: herouiPulse 2s infinite;
+        }
+
+        @keyframes herouiPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.3); opacity: 0.6; }
         }
 
         .hero-title {
-          font-size: 2.1rem;
-          font-weight: 800;
-          letter-spacing: -0.03em;
-          margin: 0 0 0.8rem 0;
-          color: #ffffff;
-          line-height: 1.2;
+          font-size: 2.3rem;
+          font-weight: 900;
+          letter-spacing: -0.04em;
+          margin: 0 0 0.85rem 0;
+          background: linear-gradient(180deg, #ffffff 30%, #a1a1aa 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          line-height: 1.15;
         }
 
         .hero-subtitle {
-          font-size: 0.95rem;
+          font-size: 0.96rem;
           line-height: 1.6;
           color: #a1a1aa;
-          margin: 0;
-          max-width: 540px;
-          margin-left: auto;
-          margin-right: auto;
+          margin: 0 auto;
+          max-width: 520px;
         }
 
-        /* Barra de Progreso */
-        .progress-card {
+        /* HeroUI Progress Card */
+        .heroui-progress-card {
           background: rgba(24, 24, 27, 0.6);
           border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 14px;
-          padding: 1rem 1.4rem;
+          border-radius: 20px;
+          padding: 1.1rem 1.5rem;
           display: flex;
           flex-direction: column;
-          gap: 0.6rem;
+          gap: 0.7rem;
+          backdrop-filter: blur(16px);
         }
 
         .progress-meta {
@@ -154,25 +241,27 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
 
         .progress-track {
           width: 100%;
-          height: 6px;
+          height: 8px;
           border-radius: 9999px;
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(39, 39, 42, 0.8);
           overflow: hidden;
+          position: relative;
         }
 
         .progress-fill {
           height: 100%;
-          background: #ffffff;
-          transition: width 0.4s ease;
+          background: linear-gradient(90deg, #006FEE 0%, #17c964 100%);
+          transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           border-radius: 9999px;
+          box-shadow: 0 0 12px rgba(23, 201, 100, 0.5);
         }
 
-        /* Tarjeta de Canal */
-        .channel-item {
-          background: rgba(18, 18, 20, 0.8);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 16px;
-          padding: 1.1rem 1.4rem;
+        /* HeroUI Channel Interactive Card */
+        .heroui-channel-card {
+          background: rgba(24, 24, 27, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.09);
+          border-radius: 20px;
+          padding: 1.2rem 1.4rem;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -180,13 +269,14 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
           transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           text-decoration: none;
           color: inherit;
+          backdrop-filter: blur(16px);
         }
 
-        .channel-item:hover {
-          border-color: rgba(255, 255, 255, 0.35);
-          background: rgba(28, 28, 32, 0.95);
+        .heroui-channel-card:hover {
+          border-color: rgba(0, 111, 238, 0.45);
+          background: rgba(39, 39, 42, 0.65);
           transform: translateY(-2px);
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 111, 238, 0.15);
         }
 
         .channel-left {
@@ -195,18 +285,19 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
           gap: 1.1rem;
         }
 
-        .channel-badge-num {
+        .channel-avatar {
           width: 44px;
           height: 44px;
-          border-radius: 12px;
-          background: #18181b;
-          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 14px;
+          background: rgba(39, 39, 42, 0.8);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 800;
           font-size: 1.1rem;
-          color: #ffffff;
+          color: #f4f4f5;
+          flex-shrink: 0;
         }
 
         .channel-name {
@@ -216,17 +307,18 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
           margin-bottom: 0.2rem;
         }
 
-        .channel-tag {
+        .channel-sub {
           font-size: 0.78rem;
-          color: #71717a;
+          color: #a1a1aa;
           display: flex;
           align-items: center;
-          gap: 0.4rem;
+          gap: 0.45rem;
         }
 
-        .btn-join {
-          padding: 0.6rem 1.2rem;
-          border-radius: 10px;
+        /* HeroUI Pill Button */
+        .heroui-btn-pill {
+          padding: 0.65rem 1.3rem;
+          border-radius: 9999px;
           font-weight: 700;
           font-size: 0.85rem;
           background: #ffffff;
@@ -235,59 +327,74 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
           cursor: pointer;
           display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
-          transition: all 0.2s ease;
+          gap: 0.45rem;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          flex-shrink: 0;
+          user-select: none;
         }
 
-        .btn-join:hover {
+        .heroui-btn-pill:active {
+          transform: scale(0.96);
+        }
+
+        .heroui-btn-pill:hover {
           background: #e4e4e7;
-          transform: scale(1.03);
+          box-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
         }
 
-        .btn-joined {
-          background: rgba(255, 255, 255, 0.1);
-          color: #ffffff;
-          border: 1px solid rgba(255, 255, 255, 0.25);
+        .heroui-btn-visited {
+          background: rgba(23, 201, 100, 0.15);
+          color: #17c964;
+          border: 1px solid rgba(23, 201, 100, 0.35);
         }
 
-        /* Botón Maestro de Validación */
-        .master-unlock-btn {
+        .heroui-btn-visited:hover {
+          background: rgba(23, 201, 100, 0.25);
+          box-shadow: 0 0 16px rgba(23, 201, 100, 0.3);
+        }
+
+        /* HeroUI Big Master Unlock Button */
+        .heroui-master-cta {
           width: 100%;
-          padding: 1.2rem;
-          border-radius: 16px;
-          background: #ffffff;
-          color: #000000;
+          padding: 1.25rem;
+          border-radius: 9999px;
+          background: linear-gradient(135deg, #006FEE 0%, #7828c8 100%);
+          color: #ffffff;
           font-weight: 800;
           font-size: 1.05rem;
-          border: none;
+          border: 1px solid rgba(255, 255, 255, 0.2);
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 0.8rem;
-          box-shadow: 0 0 30px rgba(255, 255, 255, 0.25);
-          transition: all 0.3s ease;
+          box-shadow: 0 10px 35px -5px rgba(0, 111, 238, 0.5);
+          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           text-decoration: none;
+          user-select: none;
         }
 
-        .master-unlock-btn:hover {
-          background: #f4f4f5;
+        .heroui-master-cta:hover {
           transform: translateY(-2px);
-          box-shadow: 0 0 45px rgba(255, 255, 255, 0.4);
+          box-shadow: 0 14px 45px -5px rgba(0, 111, 238, 0.65);
         }
 
-        /* Footer */
-        .landing-footer {
-          margin-top: 2rem;
+        .heroui-master-cta:active {
+          transform: scale(0.98);
+        }
+
+        /* HeroUI Footer */
+        .heroui-footer {
+          margin-top: 2.5rem;
           text-align: center;
           font-size: 0.8rem;
-          color: #52525b;
+          color: #71717a;
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.6rem;
         }
 
-        .admin-link {
+        .heroui-footer-link {
           color: #a1a1aa;
           text-decoration: none;
           font-weight: 600;
@@ -295,19 +402,36 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
           transition: color 0.2s ease;
         }
 
-        .admin-link:hover {
-          color: #ffffff;
+        .heroui-footer-link:hover {
+          color: #006FEE;
         }
       `}</style>
 
-      <div className="ambient-glow" />
+      <div className="ambient-glow-primary" />
+
+      {/* HeroUI Frosted Top Bar */}
+      <div className="heroui-navbar">
+        <div className="heroui-nav-brand">
+          <div className="heroui-brand-avatar">
+            <IconShield size={18} />
+          </div>
+          <span className="heroui-brand-name">{communityName}</span>
+        </div>
+
+        {onGoToAdmin && (
+          <button type="button" onClick={onGoToAdmin} className="heroui-nav-cta">
+            <IconLock size={12} />
+            <span>Panel Admin</span>
+          </button>
+        )}
+      </div>
 
       <div className="landing-content">
-        {/* Cabecera Ultra-Premium */}
-        <div className="hero-card">
-          <div className="live-tag">
-            <span className="pulse-dot"></span>
-            <span>{botUsername ? `@${botUsername}` : 'Bot Activo 24/7'}</span>
+        {/* HeroUI Hero Card */}
+        <div className="heroui-hero-card">
+          <div className="heroui-chip">
+            <span className="heroui-pulse-dot"></span>
+            <span>{botUsername ? `@${botUsername}` : 'Sistema de Verificación'}</span>
           </div>
 
           <h1 className="hero-title">{communityName}</h1>
@@ -319,26 +443,26 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
 
         {/* Estado de Carga o Error */}
         {loading && (
-          <div className="hero-card" style={{ padding: '2rem' }}>
+          <div className="heroui-hero-card" style={{ padding: '2rem' }}>
             <p style={{ color: '#a1a1aa', margin: 0 }}>Cargando especificaciones de la comunidad...</p>
           </div>
         )}
 
         {error && (
-          <div className="hero-card" style={{ borderColor: '#ef4444' }}>
-            <p style={{ color: '#ef4444', margin: 0 }}>{error}</p>
+          <div className="heroui-hero-card" style={{ borderColor: '#f31260' }}>
+            <p style={{ color: '#f31260', margin: 0 }}>{error}</p>
           </div>
         )}
 
         {/* ── CASO A: TIENE CANALES OBLIGATORIOS ── */}
         {!loading && !error && totalChannels > 0 && (
           <>
-            {/* Barra de Progreso */}
-            <div className="progress-card">
+            {/* HeroUI Barra de Progreso */}
+            <div className="heroui-progress-card">
               <div className="progress-meta">
                 <span style={{ color: '#a1a1aa', fontWeight: 600 }}>Pasos Completados:</span>
-                <span style={{ fontWeight: 800, color: '#ffffff' }}>
-                  {completedCount} de {totalChannels} canales
+                <span style={{ fontWeight: 800, color: '#f4f4f5' }}>
+                  {completedCount} de {totalChannels} canales completados
                 </span>
               </div>
               <div className="progress-track">
@@ -349,7 +473,7 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
               </div>
             </div>
 
-            {/* Lista de Canales */}
+            {/* Lista de Canales Estilo HeroUI */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
               {channels.map((ch, idx) => {
                 const isVisited = visitedChannels[idx];
@@ -359,17 +483,17 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
                     href={ch.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="channel-item"
+                    className="heroui-channel-card"
                     onClick={() => toggleChannelVisited(idx)}
                   >
                     <div className="channel-left">
-                      <div className="channel-badge-num">{idx + 1}</div>
+                      <div className="channel-avatar">{idx + 1}</div>
                       <div>
                         <div className="channel-name">{ch.name}</div>
-                        <div className="channel-tag">
-                          <span>Canal Oficial Obligatorio</span>
+                        <div className="channel-sub">
+                          <span>Canal Oficial Requerido</span>
                           {isVisited && (
-                            <span style={{ color: '#22c55e', display: 'inline-flex', alignItems: 'center', gap: '2px', fontWeight: 700 }}>
+                            <span style={{ color: '#17c964', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 700 }}>
                               • <IconCheck size={12} /> Listo
                             </span>
                           )}
@@ -379,7 +503,7 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
 
                     <button
                       type="button"
-                      className={`btn-join ${isVisited ? 'btn-joined' : ''}`}
+                      className={`heroui-btn-pill ${isVisited ? 'heroui-btn-visited' : ''}`}
                     >
                       <span>{isVisited ? 'Unido' : 'Unirme'}</span>
                       <IconExternalLink size={14} />
@@ -394,20 +518,20 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
                   href={portalData.groups_folder_link}
                   target="_blank"
                   rel="noreferrer"
-                  className="channel-item"
-                  style={{ borderColor: 'rgba(255, 255, 255, 0.25)', background: 'rgba(28, 28, 32, 0.8)' }}
+                  className="heroui-channel-card"
+                  style={{ borderColor: 'rgba(0, 111, 238, 0.3)', background: 'rgba(0, 111, 238, 0.06)' }}
                 >
                   <div className="channel-left">
-                    <div className="channel-badge-num" style={{ background: '#27272a' }}>
+                    <div className="channel-avatar" style={{ background: 'rgba(0, 111, 238, 0.2)', color: '#006FEE' }}>
                       <IconFolder size={20} />
                     </div>
                     <div>
                       <div className="channel-name">Carpeta Oficial de Grupos</div>
-                      <div className="channel-tag">Añade toda la red de chats a tu Telegram con 1 clic</div>
+                      <div className="channel-sub">Añade toda la red de chats a tu Telegram con 1 solo toque</div>
                     </div>
                   </div>
 
-                  <button type="button" className="btn-join">
+                  <button type="button" className="heroui-btn-pill" style={{ background: '#006FEE', color: '#ffffff' }}>
                     <span>Añadir Carpeta</span>
                     <IconArrowRight size={14} />
                   </button>
@@ -415,12 +539,12 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
               )}
             </div>
 
-            {/* Botón Principal de Retorno a Telegram */}
+            {/* HeroUI CTA Maestro: Retorno a Telegram */}
             <a
               href={botUsername ? `https://t.me/${botUsername}` : 'https://t.me'}
               target="_blank"
               rel="noreferrer"
-              className="master-unlock-btn"
+              className="heroui-master-cta"
             >
               <span>Regresar al Bot y Desbloquearme</span>
               <IconArrowRight size={18} />
@@ -430,26 +554,27 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
 
         {/* ── CASO B: NO TIENE CANALES OBLIGATORIOS (ACCESO LIBRE) ── */}
         {!loading && !error && totalChannels === 0 && (
-          <div className="hero-card" style={{ padding: '3rem 2rem' }}>
+          <div className="heroui-hero-card" style={{ padding: '3.5rem 2rem' }}>
             <div
               style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                background: 'rgba(34, 197, 94, 0.1)',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
+                width: '68px',
+                height: '68px',
+                borderRadius: '9999px',
+                background: 'rgba(23, 201, 100, 0.15)',
+                border: '1px solid rgba(23, 201, 100, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '0 auto 1.5rem auto',
+                boxShadow: '0 0 20px rgba(23, 201, 100, 0.3)',
               }}
             >
-              <IconCheck size={32} color="#22c55e" />
+              <IconCheck size={32} color="#17c964" />
             </div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 0.6rem 0', color: '#ffffff' }}>
-              Acceso Directo y Libre
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 0.6rem 0', color: '#ffffff' }}>
+              Acceso Inmediato y Libre
             </h2>
-            <p style={{ color: '#a1a1aa', fontSize: '0.9rem', lineHeight: 1.6, margin: '0 0 1.8rem 0' }}>
+            <p style={{ color: '#a1a1aa', fontSize: '0.92rem', lineHeight: 1.6, margin: '0 0 2rem 0', maxWidth: '440px', marginLeft: 'auto', marginRight: 'auto' }}>
               Esta comunidad no requiere canales obligatorios de verificación en este momento. Puedes participar y escribir libremente en el chat grupal.
             </p>
 
@@ -457,8 +582,8 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
               href={botUsername ? `https://t.me/${botUsername}` : 'https://t.me'}
               target="_blank"
               rel="noreferrer"
-              className="master-unlock-btn"
-              style={{ maxWidth: '320px', margin: '0 auto' }}
+              className="heroui-master-cta"
+              style={{ maxWidth: '340px', margin: '0 auto' }}
             >
               <span>Abrir Chat Grupal</span>
               <IconArrowRight size={16} />
@@ -466,13 +591,18 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
           </div>
         )}
 
-        {/* Footer */}
-        <div className="landing-footer">
-          <div>© 2026 Red Descentralizada de Comunidades Oficiales • Enterprise Security</div>
+        {/* HeroUI Footer */}
+        <div className="heroui-footer">
+          <div>© 2026 Red Descentralizada de Comunidades Oficiales • Protocolo Enterprise</div>
           {onGoToAdmin && (
             <div>
-              <button onClick={onGoToAdmin} className="admin-link" style={{ background: 'none', border: 'none' }}>
-                Acceso para Administradores de {communityName}
+              <button
+                type="button"
+                onClick={onGoToAdmin}
+                className="heroui-footer-link"
+                style={{ background: 'none', border: 'none' }}
+              >
+                Acceso de Gestión para Administradores de {communityName}
               </button>
             </div>
           )}

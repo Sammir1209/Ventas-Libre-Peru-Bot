@@ -11,6 +11,7 @@ const router = Router();
 router.use(requireAdminAuth);
 
 router.get('/', groupsController.getGroupsList);
+router.get('/available', groupsController.getAvailableChats);
 router.get('/:chatId/security', groupsController.getGroupSecurity);
 router.put('/:chatId/security', groupsController.updateGroupSecurity);
 

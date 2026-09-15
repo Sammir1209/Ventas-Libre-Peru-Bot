@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   IconPlus,
   IconRefresh,
@@ -13,6 +13,7 @@ import {
   IconAlertTriangle,
   IconUsers,
 } from '../common/Icons';
+import ChatSelectorDropdown from '../common/ChatSelectorDropdown';
 
 const TABS = [
   { id: 'identidad', label: 'Identidad & Token', icon: IconBot },
@@ -71,6 +72,29 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
 
   const [loadingActionId, setLoadingActionId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Lista de chats y canales disponibles del bot
+  const [availableChats, setAvailableChats] = useState([]);
+  const [loadingChats, setLoadingChats] = useState(false);
+
+  const loadAvailableChats = useCallback(async () => {
+    setLoadingChats(true);
+    try {
+      const res = await fetch('/api/groups/available');
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.chats)) {
+        setAvailableChats(data.chats);
+      }
+    } catch (err) {
+      console.warn('Error cargando chats disponibles:', err);
+    } finally {
+      setLoadingChats(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAvailableChats();
+  }, [loadAvailableChats]);
 
   const handleAction = async (id, action) => {
     setLoadingActionId(`${id}_${action}`);
@@ -427,19 +451,16 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                 {/* Tab 2: Canales & Enlaces */}
                 {createActiveTab === 'canales' && (
                   <>
-                    <div className="form-group">
-                      <label className="form-label">Canales Requeridos para Verificación</label>
-                      <textarea
-                        rows={3}
-                        placeholder="@canal_oficial&#10;https://t.me/+EnlacePrivado"
-                        className="textarea-field"
-                        value={createForm.channelsToVerify}
-                        onChange={(e) => setCreateForm({ ...createForm, channelsToVerify: e.target.value })}
-                      />
-                      <span className="form-hint">
-                        Un canal por línea o separados por coma. Los usuarios nuevos deben unirse a estos canales para desbloquearse.
-                      </span>
-                    </div>
+                    <ChatSelectorDropdown
+                      label="Canales Requeridos para Verificación"
+                      value={createForm.channelsToVerify}
+                      onChange={(val) => setCreateForm({ ...createForm, channelsToVerify: val })}
+                      chats={availableChats}
+                      isMulti={true}
+                      loading={loadingChats}
+                      placeholder="Selecciona uno o varios canales donde el bot sea Admin..."
+                      hint="Los usuarios nuevos deberán unirse a estos canales para desbloquearse y hablar en los grupos."
+                    />
 
                     <div className="form-grid-2">
                       <div className="form-group">
@@ -483,17 +504,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     </div>
 
                     <div className="form-grid-2">
-                      <div className="form-group">
-                        <label className="form-label">ID de Chat de Staff (Grupo Administrativo)</label>
-                        <input
-                          type="text"
-                          placeholder="-1001234567890"
-                          className="input-field"
-                          value={createForm.staffChatId}
-                          onChange={(e) => setCreateForm({ ...createForm, staffChatId: e.target.value })}
-                        />
-                        <span className="form-hint">ID del supergrupo donde el staff recibe alertas operativas.</span>
-                      </div>
+                      <ChatSelectorDropdown
+                        label="Grupo de Staff Administrativo"
+                        value={createForm.staffChatId}
+                        onChange={(val) => setCreateForm({ ...createForm, staffChatId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el grupo de Staff..."
+                        hint="ID del supergrupo donde el staff recibe alertas operativas."
+                      />
                       <div className="form-group">
                         <label className="form-label">ID de Hilo / Topic de Staff (Opcional)</label>
                         <input
@@ -507,17 +526,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     </div>
 
                     <div className="form-grid-2">
-                      <div className="form-group">
-                        <label className="form-label">ID de Canal Privado de Logs</label>
-                        <input
-                          type="text"
-                          placeholder="-1009876543210"
-                          className="input-field"
-                          value={createForm.logChannelId}
-                          onChange={(e) => setCreateForm({ ...createForm, logChannelId: e.target.value })}
-                        />
-                        <span className="form-hint">Canal de auditoría para registro de acciones y moderaciones.</span>
-                      </div>
+                      <ChatSelectorDropdown
+                        label="Canal Privado de Logs y Auditoría"
+                        value={createForm.logChannelId}
+                        onChange={(val) => setCreateForm({ ...createForm, logChannelId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el canal de logs..."
+                        hint="Canal privado para auditar acciones y moderaciones."
+                      />
                       <div className="form-group">
                         <label className="form-label">ID de Hilo / Topic de Logs (Opcional)</label>
                         <input
@@ -536,17 +553,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                 {createActiveTab === 'gban_escrow' && (
                   <>
                     <div className="form-grid-2">
-                      <div className="form-group">
-                        <label className="form-label">Chat Privado de Reportes / Quemar</label>
-                        <input
-                          type="text"
-                          placeholder="-1001122334455"
-                          className="input-field"
-                          value={createForm.burnChatId}
-                          onChange={(e) => setCreateForm({ ...createForm, burnChatId: e.target.value })}
-                        />
-                        <span className="form-hint">Donde llegan los reportes de estafas para revisión del staff.</span>
-                      </div>
+                      <ChatSelectorDropdown
+                        label="Chat Privado de Reportes / Quemar"
+                        value={createForm.burnChatId}
+                        onChange={(val) => setCreateForm({ ...createForm, burnChatId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el chat de revisión..."
+                        hint="Donde llegan los reportes de estafas para revisión del staff."
+                      />
                       <div className="form-group">
                         <label className="form-label">Topic ID de Reportes (Opcional)</label>
                         <input
@@ -560,17 +575,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     </div>
 
                     <div className="form-grid-2">
-                      <div className="form-group">
-                        <label className="form-label">Canal Público de Estafadores (Lista Negra)</label>
-                        <input
-                          type="text"
-                          placeholder="-1009988776655"
-                          className="input-field"
-                          value={createForm.publicBurnChannelId}
-                          onChange={(e) => setCreateForm({ ...createForm, publicBurnChannelId: e.target.value })}
-                        />
-                        <span className="form-hint">Canal donde se publican las sentencias públicas con pruebas.</span>
-                      </div>
+                      <ChatSelectorDropdown
+                        label="Canal Público de Estafadores (Lista Negra)"
+                        value={createForm.publicBurnChannelId}
+                        onChange={(val) => setCreateForm({ ...createForm, publicBurnChannelId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el canal público..."
+                        hint="Canal donde se publican las sentencias públicas con pruebas."
+                      />
                       <div className="form-group">
                         <label className="form-label">Topic ID del Canal Público (Opcional)</label>
                         <input
@@ -584,17 +597,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     </div>
 
                     <div className="form-grid-2">
-                      <div className="form-group">
-                        <label className="form-label">Grupo Oficial de Intermediación / Tratos (Escrow)</label>
-                        <input
-                          type="text"
-                          placeholder="-1005544332211"
-                          className="input-field"
-                          value={createForm.escrowGroupId}
-                          onChange={(e) => setCreateForm({ ...createForm, escrowGroupId: e.target.value })}
-                        />
-                        <span className="form-hint">Supergrupo con temas habilitados para salas de negociación.</span>
-                      </div>
+                      <ChatSelectorDropdown
+                        label="Grupo Oficial de Intermediación / Tratos (Escrow)"
+                        value={createForm.escrowGroupId}
+                        onChange={(val) => setCreateForm({ ...createForm, escrowGroupId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el grupo de tratos..."
+                        hint="Supergrupo con temas habilitados para salas de negociación."
+                      />
                       <div className="form-group">
                         <label className="form-label">Comisión de Intermediación (%)</label>
                         <input
@@ -815,17 +826,16 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                 {/* Tab 2: Canales & Enlaces */}
                 {editActiveTab === 'canales' && (
                   <>
-                    <div className="form-group">
-                      <label className="form-label">Canales Requeridos para Verificación</label>
-                      <textarea
-                        rows={3}
-                        placeholder="@canal1&#10;https://t.me/+..."
-                        className="textarea-field"
-                        value={editForm.channelsToVerify}
-                        onChange={(e) => setEditForm({ ...editForm, channelsToVerify: e.target.value })}
-                      />
-                      <span className="form-hint">Un canal por línea o separados por coma.</span>
-                    </div>
+                    <ChatSelectorDropdown
+                      label="Canales Requeridos para Verificación"
+                      value={editForm.channelsToVerify}
+                      onChange={(val) => setEditForm({ ...editForm, channelsToVerify: val })}
+                      chats={availableChats}
+                      isMulti={true}
+                      loading={loadingChats}
+                      placeholder="Selecciona uno o varios canales donde el bot sea Admin..."
+                      hint="Los usuarios nuevos deberán unirse a estos canales para desbloquearse y hablar en los grupos."
+                    />
 
                     <div className="form-grid-2">
                       <div className="form-group">
@@ -868,18 +878,17 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     </div>
 
                     <div className="form-grid-2">
+                      <ChatSelectorDropdown
+                        label="Grupo de Staff Administrativo"
+                        value={editForm.staffChatId}
+                        onChange={(val) => setEditForm({ ...editForm, staffChatId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el grupo de Staff..."
+                        hint="ID del supergrupo donde el staff recibe alertas operativas."
+                      />
                       <div className="form-group">
-                        <label className="form-label">ID de Chat de Staff</label>
-                        <input
-                          type="text"
-                          placeholder="-100..."
-                          className="input-field"
-                          value={editForm.staffChatId}
-                          onChange={(e) => setEditForm({ ...editForm, staffChatId: e.target.value })}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">ID de Hilo / Topic de Staff</label>
+                        <label className="form-label">ID de Hilo / Topic de Staff (Opcional)</label>
                         <input
                           type="number"
                           placeholder="Ej. 12"
@@ -891,18 +900,17 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     </div>
 
                     <div className="form-grid-2">
+                      <ChatSelectorDropdown
+                        label="Canal Privado de Logs y Auditoría"
+                        value={editForm.logChannelId}
+                        onChange={(val) => setEditForm({ ...editForm, logChannelId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el canal de logs..."
+                        hint="Canal privado para auditar acciones y moderaciones."
+                      />
                       <div className="form-group">
-                        <label className="form-label">ID de Canal de Logs</label>
-                        <input
-                          type="text"
-                          placeholder="-100..."
-                          className="input-field"
-                          value={editForm.logChannelId}
-                          onChange={(e) => setEditForm({ ...editForm, logChannelId: e.target.value })}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">ID de Hilo / Topic de Logs</label>
+                        <label className="form-label">ID de Hilo / Topic de Logs (Opcional)</label>
                         <input
                           type="number"
                           placeholder="Ej. 5"
@@ -919,18 +927,17 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                 {editActiveTab === 'gban_escrow' && (
                   <>
                     <div className="form-grid-2">
+                      <ChatSelectorDropdown
+                        label="Chat Privado de Reportes / Quemar"
+                        value={editForm.burnChatId}
+                        onChange={(val) => setEditForm({ ...editForm, burnChatId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el chat de revisión..."
+                        hint="Donde llegan los reportes de estafas para revisión del staff."
+                      />
                       <div className="form-group">
-                        <label className="form-label">Chat Privado de Reportes / Quemar</label>
-                        <input
-                          type="text"
-                          placeholder="-100..."
-                          className="input-field"
-                          value={editForm.burnChatId}
-                          onChange={(e) => setEditForm({ ...editForm, burnChatId: e.target.value })}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Topic ID de Reportes</label>
+                        <label className="form-label">Topic ID de Reportes (Opcional)</label>
                         <input
                           type="number"
                           placeholder="Ej. 24"
@@ -942,18 +949,17 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     </div>
 
                     <div className="form-grid-2">
+                      <ChatSelectorDropdown
+                        label="Canal Público de Estafadores (Lista Negra)"
+                        value={editForm.publicBurnChannelId}
+                        onChange={(val) => setEditForm({ ...editForm, publicBurnChannelId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el canal público..."
+                        hint="Canal donde se publican las sentencias públicas con pruebas."
+                      />
                       <div className="form-group">
-                        <label className="form-label">Canal Público de Estafadores</label>
-                        <input
-                          type="text"
-                          placeholder="-100..."
-                          className="input-field"
-                          value={editForm.publicBurnChannelId}
-                          onChange={(e) => setEditForm({ ...editForm, publicBurnChannelId: e.target.value })}
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">Topic ID del Canal Público</label>
+                        <label className="form-label">Topic ID del Canal Público (Opcional)</label>
                         <input
                           type="number"
                           placeholder="Ej. 8"
@@ -965,16 +971,15 @@ export default function SubBotsSection({ subbots, onCreateSubBot, onUpdateSubBot
                     </div>
 
                     <div className="form-grid-2">
-                      <div className="form-group">
-                        <label className="form-label">Grupo Oficial de Intermediación (Escrow)</label>
-                        <input
-                          type="text"
-                          placeholder="-100..."
-                          className="input-field"
-                          value={editForm.escrowGroupId}
-                          onChange={(e) => setEditForm({ ...editForm, escrowGroupId: e.target.value })}
-                        />
-                      </div>
+                      <ChatSelectorDropdown
+                        label="Grupo Oficial de Intermediación / Tratos (Escrow)"
+                        value={editForm.escrowGroupId}
+                        onChange={(val) => setEditForm({ ...editForm, escrowGroupId: val })}
+                        chats={availableChats}
+                        loading={loadingChats}
+                        placeholder="Selecciona el grupo de tratos..."
+                        hint="Supergrupo con temas habilitados para salas de negociación."
+                      />
                       <div className="form-group">
                         <label className="form-label">Comisión de Intermediación (%)</label>
                         <input

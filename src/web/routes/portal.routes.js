@@ -7,6 +7,8 @@ const subbotService = require('../services/subbotService');
 const panelHandler = require('../../modules/security/panelHandler');
 const config = require('../../config/env');
 const db = require('../../database/postgres');
+const groupsService = require('../services/groupsService');
+const botManager = require('../../core/botManager');
 
 const router = Router();
 
@@ -158,13 +160,13 @@ router.get('/:slug/admin/data', authenticateSubBotAdmin, async (req, res) => {
     const [staff, groups, allDeals, allBurned] = await Promise.all([
       subbotService.getTenantStaff(subBot.id),
       db.getAllGroups(subBot.id),
-      dealService.listDeals().catch(() => []),
-      gbanService.listBurnedUsers().catch(() => []),
+      dealService.listDeals(subBot.id).catch(() => []),
+      gbanService.listBurnedUsers(subBot.id).catch(() => []),
     ]);
 
-    // Filtrar tratos por tenant_id si la columna existe o devolver tratos asociados
-    const deals = (allDeals || []).filter(d => !d.tenant_id || d.tenant_id === subBot.id);
-    const burned = allBurned || [];
+    // Aislamiento estricto: NUNCA mezclar datos del bot principal ni de otros sub-bots
+    const deals = (allDeals || []).filter(d => String(d.tenant_id) === String(subBot.id));
+    const burned = (allBurned || []).filter(b => String(b.tenant_id) === String(subBot.id));
 
     const activeDeals = deals.filter(d => d.status === 'ACTIVE' || d.status === 'PENDING' || d.status === 'CREATING');
 
@@ -306,6 +308,12 @@ router.post('/:slug/admin/deals', authenticateSubBotAdmin, async (req, res) => {
 
 router.put('/:slug/admin/deals/:id', authenticateSubBotAdmin, async (req, res) => {
   try {
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    const existing = await dealService.getDeal(req.params.id);
+    if (!existing || String(existing.tenant_id) !== String(subBot.id)) {
+      return res.status(403).json({ ok: false, error: 'Acceso denegado: El trato no pertenece a esta comunidad.' });
+    }
+
     const updated = await dealService.updateDeal(req.params.id, req.body);
     res.json({ ok: true, message: 'Trato actualizado exitosamente.', deal: updated });
   } catch (err) {
@@ -315,6 +323,12 @@ router.put('/:slug/admin/deals/:id', authenticateSubBotAdmin, async (req, res) =
 
 router.delete('/:slug/admin/deals/:id', authenticateSubBotAdmin, async (req, res) => {
   try {
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    const existing = await dealService.getDeal(req.params.id);
+    if (!existing || String(existing.tenant_id) !== String(subBot.id)) {
+      return res.status(403).json({ ok: false, error: 'Acceso denegado: El trato no pertenece a esta comunidad.' });
+    }
+
     await dealService.deleteDeal(req.params.id);
     res.json({ ok: true, message: 'Trato eliminado del registro.' });
   } catch (err) {
@@ -325,7 +339,8 @@ router.delete('/:slug/admin/deals/:id', authenticateSubBotAdmin, async (req, res
 // ── 8. Endpoints Administrativos: Lista Negra / Sanciones en Sub-Bot ──
 router.post('/:slug/admin/gban', authenticateSubBotAdmin, async (req, res) => {
   try {
-    const burned = await gbanService.addBurnedUser(req.body);
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    const burned = await gbanService.addBurnedUser({ ...req.body, tenantId: subBot.id });
     res.status(201).json({ ok: true, message: 'Usuario registrado en sanciones.', burned });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
@@ -334,10 +349,35 @@ router.post('/:slug/admin/gban', authenticateSubBotAdmin, async (req, res) => {
 
 router.delete('/:slug/admin/gban/:userId', authenticateSubBotAdmin, async (req, res) => {
   try {
-    await gbanService.removeBurnedUser(req.params.userId);
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    await gbanService.removeBurnedUser(req.params.userId, 1, subBot.id);
     res.json({ ok: true, message: 'Sanción removida exitosamente.' });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// ── 9. Endpoint Administrativo: Lista de Grupos/Canales Disponibles en el Sub-Bot (con estado Admin) ──
+router.get('/:slug/admin/available-chats', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    if (!subBot) {
+      return res.status(404).json({ ok: false, error: 'Sub-bot no encontrado.' });
+    }
+
+    const activeBots = botManager.getActiveSubBots ? botManager.getActiveSubBots() : new Map();
+    const runtime = activeBots.get(subBot.id);
+    const botInstance = runtime?.bot || null;
+
+    const chats = await groupsService.listAvailableChats(botInstance, subBot.id);
+    res.json({
+      ok: true,
+      chats,
+      isRunning: Boolean(botInstance),
+      botUsername: subBot.bot_username || runtime?.botInfo?.username || null,
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 

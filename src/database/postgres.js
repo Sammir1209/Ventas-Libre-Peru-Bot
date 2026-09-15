@@ -716,17 +716,27 @@ async function isUserBurned(userId, username = null) {
   return false;
 }
 
-async function unburnUser(userId) {
+async function unburnUser(userId, tenantId = null) {
   if (useSupabase && supabase) {
-    const { error } = await supabase
+    let q = supabase
       .from('burned_users')
       .delete()
       .eq('user_id', userId);
+    if (tenantId) {
+      q = q.eq('tenant_id', tenantId);
+    } else {
+      q = q.is('tenant_id', null);
+    }
+    const { error } = await q;
     if (error) console.error('⟡ Supabase unburnUser error:', error.message);
     return;
   }
   if (pool) {
-    await pool.query(`DELETE FROM burned_users WHERE user_id = $1`, [userId]);
+    if (tenantId) {
+      await pool.query(`DELETE FROM burned_users WHERE user_id = $1 AND tenant_id = $2`, [userId, tenantId]);
+    } else {
+      await pool.query(`DELETE FROM burned_users WHERE user_id = $1 AND tenant_id IS NULL`, [userId]);
+    }
   }
 }
 
@@ -1041,22 +1051,36 @@ async function updateDealGroup(dealId, groupChatId, inviteLink, threadId = null)
   }
 }
 
-async function getUserDeals(userId) {
+async function getUserDeals(userId, tenantId = null) {
   if (useSupabase && supabase) {
-    const { data, error } = await supabase
+    let q = supabase
       .from('deals')
       .select('*')
       .eq('creator_id', userId)
       .order('created_at', { ascending: false })
       .limit(20);
+    if (tenantId) {
+      q = q.eq('tenant_id', tenantId);
+    } else {
+      q = q.is('tenant_id', null);
+    }
+    const { data, error } = await q;
     if (error) console.error('⟡ Supabase getUserDeals error:', error.message);
     return data || [];
   }
   if (pool) {
-    const res = await pool.query(
-      `SELECT * FROM deals WHERE creator_id = $1 ORDER BY created_at DESC LIMIT 20`,
-      [userId]
-    );
+    let res;
+    if (tenantId) {
+      res = await pool.query(
+        `SELECT * FROM deals WHERE creator_id = $1 AND tenant_id = $2 ORDER BY created_at DESC LIMIT 20`,
+        [userId, tenantId]
+      );
+    } else {
+      res = await pool.query(
+        `SELECT * FROM deals WHERE creator_id = $1 AND tenant_id IS NULL ORDER BY created_at DESC LIMIT 20`,
+        [userId]
+      );
+    }
     return res.rows;
   }
   return [];
@@ -1471,8 +1495,9 @@ async function getAllBurnReports(status = null) {
   return [];
 }
 
-async function burnUser(target, reportedBy = null, context = null, approvedBy = null, username = null, firstName = null) {
+async function burnUser(target, reportedBy = null, context = null, approvedBy = null, username = null, firstName = null, tenantId = null) {
   let userId, rBy, ctxText, aBy, uName, fName;
+  let tenantIdVal = tenantId || null;
 
   if (typeof target === 'object' && target !== null && !Array.isArray(target) && (target.userId !== undefined || target.user_id !== undefined)) {
     // Objeto estructurado
@@ -1482,6 +1507,7 @@ async function burnUser(target, reportedBy = null, context = null, approvedBy = 
     ctxText = target.context || target.reason || 'Sancionado en lista negra / GBAN';
     rBy = target.reportedBy || target.reported_by || target.moderatorId || null;
     aBy = target.approvedBy || target.approved_by || target.moderatorId || null;
+    tenantIdVal = target.tenantId || target.tenant_id || tenantId || null;
   } else {
     // Argumentos posicionales
     userId = Number(target);
@@ -1535,6 +1561,7 @@ async function burnUser(target, reportedBy = null, context = null, approvedBy = 
       reported_by: Number(rBy) || 0,
       context: ctxText || 'Sancionado en lista negra / GBAN',
       approved_by: Number(aBy) || Number(rBy) || 0,
+      tenant_id: tenantIdVal,
       burned_at: new Date().toISOString(),
     };
 
@@ -1544,8 +1571,9 @@ async function burnUser(target, reportedBy = null, context = null, approvedBy = 
       .select()
       .maybeSingle();
 
-    if (error && error.message && error.message.includes('first_name')) {
+    if (error && error.message && (error.message.includes('first_name') || error.message.includes('tenant_id'))) {
       delete payload.first_name;
+      delete payload.tenant_id;
       const retry = await supabase
         .from('burned_users')
         .upsert(payload, { onConflict: 'user_id' })
@@ -1560,25 +1588,43 @@ async function burnUser(target, reportedBy = null, context = null, approvedBy = 
   }
 
   if (pool) {
-    const res = await pool.query(
-      `INSERT INTO burned_users (user_id, username, first_name, reported_by, context, approved_by, burned_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
-       ON CONFLICT (user_id) DO UPDATE SET
-         username = COALESCE(EXCLUDED.username, burned_users.username),
-         first_name = COALESCE(EXCLUDED.first_name, burned_users.first_name),
-         context = EXCLUDED.context,
-         reported_by = EXCLUDED.reported_by,
-         approved_by = EXCLUDED.approved_by,
-         burned_at = NOW()
-       RETURNING *`,
-      [userId, uName, fName, Number(rBy) || 0, ctxText, Number(aBy) || 0]
-    );
-    return res.rows[0];
+    try {
+      const res = await pool.query(
+        `INSERT INTO burned_users (user_id, username, first_name, reported_by, context, approved_by, tenant_id, burned_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+         ON CONFLICT (user_id) DO UPDATE SET
+           username = COALESCE(EXCLUDED.username, burned_users.username),
+           first_name = COALESCE(EXCLUDED.first_name, burned_users.first_name),
+           context = EXCLUDED.context,
+           reported_by = EXCLUDED.reported_by,
+           approved_by = EXCLUDED.approved_by,
+           tenant_id = EXCLUDED.tenant_id,
+           burned_at = NOW()
+         RETURNING *`,
+        [userId, uName, fName, Number(rBy) || 0, ctxText, Number(aBy) || 0, tenantIdVal]
+      );
+      return res.rows[0];
+    } catch {
+      const res = await pool.query(
+        `INSERT INTO burned_users (user_id, username, first_name, reported_by, context, approved_by, burned_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         ON CONFLICT (user_id) DO UPDATE SET
+           username = COALESCE(EXCLUDED.username, burned_users.username),
+           first_name = COALESCE(EXCLUDED.first_name, burned_users.first_name),
+           context = EXCLUDED.context,
+           reported_by = EXCLUDED.reported_by,
+           approved_by = EXCLUDED.approved_by,
+           burned_at = NOW()
+         RETURNING *`,
+        [userId, uName, fName, Number(rBy) || 0, ctxText, Number(aBy) || 0]
+      );
+      return res.rows[0];
+    }
   }
   return null;
 }
 
-async function isUserBurned(userId, username = null) {
+async function isUserBurned(userId, username = null, tenantId = null) {
   if (!userId && !username) return false;
 
   const redisDb = require('./redis');
@@ -1600,20 +1646,26 @@ async function isUserBurned(userId, username = null) {
   if (useSupabase && supabase) {
     try {
       if (userId) {
-        const { data } = await supabase
+        let q = supabase
           .from('burned_users')
           .select('id')
-          .eq('user_id', Number(userId))
-          .limit(1);
+          .eq('user_id', Number(userId));
+        if (tenantId) {
+          q = q.or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
+        }
+        const { data } = await q.limit(1);
         if (data && data.length > 0) burned = true;
       }
       if (!burned && username) {
         const cleanUser = String(username).replace(/^@/, '').toLowerCase().trim();
-        const { data } = await supabase
+        let q = supabase
           .from('burned_users')
           .select('id')
-          .ilike('username', cleanUser)
-          .limit(1);
+          .ilike('username', cleanUser);
+        if (tenantId) {
+          q = q.or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
+        }
+        const { data } = await q.limit(1);
         if (data && data.length > 0) burned = true;
       }
     } catch {}
@@ -1623,12 +1675,24 @@ async function isUserBurned(userId, username = null) {
   if (!burned && pool) {
     try {
       if (userId) {
-        const res = await pool.query(`SELECT 1 FROM burned_users WHERE user_id = $1 LIMIT 1`, [Number(userId)]);
+        let q = `SELECT 1 FROM burned_users WHERE user_id = $1`;
+        const params = [Number(userId)];
+        if (tenantId) {
+          q += ` AND (tenant_id IS NULL OR tenant_id = $2)`;
+          params.push(tenantId);
+        }
+        const res = await pool.query(`${q} LIMIT 1`, params);
         if (res.rows.length > 0) burned = true;
       }
       if (!burned && username) {
         const cleanUser = String(username).replace(/^@/, '').toLowerCase().trim();
-        const res = await pool.query(`SELECT 1 FROM burned_users WHERE LOWER(username) = LOWER($1) LIMIT 1`, [cleanUser]);
+        let q = `SELECT 1 FROM burned_users WHERE LOWER(username) = LOWER($1)`;
+        const params = [cleanUser];
+        if (tenantId) {
+          q += ` AND (tenant_id IS NULL OR tenant_id = $2)`;
+          params.push(tenantId);
+        }
+        const res = await pool.query(`${q} LIMIT 1`, params);
         if (res.rows.length > 0) burned = true;
       }
     } catch {}
@@ -1771,54 +1835,112 @@ async function clearWarnings(userId, chatId = null) {
   return true;
 }
 
-async function getAllBurnedUsers(limit = 50, offset = 0) {
+async function getAllBurnedUsers(limit = 50, offset = 0, tenantId = null) {
   if (useSupabase && supabase) {
-    const { data, error } = await supabase
+    let q = supabase
       .from('burned_users')
       .select('*')
-      .order('burned_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-    if (error) console.error('⟡ Supabase getAllBurnedUsers error:', error.message);
+      .order('burned_at', { ascending: false });
+    if (tenantId) {
+      q = q.eq('tenant_id', tenantId);
+    } else {
+      q = q.is('tenant_id', null);
+    }
+    const { data, error } = await q.range(offset, offset + limit - 1);
+    if (error && !error.message.includes('tenant_id')) console.error('⟡ Supabase getAllBurnedUsers error:', error.message);
+    if (!data && !tenantId) {
+      const fb = await supabase.from('burned_users').select('*').order('burned_at', { ascending: false }).range(offset, offset + limit - 1);
+      return fb.data || [];
+    }
     return data || [];
   }
   if (pool) {
-    const res = await pool.query(
-      `SELECT * FROM burned_users ORDER BY burned_at DESC LIMIT $1 OFFSET $2`,
-      [limit, offset]
-    );
+    let res;
+    if (tenantId) {
+      try {
+        res = await pool.query(
+          `SELECT * FROM burned_users WHERE tenant_id = $1 ORDER BY burned_at DESC LIMIT $2 OFFSET $3`,
+          [tenantId, limit, offset]
+        );
+      } catch {
+        res = { rows: [] };
+      }
+    } else {
+      try {
+        res = await pool.query(
+          `SELECT * FROM burned_users WHERE tenant_id IS NULL ORDER BY burned_at DESC LIMIT $1 OFFSET $2`,
+          [limit, offset]
+        );
+      } catch {
+        res = await pool.query(
+          `SELECT * FROM burned_users ORDER BY burned_at DESC LIMIT $1 OFFSET $2`,
+          [limit, offset]
+        );
+      }
+    }
     return res.rows;
   }
   return [];
 }
 
-async function getBurnedUsersCount() {
+async function getBurnedUsersCount(tenantId = null) {
   if (useSupabase && supabase) {
-    const { count, error } = await supabase
+    let q = supabase
       .from('burned_users')
       .select('*', { count: 'exact', head: true });
-    if (error) console.error('⟡ Supabase getBurnedUsersCount error:', error.message);
+    if (tenantId) {
+      q = q.eq('tenant_id', tenantId);
+    } else {
+      q = q.is('tenant_id', null);
+    }
+    const { count, error } = await q;
+    if (error && !error.message.includes('tenant_id')) console.error('⟡ Supabase getBurnedUsersCount error:', error.message);
     return count || 0;
   }
   if (pool) {
-    const res = await pool.query(`SELECT COUNT(*) as count FROM burned_users`);
-    return parseInt(res.rows[0]?.count || 0);
+    try {
+      if (tenantId) {
+        const res = await pool.query(`SELECT COUNT(*) as count FROM burned_users WHERE tenant_id = $1`, [tenantId]);
+        return parseInt(res.rows[0]?.count || 0);
+      } else {
+        const res = await pool.query(`SELECT COUNT(*) as count FROM burned_users WHERE tenant_id IS NULL`);
+        return parseInt(res.rows[0]?.count || 0);
+      }
+    } catch {
+      const res = await pool.query(`SELECT COUNT(*) as count FROM burned_users`);
+      return parseInt(res.rows[0]?.count || 0);
+    }
   }
   return 0;
 }
 
-async function getUserDealsCount(userId) {
+async function getUserDealsCount(userId, tenantId = null) {
   if (useSupabase && supabase) {
-    const { count } = await supabase
+    let q = supabase
       .from('deals')
       .select('*', { count: 'exact', head: true })
       .or(`creator_id.eq.${userId},admin_id.eq.${userId}`);
+    if (tenantId) {
+      q = q.eq('tenant_id', tenantId);
+    } else {
+      q = q.is('tenant_id', null);
+    }
+    const { count } = await q;
     return count || 0;
   }
   if (pool) {
-    const res = await pool.query(
-      `SELECT COUNT(*) as count FROM deals WHERE creator_id = $1 OR admin_id = $1`,
-      [userId]
-    );
+    let res;
+    if (tenantId) {
+      res = await pool.query(
+        `SELECT COUNT(*) as count FROM deals WHERE (creator_id = $1 OR admin_id = $1) AND tenant_id = $2`,
+        [userId, tenantId]
+      );
+    } else {
+      res = await pool.query(
+        `SELECT COUNT(*) as count FROM deals WHERE (creator_id = $1 OR admin_id = $1) AND tenant_id IS NULL`,
+        [userId]
+      );
+    }
     return parseInt(res.rows[0]?.count || 0);
   }
   return 0;
@@ -2188,6 +2310,21 @@ async function initPanelSessionsTable() {
   try {
     if (pool) {
       await pool.query(`
+        ALTER TABLE deals ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+        CREATE INDEX IF NOT EXISTS idx_deals_tenant ON deals(tenant_id);
+
+        ALTER TABLE staff ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+        CREATE INDEX IF NOT EXISTS idx_staff_tenant ON staff(tenant_id);
+
+        ALTER TABLE official_groups ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+        CREATE INDEX IF NOT EXISTS idx_groups_tenant ON official_groups(tenant_id);
+
+        ALTER TABLE bot_settings ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+        CREATE INDEX IF NOT EXISTS idx_settings_tenant ON bot_settings(tenant_id);
+
+        ALTER TABLE burned_users ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+        CREATE INDEX IF NOT EXISTS idx_burned_users_tenant ON burned_users(tenant_id);
+
         CREATE TABLE IF NOT EXISTS panel_sessions (
           id SERIAL PRIMARY KEY,
           user_id BIGINT NOT NULL,
@@ -2203,7 +2340,7 @@ async function initPanelSessionsTable() {
       `);
     }
   } catch (err) {
-    console.warn('⟡ initPanelSessionsTable warning:', err.message);
+    console.warn('⟡ initMultiTenantSchema warning:', err.message);
   }
 }
 setTimeout(initPanelSessionsTable, 2000);

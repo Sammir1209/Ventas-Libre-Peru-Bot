@@ -199,6 +199,14 @@ export const COMMANDS_DATA = [
     notes: 'Imprescindible para configurar canales o sanciones con precisión.',
   },
   {
+    cmd: '/panel',
+    desc: 'Genera una sesión segura criptográfica y envía de forma privada al Owner el enlace de acceso web con ID de usuario y contraseña temporal.',
+    syntax: '/panel',
+    roles: 'Owner de la Comunidad',
+    category: 'settings',
+    notes: 'Por seguridad Zero-Trust, el bot borra el comando en el grupo y le escribe exclusivamente en mensaje privado al Owner.',
+  },
+  {
     cmd: '/reglas',
     desc: 'Despliega el reglamento oficial de convivencia y comercio seguro de la comunidad.',
     syntax: '/reglas',
