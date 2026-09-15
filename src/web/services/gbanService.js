@@ -120,4 +120,8 @@ module.exports = {
   updateBurnedUser,
   removeBurnedUser,
   enforceGbanInGroups,
+  // Alias de compatibilidad
+  listBurned: listBurnedUsers,
+  burnUser: addBurnedUser,
+  removeBurned: removeBurnedUser,
 };

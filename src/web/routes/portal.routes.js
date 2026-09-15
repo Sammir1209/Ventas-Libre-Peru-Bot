@@ -159,7 +159,7 @@ router.get('/:slug/admin/data', authenticateSubBotAdmin, async (req, res) => {
       subbotService.getTenantStaff(subBot.id),
       db.getAllGroups(subBot.id),
       dealService.listDeals().catch(() => []),
-      gbanService.listBurned().catch(() => []),
+      gbanService.listBurnedUsers().catch(() => []),
     ]);
 
     // Filtrar tratos por tenant_id si la columna existe o devolver tratos asociados
@@ -325,7 +325,7 @@ router.delete('/:slug/admin/deals/:id', authenticateSubBotAdmin, async (req, res
 // ── 8. Endpoints Administrativos: Lista Negra / Sanciones en Sub-Bot ──
 router.post('/:slug/admin/gban', authenticateSubBotAdmin, async (req, res) => {
   try {
-    const burned = await gbanService.burnUser(req.body);
+    const burned = await gbanService.addBurnedUser(req.body);
     res.status(201).json({ ok: true, message: 'Usuario registrado en sanciones.', burned });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
@@ -334,7 +334,7 @@ router.post('/:slug/admin/gban', authenticateSubBotAdmin, async (req, res) => {
 
 router.delete('/:slug/admin/gban/:userId', authenticateSubBotAdmin, async (req, res) => {
   try {
-    await gbanService.removeBurned(req.params.userId);
+    await gbanService.removeBurnedUser(req.params.userId);
     res.json({ ok: true, message: 'Sanción removida exitosamente.' });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
