@@ -280,6 +280,34 @@ export default function DashboardPage() {
     }
   };
 
+  // ── Groups & Channels Handlers ──
+  const handleAddGroup = async (data) => {
+    try {
+      const res = await fetchWithAuth('/api/groups', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      addToast(res.message || 'Canal o grupo vinculado con éxito');
+      loadAllData();
+    } catch (err) {
+      addToast(err.message, 'error');
+      throw err;
+    }
+  };
+
+  const handleRemoveGroup = async (chatId, title) => {
+    try {
+      const res = await fetchWithAuth(`/api/groups/${chatId}`, {
+        method: 'DELETE',
+      });
+      addToast(res.message || `Canal o grupo desvinculado`);
+      loadAllData();
+    } catch (err) {
+      addToast(err.message, 'error');
+      throw err;
+    }
+  };
+
   // Si está en modo Portal de Sub-Bot (Público de Canales o Admin B&W)
   if (viewMode === 'portal') {
     return <SubBotPortal onBackToMain={() => setViewMode('landing')} />;
@@ -482,6 +510,8 @@ export default function DashboardPage() {
           {activeTab === 'groups' && (
             <GroupsSection
               groups={groups}
+              onAddGroup={handleAddGroup}
+              onRemoveGroup={handleRemoveGroup}
             />
           )}
 

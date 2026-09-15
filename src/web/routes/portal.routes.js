@@ -381,4 +381,47 @@ router.get('/:slug/admin/available-chats', authenticateSubBotAdmin, async (req, 
   }
 });
 
+// ── 10. Endpoints Administrativos: Vincular y Desvincular Canales/Grupos en Sub-Bot ──
+router.post('/:slug/admin/groups', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    if (!subBot) {
+      return res.status(404).json({ ok: false, error: 'Sub-bot no encontrado.' });
+    }
+
+    const activeBots = botManager.getActiveSubBots ? botManager.getActiveSubBots() : new Map();
+    const runtime = activeBots.get(subBot.id);
+    const botInstance = runtime?.bot || null;
+
+    const result = await groupsService.addGroup({
+      ...req.body,
+      tenantId: subBot.id,
+      botInstance,
+    });
+
+    res.status(201).json({
+      ok: true,
+      message: result.warning || 'Canal o grupo vinculado exitosamente al sub-bot.',
+      group: result.group,
+      isAdmin: result.isAdmin,
+    });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.delete('/:slug/admin/groups/:chatId', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    if (!subBot) {
+      return res.status(404).json({ ok: false, error: 'Sub-bot no encontrado.' });
+    }
+
+    await groupsService.removeGroup(req.params.chatId, subBot.id);
+    res.json({ ok: true, message: 'Canal o grupo desvinculado de este sub-bot con éxito.' });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 module.exports = router;

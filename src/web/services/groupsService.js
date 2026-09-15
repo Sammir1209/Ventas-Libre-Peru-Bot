@@ -126,9 +126,98 @@ async function listAvailableChats(botInstance = null, tenantId = null) {
   return results;
 }
 
+async function addGroup({ chatId, title, type = 'channel', username = null, tenantId = null, botInstance = null }) {
+  if (!chatId) {
+    throw new Error('Debes ingresar un ID numérico de Telegram o un @username.');
+  }
+
+  let cleanInput = String(chatId).trim();
+  // Limpiar links tipo https://t.me/canal o t.me/canal
+  if (cleanInput.includes('t.me/')) {
+    cleanInput = cleanInput.split('t.me/')[1].split('/')[0].split('?')[0];
+    if (!cleanInput.startsWith('@') && !/^-?\d+$/.test(cleanInput)) {
+      cleanInput = `@${cleanInput}`;
+    }
+  }
+
+  let finalChatId = cleanInput;
+  let finalTitle = title ? String(title).trim() : null;
+  let finalType = type || 'channel';
+  let finalUsername = username ? String(username).trim().replace(/^@/, '') : null;
+  let botChecked = false;
+  let isAdmin = false;
+
+  // Si tenemos instancia del bot activa, consultar getChat
+  if (botInstance && botInstance.api) {
+    try {
+      const chat = await botInstance.api.getChat(cleanInput);
+      if (chat) {
+        finalChatId = String(chat.id);
+        finalTitle = chat.title || finalTitle || 'Chat Oficial';
+        finalType = chat.type || finalType;
+        if (chat.username) {
+          finalUsername = chat.username.replace(/^@/, '');
+        }
+        botChecked = true;
+
+        try {
+          const botId = botInstance.botInfo?.id || (await botInstance.api.getMe())?.id;
+          if (botId) {
+            const member = await botInstance.api.getChatMember(chat.id, botId);
+            isAdmin = member && (member.status === 'administrator' || member.status === 'creator');
+          }
+        } catch {}
+      }
+    } catch (tgErr) {
+      console.warn(`⟡ [groupsService] Telegram getChat aviso para "${cleanInput}":`, tgErr.message);
+    }
+  }
+
+  // Si no se resolvió por getChat, verificar si es ID numérico
+  const isNumeric = /^-?\d+$/.test(finalChatId);
+  if (!isNumeric) {
+    throw new Error(
+      `No se pudo conectar con "${cleanInput}" en Telegram. Asegúrate de que el bot haya sido agregado al canal/grupo como administrador, o ingresa el ID numérico (-100...).`
+    );
+  }
+
+  if (!finalTitle) {
+    finalTitle = finalUsername ? `@${finalUsername}` : `Chat ${finalChatId}`;
+  }
+
+  const group = await db.registerGroup(
+    finalChatId,
+    finalTitle,
+    finalType,
+    finalUsername,
+    tenantId
+  );
+
+  let warning = null;
+  if (botChecked && !isAdmin) {
+    warning = 'Canal vinculado. Sin embargo, el bot aún no figura como Administrador en Telegram.';
+  }
+
+  return {
+    group,
+    isAdmin,
+    warning,
+  };
+}
+
+async function removeGroup(chatId, tenantId = null) {
+  if (!chatId) {
+    throw new Error('ID de chat requerido para desvincular.');
+  }
+  await db.removeGroup(chatId, tenantId);
+  return true;
+}
+
 module.exports = {
   listGroups,
   getGroupSecurity,
   updateGroupSecurity,
   listAvailableChats,
+  addGroup,
+  removeGroup,
 };

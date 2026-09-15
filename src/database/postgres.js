@@ -1235,7 +1235,11 @@ const registerOfficialGroup = registerGroup;
 async function removeGroup(chatId, tenantId = null) {
   if (useSupabase && supabase) {
     let q = supabase.from('official_groups').delete().eq('chat_id', chatId);
-    if (tenantId) q = q.eq('tenant_id', tenantId);
+    if (tenantId) {
+      q = q.eq('tenant_id', tenantId);
+    } else {
+      q = q.is('tenant_id', null);
+    }
     const { error } = await q;
     if (error) console.error('⟡ Supabase removeGroup error:', error.message);
     return;
@@ -1244,7 +1248,7 @@ async function removeGroup(chatId, tenantId = null) {
     if (tenantId) {
       await pool.query(`DELETE FROM official_groups WHERE chat_id = $1 AND tenant_id = $2`, [chatId, tenantId]);
     } else {
-      await pool.query(`DELETE FROM official_groups WHERE chat_id = $1`, [chatId]);
+      await pool.query(`DELETE FROM official_groups WHERE chat_id = $1 AND tenant_id IS NULL`, [chatId]);
     }
   }
 }

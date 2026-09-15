@@ -318,6 +318,35 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
     }
   };
 
+  // ── Handlers de Grupos & Canales en Sub-Bot ──
+  const handleAddGroup = async (data) => {
+    try {
+      const res = await fetchWithSubBotAuth(`/api/portal/${slug}/admin/groups`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+      addToast(res.message || 'Canal o grupo vinculado con éxito');
+      loadAdminData();
+    } catch (err) {
+      addToast(err.message, 'error');
+      throw err;
+    }
+  };
+
+  const handleRemoveGroup = async (chatId, title) => {
+    try {
+      const res = await fetchWithSubBotAuth(`/api/portal/${slug}/admin/groups/${chatId}`, {
+        method: 'DELETE',
+      });
+      addToast(res.message || 'Canal o grupo desvinculado');
+      loadAdminData();
+    } catch (err) {
+      addToast(err.message, 'error');
+      throw err;
+    }
+  };
+
+
   // ════ VISTA 1: LANDING PÚBLICA DE CANALES (ULTRA-PREMIUM) ════
   if (view === 'public') {
     return (
@@ -613,6 +642,10 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
           {activeTab === 'groups' && (
             <GroupsSection
               groups={groups}
+              onAddGroup={handleAddGroup}
+              onRemoveGroup={handleRemoveGroup}
+              isSubBot={true}
+              botUsername={adminData?.subbot?.bot_username || portalData?.subbot?.bot_username}
             />
           )}
 

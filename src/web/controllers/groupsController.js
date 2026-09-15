@@ -41,9 +41,40 @@ async function getAvailableChats(req, res) {
   }
 }
 
+async function addGroup(req, res) {
+  try {
+    const mainBot = req.app.get('mainBot');
+    const result = await groupsService.addGroup({
+      ...req.body,
+      tenantId: null,
+      botInstance: mainBot,
+    });
+    res.status(201).json({
+      ok: true,
+      message: result.warning || 'Canal o grupo vinculado exitosamente a la red.',
+      group: result.group,
+      isAdmin: result.isAdmin,
+    });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+}
+
+async function removeGroup(req, res) {
+  try {
+    await groupsService.removeGroup(req.params.chatId, null);
+    res.json({ ok: true, message: 'Canal o grupo desvinculado con éxito.' });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+}
+
 module.exports = {
   getGroupsList,
   getGroupSecurity,
   updateGroupSecurity,
   getAvailableChats,
+  addGroup,
+  removeGroup,
 };
+

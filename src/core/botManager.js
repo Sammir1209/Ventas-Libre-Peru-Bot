@@ -46,6 +46,15 @@ class BotManager {
       if (ctx.message?.text) {
         console.log(`⟡ [Sub-Bot: @${bot.botInfo?.username || tenant.community_name}] Mensaje de ${ctx.from?.id} (${ctx.chat?.type}): "${ctx.message.text}"`);
       }
+      if (ctx.chat && (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup' || ctx.chat.type === 'channel')) {
+        db.registerOfficialGroup(
+          ctx.chat.id,
+          ctx.chat.title || 'Sin título',
+          ctx.chat.type,
+          ctx.chat.username || null,
+          tenant.id
+        ).catch(() => {});
+      }
       return next();
     });
 
