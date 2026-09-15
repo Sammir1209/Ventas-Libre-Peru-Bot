@@ -2180,6 +2180,140 @@ async function deleteSubBot(id) {
   return false;
 }
 
+// ══════
+// ⟡ Gestión de Sesiones de Panel Web (Zero-Trust)
+// ══════
+
+async function initPanelSessionsTable() {
+  try {
+    if (pool) {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS panel_sessions (
+          id SERIAL PRIMARY KEY,
+          user_id BIGINT NOT NULL,
+          tenant_id VARCHAR(100),
+          access_key VARCHAR(64) NOT NULL,
+          token_hash VARCHAR(255) NOT NULL,
+          role VARCHAR(50) NOT NULL,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_panel_sessions_token ON panel_sessions(token_hash);
+        CREATE INDEX IF NOT EXISTS idx_panel_sessions_key ON panel_sessions(access_key, user_id);
+      `);
+    }
+  } catch (err) {
+    console.warn('⟡ initPanelSessionsTable warning:', err.message);
+  }
+}
+setTimeout(initPanelSessionsTable, 2000);
+
+async function createPanelSession(userId, tenantId = null, role = 'STAFF', accessKey, tokenHash, ttlHours = 24) {
+  const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000).toISOString();
+  if (useSupabase && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('panel_sessions')
+        .insert([{
+          user_id: userId,
+          tenant_id: tenantId,
+          access_key: accessKey,
+          token_hash: tokenHash,
+          role,
+          expires_at: expiresAt,
+        }])
+        .select()
+        .maybeSingle();
+      if (!error && data) return data;
+    } catch {}
+  }
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        INSERT INTO panel_sessions (user_id, tenant_id, access_key, token_hash, role, expires_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `, [userId, tenantId, accessKey, tokenHash, role, expiresAt]);
+      return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool createPanelSession error:', err.message);
+    }
+  }
+  return { user_id: userId, tenant_id: tenantId, access_key: accessKey, token_hash: tokenHash, role, expires_at: expiresAt };
+}
+
+async function validatePanelSession(tokenOrKey, userId = null, tenantId = null) {
+  const now = new Date().toISOString();
+  if (useSupabase && supabase) {
+    try {
+      let query = supabase
+        .from('panel_sessions')
+        .select('*')
+        .gt('expires_at', now);
+
+      if (userId && tokenOrKey) {
+        query = query.eq('user_id', Number(userId)).eq('access_key', String(tokenOrKey).trim());
+      } else {
+        query = query.or(`token_hash.eq.${tokenOrKey},access_key.eq.${tokenOrKey}`);
+      }
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (!error && data) return data;
+    } catch {}
+  }
+  if (pool) {
+    try {
+      let q = `SELECT * FROM panel_sessions WHERE expires_at > $1 `;
+      const params = [now];
+      let pIdx = 2;
+
+      if (userId && tokenOrKey) {
+        q += `AND user_id = $${pIdx} AND access_key = $${pIdx + 1} `;
+        params.push(Number(userId), String(tokenOrKey).trim());
+        pIdx += 2;
+      } else {
+        q += `AND (token_hash = $${pIdx} OR access_key = $${pIdx}) `;
+        params.push(String(tokenOrKey).trim());
+        pIdx++;
+      }
+
+      if (tenantId) {
+        q += `AND tenant_id = $${pIdx} `;
+        params.push(tenantId);
+        pIdx++;
+      }
+
+      q += `ORDER BY created_at DESC LIMIT 1`;
+      const res = await pool.query(q, params);
+      return res.rows[0] || null;
+    } catch (err) {
+      console.warn('⟡ pool validatePanelSession error:', err.message);
+    }
+  }
+  return null;
+}
+
+async function revokePanelSession(tokenOrKey) {
+  if (useSupabase && supabase) {
+    try {
+      await supabase
+        .from('panel_sessions')
+        .delete()
+        .or(`token_hash.eq.${tokenOrKey},access_key.eq.${tokenOrKey}`);
+    } catch {}
+  }
+  if (pool) {
+    try {
+      await pool.query(
+        `DELETE FROM panel_sessions WHERE token_hash = $1 OR access_key = $1`,
+        [String(tokenOrKey).trim()]
+      );
+    } catch {}
+  }
+}
+
 async function close() {
   if (pool) {
     await pool.end();
@@ -2257,4 +2391,8 @@ module.exports = {
   getSubBotByToken,
   updateSubBot,
   deleteSubBot,
+  // Sesiones de Panel Web
+  createPanelSession,
+  validatePanelSession,
+  revokePanelSession,
 };

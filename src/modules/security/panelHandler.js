@@ -7,214 +7,261 @@ const { escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 
 // ══════
-// ⟡ Módulo: Comando /panel & Generador de Acceso Seguro (MD)
-//   Soporta temas dinámicos: Owner VLP (naranja fuego) vs Client (negro/blanco)
+// ⟡ Módulo: Comando /panel & Generador de Acceso Seguro (Zero-Trust)
+//   Aislamiento perimetral estricto: Sólo Owners reciben credenciales por DM
 // ══════
 
 /**
- * Genera un token y contraseña temporal de un solo clic para el panel web.
- * Ahora incluye datos de tenant, tema y branding en la sesión.
+ * Genera un token y contraseña temporal de acceso para el panel web.
+ * Registra la sesión con expiración tanto en PostgreSQL como en caché Redis.
  */
 async function generatePanelSession(userId, role = 'STAFF', extra = {}) {
   const sessionToken = crypto.randomBytes(24).toString('hex');
   const tempPassword = crypto.randomBytes(4).toString('hex').toUpperCase();
+  const tenantId = extra.tenantId || null;
 
   const sessionData = {
     userId,
     tempPassword,
     role,
     createdAt: Date.now(),
-    // Multi-tenant theming data
     isGlobalOwner: extra.isGlobalOwner || false,
-    tenantId: extra.tenantId || null,
+    tenantId,
     communityName: extra.communityName || 'Ventas Libres Perú',
-    theme: extra.theme || 'owner', // 'owner' | 'owner-dev' | 'client'
+    theme: extra.theme || 'owner',
     branding: extra.branding || {},
   };
 
-  await redisDb.setCache(`panel_token:${sessionToken}`, sessionData, 1800);
-  await redisDb.setCache(`panel_user_pass:${userId}`, tempPassword, 1800);
+  // 1. Persistir en PostgreSQL
+  try {
+    await db.createPanelSession(userId, tenantId, role, tempPassword, sessionToken, 24);
+  } catch (dbErr) {
+    console.warn('⟡ Error guardando sesión de panel en DB:', dbErr.message);
+  }
+
+  // 2. Persistir en caché Redis de alta velocidad (TTL 24h = 86400s)
+  await redisDb.setCache(`panel_token:${sessionToken}`, sessionData, 86400);
+  await redisDb.setCache(`panel_user_pass:${userId}`, tempPassword, 86400);
 
   return { sessionToken, tempPassword };
 }
 
 /**
- * Valida un token o contraseña de sesión.
+ * Valida un token o contraseña de sesión contra Redis o PostgreSQL.
  */
-async function validatePanelSession(tokenOrUserId, password = null) {
+async function validatePanelSession(tokenOrUserId, password = null, tenantId = null) {
   if (password) {
     const savedPass = await redisDb.getCache(`panel_user_pass:${tokenOrUserId}`);
-    return savedPass === password;
+    if (savedPass && savedPass === password) {
+      return { userId: Number(tokenOrUserId), role: 'STAFF' };
+    }
+    // Fallback a PostgreSQL
+    const dbSession = await db.validatePanelSession(password, tokenOrUserId, tenantId);
+    if (dbSession) {
+      return { userId: Number(dbSession.user_id), role: dbSession.role, tenantId: dbSession.tenant_id };
+    }
+    return null;
   }
-  return await redisDb.getCache(`panel_token:${tokenOrUserId}`);
+
+  const cached = await redisDb.getCache(`panel_token:${tokenOrUserId}`);
+  if (cached) return cached;
+
+  // Fallback a PostgreSQL
+  const dbSession = await db.validatePanelSession(tokenOrUserId, null, tenantId);
+  if (dbSession) {
+    return {
+      userId: Number(dbSession.user_id),
+      role: dbSession.role,
+      tenantId: dbSession.tenant_id,
+      isGlobalOwner: !dbSession.tenant_id,
+    };
+  }
+  return null;
 }
 
 function register(bot) {
   bot.command(['panel', 'dashboard', 'control', 'web'], async (ctx) => {
     try {
       const userId = ctx.from.id;
-      const username = ctx.from.username || null;
       const firstName = ctx.from.first_name || 'Usuario';
+      const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
+      const tenant = ctx.tenant || null;
+      const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
 
-      // 1. Verificar si el usuario tiene rango de Staff, Owner o Administrador de algún grupo
+      // ══════════════════════════════════════════════════════
+      // CASO 1: SUB-BOT (COMUNIDAD CLIENTE SAAS)
+      // ══════════════════════════════════════════════════════
+      if (tenant && tenant.id) {
+        const ownerIds = Array.isArray(tenant.owner_ids) ? tenant.owner_ids.map(Number) : [];
+        const isTenantOwner = ownerIds.includes(Number(userId));
+        let isAuthorized = isTenantOwner;
+
+        if (!isAuthorized) {
+          try {
+            const staffMember = await db.getStaffMember(userId, tenant.id);
+            if (staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER'))) {
+              isAuthorized = true;
+            }
+          } catch {}
+        }
+
+        // SI NO ES OWNER: SILENCIO ABSOLUTO EN GRUPOS, RECHAZO EN PRIVADO
+        if (!isAuthorized) {
+          if (isGroup) {
+            try { await ctx.deleteMessage(); } catch {}
+          } else {
+            await ctx.reply(
+              `⚠️ <b>Acceso Restringido:</b> Este comando es exclusivo para el <b>Owner</b> y directiva autorizada de esta comunidad.`,
+              { parse_mode: 'HTML' }
+            );
+          }
+          return;
+        }
+
+        // SI ES OWNER: Si está en grupo, borrar el comando trigger y avisar efímero
+        if (isGroup) {
+          try { await ctx.deleteMessage(); } catch {}
+        }
+
+        // Generar credenciales en PostgreSQL
+        const subBotSlug = tenant.bot_username ? tenant.bot_username.replace(/^@/, '') : tenant.id;
+        const { sessionToken, tempPassword } = await generatePanelSession(userId, 'OWNER SUB-BOT', {
+          isGlobalOwner: false,
+          tenantId: tenant.id,
+          communityName: tenant.community_name || 'Mi Comunidad',
+          theme: 'client',
+        });
+
+        const tenantAdminUrl = `${baseUrl}/portal/?slug=${subBotSlug}&token=${sessionToken}&view=admin`;
+
+        const dmText =
+          `⟡ <b>PANEL ADMINISTRATIVO</b> ⊱ <code>${escapeHtml(tenant.community_name)}</code> ⊰\n` +
+          `══════\n\n` +
+          `Hola <b>${escapeHtml(firstName)}</b>, se han generado tus credenciales exclusivas de administración:\n\n` +
+          `▸ <b>Enlace Web del Panel:</b>\n` +
+          `<code>${tenantAdminUrl}</code>\n\n` +
+          `▸ <b>Tu ID de Telegram:</b> <code>${userId}</code>\n` +
+          `▸ <b>Tu Contraseña Temporal:</b> <code>${tempPassword}</code>\n\n` +
+          `⏱️ <b>Vigencia de Sesión:</b> <code>24 Horas</code>\n` +
+          `──────\n` +
+          `🔐 <i>Haz clic en el botón de abajo para ingresar directamente a tu panel:</i>`;
+
+        const kb = new InlineKeyboard().url('🚀 ABRIR MI PANEL DE CONTROL', tenantAdminUrl);
+
+        let sentDm = false;
+        try {
+          await ctx.api.sendMessage(userId, dmText, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+            link_preview_options: { is_disabled: true },
+          });
+          sentDm = true;
+        } catch (dmErr) {
+          console.warn(`⟡ No se pudo enviar DM de panel a ${userId}:`, dmErr.message);
+        }
+
+        if (isGroup) {
+          if (sentDm) {
+            const notice = await ctx.reply(
+              `👑 <b>${escapeHtml(firstName)}</b>, tus credenciales de acceso al Panel Web fueron enviadas a tu <b>chat privado</b>.`,
+              { parse_mode: 'HTML' }
+            );
+            setTimeout(() => ctx.api.deleteMessage(ctx.chat.id, notice.message_id).catch(() => {}), 6000);
+          } else {
+            const notice = await ctx.reply(
+              `⚠️ <b>${escapeHtml(firstName)}</b>, no pude enviarte el acceso. Inicia el bot por privado en <a href="https://t.me/${subBotSlug}?start=panel"><b>@${subBotSlug}</b></a> y repite <code>/panel</code>.`,
+              { parse_mode: 'HTML' }
+            );
+            setTimeout(() => ctx.api.deleteMessage(ctx.chat.id, notice.message_id).catch(() => {}), 8000);
+          }
+        } else if (!sentDm) {
+          await ctx.reply(dmText, { parse_mode: 'HTML', reply_markup: kb });
+        }
+        return;
+      }
+
+      // ══════════════════════════════════════════════════════
+      // CASO 2: BOT PRINCIPAL (VENTAS LIBRES PERÚ)
+      // ══════════════════════════════════════════════════════
       const isOwnerHardcoded = config.OWNER_IDS.includes(userId) || userId === 7794982496 || userId === 7849224682;
       const staffMember = await db.getStaffMember(userId);
-      const isStaff = isOwnerHardcoded || !!staffMember;
+      const isGlobalStaff = isOwnerHardcoded || (staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER')));
 
-      // Si no es staff global, verificar si es admin en el chat actual si es grupo
-      let isChatAdmin = false;
-      if (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup') {
-        try {
-          const member = await ctx.api.getChatMember(ctx.chat.id, userId);
-          isChatAdmin = member.status === 'administrator' || member.status === 'creator';
-        } catch {}
+      if (!isGlobalStaff) {
+        if (isGroup) {
+          try { await ctx.deleteMessage(); } catch {}
+        } else {
+          await ctx.reply(
+            `${SYM.CROSS} <b>Acceso Restringido:</b> El comando <code>/panel</code> solo está habilitado para Owners y Staff oficial de Ventas Libres Perú.`,
+            { parse_mode: 'HTML' }
+          );
+        }
+        return;
       }
 
-      // Detectar si el contexto actual es un sub-bot (tenant)
-      const tenant = ctx.tenant || null;
-      let isSubBotOwner = false;
-      let subBotData = null;
-
-      if (tenant && tenant.id) {
-        // Estamos dentro de un sub-bot — verificar si el usuario es owner de este sub-bot
-        const ownerIds = Array.isArray(tenant.owner_ids) ? tenant.owner_ids : [];
-        isSubBotOwner = ownerIds.includes(userId);
-        subBotData = tenant;
-      } else {
-        // Estamos en el bot principal — verificar si este usuario es dueño de algún sub-bot
-        try {
-          const allSubBots = await db.getAllSubBots();
-          for (const sb of allSubBots) {
-            const sbOwners = Array.isArray(sb.owner_ids) ? sb.owner_ids : [];
-            if (sbOwners.includes(userId)) {
-              isSubBotOwner = true;
-              subBotData = sb;
-              break;
-            }
-          }
-        } catch {}
+      if (isGroup) {
+        try { await ctx.deleteMessage(); } catch {}
       }
 
-      if (!isStaff && !isChatAdmin && !isSubBotOwner) {
-        return ctx.reply(
-          `${SYM.CROSS} <b>Acceso Restringido:</b> El comando <code>/panel</code> solo está habilitado para Administradores de grupos y miembros del Staff de la plataforma.`,
-          { parse_mode: 'HTML' }
-        );
-      }
+      const isDev = userId === 7849224682;
+      const roleName = isOwnerHardcoded ? (isDev ? 'DEVELOPER SUPREMO' : 'OWNER SUPREMO') : staffMember.role;
 
-      // 2. Determinar tema y datos de sesión
-      const isDev = userId === 7849224682; // Sammir = Dev principal
-      let sessionTheme = 'owner';
-      let sessionExtra = {
-        isGlobalOwner: isOwnerHardcoded,
+      const { sessionToken, tempPassword } = await generatePanelSession(userId, roleName, {
+        isGlobalOwner: true,
         tenantId: null,
         communityName: 'Ventas Libres Perú',
-        theme: 'owner',
-        branding: {},
-      };
+        theme: isDev ? 'owner-dev' : 'owner',
+      });
 
-      if (isDev) {
-        sessionTheme = 'owner-dev';
-        sessionExtra.theme = 'owner-dev';
-      } else if (isOwnerHardcoded) {
-        sessionTheme = 'owner';
-        sessionExtra.theme = 'owner';
-      } else if (isSubBotOwner && subBotData) {
-        // Cliente de sub-bot: tema elegante negro/blanco
-        sessionTheme = 'client';
-        sessionExtra = {
-          isGlobalOwner: false,
-          tenantId: subBotData.id,
-          communityName: subBotData.community_name || 'Mi Comunidad',
-          theme: 'client',
-          branding: subBotData.branding || subBotData.custom_settings?.branding || {},
-        };
-      } else {
-        // Staff regular o admin de grupo
-        sessionTheme = 'owner';
-        sessionExtra.theme = 'owner';
-      }
+      const masterPanelUrl = `${baseUrl}/#admin?token=${sessionToken}&uid=${userId}`;
 
-      // 3. Generar credenciales
-      const roleName = isOwnerHardcoded
-        ? (isDev ? 'DEVELOPER SUPREMO' : 'OWNER SUPREMO')
-        : (isSubBotOwner ? 'OWNER DEL BOT' : (staffMember?.role || 'ADMINISTRADOR DE GRUPO'));
-
-      const { sessionToken, tempPassword } = await generatePanelSession(userId, roleName, sessionExtra);
-
-      const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
-      const dashboardPath = config.DASHBOARD_PATH || '/vlp-master-portal-7849';
-
-      // Links con auto-login
-      const groupsPanelUrl = `${baseUrl}${dashboardPath}?auth_token=${sessionToken}&uid=${userId}#groups`;
-      const saasPanelUrl = `${baseUrl}${dashboardPath}/saas.html?auth_token=${sessionToken}&uid=${userId}`;
-
-      // 4. Preparar mensaje para el chat privado (MD)
       const dmText =
-        `⟡ <b>PANEL DE CONTROL WEB</b> ⊱ <code>CREDENCIALES</code> ⊰\n` +
+        `⟡ <b>CONSOLA CENTRAL VLP</b> ⊱ <code>CREDENCIALES MAESTRAS</code> ⊰\n` +
         `══════\n\n` +
-        `Hola, <b>${escapeHtml(firstName)}</b>. Se ha emitido tu token de acceso seguro al centro de comando:\n\n` +
+        `Hola, <b>${escapeHtml(firstName)}</b>. Se ha emitido tu clave de acceso seguro a la Consola Central:\n\n` +
+        `▸ <b>Enlace de la Consola:</b>\n` +
+        `<code>${masterPanelUrl}</code>\n\n` +
         `▸ <b>ID de Usuario:</b> <code>${userId}</code>\n` +
-        `▸ <b>Usuario:</b> ${username ? `@${username}` : '<i>Sin alias</i>'}\n` +
         `▸ <b>Rango Autorizado:</b> <b>${escapeHtml(roleName)}</b>\n` +
         `▸ <b>Clave Temporal:</b> <code>${tempPassword}</code>\n\n` +
-        `⏱️ <b>Vigencia de Sesión:</b> <code>30 minutos</code>\n` +
+        `⏱️ <b>Vigencia de Sesión:</b> <code>24 Horas</code>\n` +
         `──────\n` +
-        `🔐 <i>Haz clic en los accesos directos para iniciar sesión de forma automática:</i>`;
+        `🔐 <i>Usa el botón de abajo para acceder directamente a la Consola Central:</i>`;
 
-      const kb = new InlineKeyboard()
-        .url('GESTIONAR GRUPOS & SEGURIDAD', groupsPanelUrl);
+      const kb = new InlineKeyboard().url('🚀 ABRIR CONSOLA CENTRAL VLP', masterPanelUrl);
 
-      // Si es Owner global o Co-Owner, darle acceso al Gestor Maestro de Sub-Bots
-      if (isOwnerHardcoded || (staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER')))) {
-        kb.row().url('PANEL MAESTRO SAAS (SUB-BOTS)', saasPanelUrl);
-      }
-
-      // 5. Intentar enviar por MD
       let sentToDm = false;
       try {
         await ctx.api.sendMessage(userId, dmText, {
           parse_mode: 'HTML',
           reply_markup: kb,
+          link_preview_options: { is_disabled: true },
         });
         sentToDm = true;
       } catch (dmErr) {
         console.warn(`⟡ /panel: No se pudo enviar MD a ${userId}:`, dmErr.message);
       }
 
-      // 6. Responder en el chat de origen
-      if (ctx.chat.type === 'private') {
-        if (!sentToDm) {
-          await ctx.reply(dmText, { parse_mode: 'HTML', reply_markup: kb });
-        }
-      } else {
+      if (isGroup) {
         if (sentToDm) {
           const groupNotice = await ctx.reply(
-            `⟡ <b>PANEL WEB</b> ⊱ <code>ENLACE ENVIADO</code> ⊰\n` +
-            `──────\n` +
-            `📩 <b>${escapeHtml(firstName)}</b>, se han enviado tus credenciales de acceso por <b>mensaje privado</b>.`,
+            `👑 <b>${escapeHtml(firstName)}</b>, se han enviado tus credenciales de acceso por <b>mensaje privado</b>.`,
             { parse_mode: 'HTML' }
           );
-          setTimeout(async () => {
-            try {
-              await ctx.api.deleteMessage(ctx.chat.id, groupNotice.message_id);
-              if (ctx.message) await ctx.deleteMessage();
-            } catch {}
-          }, 12000);
+          setTimeout(() => ctx.api.deleteMessage(ctx.chat.id, groupNotice.message_id).catch(() => {}), 6000);
         } else {
           const botUsername = ctx.me.username;
-          await ctx.reply(
-            `⟡ <b>PANEL WEB</b> ⊱ <code>PRIVADO REQUERIDO</code> ⊰\n` +
-            `──────\n` +
-            `⚠️ <b>${escapeHtml(firstName)}</b>, no fue posible entregarte las claves por privado porque no has iniciado el bot.\n\n` +
-            `👉 Inicia el bot aquí: <a href="https://t.me/${botUsername}?start=panel"><b>[ Iniciar Chat Privado ]</b></a> y repite <code>/panel</code>.`,
+          const notice = await ctx.reply(
+            `⚠️ <b>${escapeHtml(firstName)}</b>, inicia el bot por privado en <a href="https://t.me/${botUsername}?start=panel"><b>@${botUsername}</b></a> y repite <code>/panel</code>.`,
             { parse_mode: 'HTML' }
           );
+          setTimeout(() => ctx.api.deleteMessage(ctx.chat.id, notice.message_id).catch(() => {}), 8000);
         }
+      } else if (!sentToDm) {
+        await ctx.reply(dmText, { parse_mode: 'HTML', reply_markup: kb });
       }
     } catch (err) {
       console.error('⟡ Error en comando /panel:', err.message);
-      await ctx.reply(`${SYM.CROSS} Error generando acceso al panel: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 }

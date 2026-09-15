@@ -579,36 +579,49 @@ function register(bot) {
           return;
         }
 
-        // Generar token para el portal del sub-bot
+        // Generar credenciales con Zero-Trust para el portal del sub-bot
         const panelHandler = require('../security/panelHandler');
-        const token = await panelHandler.generatePanelToken(senderId, 'OWNER SUB-BOT', true);
-        const subBotSlug = ctx.tenant.bot_username || ctx.tenant.id;
-        const tenantAdminUrl = `${domain}/portal/${subBotSlug}/admin?token=${token}`;
-        const publicLandingUrl = `${domain}/portal/${subBotSlug}`;
+        const { sessionToken, tempPassword } = await panelHandler.generatePanelSession(senderId, 'OWNER SUB-BOT', {
+          isGlobalOwner: false,
+          tenantId: tenantId,
+          communityName: ctx.tenant.community_name || 'Mi Comunidad',
+          theme: 'client',
+        });
+
+        const subBotSlug = ctx.tenant.bot_username ? ctx.tenant.bot_username.replace(/^@/, '') : ctx.tenant.id;
+        const tenantAdminUrl = `${domain}/portal/?slug=${subBotSlug}&token=${sessionToken}&view=admin`;
 
         const subBotMsg =
-          `⟡ <b>PANEL ADMINISTRATIVO</b> ⊱ <code>${escapeHtml(ctx.tenant.community_name)}</code> ⊰\n` +
+          `⟡ <b>PANEL DE CONTROL ADMINISTRATIVO</b> ⊱ <code>${escapeHtml(ctx.tenant.community_name)}</code> ⊰\n` +
           `══════\n\n` +
-          `Hola <b>${escapeHtml(ctx.from.first_name)}</b>, aquí tienes el acceso a tu portal web exclusivo:\n\n` +
-          `🌐 <b>Tu Panel de Administración (Staff y Ajustes):</b>\n` +
-          `<a href="${tenantAdminUrl}">👉 <b>[ ABRIR PANEL DE CONTROL ]</b></a>\n` +
+          `Hola <b>${escapeHtml(ctx.from.first_name)}</b>, se han generado tus credenciales exclusivas de administración:\n\n` +
+          `🌐 <b>Enlace de tu Panel de Control:</b>\n` +
           `<code>${tenantAdminUrl}</code>\n\n` +
-          `🔗 <b>Tu Landing Web Pública de Canales:</b>\n` +
-          `<code>${publicLandingUrl}</code>\n\n` +
+          `🆔 <b>Tu ID de Telegram:</b>\n` +
+          `<code>${senderId}</code>\n\n` +
+          `🔑 <b>Tu Contraseña Temporal:</b>\n` +
+          `<code>${tempPassword}</code>\n\n` +
+          `⏱️ <b>Vigencia de Sesión:</b> <code>24 Horas</code>\n` +
           `──────\n` +
-          `▪ <i>Diseño exclusivo Monocromático (Blanco y Negro). Gestiona tu staff y enlaces directamente en la web.</i>`;
+          `🔐 <i>Usa el botón de abajo para ingresar con 1 toque o ingresa con tu ID y Contraseña en la web.</i>`;
+
+        const kb = new InlineKeyboard().url('🚀 ABRIR MI PANEL DE CONTROL', tenantAdminUrl);
 
         try {
-          await ctx.api.sendMessage(senderId, subBotMsg, { parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
+          await ctx.api.sendMessage(senderId, subBotMsg, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+            link_preview_options: { is_disabled: true },
+          });
           if (ctx.chat.type !== 'private') {
-            const sent = await ctx.reply(`👑 <i>${escapeHtml(ctx.from.first_name)}, te he enviado el enlace a tu Panel Web por privado.</i>`, { parse_mode: 'HTML' });
+            const sent = await ctx.reply(`👑 <i>${escapeHtml(ctx.from.first_name)}, te he enviado las credenciales de tu Panel Web por privado.</i>`, { parse_mode: 'HTML' });
             setTimeout(() => ctx.api.deleteMessage(ctx.chat.id, sent.message_id).catch(() => {}), 6000);
           }
         } catch {
           if (ctx.chat.type !== 'private') {
             await ctx.reply(`⚠️ <i>No pude enviarte los datos por privado. Inicia el bot en privado primero (/start) y vuelve a ejecutar /panel.</i>`, { parse_mode: 'HTML' });
           } else {
-            await ctx.reply(subBotMsg, { parse_mode: 'HTML', link_preview_options: { is_disabled: true } });
+            await ctx.reply(subBotMsg, { parse_mode: 'HTML', reply_markup: kb, link_preview_options: { is_disabled: true } });
           }
         }
         return;

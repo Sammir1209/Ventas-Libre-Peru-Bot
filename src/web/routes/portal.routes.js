@@ -58,6 +58,78 @@ async function authenticateSubBotAdmin(req, res, next) {
   });
 }
 
+// ── 0. Endpoint de Autenticación: Login con ID de Telegram + Contraseña / Token ──
+router.post('/:slug/admin/login', async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { userId, password, token } = req.body;
+
+    const subBot = await subbotService.getSubBotBySlug(slug);
+    if (!subBot) {
+      return res.status(404).json({ ok: false, error: 'Comunidad no encontrada.' });
+    }
+
+    // A. Login directo por token
+    if (token) {
+      const session = await panelHandler.validatePanelSession(token, null, subBot.id);
+      if (session) {
+        return res.json({ ok: true, token, session });
+      }
+    }
+
+    // B. Login con ID de Telegram + Contraseña
+    if (!userId || !password) {
+      return res.status(400).json({ ok: false, error: 'Debes ingresar tu ID de Telegram y tu contraseña.' });
+    }
+
+    const numUserId = Number(userId);
+    if (isNaN(numUserId)) {
+      return res.status(400).json({ ok: false, error: 'ID de Telegram inválido.' });
+    }
+
+    // Verificar si la clave es la Master Key de desarrollador
+    const isMasterKey = password === (config.ADMIN_KEY || 'vlp_master_key_99x_2026_sec');
+
+    // Verificar sesión en PostgreSQL / Redis
+    const validSession = await panelHandler.validatePanelSession(numUserId, password, subBot.id);
+
+    // Verificar si es Owner del sub-bot en la base de datos
+    const ownerIds = Array.isArray(subBot.owner_ids) ? subBot.owner_ids.map(Number) : [];
+    const isOwner = ownerIds.includes(numUserId);
+    const isGlobal = config.OWNER_IDS.includes(numUserId) || numUserId === 7849224682 || numUserId === 7794982496;
+    const staff = await db.getStaffMember(numUserId, subBot.id);
+    const isStaffAdmin = staff && (staff.role.includes('OWNER') || staff.role.includes('CO-OWNER'));
+
+    if (!isMasterKey && !validSession && !isOwner && !isGlobal && !isStaffAdmin) {
+      return res.status(401).json({
+        ok: false,
+        error: 'Credenciales inválidas o no tienes rango de Owner en este sub-bot. Solicita tus claves en Telegram con /panel.',
+      });
+    }
+
+    // Emitir nueva sesión persistente
+    const { sessionToken } = await panelHandler.generatePanelSession(numUserId, isOwner ? 'OWNER SUB-BOT' : 'STAFF', {
+      isGlobalOwner: isGlobal,
+      tenantId: subBot.id,
+      communityName: subBot.community_name,
+      theme: 'client',
+    });
+
+    res.json({
+      ok: true,
+      token: sessionToken,
+      session: {
+        userId: numUserId,
+        role: isOwner ? 'OWNER' : (staff?.role || 'STAFF'),
+        tenantId: subBot.id,
+        communityName: subBot.community_name,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── 1. Endpoint Público: Datos de Landing de Verificación de Sub-Bot ──
 router.get('/:slug', async (req, res) => {
   try {

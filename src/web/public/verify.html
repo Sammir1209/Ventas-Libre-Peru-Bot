@@ -2,28 +2,32 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Verificación de Acceso Oficial — Ventas Libres Perú</title>
-  <meta name="description" content="Portal oficial de verificación y acceso a la red de comunidades de comercio seguro de Ventas Libres Perú.">
+  <meta name="description" content="Portal oficial de verificación y acceso a la red de comercio seguro de Ventas Libres Perú.">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self' 'unsafe-inline'; connect-src 'self';">
   <meta name="referrer" content="strict-origin-when-cross-origin">
+  
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
   <style>
     :root {
-      --bg-base: #08090d;
-      --bg-surface: #0f121a;
-      --bg-card: rgba(18, 22, 32, 0.85);
-      --bg-card-hover: rgba(28, 34, 50, 0.95);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-orange: rgba(255, 107, 0, 0.45);
+      --bg-base: #050508;
+      --bg-surface: #0c0e14;
+      --bg-card: rgba(18, 22, 32, 0.75);
+      --bg-card-hover: rgba(28, 34, 48, 0.9);
+      
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(255, 107, 0, 0.4);
+      --border-glow: rgba(255, 107, 0, 0.2);
       
       --primary: #ff6b00;
       --primary-hover: #ff8526;
-      --primary-glow: rgba(255, 107, 0, 0.35);
-      --primary-gradient: linear-gradient(135deg, #ff6b00 0%, #ff3b00 100%);
+      --primary-glow: rgba(255, 107, 0, 0.45);
+      --primary-grad: linear-gradient(135deg, #ff7a1a 0%, #ff3b00 100%);
       
       --white: #ffffff;
       --text-main: #f8fafc;
@@ -31,22 +35,24 @@
       --text-dim: #64748b;
       
       --success: #10b981;
-      --success-glow: rgba(16, 185, 129, 0.25);
+      --success-glow: rgba(16, 185, 129, 0.3);
       
       --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
       --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
       
-      --radius-xl: 24px;
+      --radius-xl: 22px;
       --radius-lg: 16px;
       --radius-md: 12px;
       --radius-full: 9999px;
-      --transition: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+      --transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
@@ -59,22 +65,33 @@
       align-items: center;
       position: relative;
       overflow-x: hidden;
-      background-image: 
-        radial-gradient(circle at 15% 10%, rgba(255, 107, 0, 0.12) 0%, transparent 45%),
-        radial-gradient(circle at 85% 85%, rgba(255, 59, 0, 0.08) 0%, transparent 50%),
-        radial-gradient(circle at 50% 50%, rgba(15, 18, 26, 0.8) 0%, transparent 100%);
+      line-height: 1.5;
     }
 
-    /* Ambient animated aura glow */
-    .glow-sphere {
+    /* Malla de Fondo Cyberpunk */
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Halo de Iluminación Ambiental */
+    .ambient-aura {
       position: fixed;
-      top: -150px;
+      top: -160px;
       left: 50%;
       transform: translateX(-50%);
-      width: 600px;
-      height: 400px;
-      background: radial-gradient(circle, rgba(255, 107, 0, 0.2) 0%, rgba(255, 107, 0, 0) 70%);
-      filter: blur(60px);
+      width: 650px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(255, 107, 0, 0.22) 0%, rgba(255, 59, 0, 0.05) 50%, transparent 75%);
+      filter: blur(70px);
+      border-radius: 50%;
       pointer-events: none;
       z-index: 0;
     }
@@ -82,11 +99,11 @@
     .container {
       width: 100%;
       max-width: 640px;
-      padding: 2.5rem 1.25rem 4rem;
+      padding: 2.8rem 1.25rem 4rem;
       z-index: 10;
       display: flex;
       flex-direction: column;
-      gap: 2rem;
+      gap: 1.8rem;
     }
 
     /* Header */
@@ -95,217 +112,224 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1rem;
+      gap: 0.85rem;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.4rem 0.95rem;
+      border-radius: var(--radius-full);
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: rgba(255, 107, 0, 0.08);
+      border: 1px solid rgba(255, 107, 0, 0.3);
+      color: #ff9d42;
+      box-shadow: 0 0 15px rgba(255, 107, 0, 0.15);
+    }
+
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.2); }
     }
 
     .logo-badge {
       width: 84px;
       height: 84px;
-      border-radius: var(--radius-xl);
-      background: var(--primary-gradient);
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(28, 34, 50, 0.9) 0%, rgba(12, 14, 20, 0.95) 100%);
+      border: 1px solid var(--border-accent);
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 12px 36px var(--primary-glow);
-      border: 2px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 25px rgba(255, 107, 0, 0.2);
+      margin-top: 0.4rem;
       position: relative;
-      animation: floatLogo 4s ease-in-out infinite;
     }
 
-    @keyframes floatLogo {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
+    .logo-badge::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(255, 107, 0, 0.5), transparent);
+      z-index: -1;
     }
 
     .logo-badge svg {
       width: 44px;
       height: 44px;
       fill: none;
-      stroke: var(--white);
+      stroke: var(--primary);
       stroke-width: 2.2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .live-status {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.35rem 0.9rem;
-      background: rgba(255, 107, 0, 0.12);
-      border: 1px solid var(--border-orange);
-      border-radius: var(--radius-full);
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: #ffaa66;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .pulse-dot {
-      width: 8px;
-      height: 8px;
-      background: #ff6b00;
-      border-radius: 50%;
-      box-shadow: 0 0 10px #ff6b00;
-      animation: pulse 1.8s infinite;
-    }
-
-    @keyframes pulse {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.4); opacity: 1; box-shadow: 0 0 16px #ff6b00; }
-      100% { transform: scale(0.95); opacity: 0.8; }
     }
 
     h1 {
       font-family: var(--font-heading);
-      font-size: 2.15rem;
-      font-weight: 800;
+      font-size: 2.25rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: var(--white);
       line-height: 1.15;
-      letter-spacing: -0.02em;
-      background: linear-gradient(180deg, #ffffff 30%, #e2e8f0 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
     }
 
     .subtitle {
-      font-size: 0.98rem;
+      font-size: 0.95rem;
       color: var(--text-muted);
-      line-height: 1.5;
-      max-width: 480px;
+      line-height: 1.6;
+      max-width: 520px;
     }
 
-    /* Steps Guide Box */
+    /* Tarjeta de Pasos */
     .steps-card {
       background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: 1.4rem 1.5rem;
-      backdrop-filter: blur(14px);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
-    }
-
-    .steps-title {
-      font-family: var(--font-heading);
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: #ffaa66;
-      margin-bottom: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .steps-list {
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.3rem 1.4rem;
       display: flex;
       flex-direction: column;
-      gap: 0.9rem;
+      gap: 0.85rem;
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .steps-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
     .step-item {
       display: flex;
       align-items: flex-start;
-      gap: 0.85rem;
+      gap: 0.9rem;
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.45;
     }
 
     .step-num {
-      width: 26px;
-      height: 26px;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
-      background: rgba(255, 107, 0, 0.15);
-      border: 1px solid var(--border-orange);
-      color: #ff944d;
-      font-size: 0.8rem;
-      font-weight: 700;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--white);
       flex-shrink: 0;
       margin-top: 1px;
     }
 
-    .step-text {
-      font-size: 0.88rem;
-      color: var(--text-main);
-      line-height: 1.45;
+    /* Barra de Progreso Dinámica */
+    .progress-box {
+      background: rgba(12, 14, 20, 0.7);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.9rem 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
 
-    .step-text strong {
-      color: #ffffff;
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
     }
 
-    /* Channel Cards */
+    .progress-bar-bg {
+      width: 100%;
+      height: 6px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--primary-grad);
+      width: 0%;
+      border-radius: 9999px;
+      transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    /* Stack de Canales */
     .channels-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.85rem;
     }
 
     .channels-header h2 {
-      font-family: var(--font-heading);
-      font-size: 1.25rem;
-      font-weight: 700;
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.01em;
     }
 
     .badge-count {
       font-size: 0.75rem;
       font-weight: 700;
-      padding: 0.2rem 0.6rem;
-      background: rgba(255, 255, 255, 0.08);
+      padding: 0.25rem 0.65rem;
       border-radius: var(--radius-full);
-      color: #94a3b8;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-dim);
     }
 
     .cards-stack {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.85rem;
     }
 
     .channel-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.1rem 1.25rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1.15rem 1.25rem;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      backdrop-filter: blur(12px);
+      gap: 1rem;
       text-decoration: none;
       color: inherit;
       transition: var(--transition);
       position: relative;
-      overflow: hidden;
-    }
-
-    .channel-card::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      background: var(--primary-gradient);
-      opacity: 0;
-      transition: var(--transition);
     }
 
     .channel-card:hover {
       background: var(--bg-card-hover);
-      border-color: var(--border-orange);
+      border-color: var(--border-accent);
       transform: translateY(-2px);
-      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 107, 0, 0.12);
-    }
-
-    .channel-card:hover::before {
-      opacity: 1;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 20px var(--border-glow);
     }
 
     .channel-left {
@@ -315,37 +339,29 @@
       min-width: 0;
     }
 
-    .channel-icon,
     .channel-avatar {
-      width: 52px;
-      height: 52px;
-      border-radius: var(--radius-md);
-      background: rgba(255, 255, 255, 0.05);
-      border: 1.5px solid rgba(255, 255, 255, 0.12);
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: #141722;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+      flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.35rem;
-      flex-shrink: 0;
-      transition: var(--transition);
-      overflow: hidden;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
     }
 
     .channel-avatar img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      display: block;
-      border-radius: calc(var(--radius-md) - 1.5px);
     }
 
-    .channel-card:hover .channel-icon,
-    .channel-card:hover .channel-avatar {
-      background: rgba(255, 107, 0, 0.18);
-      border-color: var(--border-orange);
-      transform: scale(1.06);
-      box-shadow: 0 6px 20px rgba(255, 107, 0, 0.28);
+    .channel-avatar svg {
+      width: 24px;
+      height: 24px;
+      stroke: var(--primary);
     }
 
     .channel-meta {
@@ -356,124 +372,103 @@
     }
 
     .channel-name {
-      font-family: var(--font-heading);
-      font-size: 1.05rem;
       font-weight: 700;
-      color: #ffffff;
+      font-size: 0.98rem;
+      color: var(--white);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .channel-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
       display: flex;
       align-items: center;
       gap: 0.4rem;
     }
 
-    .channel-desc {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+    .badge-mandatory {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #ff9d42;
+      background: rgba(255, 107, 0, 0.1);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      border: 1px solid rgba(255, 107, 0, 0.2);
+    }
+
+    .badge-done {
+      color: var(--success) !important;
+      background: rgba(16, 185, 129, 0.1) !important;
+      border-color: rgba(16, 185, 129, 0.2) !important;
     }
 
     .btn-action {
+      padding: 0.6rem 1.1rem;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--white);
+      font-weight: 700;
+      font-size: 0.82rem;
       display: inline-flex;
       align-items: center;
       gap: 0.45rem;
-      padding: 0.6rem 1.15rem;
-      border-radius: var(--radius-full);
-      font-family: var(--font-heading);
-      font-size: 0.85rem;
-      font-weight: 700;
-      background: var(--primary-gradient);
-      color: #ffffff;
-      border: none;
       cursor: pointer;
-      flex-shrink: 0;
       transition: var(--transition);
-      box-shadow: 0 4px 14px var(--primary-glow);
+      flex-shrink: 0;
     }
 
     .channel-card:hover .btn-action {
-      background: #ff7d1a;
-      box-shadow: 0 6px 18px rgba(255, 107, 0, 0.5);
-      transform: scale(1.03);
+      background: var(--primary-grad);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .btn-action.done {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.3);
+      color: var(--success);
     }
 
     .btn-action svg {
       width: 14px;
       height: 14px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2.4;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      stroke-width: 2.5;
     }
 
-    /* Master Folder Card */
-    .folder-card {
-      background: linear-gradient(135deg, rgba(255, 107, 0, 0.12) 0%, rgba(20, 24, 36, 0.8) 100%);
-      border: 1px solid var(--border-orange);
-      position: relative;
-    }
-
-    .folder-badge {
-      position: absolute;
-      top: 0.75rem;
-      right: 1rem;
-      font-size: 0.68rem;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #ffaa66;
-      background: rgba(255, 107, 0, 0.15);
-      padding: 0.15rem 0.5rem;
-      border-radius: var(--radius-full);
-    }
-
-    /* CTA Section */
+    /* Botón Maestro CTA hacia Telegram */
     .cta-box {
-      margin-top: 1rem;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-xl);
-      padding: 1.6rem 1.5rem;
-      text-align: center;
+      margin-top: 0.5rem;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .cta-text {
-      font-size: 0.92rem;
-      color: var(--text-muted);
-      line-height: 1.5;
+      gap: 0.9rem;
     }
 
     .btn-verify-guide {
-      display: inline-flex;
+      width: 100%;
+      padding: 1.15rem;
+      border-radius: var(--radius-lg);
+      background: var(--primary-grad);
+      color: var(--white);
+      font-weight: 800;
+      font-size: 1.02rem;
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.6rem;
-      width: 100%;
-      max-width: 320px;
-      padding: 0.9rem 1.5rem;
-      border-radius: var(--radius-full);
-      font-family: var(--font-heading);
-      font-size: 0.95rem;
-      font-weight: 700;
-      background: #ffffff;
-      color: #08090d;
+      gap: 0.75rem;
       text-decoration: none;
+      box-shadow: 0 12px 30px rgba(255, 107, 0, 0.35);
       transition: var(--transition);
-      box-shadow: 0 6px 20px rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.2);
     }
 
     .btn-verify-guide:hover {
-      background: #f1f5f9;
       transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(255, 255, 255, 0.28);
+      box-shadow: 0 16px 40px rgba(255, 107, 0, 0.5);
+      filter: brightness(1.05);
     }
 
     /* Footer */
@@ -484,57 +479,51 @@
       display: flex;
       flex-direction: column;
       gap: 0.4rem;
-      margin-top: 1rem;
+      margin-top: 1.5rem;
     }
 
     .footer a {
-      color: #ffaa66;
+      color: var(--primary);
       text-decoration: none;
+      font-weight: 600;
     }
 
-    .footer a:hover {
-      text-decoration: underline;
-    }
-
-    /* Responsive adjustments */
     @media (max-width: 480px) {
       .container {
-        padding: 1.75rem 1rem 3rem;
-        gap: 1.5rem;
+        padding: 1.8rem 1rem 3rem;
+        gap: 1.4rem;
       }
       h1 {
-        font-size: 1.8rem;
+        font-size: 1.85rem;
       }
       .logo-badge {
         width: 72px;
         height: 72px;
       }
-      .logo-badge svg {
-        width: 36px;
-        height: 36px;
-      }
       .channel-card {
-        padding: 1rem;
+        padding: 0.95rem 1rem;
       }
-      .btn-action {
-        padding: 0.55rem 0.85rem;
-        font-size: 0.8rem;
+      .channel-name {
+        font-size: 0.92rem;
       }
       .btn-action span {
         display: none;
+      }
+      .btn-action {
+        padding: 0.55rem;
       }
     }
   </style>
 </head>
 <body>
-  <div class="glow-sphere"></div>
+  <div class="ambient-aura"></div>
 
   <div class="container">
     <!-- Header -->
     <header class="header">
-      <div class="live-status">
+      <div class="live-badge">
         <span class="pulse-dot"></span>
-        <span>Comunidad Oficial Perú</span>
+        <span>Red Oficial Activa • MTProto 24/7</span>
       </div>
 
       <div class="logo-badge">
@@ -545,134 +534,186 @@
 
       <h1>Ventas Libres Perú</h1>
       <p class="subtitle">
-        Por normativas de seguridad y prevención contra fraudes, debes ingresar a los canales oficiales para habilitar tus permisos de escritura en el grupo.
+        Por normativas de seguridad y defensa perimetral contra fraudes, debes ingresar a los canales oficiales para desbloquear tu escritura en el chat grupal.
       </p>
     </header>
 
     <!-- Instrucciones Rápidas -->
     <section class="steps-card">
-      <div class="steps-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span>Proceso Automático en 3 Pasos</span>
+      <div class="steps-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Protocolo de Acceso en 3 Pasos</span>
       </div>
-      <div class="steps-list">
-        <div class="step-item">
-          <span class="step-num">1</span>
-          <div class="step-text">
-            Únete a los <strong>canales y grupos oficiales</strong> listados aquí abajo. Esta web es la central de acceso oficial.
-          </div>
-        </div>
-        <div class="step-item">
-          <span class="step-num">2</span>
-          <div class="step-text">
-            Regresa al chat grupal de Telegram donde recibiste el mensaje del Bot.
-          </div>
-        </div>
-        <div class="step-item">
-          <span class="step-num">3</span>
-          <div class="step-text">
-            Presiona el botón <strong>[ VERIFICAR ]</strong>. ¡El bot confirmará tu membresía y quitará el silencio de inmediato!
-          </div>
-        </div>
+      <div class="step-item">
+        <span class="step-num">1</span>
+        <div>Únete a los <strong>canales oficiales requeridos</strong> listados aquí abajo.</div>
+      </div>
+      <div class="step-item">
+        <span class="step-num">2</span>
+        <div>Regresa al chat grupal de Telegram donde recibiste el mensaje del Bot.</div>
+      </div>
+      <div class="step-item">
+        <span class="step-num">3</span>
+        <div>Presiona el botón <strong>[ VERIFICAR ]</strong> para quitar el silencio al instante.</div>
       </div>
     </section>
+
+    <!-- Barra de Progreso Dinámica -->
+    <div class="progress-box">
+      <div class="progress-info">
+        <span style="color: var(--text-muted); font-weight: 600;">Progreso de Canales:</span>
+        <span id="progress-text" style="font-weight: 800; color: #ffffff;">0 de 4 listos</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+    </div>
 
     <!-- Canales y Grupos Requeridos -->
     <section>
       <div class="channels-header">
-        <h2>
-          <span>Comunidades y Canales Oficiales</span>
-        </h2>
-        <span class="badge-count" id="channels-count">4 Accesos Oficiales</span>
+        <h2>Canales Oficiales Obligatorios</h2>
+        <span class="badge-count" id="channels-count">4 Canales Requeridos</span>
       </div>
 
       <div class="cards-stack">
-        <!-- 1. GRUPO PRINCIPAL (Donde funciona el sistema de verificación) -->
-        <a href="https://t.me/+hbIoqDOFBFFkMTM1" target="_blank" rel="noopener noreferrer" class="channel-card">
+        <!-- 1. GRUPO PRINCIPAL -->
+        <a href="https://t.me/+hbIoqDOFBFFkMTM1" target="_blank" rel="noopener noreferrer" class="channel-card" data-idx="1">
           <div class="channel-left">
             <div class="channel-avatar">
-              <img src="/assets/channels/principal.jpg" alt="Ventas Libre Perú" loading="lazy">
+              <img src="/assets/channels/principal.jpg" alt="Ventas Libre Perú" loading="lazy" onerror="this.style.display='none'">
             </div>
             <div class="channel-meta">
               <div class="channel-name">Ventas Libre Perú 🇵🇪</div>
-              <div class="channel-desc">Grupo principal oficial de comercio y verificación</div>
+              <div class="channel-desc">
+                <span class="badge-mandatory" id="badge-1">Obligatorio</span>
+                <span>Chat Principal de Comercio</span>
+              </div>
             </div>
           </div>
-          <button class="btn-action" type="button">
+          <button class="btn-action" id="btn-1" type="button">
             <span>Unirme</span>
-            <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </a>
 
-        <!-- 2. QUEMANDO ESTAFADORES (Lista Negra Oficial) -->
-        <a href="https://t.me/quemando_ventaslibreperu" target="_blank" rel="noopener noreferrer" class="channel-card">
+        <!-- 2. QUEMANDO ESTAFADORES -->
+        <a href="https://t.me/quemando_ventaslibreperu" target="_blank" rel="noopener noreferrer" class="channel-card" data-idx="2">
           <div class="channel-left">
             <div class="channel-avatar">
-              <img src="/assets/channels/quemando.jpg" alt="Quemando VLP" loading="lazy">
+              <img src="/assets/channels/quemando.jpg" alt="Quemando VLP" loading="lazy" onerror="this.style.display='none'">
             </div>
             <div class="channel-meta">
               <div class="channel-name">Quemando VLP (Lista Negra)</div>
-              <div class="channel-desc">Canal oficial de reportes, alertas y estafadores</div>
+              <div class="channel-desc">
+                <span class="badge-mandatory" id="badge-2">Obligatorio</span>
+                <span>Canal de Reportes & GBan</span>
+              </div>
             </div>
           </div>
-          <button class="btn-action" type="button">
+          <button class="btn-action" id="btn-2" type="button">
             <span>Unirme</span>
-            <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </a>
 
         <!-- 3. CANAL DE RESPALDO -->
-        <a href="https://t.me/+UgS0Xk9d-8k4Yzlh" target="_blank" rel="noopener noreferrer" class="channel-card">
+        <a href="https://t.me/+UgS0Xk9d-8k4Yzlh" target="_blank" rel="noopener noreferrer" class="channel-card" data-idx="3">
           <div class="channel-left">
             <div class="channel-avatar">
-              <img src="/assets/channels/respaldo.svg" alt="Respaldo VentasLibrePeru" loading="lazy">
+              <img src="/assets/channels/respaldo.svg" alt="Respaldo VentasLibrePeru" loading="lazy" onerror="this.style.display='none'">
             </div>
             <div class="channel-meta">
               <div class="channel-name">Respaldo VentasLibrePeru</div>
-              <div class="channel-desc">Canal oficial de respaldo y contingencia de la red</div>
+              <div class="channel-desc">
+                <span class="badge-mandatory" id="badge-3">Obligatorio</span>
+                <span>Canal de Difusión Oficial</span>
+              </div>
             </div>
           </div>
-          <button class="btn-action" type="button">
+          <button class="btn-action" id="btn-3" type="button">
             <span>Unirme</span>
-            <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </a>
 
-        <!-- 4. GRUPO / CANAL MADRE DE LAS VENTAS -->
-        <a href="https://t.me/+3My6QWWVjMw2Mzc8" target="_blank" rel="noopener noreferrer" class="channel-card">
+        <!-- 4. MADRE DE LAS VENTAS -->
+        <a href="https://t.me/+3My6QWWVjMw2Mzc8" target="_blank" rel="noopener noreferrer" class="channel-card" data-idx="4">
           <div class="channel-left">
             <div class="channel-avatar">
-              <img src="/assets/channels/madre_ventas.jpg" alt="Madre de las Ventas TV2" loading="lazy">
+              <img src="/assets/channels/madre_ventas.jpg" alt="Madre de las Ventas TV2" loading="lazy" onerror="this.style.display='none'">
             </div>
             <div class="channel-meta">
               <div class="channel-name">Madre de las Ventas TV2</div>
-              <div class="channel-desc">Canal principal de novedades, eventos y difusión</div>
+              <div class="channel-desc">
+                <span class="badge-mandatory" id="badge-4">Obligatorio</span>
+                <span>Eventos & Novedades</span>
+              </div>
             </div>
           </div>
-          <button class="btn-action" type="button">
+          <button class="btn-action" id="btn-4" type="button">
             <span>Unirme</span>
-            <svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
           </button>
         </a>
       </div>
     </section>
 
-    <!-- Botón de retorno al chat de Telegram -->
+    <!-- Botón Maestro CTA hacia Telegram -->
     <section class="cta-box">
-      <p class="cta-text">
-        ¿Ya te uniste a los canales? Vuelve a la conversación en Telegram y pulsa el botón <strong>VERIFICAR</strong>.
-      </p>
-      <a href="https://t.me" class="btn-verify-guide">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 6.75a2.25 2.25 0 0 0 .126 4.168l4.47 1.542 1.83 5.488a1.5 1.5 0 0 0 2.29.684l2.91-2.22 4.67 3.44a2.25 2.25 0 0 0 3.52-1.44l3-16.5a2.25 2.25 0 0 0-2.3-2.627z"/></svg>
-        <span>Volver a Telegram</span>
+      <a href="https://t.me" class="btn-verify-guide" id="cta-telegram">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 6.75a2.25 2.25 0 0 0 .126 4.168l4.47 1.542 1.83 5.488a1.5 1.5 0 0 0 2.29.684l2.91-2.22 4.67 3.44a2.25 2.25 0 0 0 3.52-1.44l3-16.5a2.25 2.25 0 0 0-2.3-2.627z"/></svg>
+        <span>Regresar al Bot y Verificarme</span>
       </a>
     </section>
 
     <!-- Footer -->
     <footer class="footer">
-      <div>© 2026 Ventas Libres Perú — Sistema de Seguridad Oficial</div>
+      <div>© 2026 Ventas Libres Perú — Sistema de Seguridad Perimetral</div>
       <div>Tratos 100% garantizados con <a href="https://t.me">@VentasLibresPeruBot</a></div>
     </footer>
   </div>
+
+  <script>
+    // Interactividad en tiempo real de canales visitados
+    const visited = JSON.parse(localStorage.getItem('vlp_visited_channels') || '{}');
+    const total = 4;
+
+    function updateProgress() {
+      const count = Object.keys(visited).length;
+      const pct = Math.min(100, Math.round((count / total) * 100));
+      document.getElementById('progress-fill').style.width = pct + '%';
+      document.getElementById('progress-text').textContent = `${count} de ${total} listos`;
+
+      if (count === total) {
+        document.getElementById('cta-telegram').style.boxShadow = '0 0 30px rgba(16, 185, 129, 0.6)';
+      }
+    }
+
+    document.querySelectorAll('.channel-card').forEach(card => {
+      const idx = card.dataset.idx;
+      const btn = document.getElementById(`btn-${idx}`);
+      const badge = document.getElementById(`badge-${idx}`);
+
+      if (visited[idx]) {
+        btn.classList.add('done');
+        btn.querySelector('span').textContent = 'Listo';
+        badge.classList.add('badge-done');
+        badge.textContent = '✓ Listo';
+      }
+
+      card.addEventListener('click', () => {
+        visited[idx] = true;
+        localStorage.setItem('vlp_visited_channels', JSON.stringify(visited));
+        btn.classList.add('done');
+        btn.querySelector('span').textContent = 'Listo';
+        badge.classList.add('badge-done');
+        badge.textContent = '✓ Listo';
+        updateProgress();
+      });
+    });
+
+    updateProgress();
+  </script>
 </body>
 </html>

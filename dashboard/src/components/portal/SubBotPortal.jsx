@@ -38,6 +38,36 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
   const [settings, setSettings] = useState(null);
   const [toasts, setToasts] = useState([]);
 
+  // Estados de Login Seguro (Zero-Trust)
+  const [loginForm, setLoginForm] = useState({ userId: '', password: '' });
+  const [loggingIn, setLoggingIn] = useState(false);
+  const [authError, setAuthError] = useState(null);
+
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    setLoggingIn(true);
+    setAuthError(null);
+    try {
+      const res = await fetch(`/api/portal/${encodeURIComponent(slug)}/admin/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: loginForm.userId, password: loginForm.password }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Credenciales inválidas.');
+      }
+      setAdminToken(data.token);
+      localStorage.setItem(`subbot_token_${slug}`, data.token);
+      addToast('Sesión de Owner iniciada con éxito');
+      loadAdminData();
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
   const addToast = (message, type = 'success') => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -299,6 +329,80 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
 
   // ════ VISTA 2: PANEL ENTERPRISE COMPLETO (OWNER DEL SUB-BOT) ════
   const communityDisplayName = portalData?.community_name || 'COMUNIDAD AFILIADA';
+
+  // Si está en vista admin pero aún no ha iniciado sesión válida
+  if (!adminData) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#000000', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ maxWidth: '440px', width: '100%', background: 'rgba(18, 18, 20, 0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '20px', padding: '2.5rem 2rem', boxShadow: '0 25px 50px rgba(0, 0, 0, 0.9)' }}>
+          <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#18181b', border: '1px solid rgba(255, 255, 255, 0.2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+              <IconShield size={28} color="#ffffff" />
+            </div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 0.4rem 0', color: '#ffffff' }}>{communityDisplayName}</h2>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', margin: 0 }}>Autenticación Segura de Owner</p>
+          </div>
+
+          {authError && (
+            <div style={{ padding: '0.75rem 1rem', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1.2rem', textAlign: 'center' }}>
+              {authError}
+            </div>
+          )}
+
+          <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div>
+              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#d4d4d8', display: 'block', marginBottom: '0.4rem' }}>Tu ID Numérico de Telegram</label>
+              <input
+                type="text"
+                required
+                className="input-field"
+                style={{ width: '100%', background: '#09090b', borderColor: 'rgba(255, 255, 255, 0.2)', color: '#ffffff' }}
+                placeholder="Ej: 7849224682"
+                value={loginForm.userId}
+                onChange={(e) => setLoginForm({ ...loginForm, userId: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#d4d4d8', display: 'block', marginBottom: '0.4rem' }}>Contraseña Temporal de Acceso</label>
+              <input
+                type="password"
+                required
+                className="input-field"
+                style={{ width: '100%', background: '#09090b', borderColor: 'rgba(255, 255, 255, 0.2)', color: '#ffffff' }}
+                placeholder="Clave emitida por el bot"
+                value={loginForm.password}
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '0.85rem', background: '#ffffff', color: '#000000', fontWeight: 800, fontSize: '0.95rem' }}
+              disabled={loggingIn}
+            >
+              {loggingIn ? 'Validando Credenciales...' : 'Ingresar al Panel de Control'}
+            </button>
+          </form>
+
+          <div style={{ marginTop: '1.5rem', padding: '0.9rem', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', fontSize: '0.78rem', color: '#71717a', lineHeight: 1.5 }}>
+            💡 <strong>¿No tienes tu contraseña?</strong> Ejecuta <code>/panel</code> en tu grupo o en privado con tu bot para recibir de inmediato tus credenciales por mensaje privado.
+          </div>
+
+          <div style={{ marginTop: '1.2rem', textAlign: 'center' }}>
+            <button
+              type="button"
+              onClick={() => setView('public')}
+              style={{ background: 'none', border: 'none', color: '#a1a1aa', fontSize: '0.82rem', cursor: 'pointer' }}
+            >
+              ← Volver a la Landing de Canales
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
