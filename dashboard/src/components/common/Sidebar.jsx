@@ -7,16 +7,26 @@ import {
   IconAlertTriangle,
   IconBot,
   IconShield,
+  IconBook,
 } from './Icons';
 
-export default function Sidebar({ activeTab, setActiveTab }) {
-  const navItems = [
+export default function Sidebar({
+  activeTab,
+  setActiveTab,
+  isSubBot = false,
+  communityName = 'VENTAS LIBRES',
+  subtitle = 'COMMAND CENTER',
+}) {
+  const baseNavItems = [
     { id: 'stats', label: 'Centro de Mando', icon: IconActivity },
     { id: 'staff', label: 'Gestión de Staff', icon: IconUsers },
     { id: 'deals', label: 'Tratos & Escrow', icon: IconScale },
-    { id: 'gban', label: 'Lista Negra (GBan)', icon: IconAlertTriangle },
-    { id: 'subbots', label: 'Instancias Sub-Bots', icon: IconBot },
+    { id: 'gban', label: 'Lista Negra (Sanciones)', icon: IconAlertTriangle },
+    ...(isSubBot
+      ? [{ id: 'channels', label: 'Canales & Enlaces', icon: IconShield }]
+      : [{ id: 'subbots', label: 'Instancias Sub-Bots', icon: IconBot }]),
     { id: 'groups', label: 'Grupos & Seguridad', icon: IconShield },
+    { id: 'docs', label: 'Guía de Comandos', icon: IconBook },
   ];
 
   return (
@@ -24,13 +34,13 @@ export default function Sidebar({ activeTab, setActiveTab }) {
       <div className="brand-section">
         <div className="brand-badge-icon">⟡</div>
         <div className="brand-title-wrap">
-          <h2>VENTAS LIBRES</h2>
-          <span>COMMAND CENTER</span>
+          <h2 style={{ fontSize: '14px', textTransform: 'uppercase' }}>{communityName}</h2>
+          <span>{subtitle}</span>
         </div>
       </div>
 
       <nav className="sidebar-nav">
-        {navItems.map((item) => {
+        {baseNavItems.map((item) => {
           const IconComp = item.icon;
           return (
             <button

@@ -11,6 +11,7 @@ import SubBotsSection from '../components/subbots/SubBotsSection';
 import GroupsSection from '../components/groups/GroupsSection';
 import LandingPage from '../components/landing/LandingPage';
 import SubBotPortal from '../components/portal/SubBotPortal';
+import DocsSection from '../components/docs/DocsSection';
 import {
   IconUsers,
   IconScale,
@@ -482,6 +483,11 @@ export default function DashboardPage() {
             <GroupsSection
               groups={groups}
             />
+          )}
+
+          {/* Tab: Docs & Comandos */}
+          {activeTab === 'docs' && (
+            <DocsSection />
           )}
         </main>
       </div>

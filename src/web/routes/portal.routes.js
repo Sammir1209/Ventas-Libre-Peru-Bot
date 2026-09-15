@@ -71,6 +71,10 @@ router.get('/:slug', async (req, res) => {
   }
 });
 
+const dealService = require('../services/dealService');
+const gbanService = require('../services/gbanService');
+const staffService = require('../services/staffService');
+
 // ── 2. Endpoint Administrativo: Datos Completos y Staff para el Owner ──
 router.get('/:slug/admin/data', authenticateSubBotAdmin, async (req, res) => {
   try {
@@ -79,14 +83,38 @@ router.get('/:slug/admin/data', authenticateSubBotAdmin, async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Sub-bot no encontrado.' });
     }
 
-    const staff = await subbotService.getTenantStaff(subBot.id);
-    const groups = await db.getAllGroups(subBot.id);
+    const [staff, groups, allDeals, allBurned] = await Promise.all([
+      subbotService.getTenantStaff(subBot.id),
+      db.getAllGroups(subBot.id),
+      dealService.listDeals().catch(() => []),
+      gbanService.listBurned().catch(() => []),
+    ]);
+
+    // Filtrar tratos por tenant_id si la columna existe o devolver tratos asociados
+    const deals = (allDeals || []).filter(d => !d.tenant_id || d.tenant_id === subBot.id);
+    const burned = allBurned || [];
+
+    const activeDeals = deals.filter(d => d.status === 'ACTIVE' || d.status === 'PENDING' || d.status === 'CREATING');
+
+    const stats = {
+      uptimeSeconds: Math.floor(process.uptime()),
+      totalStaff: (staff || []).length,
+      totalGroups: (groups || []).length,
+      activeDealsCount: activeDeals.length,
+      totalBurned: burned.length,
+      memoryUsageMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      communityName: subBot.community_name,
+      botUsername: subBot.bot_username,
+    };
 
     res.json({
       ok: true,
       subbot: subBot,
       staff: staff || [],
+      deals: deals || [],
+      burned: burned || [],
       groups: groups || [],
+      stats,
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -177,6 +205,65 @@ router.delete('/:slug/admin/staff/:userId', authenticateSubBotAdmin, async (req,
     const numId = Number(req.params.userId);
     await subbotService.removeTenantStaff(subBot.id, numId);
     res.json({ ok: true, message: 'Miembro removido del Staff.' });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// ── 6. Endpoint Administrativo: Sincronizar Staff con Telegram ──
+router.post('/:slug/admin/staff/:userId/sync', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const updated = await staffService.syncStaff(req.params.userId);
+    res.json({ ok: true, message: 'Staff sincronizado con Telegram.', staff: updated });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// ── 7. Endpoints Administrativos: Tratos & Escrow en Sub-Bot ──
+router.post('/:slug/admin/deals', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    const dealData = { ...req.body, tenantId: subBot?.id };
+    const newDeal = await dealService.createDeal(dealData);
+    res.status(201).json({ ok: true, message: 'Trato creado exitosamente.', deal: newDeal });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.put('/:slug/admin/deals/:id', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const updated = await dealService.updateDeal(req.params.id, req.body);
+    res.json({ ok: true, message: 'Trato actualizado exitosamente.', deal: updated });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.delete('/:slug/admin/deals/:id', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    await dealService.deleteDeal(req.params.id);
+    res.json({ ok: true, message: 'Trato eliminado del registro.' });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// ── 8. Endpoints Administrativos: Lista Negra / Sanciones en Sub-Bot ──
+router.post('/:slug/admin/gban', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const burned = await gbanService.burnUser(req.body);
+    res.status(201).json({ ok: true, message: 'Usuario registrado en sanciones.', burned });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+router.delete('/:slug/admin/gban/:userId', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    await gbanService.removeBurned(req.params.userId);
+    res.json({ ok: true, message: 'Sanción removida exitosamente.' });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }
