@@ -33,12 +33,41 @@ function createWebApp(mainBot = null) {
   const publicDir = path.join(__dirname, 'public');
   const staticRoot = fs.existsSync(nextOutDir) ? nextOutDir : publicDir;
 
+  // ── 0. Servir estáticos de Next.js (_next) prioritariamente con headers de inmutabilidad ──
+  const nextStaticDir = path.join(staticRoot, '_next');
+  if (fs.existsSync(nextStaticDir)) {
+    app.use('/_next', express.static(nextStaticDir, {
+      maxAge: '30d',
+      immutable: true,
+      fallthrough: true,
+    }));
+  }
+
+  // Prevenir que requests a CSS o JS desactualizados caigan en catch-alls y devuelvan text/html
+  app.use('/_next/static/css/*', (req, res) => {
+    res.status(404).type('text/css').send('/* Stylesheet chunk updated */');
+  });
+  app.use('/_next/static/chunks/*', (req, res) => {
+    res.status(404).type('application/javascript').send('/* JS chunk updated */');
+  });
+  app.use('/_next/*', (req, res) => {
+    res.status(404).type('text/plain').send('Asset not found');
+  });
+
+  // Función auxiliar para enviar HTML con no-cache (evita que el navegador cachee bundles viejos)
+  const sendFreshHtml = (res, filePath) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    return res.sendFile(filePath);
+  };
+
   // ── 1. Ruta Pública Raíz: Landing Page para navegadores / JSON para monitores ──
   app.get('/', (req, res, next) => {
     if (req.accepts('html')) {
       const indexPath = path.join(staticRoot, 'index.html');
       if (fs.existsSync(indexPath)) {
-        return res.sendFile(indexPath);
+        return sendFreshHtml(res, indexPath);
       }
     }
     res.json({
@@ -65,7 +94,7 @@ function createWebApp(mainBot = null) {
   app.get(['/verificar', '/verify', '/canales'], (req, res) => {
     const verifyFile = path.join(__dirname, 'public', 'verify.html');
     if (fs.existsSync(verifyFile)) {
-      res.sendFile(verifyFile);
+      sendFreshHtml(res, verifyFile);
     } else {
       res.status(404).send('Portal de verificación no disponible');
     }
@@ -82,15 +111,15 @@ function createWebApp(mainBot = null) {
     const indexHtml = path.join(staticRoot, 'index.html');
 
     if (fs.existsSync(portalHtml)) {
-      return res.sendFile(portalHtml);
+      return sendFreshHtml(res, portalHtml);
     }
     if (fs.existsSync(portalDirectHtml)) {
-      return res.sendFile(portalDirectHtml);
+      return sendFreshHtml(res, portalDirectHtml);
     }
     if (fs.existsSync(indexHtml)) {
-      return res.sendFile(indexHtml);
+      return sendFreshHtml(res, indexHtml);
     }
-    res.sendFile(path.join(publicDir, 'index.html'));
+    sendFreshHtml(res, path.join(publicDir, 'index.html'));
   });
 
   // ── 5. Endpoints Especiales de Autenticación y Branding ──

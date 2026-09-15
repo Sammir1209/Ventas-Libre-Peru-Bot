@@ -80,23 +80,6 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Inicializar slug, token y view desde URL
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const urlSlug = params.get('slug') || params.get('bot') || params.get('c') || defaultSlug;
-      const urlToken = params.get('token') || localStorage.getItem(`subbot_token_${urlSlug}`) || '';
-      const urlView = params.get('view') || (window.location.pathname.includes('/admin') ? 'admin' : defaultView);
-
-      if (urlSlug) setSlug(urlSlug);
-      if (urlToken) {
-        setAdminToken(urlToken);
-        localStorage.setItem(`subbot_token_${urlSlug}`, urlToken);
-      }
-      if (urlView) setView(urlView);
-    }
-  }, [defaultSlug, defaultView]);
-
   // Carga de datos públicos para la Landing
   const loadPublicData = useCallback(async () => {
     if (!slug) return;
@@ -117,17 +100,18 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
   }, [slug]);
 
   // Carga de datos administrativos completos para el Owner del Sub-Bot
-  const loadAdminData = useCallback(async () => {
+  const loadAdminData = useCallback(async (explicitToken) => {
     if (!slug) return;
+    const tokenToUse = explicitToken !== undefined ? explicitToken : adminToken;
     try {
       const queryParams = new URLSearchParams();
-      if (adminToken) queryParams.set('token', adminToken);
+      if (tokenToUse) queryParams.set('token', tokenToUse);
       if (adminKey) queryParams.set('key', adminKey);
 
       const res = await fetch(`/api/portal/${encodeURIComponent(slug)}/admin/data?${queryParams.toString()}`, {
         headers: {
           'x-admin-key': adminKey,
-          'x-auth-token': adminToken,
+          'x-auth-token': tokenToUse || '',
         },
       });
       const data = await res.json();
@@ -158,14 +142,33 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
     }
   }, [slug, adminToken, adminKey]);
 
+  // Inicializar slug, token y view desde URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlSlug = params.get('slug') || params.get('bot') || params.get('c') || defaultSlug;
+      const urlToken = params.get('token') || (urlSlug ? localStorage.getItem(`subbot_token_${urlSlug}`) : '') || '';
+      const urlView = params.get('view') || (window.location.pathname.includes('/admin') ? 'admin' : defaultView);
+
+      if (urlSlug) setSlug(urlSlug);
+      if (urlToken) {
+        setAdminToken(urlToken);
+        if (urlSlug) localStorage.setItem(`subbot_token_${urlSlug}`, urlToken);
+      }
+      if (urlView) setView(urlView);
+
+      // Si tenemos token y vista admin, cargar de inmediato
+      if (urlSlug && (urlView === 'admin' || urlToken)) {
+        loadAdminData(urlToken);
+      }
+    }
+  }, [defaultSlug, defaultView, loadAdminData]);
+
   useEffect(() => {
     if (slug) {
       loadPublicData();
-      if (view === 'admin') {
-        loadAdminData();
-      }
     }
-  }, [slug, view, loadPublicData, loadAdminData]);
+  }, [slug, loadPublicData]);
 
   // Helper fetch autenticado para el sub-bot
   const fetchWithSubBotAuth = useCallback(
@@ -333,18 +336,22 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
   // Si está en vista admin pero aún no ha iniciado sesión válida
   if (!adminData) {
     return (
-      <div style={{ minHeight: '100vh', background: '#000000', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-        <div style={{ maxWidth: '440px', width: '100%', background: 'rgba(18, 18, 20, 0.85)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255, 255, 255, 0.15)', borderRadius: '20px', padding: '2.5rem 2rem', boxShadow: '0 25px 50px rgba(0, 0, 0, 0.9)' }}>
+      <div style={{ minHeight: '100vh', background: '#000000', color: '#f4f4f5', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '-120px', left: '50%', transform: 'translateX(-50%)', width: '600px', height: '350px', background: 'radial-gradient(circle, rgba(0, 111, 238, 0.25) 0%, rgba(120, 40, 200, 0.15) 50%, transparent 75%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+
+        <div style={{ maxWidth: '440px', width: '100%', background: 'rgba(24, 24, 27, 0.8)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '24px', padding: '2.5rem 2rem', boxShadow: '0 30px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 111, 238, 0.15)', position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#18181b', border: '1px solid rgba(255, 255, 255, 0.2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
-              <IconShield size={28} color="#ffffff" />
+            <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(0, 111, 238, 0.2), rgba(120, 40, 200, 0.2))', border: '1px solid rgba(0, 111, 238, 0.4)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', color: '#006FEE' }}>
+              <IconShield size={28} />
             </div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 0.4rem 0', color: '#ffffff' }}>{communityDisplayName}</h2>
-            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', margin: 0 }}>Autenticación Segura de Owner</p>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '9999px', background: 'rgba(0, 111, 238, 0.15)', border: '1px solid rgba(0, 111, 238, 0.3)', color: '#006FEE', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Autenticación de Owner • Zero-Trust
+            </div>
           </div>
 
           {authError && (
-            <div style={{ padding: '0.75rem 1rem', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#ef4444', fontSize: '0.82rem', marginBottom: '1.2rem', textAlign: 'center' }}>
+            <div style={{ padding: '0.75rem 1rem', borderRadius: '14px', background: 'rgba(243, 18, 96, 0.15)', border: '1px solid rgba(243, 18, 96, 0.4)', color: '#f31260', fontSize: '0.82rem', marginBottom: '1.2rem', textAlign: 'center' }}>
               {authError}
             </div>
           )}
@@ -356,7 +363,7 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
                 type="text"
                 required
                 className="input-field"
-                style={{ width: '100%', background: '#09090b', borderColor: 'rgba(255, 255, 255, 0.2)', color: '#ffffff' }}
+                style={{ width: '100%', borderRadius: '14px' }}
                 placeholder="Ej: 7849224682"
                 value={loginForm.userId}
                 onChange={(e) => setLoginForm({ ...loginForm, userId: e.target.value })}
@@ -369,7 +376,7 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
                 type="password"
                 required
                 className="input-field"
-                style={{ width: '100%', background: '#09090b', borderColor: 'rgba(255, 255, 255, 0.2)', color: '#ffffff' }}
+                style={{ width: '100%', borderRadius: '14px' }}
                 placeholder="Clave emitida por el bot"
                 value={loginForm.password}
                 onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
@@ -379,14 +386,14 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
             <button
               type="submit"
               className="btn btn-primary"
-              style={{ width: '100%', padding: '0.85rem', background: '#ffffff', color: '#000000', fontWeight: 800, fontSize: '0.95rem' }}
+              style={{ width: '100%', padding: '0.9rem', fontWeight: 800, fontSize: '0.95rem', borderRadius: '9999px', marginTop: '0.4rem' }}
               disabled={loggingIn}
             >
               {loggingIn ? 'Validando Credenciales...' : 'Ingresar al Panel de Control'}
             </button>
           </form>
 
-          <div style={{ marginTop: '1.5rem', padding: '0.9rem', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', fontSize: '0.78rem', color: '#71717a', lineHeight: 1.5 }}>
+          <div style={{ marginTop: '1.5rem', padding: '0.9rem 1rem', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', fontSize: '0.78rem', color: '#a1a1aa', lineHeight: 1.5 }}>
             💡 <strong>¿No tienes tu contraseña?</strong> Ejecuta <code>/panel</code> en tu grupo o en privado con tu bot para recibir de inmediato tus credenciales por mensaje privado.
           </div>
 
@@ -394,7 +401,7 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
             <button
               type="button"
               onClick={() => setView('public')}
-              style={{ background: 'none', border: 'none', color: '#a1a1aa', fontSize: '0.82rem', cursor: 'pointer' }}
+              style={{ background: 'none', border: 'none', color: '#a1a1aa', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
             >
               ← Volver a la Landing de Canales
             </button>

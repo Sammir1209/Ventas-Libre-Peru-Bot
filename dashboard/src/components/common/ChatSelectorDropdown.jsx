@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   IconShield,
   IconAlertTriangle,
@@ -8,11 +8,14 @@ import {
   IconChevronDown,
   IconSearch,
   IconX,
-  IconExternalLink,
+  IconPlus,
+  IconRefresh,
 } from './Icons';
 
 /**
- * Selector inteligente de grupos y canales con detección de permisos de administrador
+ * Formulario interactivo de selección de canales y grupos con estado de Administrador.
+ * Permite seleccionar mediante tarjetas/checkboxes y añadir canales manuales.
+ * ¡Cero selección automática: el usuario elige explícitamente!
  */
 export default function ChatSelectorDropdown({
   label,
@@ -25,464 +28,579 @@ export default function ChatSelectorDropdown({
   allowManual = true,
   required = false,
   loading = false,
-  emptyMessage = 'No se detectaron grupos ni canales donde esté el bot. Añade el bot a tus chats en Telegram para que aparezcan aquí automáticamente.',
+  emptyMessage = 'No se detectaron canales ni grupos donde esté el bot. Añade el bot como administrador en Telegram para que aparezcan aquí automáticamente.',
 }) {
-  const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [isManualMode, setIsManualMode] = useState(false);
   const [manualInput, setManualInput] = useState('');
-  const containerRef = useRef(null);
+  const [isOpenSingle, setIsOpenSingle] = useState(false);
 
-  // Cerrar dropdown al hacer click fuera
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  // Normalizar valores seleccionados (Array de strings)
+  const selectedList = useMemo(() => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map((s) => String(s).trim()).filter(Boolean);
+    return String(value)
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }, [value]);
 
-  // Normalizar valor multi-selección a Array
-  const selectedValues = isMulti
-    ? (Array.isArray(value)
-        ? value
-        : String(value || '')
-            .split(/[\n,]/)
-            .map((s) => s.trim())
-            .filter(Boolean))
-    : [];
-
-  const handleSelectSingle = (chat) => {
-    // Si el chat tiene username público preferir @username, sino su chatId
-    const val = chat.username ? chat.username : chat.chatId;
-    onChange(val);
-    setIsOpen(false);
-  };
-
+  // Manejar marcar/desmarcar en selección múltiple
   const handleToggleMulti = (chat) => {
-    const val = chat.username ? chat.username : chat.chatId;
+    const chatKey = chat.username || String(chat.chatId);
+    const chatAltKey = String(chat.chatId);
+
+    const alreadySelected = selectedList.some(
+      (item) => item.toLowerCase() === chatKey.toLowerCase() || item === chatAltKey
+    );
+
     let next;
-    if (selectedValues.includes(val) || selectedValues.includes(chat.chatId)) {
-      next = selectedValues.filter((v) => v !== val && v !== chat.chatId);
+    if (alreadySelected) {
+      next = selectedList.filter(
+        (item) => item.toLowerCase() !== chatKey.toLowerCase() && item !== chatAltKey
+      );
     } else {
-      next = [...selectedValues, val];
+      next = [...selectedList, chatKey];
     }
     onChange(next.join('\n'));
   };
 
-  const handleRemoveMultiItem = (itemVal) => {
-    const next = selectedValues.filter((v) => v !== itemVal);
+  // Remover un canal seleccionado
+  const handleRemoveItem = (itemVal) => {
+    const next = selectedList.filter(
+      (item) => item.toLowerCase() !== itemVal.toLowerCase()
+    );
     onChange(next.join('\n'));
   };
 
-  const handleAddManualItem = () => {
-    if (!manualInput.trim()) return;
+  // Añadir un canal manual escrito por el usuario
+  const handleAddManual = (e) => {
+    if (e) e.preventDefault();
     const clean = manualInput.trim();
+    if (!clean) return;
+
     if (isMulti) {
-      if (!selectedValues.includes(clean)) {
-        onChange([...selectedValues, clean].join('\n'));
+      if (!selectedList.some((item) => item.toLowerCase() === clean.toLowerCase())) {
+        onChange([...selectedList, clean].join('\n'));
       }
     } else {
       onChange(clean);
     }
     setManualInput('');
-    setIsManualMode(false);
-    setIsOpen(false);
   };
 
-  // Filtrado de chats por término de búsqueda
-  const filteredChats = (chats || []).filter((c) => {
-    if (!search.trim()) return true;
+  // Limpiar toda la selección
+  const handleClearAll = () => {
+    onChange('');
+  };
+
+  // Selección simple
+  const handleSelectSingle = (chat) => {
+    const chatKey = chat.username || String(chat.chatId);
+    onChange(chatKey);
+    setIsOpenSingle(false);
+  };
+
+  const handleClearSingle = () => {
+    onChange('');
+    setIsOpenSingle(false);
+  };
+
+  // Filtrado de chats disponibles
+  const filteredChats = useMemo(() => {
+    if (!search.trim()) return chats || [];
     const q = search.toLowerCase().trim();
-    const titleMatch = (c.title || '').toLowerCase().includes(q);
-    const userMatch = (c.username || '').toLowerCase().includes(q);
-    const idMatch = String(c.chatId || '').includes(q);
-    return titleMatch || userMatch || idMatch;
-  });
+    return (chats || []).filter((c) => {
+      const titleMatch = (c.title || '').toLowerCase().includes(q);
+      const userMatch = (c.username || '').toLowerCase().includes(q);
+      const idMatch = String(c.chatId || '').includes(q);
+      return titleMatch || userMatch || idMatch;
+    });
+  }, [chats, search]);
 
-  // Encontrar objeto de chat seleccionado (modo simple)
-  const currentSelectedChat = !isMulti
-    ? (chats || []).find((c) => String(c.chatId) === String(value) || c.username === value)
-    : null;
+  // Si es multi-selección: RENDERIZAR COMO FORMULARIO VISUAL COMPLETO
+  if (isMulti) {
+    return (
+      <div className="heroui-channel-selector-form" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Encabezado del Formulario */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <label style={{ fontSize: '15px', fontWeight: 800, color: '#f4f4f5', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {label || 'Canales Requeridos para Verificación'}
+              {required && <span style={{ color: '#f31260' }}>*</span>}
+            </label>
+            {hint && (
+              <span style={{ fontSize: '12px', color: '#a1a1aa', display: 'block', marginTop: '2px' }}>
+                {hint}
+              </span>
+            )}
+          </div>
 
-  return (
-    <div className="form-group" ref={containerRef} style={{ position: 'relative' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-        {label && (
-          <label className="form-label" style={{ margin: 0, fontWeight: 700, fontSize: '13px' }}>
-            {label} {required && <span style={{ color: 'var(--rose-danger)' }}>*</span>}
-          </label>
-        )}
-        {allowManual && (
-          <button
-            type="button"
-            onClick={() => setIsManualMode(!isManualMode)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '3px 10px',
+                borderRadius: '9999px',
+                background: selectedList.length > 0 ? 'rgba(0, 111, 238, 0.15)' : 'rgba(113, 113, 122, 0.2)',
+                color: selectedList.length > 0 ? '#006FEE' : '#a1a1aa',
+                border: `1px solid ${selectedList.length > 0 ? 'rgba(0, 111, 238, 0.3)' : 'rgba(255, 255, 255, 0.08)'}`,
+              }}
+            >
+              {selectedList.length} {selectedList.length === 1 ? 'canal elegido' : 'canales elegidos'}
+            </span>
+
+            {selectedList.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#f31260',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  padding: '2px 6px',
+                }}
+              >
+                Desmarcar todos
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Resumen de Canales Elegidos (Chips HeroUI) */}
+        {selectedList.length > 0 && (
+          <div
             style={{
-              background: 'none',
-              border: 'none',
-              color: isManualMode ? 'var(--cyan-primary)' : 'var(--text-muted)',
-              fontSize: '11px',
-              cursor: 'pointer',
-              textDecoration: 'underline',
-              padding: 0,
+              padding: '12px 14px',
+              borderRadius: '16px',
+              background: 'rgba(0, 111, 238, 0.06)',
+              border: '1px solid rgba(0, 111, 238, 0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
             }}
           >
-            {isManualMode ? '← Usar menú desplegable' : '+ Ingresar enlace/ID manual'}
+            <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#006FEE' }}>
+              ✓ Canales que se exigirán a los nuevos miembros:
+            </span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {selectedList.map((item) => {
+                const matchedChat = (chats || []).find(
+                  (c) => String(c.chatId) === String(item) || c.username?.toLowerCase() === item.toLowerCase()
+                );
+
+                return (
+                  <span
+                    key={item}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '5px 12px',
+                      borderRadius: '9999px',
+                      background: 'rgba(24, 24, 27, 0.9)',
+                      border: '1px solid rgba(0, 111, 238, 0.4)',
+                      color: '#f4f4f5',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    <span>{matchedChat ? matchedChat.title : item}</span>
+                    {matchedChat && (
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '6px',
+                          background: matchedChat.isAdmin ? 'rgba(23, 201, 100, 0.18)' : 'rgba(245, 165, 36, 0.18)',
+                          color: matchedChat.isAdmin ? '#17c964' : '#f5a524',
+                        }}
+                      >
+                        {matchedChat.isAdmin ? '🛡️ Admin' : '⚠️ No Admin'}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(item)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#a1a1aa',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: 0,
+                      }}
+                      title="Quitar canal"
+                    >
+                      <IconX size={13} />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Buscador de Canales para Filtrar */}
+        <div style={{ position: 'relative' }}>
+          <IconSearch
+            size={14}
+            color="#a1a1aa"
+            style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }}
+          />
+          <input
+            type="text"
+            placeholder="Buscar entre los canales donde está el bot..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input-field"
+            style={{ paddingLeft: '38px', borderRadius: '14px', fontSize: '13px' }}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              style={{
+                position: 'absolute',
+                right: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: '#a1a1aa',
+                cursor: 'pointer',
+              }}
+            >
+              <IconX size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Lista de Tarjetas Seleccionables con Checkboxes */}
+        <div
+          style={{
+            maxHeight: '260px',
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            padding: '2px',
+          }}
+        >
+          {loading ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: '#a1a1aa', fontSize: '13px' }}>
+              Consultando canales vinculados a Telegram...
+            </div>
+          ) : filteredChats.length === 0 ? (
+            <div
+              style={{
+                padding: '20px',
+                textAlign: 'center',
+                borderRadius: '14px',
+                background: 'rgba(39, 39, 42, 0.25)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+              }}
+            >
+              <p style={{ color: '#a1a1aa', fontSize: '12px', margin: '0 0 10px 0', lineHeight: 1.5 }}>
+                {emptyMessage}
+              </p>
+              <span style={{ fontSize: '11px', color: '#71717a' }}>
+                💡 Puedes añadir canales manualmente usando el formulario de abajo.
+              </span>
+            </div>
+          ) : (
+            filteredChats.map((chat) => {
+              const chatKey = chat.username || String(chat.chatId);
+              const chatAltKey = String(chat.chatId);
+              const isChecked = selectedList.some(
+                (item) => item.toLowerCase() === chatKey.toLowerCase() || item === chatAltKey
+              );
+
+              return (
+                <div
+                  key={chat.chatId}
+                  onClick={() => handleToggleMulti(chat)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    borderRadius: '16px',
+                    cursor: 'pointer',
+                    background: isChecked ? 'rgba(0, 111, 238, 0.1)' : 'rgba(39, 39, 42, 0.35)',
+                    border: `1px solid ${isChecked ? 'rgba(0, 111, 238, 0.45)' : 'rgba(255, 255, 255, 0.08)'}`,
+                    transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                    userSelect: 'none',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', overflow: 'hidden' }}>
+                    {/* Checkbox Visual HeroUI */}
+                    <div
+                      style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '7px',
+                        background: isChecked ? '#006FEE' : 'rgba(255, 255, 255, 0.05)',
+                        border: `2px solid ${isChecked ? '#006FEE' : 'rgba(255, 255, 255, 0.2)'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {isChecked && <IconCheck size={14} color="#ffffff" />}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '14px' }}>
+                          {chat.type === 'channel' ? '📢' : '🛡️'}
+                        </span>
+                        <span style={{ fontWeight: 700, fontSize: '13px', color: '#f4f4f5', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {chat.title}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: '11px', color: '#a1a1aa' }}>
+                        {chat.username ? chat.username : `ID: ${chat.chatId}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Badge de Estado Admin */}
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '3px 8px',
+                      borderRadius: '6px',
+                      background: chat.isAdmin ? 'rgba(23, 201, 100, 0.15)' : 'rgba(245, 165, 36, 0.15)',
+                      color: chat.isAdmin ? '#17c964' : '#f5a524',
+                      border: `1px solid ${chat.isAdmin ? 'rgba(23, 201, 100, 0.35)' : 'rgba(245, 165, 36, 0.35)'}`,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {chat.isAdmin ? '🛡️ Admin' : '⚠️ No Admin'}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Sección de Añadir Canal Manual (Para enlaces o canales externos) */}
+        {allowManual && (
+          <div
+            style={{
+              display: 'flex',
+              gap: '10px',
+              padding: '14px',
+              borderRadius: '16px',
+              background: 'rgba(24, 24, 27, 0.5)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              alignItems: 'center',
+            }}
+          >
+            <input
+              type="text"
+              className="input-field"
+              placeholder="O escribe un @canal o enlace (ej: @mi_canal o https://t.me/...)"
+              value={manualInput}
+              onChange={(e) => setManualInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddManual();
+                }
+              }}
+              style={{ flex: 1, borderRadius: '12px', fontSize: '13px' }}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={handleAddManual}
+              disabled={!manualInput.trim()}
+              style={{ borderRadius: '12px', whiteSpace: 'nowrap' }}
+            >
+              <IconPlus size={14} />
+              <span>Añadir</span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Si es selección simple (1 chat para Staff, Logs, GBan, Escrow)
+  const currentSelectedChat = (chats || []).find(
+    (c) => String(c.chatId) === String(value) || c.username?.toLowerCase() === String(value).toLowerCase()
+  );
+
+  return (
+    <div className="form-group" style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+        {label && (
+          <label className="form-label" style={{ margin: 0, fontWeight: 700, fontSize: '13px', color: '#f4f4f5' }}>
+            {label} {required && <span style={{ color: '#f31260' }}>*</span>}
+          </label>
+        )}
+        {value && (
+          <button
+            type="button"
+            onClick={handleClearSingle}
+            style={{ background: 'none', border: 'none', color: '#a1a1aa', fontSize: '11px', cursor: 'pointer', padding: 0 }}
+          >
+            ✕ Quitar selección
           </button>
         )}
       </div>
 
-      {isManualMode ? (
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input
-            type="text"
-            className="input-field"
-            style={{ flex: 1 }}
-            placeholder={isMulti ? 'Ej: @canal_oficial o https://t.me/...' : 'Ej: -1001234567890 o @canal'}
-            value={manualInput}
-            onChange={(e) => setManualInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleAddManualItem();
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={handleAddManualItem}
-            disabled={!manualInput.trim()}
-          >
-            Añadir
-          </button>
-        </div>
-      ) : (
-        <>
-          {/* Botón Disparador del Menú Desplegable */}
-          <div
-            onClick={() => setIsOpen(!isOpen)}
-            className="input-field"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              minHeight: '42px',
-              padding: '8px 14px',
-              background: 'rgba(18, 18, 22, 0.7)',
-              borderColor: isOpen ? 'var(--cyan-primary)' : 'var(--border-subtle)',
-              borderRadius: '10px',
-              userSelect: 'none',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', flex: 1 }}>
-              {currentSelectedChat ? (
-                <>
-                  <span style={{ fontSize: '15px' }}>
-                    {currentSelectedChat.type === 'channel' ? '📢' : '🛡️'}
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                    <span style={{ fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {currentSelectedChat.title}
-                    </span>
-                    {currentSelectedChat.username && (
-                      <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                        {currentSelectedChat.username}
-                      </span>
-                    )}
-                  </div>
-                  <span
-                    style={{
-                      marginLeft: 'auto',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      background: currentSelectedChat.isAdmin ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                      color: currentSelectedChat.isAdmin ? '#22c55e' : '#f59e0b',
-                      border: `1px solid ${currentSelectedChat.isAdmin ? 'rgba(34, 197, 94, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {currentSelectedChat.badge || (currentSelectedChat.isAdmin ? '🛡️ Admin' : '⚠️ No Admin')}
-                  </span>
-                </>
-              ) : value && !isMulti ? (
-                <span style={{ color: '#ffffff', fontWeight: 600 }}>{value}</span>
-              ) : isMulti && selectedValues.length > 0 ? (
-                <span style={{ color: 'var(--cyan-primary)', fontWeight: 600 }}>
-                  {selectedValues.length} {selectedValues.length === 1 ? 'canal seleccionado' : 'canales seleccionados'} (Pulsar para modificar)
+      {/* Disparador de selección simple */}
+      <div
+        onClick={() => setIsOpenSingle(!isOpenSingle)}
+        className="input-field"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          minHeight: '44px',
+          padding: '8px 14px',
+          borderRadius: '14px',
+          borderColor: isOpenSingle ? '#006FEE' : 'rgba(255, 255, 255, 0.1)',
+          userSelect: 'none',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden', flex: 1 }}>
+          {currentSelectedChat ? (
+            <>
+              <span style={{ fontSize: '15px' }}>
+                {currentSelectedChat.type === 'channel' ? '📢' : '🛡️'}
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                <span style={{ fontWeight: 700, color: '#f4f4f5', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                  {currentSelectedChat.title}
                 </span>
-              ) : (
-                <span style={{ color: 'var(--text-muted)' }}>{placeholder}</span>
-              )}
-            </div>
+                {currentSelectedChat.username && (
+                  <span style={{ fontSize: '12px', color: '#a1a1aa' }}>
+                    {currentSelectedChat.username}
+                  </span>
+                )}
+              </div>
+              <span
+                style={{
+                  marginLeft: 'auto',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  background: currentSelectedChat.isAdmin ? 'rgba(23, 201, 100, 0.15)' : 'rgba(245, 165, 36, 0.15)',
+                  color: currentSelectedChat.isAdmin ? '#17c964' : '#f5a524',
+                  border: `1px solid ${currentSelectedChat.isAdmin ? 'rgba(23, 201, 100, 0.3)' : 'rgba(245, 165, 36, 0.3)'}`,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {currentSelectedChat.isAdmin ? '🛡️ Admin' : '⚠️ No Admin'}
+              </span>
+            </>
+          ) : value ? (
+            <span style={{ color: '#f4f4f5', fontWeight: 600 }}>{value}</span>
+          ) : (
+            <span style={{ color: '#71717a' }}>{placeholder}</span>
+          )}
+        </div>
 
-            <IconChevronDown
-              size={16}
-              style={{
-                color: 'var(--text-muted)',
-                transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                transition: 'transform 0.2s ease',
-                flexShrink: 0,
-                marginLeft: '8px',
-              }}
-            />
+        <IconChevronDown
+          size={16}
+          style={{
+            color: '#a1a1aa',
+            transform: isOpenSingle ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease',
+            flexShrink: 0,
+            marginLeft: '8px',
+          }}
+        />
+      </div>
+
+      {/* Menú de opciones de selección simple */}
+      {isOpenSingle && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            right: 0,
+            zIndex: 9999,
+            background: '#111116',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '18px',
+            boxShadow: '0 16px 40px rgba(0, 0, 0, 0.85), 0 0 25px rgba(0, 111, 238, 0.2)',
+            overflow: 'hidden',
+            maxHeight: '300px',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {/* Opción para limpiar o dejar vacío */}
+          <div
+            onClick={handleClearSingle}
+            style={{
+              padding: '10px 14px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#a1a1aa',
+              fontSize: '12px',
+              cursor: 'pointer',
+              background: !value ? 'rgba(255, 255, 255, 0.04)' : 'transparent',
+            }}
+          >
+            ∅ Ninguno (Sin chat asignado)
           </div>
 
-          {/* Menú Desplegable Flotante */}
-          {isOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 6px)',
-                left: 0,
-                right: 0,
-                zIndex: 9999,
-                background: '#0d0d12',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '12px',
-                boxShadow: '0 12px 36px rgba(0, 0, 0, 0.8), 0 0 20px rgba(6, 182, 212, 0.15)',
-                overflow: 'hidden',
-                animation: 'fadeIn 0.15s ease-out',
-                maxHeight: '340px',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              {/* Buscador interno */}
-              <div
-                style={{
-                  padding: '10px 12px',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                }}
-              >
-                <IconSearch size={14} color="var(--text-muted)" />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre, @username o ID..."
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    outline: 'none',
-                    color: '#ffffff',
-                    fontSize: '12px',
-                    width: '100%',
-                  }}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  autoFocus
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSearch('');
-                    }}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
-                  >
-                    <IconX size={12} />
-                  </button>
-                )}
-              </div>
+          <div style={{ overflowY: 'auto', flex: 1, padding: '6px' }}>
+            {filteredChats.map((chat) => {
+              const chatKey = chat.username || String(chat.chatId);
+              const isSelected = String(value) === String(chat.chatId) || value === chat.username;
 
-              {/* Lista Scrolleable de Opciones */}
-              <div style={{ overflowY: 'auto', flex: 1, padding: '6px' }}>
-                {loading ? (
-                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-                    Consultando chats y permisos en Telegram...
-                  </div>
-                ) : filteredChats.length === 0 ? (
-                  <div style={{ padding: '20px 16px', textAlign: 'center' }}>
-                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 10px 0', lineHeight: 1.5 }}>
-                      {emptyMessage}
-                    </p>
-                    {allowManual && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => {
-                          setIsManualMode(true);
-                          setIsOpen(false);
-                        }}
-                      >
-                        Ingresar Enlace o ID Manual
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  filteredChats.map((chat) => {
-                    const chatVal = chat.username ? chat.username : chat.chatId;
-                    const isSelected = isMulti
-                      ? selectedValues.includes(chatVal) || selectedValues.includes(chat.chatId)
-                      : String(value) === String(chat.chatId) || value === chat.username;
-
-                    return (
-                      <div
-                        key={chat.chatId}
-                        onClick={() => (isMulti ? handleToggleMulti(chat) : handleSelectSingle(chat))}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 12px',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          background: isSelected ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
-                          transition: 'background 0.15s ease',
-                          marginBottom: '4px',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isSelected) e.currentTarget.style.background = 'transparent';
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-                          <span style={{ fontSize: '16px' }}>
-                            {chat.type === 'channel' ? '📢' : '🛡️'}
-                          </span>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontWeight: 600, fontSize: '13px', color: '#ffffff' }}>
-                                {chat.title}
-                              </span>
-                              {isSelected && <IconCheck size={14} color="var(--cyan-primary)" />}
-                            </div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                              {chat.username ? chat.username : `ID: ${chat.chatId}`} • {chat.type}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Insignia de Estado de Admin */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span
-                            style={{
-                              fontSize: '10px',
-                              fontWeight: 700,
-                              padding: '3px 8px',
-                              borderRadius: '6px',
-                              background: chat.isAdmin ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                              color: chat.isAdmin ? '#22c55e' : '#f59e0b',
-                              border: `1px solid ${chat.isAdmin ? 'rgba(34, 197, 94, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {chat.isAdmin ? '🛡️ Admin' : '⚠️ No Admin'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Pie de dropdown con opción manual */}
-              {allowManual && (
+              return (
                 <div
+                  key={chat.chatId}
+                  onClick={() => handleSelectSingle(chat)}
                   style={{
-                    padding: '8px 12px',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                    background: 'rgba(0, 0, 0, 0.3)',
                     display: 'flex',
-                    justifyContent: 'space-between',
                     alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    background: isSelected ? 'rgba(0, 111, 238, 0.15)' : 'transparent',
+                    marginBottom: '4px',
                   }}
                 >
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    {filteredChats.length} {filteredChats.length === 1 ? 'chat detectado' : 'chats detectados'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsManualMode(true);
-                      setIsOpen(false);
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--cyan-primary)',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      padding: '2px 6px',
-                    }}
-                  >
-                    + Escribir ID manual
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Chips de elementos seleccionados (en caso de multi-selección) */}
-      {isMulti && selectedValues.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
-          {selectedValues.map((item) => {
-            const matchedChat = (chats || []).find(
-              (c) => String(c.chatId) === String(item) || c.username === item
-            );
-            return (
-              <span
-                key={item}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 10px',
-                  borderRadius: '20px',
-                  background: 'rgba(6, 182, 212, 0.15)',
-                  border: '1px solid rgba(6, 182, 212, 0.3)',
-                  color: '#ffffff',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                }}
-              >
-                <span>{matchedChat ? matchedChat.title : item}</span>
-                {matchedChat && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{chat.type === 'channel' ? '📢' : '🛡️'}</span>
+                    <span style={{ fontWeight: 600, fontSize: '13px', color: '#f4f4f5' }}>{chat.title}</span>
+                  </div>
                   <span
                     style={{
-                      fontSize: '9px',
-                      padding: '1px 5px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '2px 6px',
                       borderRadius: '4px',
-                      background: matchedChat.isAdmin ? 'rgba(34, 197, 94, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                      color: matchedChat.isAdmin ? '#22c55e' : '#f59e0b',
+                      background: chat.isAdmin ? 'rgba(23, 201, 100, 0.15)' : 'rgba(245, 165, 36, 0.15)',
+                      color: chat.isAdmin ? '#17c964' : '#f5a524',
                     }}
                   >
-                    {matchedChat.isAdmin ? '🛡️ Admin' : '⚠️ No Admin'}
+                    {chat.isAdmin ? '🛡️ Admin' : '⚠️ No Admin'}
                   </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveMultiItem(item)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#a1a1aa',
-                    cursor: 'pointer',
-                    padding: 0,
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                  title="Remover"
-                >
-                  <IconX size={12} />
-                </button>
-              </span>
-            );
-          })}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
