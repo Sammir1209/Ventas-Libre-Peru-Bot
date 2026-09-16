@@ -176,7 +176,13 @@ function register(bot) {
         });
       }
 
-      // 3. Menú Principal de Bienvenida en DM (/start)
+      // 3. Deep-link: Ver canales obligatorios de verificación (/start canales, /start verify, /start verificar)
+      if (payload === 'canales' || payload === 'verify' || payload === 'verificar' || payload === 'canales_obligatorios') {
+        const { sendRequiredChannelsDM } = require('../verification/handler');
+        return sendRequiredChannelsDM(ctx);
+      }
+
+      // 4. Menú Principal de Bienvenida en DM (/start)
       if (isPrivate) {
         const name = ctx.from.first_name || 'Usuario';
         const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';

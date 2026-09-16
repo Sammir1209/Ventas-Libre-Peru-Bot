@@ -765,84 +765,113 @@ function register(bot) {
     }
   });
 
+async function sendRequiredChannelsDM(ctx, targetUserId = null) {
+  const userId = targetUserId || ctx.from?.id;
+  const channels = await getChannelsToVerify(ctx);
+  if (!channels || channels.length === 0) {
+    const emptyMsg = '✅ No hay canales obligatorios registrados para esta comunidad.';
+    if (ctx.chat?.type === 'private') {
+      return ctx.reply(emptyMsg, { parse_mode: 'HTML' });
+    }
+    return;
+  }
+
+  const { InlineKeyboard } = require('grammy');
+  const kb = new InlineKeyboard();
+
+  let channelListText = '';
+  for (let i = 0; i < channels.length; i++) {
+    const rawCh = channels[i];
+    let title = `Canal Oficial #${i + 1}`;
+    let url = null;
+
+    const chStr = String(rawCh).trim();
+    if (chStr.includes('3My6QWWVjMw2Mzc8') || chStr === '-1002561445231' || chStr.toUpperCase().includes('MADRE')) {
+      title = 'MADRE DE LAS VENTAS TV2';
+      url = 'https://t.me/+3My6QWWVjMw2Mzc8';
+    } else if (chStr === '-1002623471175') {
+      title = 'KEVIN ARMY 🦆';
+      url = 'https://t.me/+D5T9V4G3T-A2YzZh';
+    } else if (chStr.startsWith('@')) {
+      const handle = chStr.replace(/^@/, '');
+      title = `@${handle}`;
+      url = `https://t.me/${handle}`;
+    } else if (chStr.startsWith('http')) {
+      url = chStr;
+    }
+
+    if (chStr.includes('drockzerisback')) {
+      title = '𝘿𝙍𝙊𝘾𝙆𝙕𝙀𝙍 𝙎𝙏𝙊𝙍𝙀';
+      url = 'https://t.me/drockzerisback';
+    }
+
+    if (url) {
+      kb.url(`📢 ${title}`, url).row();
+      channelListText += `▪ <b><a href="${url}">${escapeHtml(title)}</a></b>\n`;
+    } else {
+      channelListText += `▪ <b>${escapeHtml(title)}</b>\n`;
+    }
+  }
+
+  kb.text('🛡️ Comprobar y Verificarme', 'reverify_check');
+
+  const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+  const slug = ctx.tenant?.bot_username || ctx.tenant?.id || '';
+  if (slug) {
+    kb.row().url('🌐 Abrir Portal Web Oficial', `${domain}/portal/${slug}`);
+  }
+
+  const msgText =
+    `📢 <b>CANALES OFICIALES OBLIGATORIOS</b>\n` +
+    `══════════════════════════════\n\n` +
+    `Para habilitar tu permiso de escritura, debes unirte a cada uno de nuestros canales:\n\n` +
+    channelListText +
+    `\n<i>Una vez unido a todos, presiona el botón de abajo para activar tu cuenta.</i>`;
+
+  if (ctx.chat?.type === 'private') {
+    return ctx.reply(msgText, { parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true });
+  } else {
+    return ctx.api.sendMessage(userId, msgText, { parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true });
+  }
+}
+
   // ── Callback: Ver Canales Requeridos ──
   bot.callbackQuery(['reverify_channels', /^reverify_channels(?::(\d+))?$/], async (ctx) => {
     try {
-      await safeAnswerCallback(ctx, { text: '📢 Obteniendo canales obligatorios...', show_alert: false });
+      if (ctx.chat?.type === 'private') {
+        await safeAnswerCallback(ctx, { text: '📢 Obteniendo canales obligatorios...', show_alert: false });
+        await sendRequiredChannelsDM(ctx);
+        return;
+      }
 
-      const channels = await getChannelsToVerify(ctx);
-      if (!channels || channels.length === 0) {
-        return safeAnswerCallback(ctx, {
-          text: 'No hay canales obligatorios registrados en esta comunidad.',
+      // En grupos / supergrupos: NUNCA responder dentro del grupo para evitar saturación/spam
+      let dmSent = false;
+      try {
+        await sendRequiredChannelsDM(ctx, ctx.from.id);
+        dmSent = true;
+      } catch (err) {
+        dmSent = false;
+      }
+
+      if (dmSent) {
+        await safeAnswerCallback(ctx, {
+          text: '📬 ¡Te hemos enviado los enlaces a tu chat privado para no saturar el grupo!',
           show_alert: true,
         });
-      }
-
-      const { InlineKeyboard } = require('grammy');
-      const kb = new InlineKeyboard();
-
-      let channelListText = '';
-      for (let i = 0; i < channels.length; i++) {
-        const rawCh = channels[i];
-        let title = `Canal Oficial #${i + 1}`;
-        let url = null;
-
-        const chStr = String(rawCh).trim();
-        if (chStr.includes('3My6QWWVjMw2Mzc8') || chStr === '-1002561445231' || chStr.toUpperCase().includes('MADRE')) {
-          title = 'MADRE DE LAS VENTAS TV2';
-          url = 'https://t.me/+3My6QWWVjMw2Mzc8';
-        } else if (chStr === '-1002623471175') {
-          title = 'KEVIN ARMY 🦆';
-          url = 'https://t.me/+D5T9V4G3T-A2YzZh';
-        } else if (chStr.startsWith('@')) {
-          const handle = chStr.replace(/^@/, '');
-          title = `@${handle}`;
-          url = `https://t.me/${handle}`;
-        } else if (chStr.startsWith('http')) {
-          url = chStr;
-        }
-
-        if (chStr.includes('drockzerisback')) {
-          title = '𝘿𝙍𝙊𝘾𝙆𝙕𝙀𝙍 𝙎𝙏𝙊𝙍𝙀';
-          url = 'https://t.me/drockzerisback';
-        }
-
-        if (url) {
-          kb.url(`📢 ${title}`, url).row();
-          channelListText += `▪ <b><a href="${url}">${escapeHtml(title)}</a></b>\n`;
-        } else {
-          channelListText += `▪ <b>${escapeHtml(title)}</b>\n`;
-        }
-      }
-
-      kb.text('🛡️ Comprobar y Verificarme', 'reverify_check');
-
-      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
-      const slug = ctx.tenant?.bot_username || ctx.tenant?.id || '';
-      if (slug) {
-        kb.row().url('🌐 Abrir Portal Web Oficial', `${domain}/portal/${slug}`);
-      }
-
-      const msgText =
-        `📢 <b>CANALES OFICIALES OBLIGATORIOS</b>\n` +
-        `══════════════════════════════\n\n` +
-        `Para habilitar tu permiso de escritura, debes unirte a cada uno de nuestros canales:\n\n` +
-        channelListText +
-        `\n<i>Una vez unido a todos, presiona el botón de abajo para activar tu cuenta.</i>`;
-
-      if (ctx.chat?.type === 'private') {
-        await ctx.reply(msgText, { parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true });
       } else {
-        try {
-          await ctx.api.sendMessage(ctx.from.id, msgText, { parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true });
-          await safeAnswerCallback(ctx, {
-            text: '📬 ¡Te hemos enviado los enlaces a tu chat privado!',
-            show_alert: true,
-          });
-        } catch {
-          // Si el usuario no tiene chat privado con el bot, responder en el grupo
-          await ctx.reply(msgText, { parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true });
+        let botUser = ctx.me?.username || ctx.tenant?.bot_username;
+        if (!botUser) {
+          try {
+            const me = await ctx.api.getMe();
+            if (me && me.username) botUser = me.username;
+          } catch {}
         }
+        if (!botUser) botUser = 'ventas_libres_peru_Bot';
+
+        await safeAnswerCallback(ctx, {
+          text: `⚠️ Para no saturar el grupo, debes ver los canales por privado.\n\nInicia un chat con @${botUser} o pulsa en Portal Web.`,
+          show_alert: true,
+        });
       }
     } catch (err) {
       console.error('⟡ Error en reverify_channels:', err.message);
@@ -939,11 +968,21 @@ function register(bot) {
           }
         } catch {}
 
+        let botUsername = ctx.me?.username || ctx.tenant?.bot_username;
+        if (!botUsername) {
+          try {
+            const me = await ctx.api.getMe();
+            if (me && me.username) botUsername = me.username;
+          } catch {}
+        }
+        if (!botUsername) botUsername = 'ventas_libres_peru_Bot';
+
         // Enviar aviso en el grupo (permanece visible para que los usuarios inactivos lo vean cuando entren)
         const groupKb = new InlineKeyboard()
           .text('🛡️ Verificar Mi Cuenta', 'reverify_check')
           .row()
-          .text('📢 Ver Canales Requeridos', 'reverify_channels');
+          .url('📢 Ver Canales Requeridos', `https://t.me/${botUsername}?start=canales`)
+          .url('🌐 Portal Web', verifyUrl);
 
         try {
           const warnMsg = await ctx.reply(
@@ -1216,11 +1255,20 @@ async function executeReverify(api, chatId, tenant = null, actorName = 'Administ
     verifyUrl = `${domain}/portal/${slug}`;
   }
 
+  let botUsername = tenant?.bot_username;
+  if (!botUsername) {
+    try {
+      const me = await api.getMe();
+      if (me && me.username) botUsername = me.username;
+    } catch {}
+  }
+  if (!botUsername) botUsername = 'ventas_libres_peru_Bot';
+
   const { InlineKeyboard } = require('grammy');
   const keyboard = new InlineKeyboard()
     .text('✅ Verificar Mi Membresía', 'reverify_check')
     .row()
-    .text('📢 Ver Canales Requeridos', 'reverify_channels')
+    .url('📢 Ver Canales Requeridos', `https://t.me/${botUsername}?start=canales`)
     .url('🌐 Portal Web', verifyUrl);
 
   let communityTitle = tenant?.community_name;
@@ -1317,5 +1365,6 @@ module.exports = {
   isUserEligibleToSpeak,
   unmuteMember,
   getChannelsToVerify,
+  sendRequiredChannelsDM,
 };
 
