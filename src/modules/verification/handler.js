@@ -710,6 +710,17 @@ function register(bot) {
       await redisDb.setCache(`verified_user:${userId}`, true, 86400 * 30);
       await db.verifyUser(userId).catch(() => {});
 
+      // Limpiar mensaje de advertencia del usuario en el grupo si existía
+      if (chatId) {
+        try {
+          const warnMsgId = await redisDb.getCache(`reverify_warn_msg:${chatId}:${userId}`);
+          if (warnMsgId) {
+            await ctx.api.deleteMessage(chatId, Number(warnMsgId)).catch(() => {});
+            await redisDb.clearCache(`reverify_warn_msg:${chatId}:${userId}`);
+          }
+        } catch {}
+      }
+
       return ctx.answerCallbackQuery({
         text: '🎉 ¡VERIFICACIÓN EXITOSA!\n\nTus permisos han sido activados correctamente. Ya puedes escribir y participar en el grupo.',
         show_alert: true,
@@ -825,14 +836,24 @@ function register(bot) {
           reply_markup: privateKb,
         }).catch(() => {});
 
-        // Enviar aviso en el grupo con auto-destrucción en 15 segundos (CERO SPAM)
+        // Si ya tenía un aviso previo en el grupo, borrarlo para no saturar el chat
+        try {
+          const prevWarnId = await redisDb.getCache(`reverify_warn_msg:${chatId}:${userId}`);
+          if (prevWarnId) {
+            await ctx.api.deleteMessage(chatId, Number(prevWarnId)).catch(() => {});
+          }
+        } catch {}
+
+        // Enviar aviso en el grupo (permanece visible para que los usuarios inactivos lo vean cuando entren)
         const groupKb = new InlineKeyboard()
-          .text('🛡️ Verificarme', 'reverify_check')
-          .text('📢 Canales', 'reverify_channels');
+          .text('🛡️ Verificar Mi Cuenta', 'reverify_check')
+          .row()
+          .text('📢 Ver Canales Requeridos', 'reverify_channels');
 
         try {
           const warnMsg = await ctx.reply(
-            `⚠️ ${mentionFromData(userId, ctx.from.first_name)}, debes unirte a nuestros canales oficiales para poder hablar en este grupo.`,
+            `⚠️ ${mentionFromData(userId, ctx.from.first_name)}, para poder hablar en este grupo debes unirte a nuestros canales oficiales y verificar tu cuenta.\n\n` +
+            `▪ <i>Presiona el botón de abajo para verificar tu membresía y desbloquear tu permiso:</i>`,
             {
               parse_mode: 'HTML',
               reply_markup: groupKb,
@@ -840,9 +861,8 @@ function register(bot) {
           );
 
           if (warnMsg) {
-            setTimeout(() => {
-              ctx.api.deleteMessage(chatId, warnMsg.message_id).catch(() => {});
-            }, 15000); // Se auto-destruye en 15s para no llenar el grupo
+            // Guardar ID del mensaje para reemplazarlo si vuelve a escribir o borrarlo al verificar
+            await redisDb.setCache(`reverify_warn_msg:${chatId}:${userId}`, warnMsg.message_id, 86400 * 7);
           }
         } catch {}
       }
@@ -1039,6 +1059,56 @@ async function isUserEligibleToSpeak(ctx, userId) {
  * Activa la auditoría y re-verificación masiva en un grupo.
  */
 async function executeReverify(api, chatId, tenant = null, actorName = 'Administrador') {
+  // 1. Silenciar permisos por defecto del chat para miembros no verificados
+  const defaultRestrictedPerms = {
+    can_send_messages: false,
+    can_send_audios: false,
+    can_send_documents: false,
+    can_send_photos: false,
+    can_send_videos: false,
+    can_send_video_notes: false,
+    can_send_voice_notes: false,
+    can_send_polls: false,
+    can_send_other_messages: false,
+    can_add_web_page_previews: false,
+    can_change_info: false,
+    can_invite_users: false,
+    can_pin_messages: false,
+    can_manage_topics: false,
+  };
+
+  try {
+    await api.setChatPermissions(chatId, defaultRestrictedPerms);
+    console.log(`✓ [Reverify] Permisos por defecto restringidos (mute masivo) en chat ${chatId}`);
+  } catch (permErr) {
+    console.warn(`⟡ [Reverify] No se pudieron aplicar permisos globales en ${chatId}:`, permErr.message);
+  }
+
+  // 2. Desmutear individualmente a los que ya estén verificados para que no les afecte
+  const fullMemberPerms = {
+    can_send_messages: true,
+    can_send_audios: true,
+    can_send_documents: true,
+    can_send_photos: true,
+    can_send_videos: true,
+    can_send_video_notes: true,
+    can_send_voice_notes: true,
+    can_send_polls: true,
+    can_send_other_messages: true,
+    can_add_web_page_previews: true,
+    can_invite_users: true,
+  };
+
+  (async () => {
+    try {
+      const usersData = await db.getAllUsers(1, 500);
+      const verified = (usersData?.users || []).filter(u => u.verified || u.is_verified);
+      for (const u of verified) {
+        api.restrictChatMember(chatId, u.user_id, fullMemberPerms, { use_independent_chat_permissions: true }).catch(() => {});
+      }
+    } catch {}
+  })();
+
   await db.setSetting(`reverify_active_${chatId}`, 'true');
   await redisDb.setCache(`reverify_active:${chatId}`, true, 86400 * 365);
 
@@ -1060,9 +1130,9 @@ async function executeReverify(api, chatId, tenant = null, actorName = 'Administ
     `🔒 <b>AUDITORÍA DE MIEMBROS & VERIFICACIÓN OBLIGATORIA</b>\n` +
     `═════════════════════════════════════\n\n` +
     `▸ <b>Comunidad:</b> <b>${escapeHtml(tenant?.community_name || 'Ventas Libres Perú')}</b>\n` +
-    `▸ <b>Estado:</b> ⊱ <code>FILTRO ACTIVO</code> ⊰\n\n` +
+    `▸ <b>Estado:</b> ⊱ <code>FILTRO ACTIVO & SILENCIO PREVENTIVO</code> ⊰\n\n` +
     `▪ Para garantizar la seguridad del grupo, todo miembro que aún no esté verificado o unido a los canales oficiales debe verificar su cuenta.\n` +
-    `▪ <i>Los miembros que ya estén verificados o unidos pueden continuar conversando con normalidad.</i>\n\n` +
+    `▪ <i>Los miembros que ya estén verificados y unidos pueden continuar conversando con normalidad.</i>\n\n` +
     `👇 <b>Si no estás verificado, presiona el botón abajo para activar tu permiso:</b>`;
 
   try {
@@ -1085,6 +1155,31 @@ async function executeReverify(api, chatId, tenant = null, actorName = 'Administ
  * Desactiva la auditoría de miembros antiguos en un grupo.
  */
 async function executeUnreverify(api, chatId, tenant = null) {
+  // Restablecer permisos normales del grupo
+  const defaultOpenPerms = {
+    can_send_messages: true,
+    can_send_audios: true,
+    can_send_documents: true,
+    can_send_photos: true,
+    can_send_videos: true,
+    can_send_video_notes: true,
+    can_send_voice_notes: true,
+    can_send_polls: true,
+    can_send_other_messages: true,
+    can_add_web_page_previews: true,
+    can_change_info: false,
+    can_invite_users: true,
+    can_pin_messages: false,
+    can_manage_topics: false,
+  };
+
+  try {
+    await api.setChatPermissions(chatId, defaultOpenPerms);
+    console.log(`✓ [Unreverify] Permisos por defecto restablecidos en chat ${chatId}`);
+  } catch (permErr) {
+    console.warn(`⟡ [Unreverify] Error restableciendo permisos en ${chatId}:`, permErr.message);
+  }
+
   await db.setSetting(`reverify_active_${chatId}`, 'false');
   await redisDb.clearCache(`reverify_active:${chatId}`);
 
@@ -1101,7 +1196,7 @@ async function executeUnreverify(api, chatId, tenant = null) {
       chatId,
       `🔓 <b>FILTRO DE AUDITORÍA DESACTIVADO</b>\n` +
       `═════════════════════════════════════\n\n` +
-      `✓ La auditoría de miembros antiguos ha sido desactivada por el Staff.`,
+      `✓ La auditoría de miembros antiguos ha sido desactivada por el Staff. Todos los miembros pueden hablar normalmente.`,
       { parse_mode: 'HTML' }
     );
   } catch {}
