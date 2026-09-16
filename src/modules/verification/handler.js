@@ -77,6 +77,24 @@ async function safeAnswerCallback(ctx, options = {}) {
   }
 }
 
+/**
+ * Obtiene el nombre real de la comunidad asegurando aislamiento multi-tenant
+ * (prioriza el sub-bot activo sobre cualquier valor por defecto).
+ */
+async function resolveCommunityName(ctx) {
+  if (ctx?.tenant?.community_name) {
+    return ctx.tenant.community_name;
+  }
+  if (ctx?.me?.username && ctx.me.username.toLowerCase() !== (config.BOT_USERNAME || 'ventas_libres_peru_bot').toLowerCase()) {
+    try {
+      const allBots = await db.getAllSubBots();
+      const found = allBots.find(b => b.bot_username?.toLowerCase() === ctx.me.username.toLowerCase());
+      if (found?.community_name) return found.community_name;
+    } catch {}
+  }
+  return ctx?.chat?.title || 'Ventas Libres Perú';
+}
+
 function register(bot) {
   // ── Comando /verify (Activar / Desactivar Verificación en el Grupo) ──
   bot.command('verify', async (ctx) => {
@@ -404,7 +422,8 @@ function register(bot) {
         const slug = ctx.tenant.bot_username || ctx.tenant.id;
         verifyUrl = `${domain}/portal/${slug}`;
       }
-      const welcomeMsg = await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName, ctx.tenant?.community_name), {
+      const communityName = await resolveCommunityName(ctx);
+      const welcomeMsg = await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName, communityName), {
         parse_mode: 'HTML',
         reply_markup: welcomeKeyboard(userId, verifyUrl),
       });
@@ -1039,9 +1058,11 @@ async function unmuteMember(ctx, userId) {
     const firstName = user?.first_name || ctx.from?.first_name || 'Usuario';
     const username = user?.username || ctx.from?.username || null;
 
+    const communityName = await resolveCommunityName(ctx);
+
     await ctx.api.sendMessage(
       chatId,
-      templates.verificationSuccess(username, firstName),
+      templates.verificationSuccess(username, firstName, communityName),
       { parse_mode: 'HTML' }
     );
   } catch (msgErr) {
@@ -1202,10 +1223,19 @@ async function executeReverify(api, chatId, tenant = null, actorName = 'Administ
     .text('📢 Ver Canales Requeridos', 'reverify_channels')
     .url('🌐 Portal Web', verifyUrl);
 
+  let communityTitle = tenant?.community_name;
+  if (!communityTitle) {
+    try {
+      const chat = await api.getChat(chatId);
+      if (chat && chat.title) communityTitle = chat.title;
+    } catch {}
+  }
+  if (!communityTitle) communityTitle = 'Comunidad Oficial';
+
   const bannerText =
     `🔒 <b>AUDITORÍA DE MIEMBROS & VERIFICACIÓN OBLIGATORIA</b>\n` +
     `═════════════════════════════════════\n\n` +
-    `▸ <b>Comunidad:</b> <b>${escapeHtml(tenant?.community_name || 'Ventas Libres Perú')}</b>\n` +
+    `▸ <b>Comunidad:</b> <b>${escapeHtml(communityTitle)}</b>\n` +
     `▸ <b>Estado:</b> ⊱ <code>FILTRO ACTIVO & SILENCIO PREVENTIVO</code> ⊰\n\n` +
     `▪ Para garantizar la seguridad del grupo, todo miembro que aún no esté verificado o unido a los canales oficiales debe verificar su cuenta.\n` +
     `▪ <i>Los miembros que ya estén verificados y unidos pueden continuar conversando con normalidad.</i>\n\n` +

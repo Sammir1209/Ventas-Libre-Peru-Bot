@@ -1,8 +1,9 @@
 const { SYM } = require('../config/constants');
 const { escapeHtml } = require('./formatting');
+const { toMathSerifBold } = require('./aesthetic');
 
 // ══════
-// ⟡ Plantillas Estéticas Oficiales — Ventas Libres Perú
+// ⟡ Plantillas Estéticas Oficiales — Multi-Tenant SaaS
 // ══════
 
 function welcomeMessage(username, firstName, communityName = 'Ventas Libres Perú') {
@@ -10,9 +11,8 @@ function welcomeMessage(username, firstName, communityName = 'Ventas Libres Per�
     ? `@${username}`
     : `<b>${escapeHtml(firstName || 'Usuario')}</b>`;
 
-  const header = communityName && communityName !== 'Ventas Libres Perú'
-    ? escapeHtml(communityName.toUpperCase())
-    : '𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔';
+  const cleanCommunity = (communityName || 'Ventas Libres Perú').trim();
+  const header = toMathSerifBold(cleanCommunity.toUpperCase());
 
   return (
     `⟡ <b>${header}</b> ⊱ <code>VERIFICACIÓN</code> ⊰\n` +
@@ -32,16 +32,15 @@ function verificationSuccess(username, firstName, communityName = 'Ventas Libres
     ? `@${username}`
     : `<b>${escapeHtml(firstName || 'Usuario')}</b>`;
 
-  const header = communityName && communityName !== 'Ventas Libres Perú'
-    ? escapeHtml(communityName.toUpperCase())
-    : '𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔';
+  const cleanCommunity = (communityName || 'Ventas Libres Perú').trim();
+  const header = toMathSerifBold(cleanCommunity.toUpperCase());
 
   return (
     `⟡ <b>${header}</b> ⊱ <code>ACCESO AUTORIZADO</code> ⊰\n` +
     `══════\n\n` +
     `✓ <b>Membresía validada:</b> ${mention}\n` +
     `▸ <b>Estado:</b> ⊱ <code>DESMUTEO EXITOSO</code> ⊰\n` +
-    `▸ <b>Comunidad:</b> ${escapeHtml(communityName)}\n\n` +
+    `▸ <b>Comunidad:</b> ${escapeHtml(cleanCommunity)}\n\n` +
     `──────\n` +
     `▪ <i>Acceso otorgado: puedes participar, comerciar y chatear libremente.</i>`
   );
