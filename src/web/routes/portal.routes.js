@@ -132,6 +132,31 @@ router.post('/:slug/admin/login', async (req, res) => {
   }
 });
 
+// ── 0.8 Endpoint Público: Sub-Bot por Defecto o Activo ──
+router.get('/', async (req, res) => {
+  try {
+    const data = await subbotService.getPublicLandingData('default');
+    if (!data) {
+      return res.status(404).json({ ok: false, error: 'No hay sub-bots configurados.' });
+    }
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.get('/default', async (req, res) => {
+  try {
+    const data = await subbotService.getPublicLandingData('default');
+    if (!data) {
+      return res.status(404).json({ ok: false, error: 'No hay sub-bots configurados.' });
+    }
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ── 1. Endpoint Público: Datos de Landing de Verificación de Sub-Bot ──
 router.get('/:slug', async (req, res) => {
   try {

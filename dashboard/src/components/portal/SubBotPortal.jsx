@@ -81,12 +81,16 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
   };
 
   // Carga de datos públicos para la Landing
-  const loadPublicData = useCallback(async () => {
-    if (!slug) return;
+  const loadPublicData = useCallback(async (customSlug) => {
+    const slugToFetch = customSlug || slug;
+    if (!slugToFetch) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/portal/${encodeURIComponent(slug)}`);
+      const res = await fetch(`/api/portal/${encodeURIComponent(slugToFetch)}`);
       const data = await res.json();
       if (!res.ok || !data.ok) {
         throw new Error(data.error || 'No se pudo cargar la información de la comunidad.');
@@ -146,11 +150,41 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const urlSlug = params.get('slug') || params.get('bot') || params.get('c') || defaultSlug;
+      let urlSlug = params.get('slug') || params.get('bot') || params.get('c') || defaultSlug;
+
+      // Soporte para rutas tipo /portal/:slug o /c/:slug
+      if (!urlSlug && window.location.pathname) {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+        if (parts.length >= 2 && (parts[0] === 'portal' || parts[0] === 'c')) {
+          if (parts[1] !== 'admin') {
+            urlSlug = parts[1];
+          }
+        }
+      }
+
       const urlToken = params.get('token') || (urlSlug ? localStorage.getItem(`subbot_token_${urlSlug}`) : '') || '';
       const urlView = params.get('view') || (window.location.pathname.includes('/admin') ? 'admin' : defaultView);
 
-      if (urlSlug) setSlug(urlSlug);
+      if (urlSlug) {
+        setSlug(urlSlug);
+        loadPublicData(urlSlug);
+      } else {
+        // Auto-resolver comunidad activa por defecto si no se especificó slug en la URL
+        fetch('/api/portal/default')
+          .then((r) => r.json())
+          .then((data) => {
+            if (data && data.ok) {
+              const detected = data.bot_username || data.id;
+              setSlug(detected);
+              setPortalData(data);
+            }
+          })
+          .catch(() => {})
+          .finally(() => {
+            setLoading(false);
+          });
+      }
+
       if (urlToken) {
         setAdminToken(urlToken);
         if (urlSlug) localStorage.setItem(`subbot_token_${urlSlug}`, urlToken);
@@ -162,11 +196,11 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
         loadAdminData(urlToken);
       }
     }
-  }, [defaultSlug, defaultView, loadAdminData]);
+  }, [defaultSlug, defaultView, loadAdminData, loadPublicData]);
 
   useEffect(() => {
     if (slug) {
-      loadPublicData();
+      loadPublicData(slug);
     }
   }, [slug, loadPublicData]);
 

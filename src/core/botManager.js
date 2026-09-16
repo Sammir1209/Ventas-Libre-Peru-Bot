@@ -246,6 +246,14 @@ class BotManager {
   }
 
   /**
+   * Retorna la instancia de Bot de un sub-bot si está activo.
+   */
+  getBot(subBotId) {
+    const inst = this.instances.get(subBotId);
+    return inst ? inst.bot : null;
+  }
+
+  /**
    * Retorna el mapa en memoria de instancias activas.
    */
   getActiveSubBots() {

@@ -372,6 +372,13 @@ async function getSubBotBySlug(slug) {
   if (!slug) return null;
   const clean = String(slug).trim().replace(/^@/, '').toLowerCase();
   
+  // Soporte para sub-bot por defecto o activo
+  if (clean === 'default' || clean === 'active' || clean === 'main' || clean === 'current') {
+    const all = await db.getAllSubBots();
+    const active = all.find(b => b.is_active) || all[0];
+    if (active) return await enrichBotOwners(active);
+  }
+
   // Buscar por ID si es UUID
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clean)) {
     const b = await db.getSubBotById(clean);
@@ -398,17 +405,67 @@ async function getPublicLandingData(slug) {
   const rawChannels = Array.isArray(b.channels_to_verify) ? b.channels_to_verify : [];
   const channels = [];
 
-  for (const ch of rawChannels) {
+  // Obtener instancia del bot si está corriendo para consultar getChat en Telegram
+  let runningBot = botManager.getBot ? botManager.getBot(b.id) : null;
+  if (!runningBot && b.bot_token) {
+    try {
+      const { Bot } = require('grammy');
+      runningBot = new Bot(b.bot_token);
+    } catch {}
+  }
+
+  for (let i = 0; i < rawChannels.length; i++) {
+    const ch = rawChannels[i];
     const chStr = String(ch).trim();
     if (!chStr) continue;
+
     let url = chStr;
     let name = chStr;
-    if (chStr.startsWith('@')) {
-      url = `https://t.me/${chStr.replace(/^@/, '')}`;
-      name = chStr;
-    } else if (!chStr.startsWith('http')) {
-      url = `https://t.me/${chStr}`;
+
+    // 1. Canales conocidos con enlaces fijos
+    if (chStr.includes('3My6QWWVjMw2Mzc8') || chStr === '-1002561445231' || chStr.toUpperCase().includes('MADRE')) {
+      name = 'MADRE DE LAS VENTAS TV2';
+      url = 'https://t.me/+3My6QWWVjMw2Mzc8';
+    } else if (chStr === '-1002623471175') {
+      name = 'KEVIN ARMY 🦆';
+      url = 'https://t.me/+D5T9V4G3T-A2YzZh';
+    } else if (chStr.startsWith('@')) {
+      const handle = chStr.replace(/^@/, '');
+      url = `https://t.me/${handle}`;
+      name = `@${handle}`;
+    } else if (chStr.startsWith('http')) {
+      url = chStr;
+      name = `Canal Oficial #${i + 1}`;
     }
+
+    // 2. Si no tiene nombre amigable o URL válida (IDs numéricos), consultar API de Telegram
+    if (name === chStr || (!url.startsWith('http') && !chStr.startsWith('@'))) {
+      if (runningBot) {
+        try {
+          const chat = await runningBot.api.getChat(chStr);
+          if (chat && chat.title) name = chat.title;
+          if (chat && chat.invite_link) url = chat.invite_link;
+          else if (chat && chat.username) url = `https://t.me/${chat.username}`;
+        } catch {}
+      }
+    }
+
+    // Si aún tiene solo @ en name y es drockzerisback, estilizar
+    if (chStr.includes('drockzerisback')) {
+      name = '𝘿𝙍𝙊𝘾𝙆𝙕𝙀𝙍 𝙎𝙏𝙊𝙍𝙀';
+      url = 'https://t.me/drockzerisback';
+    }
+
+    // Asegurar URL bien formateada
+    if (!url.startsWith('http')) {
+      url = `https://t.me/${url.replace(/^@/, '')}`;
+    }
+
+    // Asegurar nombre limpio y no un ID negativo feo
+    if (name.startsWith('-100')) {
+      name = `Canal Oficial #${i + 1}`;
+    }
+
     channels.push({
       identifier: chStr,
       name: name,

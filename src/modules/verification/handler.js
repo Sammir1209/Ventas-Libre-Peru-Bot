@@ -51,6 +51,32 @@ async function getChannelsToVerify(ctx = null) {
   return [];
 }
 
+/**
+ * Responde a un callback query de Telegram garantizando que el texto no supere 195 caracteres
+ * y atrapando cualquier excepción para que el botón jamás quede cargando indefinidamente.
+ */
+async function safeAnswerCallback(ctx, options = {}) {
+  try {
+    const opts = typeof options === 'string' ? { text: options } : { ...options };
+    if (opts.text) {
+      opts.text = String(opts.text).slice(0, 195);
+    }
+    await ctx.answerCallbackQuery(opts);
+  } catch (err) {
+    console.warn('⟡ [safeAnswerCallback] Warning al responder callback:', err.message);
+    try {
+      await ctx.answerCallbackQuery({
+        text: '⚠️ Comprobación completada. Revisa los canales oficiales.',
+        show_alert: true,
+      });
+    } catch {
+      try {
+        await ctx.answerCallbackQuery().catch(() => {});
+      } catch {}
+    }
+  }
+}
+
 function register(bot) {
   // ── Comando /verify (Activar / Desactivar Verificación en el Grupo) ──
   bot.command('verify', async (ctx) => {
@@ -454,7 +480,7 @@ function register(bot) {
       const clickerId = ctx.from.id;
 
       if (targetUserId && clickerId !== targetUserId) {
-        return ctx.answerCallbackQuery({
+        return safeAnswerCallback(ctx, {
           text: '⚠️ Este botón de verificación fue generado para otro usuario.',
           show_alert: true,
         });
@@ -466,7 +492,7 @@ function register(bot) {
       const lockKey = `verifying_lock:${userId}`;
       const isLocked = await redisDb.getCache(lockKey);
       if (isLocked) {
-        return ctx.answerCallbackQuery({
+        return safeAnswerCallback(ctx, {
           text: '⏳ Comprobando membresía, por favor espera un momento...',
           show_alert: false,
         });
@@ -480,12 +506,12 @@ function register(bot) {
         // Sin canales configurados — desmutear directamente
         const unmuted = await unmuteMember(ctx, userId);
         if (unmuted) {
-          await ctx.answerCallbackQuery({
+          await safeAnswerCallback(ctx, {
             text: '✓ ¡Verificación exitosa! Ya puedes hablar en el grupo.',
             show_alert: false,
           });
         } else {
-          await ctx.answerCallbackQuery({
+          await safeAnswerCallback(ctx, {
             text: '✓ Verificado. Si continúas silenciado, pide al Staff que verifique los permisos de Admin del bot.',
             show_alert: true,
           });
@@ -522,40 +548,26 @@ function register(bot) {
       }
 
       if (missingChannels.length > 0) {
-        // Formatear nombres limpios para la ventana emergente nativa (alert modal)
-        const names = missingChannels.map(ch => {
-          const raw = String(ch).trim();
-          if (raw.includes('3My6QWWVjMw2Mzc8') || raw === '-1002561445231' || raw.includes('MADRE')) {
-            return '• Madre de las Ventas TV2';
-          }
-          if (raw.includes('quemando_ventaslibreperu')) {
-            return '• Quemando VLP (Lista Negra)';
-          }
-          if (raw.startsWith('@')) return `• ${raw}`;
-          return `• ${raw}`;
-        }).join('\n');
-
-        return ctx.answerCallbackQuery({
-          text: `⚠️ ACCESO DENEGADO\n\nAún no te has unido a todos los canales requeridos:\n\n${names}\n\nPresiona [ UNIRME ] para verlos y unirte.`,
+        const missingCount = missingChannels.length;
+        return safeAnswerCallback(ctx, {
+          text: `⚠️ ACCESO DENEGADO\n\nAún no estás unido a los canales obligatorios (${missingCount} faltante${missingCount > 1 ? 's' : ''}).\n\nPresiona [ UNIRME ] o abre los enlaces para completar tu verificación.`,
           show_alert: true,
         });
       }
 
       // 4. Todos los canales verificados -> Proceder al desmuteo
       const unmuted = await unmuteMember(ctx, userId);
-      await ctx.answerCallbackQuery({
+      await safeAnswerCallback(ctx, {
         text: unmuted ? '✓ ¡Verificación exitosa! Restricciones removidas.' : '✓ Verificado exitosamente.',
         show_alert: false,
       });
 
     } catch (err) {
       console.error('⟡ Verificación: Error en callback verify:', err.message);
-      try {
-        await ctx.answerCallbackQuery({
-          text: '✗ Error procesando verificación. Intenta de nuevo.',
-          show_alert: true,
-        });
-      } catch {}
+      await safeAnswerCallback(ctx, {
+        text: '✗ Error procesando verificación. Intenta de nuevo.',
+        show_alert: true,
+      });
     }
   });
 
@@ -661,7 +673,7 @@ function register(bot) {
       const lockKey = `reverify_lock:${userId}`;
       const isLocked = await redisDb.getCache(lockKey);
       if (isLocked) {
-        return ctx.answerCallbackQuery({
+        return safeAnswerCallback(ctx, {
           text: '⏳ Comprobando membresía, por favor espera un momento...',
           show_alert: false,
         });
@@ -671,7 +683,7 @@ function register(bot) {
       const channels = await getChannelsToVerify(ctx);
       if (!channels || channels.length === 0) {
         if (chatId) await unmuteMember(ctx, userId);
-        return ctx.answerCallbackQuery({
+        return safeAnswerCallback(ctx, {
           text: '✅ ¡Estás verificado! Ya puedes escribir libremente en el grupo.',
           show_alert: true,
         });
@@ -696,9 +708,9 @@ function register(bot) {
       }
 
       if (missingChannels.length > 0) {
-        const listText = missingChannels.map(ch => `• ${ch}`).join('\n');
-        return ctx.answerCallbackQuery({
-          text: `⚠️ ACCESO DENEGADO\n\nAún no estás unido a todos los canales requeridos:\n\n${listText}\n\nPresiona [ 📢 Ver Canales Requeridos ] para unirte y luego vuelve a presionar este botón.`,
+        const missingCount = missingChannels.length;
+        return safeAnswerCallback(ctx, {
+          text: `⚠️ ACCESO DENEGADO\n\nAún no estás unido a los canales obligatorios (${missingCount} faltante${missingCount > 1 ? 's' : ''}).\n\nPresiona [ 📢 Ver Canales Requeridos ] para unirte y desbloquear tu chat.`,
           show_alert: true,
         });
       }
@@ -721,13 +733,13 @@ function register(bot) {
         } catch {}
       }
 
-      return ctx.answerCallbackQuery({
+      return safeAnswerCallback(ctx, {
         text: '🎉 ¡VERIFICACIÓN EXITOSA!\n\nTus permisos han sido activados correctamente. Ya puedes escribir y participar en el grupo.',
         show_alert: true,
       });
     } catch (err) {
       console.error('⟡ Error en callback reverify_check:', err.message);
-      return ctx.answerCallbackQuery({
+      return safeAnswerCallback(ctx, {
         text: '✗ Error al verificar canales. Intenta de nuevo o inicia el bot por privado.',
         show_alert: true,
       });
@@ -737,21 +749,85 @@ function register(bot) {
   // ── Callback: Ver Canales Requeridos ──
   bot.callbackQuery(['reverify_channels', /^reverify_channels(?::(\d+))?$/], async (ctx) => {
     try {
+      await safeAnswerCallback(ctx, { text: '📢 Obteniendo canales obligatorios...', show_alert: false });
+
       const channels = await getChannelsToVerify(ctx);
       if (!channels || channels.length === 0) {
-        return ctx.answerCallbackQuery({
-          text: 'No hay canales obligatorios registrados.',
+        return safeAnswerCallback(ctx, {
+          text: 'No hay canales obligatorios registrados en esta comunidad.',
           show_alert: true,
         });
       }
 
-      const listText = channels.map((ch, i) => `${i + 1}. ${ch}`).join('\n');
-      return ctx.answerCallbackQuery({
-        text: `📢 CANALES OFICIALES OBLIGATORIOS:\n\n${listText}\n\nDebes unirte a cada uno de ellos para poder escribir en el grupo.`,
-        show_alert: true,
-      });
+      const { InlineKeyboard } = require('grammy');
+      const kb = new InlineKeyboard();
+
+      let channelListText = '';
+      for (let i = 0; i < channels.length; i++) {
+        const rawCh = channels[i];
+        let title = `Canal Oficial #${i + 1}`;
+        let url = null;
+
+        const chStr = String(rawCh).trim();
+        if (chStr.includes('3My6QWWVjMw2Mzc8') || chStr === '-1002561445231' || chStr.toUpperCase().includes('MADRE')) {
+          title = 'MADRE DE LAS VENTAS TV2';
+          url = 'https://t.me/+3My6QWWVjMw2Mzc8';
+        } else if (chStr === '-1002623471175') {
+          title = 'KEVIN ARMY 🦆';
+          url = 'https://t.me/+D5T9V4G3T-A2YzZh';
+        } else if (chStr.startsWith('@')) {
+          const handle = chStr.replace(/^@/, '');
+          title = `@${handle}`;
+          url = `https://t.me/${handle}`;
+        } else if (chStr.startsWith('http')) {
+          url = chStr;
+        }
+
+        if (chStr.includes('drockzerisback')) {
+          title = '𝘿𝙍𝙊𝘾𝙆𝙕𝙀𝙍 𝙎𝙏𝙊𝙍𝙀';
+          url = 'https://t.me/drockzerisback';
+        }
+
+        if (url) {
+          kb.url(`📢 ${title}`, url).row();
+          channelListText += `▪ <b><a href="${url}">${escapeHtml(title)}</a></b>\n`;
+        } else {
+          channelListText += `▪ <b>${escapeHtml(title)}</b>\n`;
+        }
+      }
+
+      kb.text('🛡️ Comprobar y Verificarme', 'reverify_check');
+
+      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+      const slug = ctx.tenant?.bot_username || ctx.tenant?.id || '';
+      if (slug) {
+        kb.row().url('🌐 Abrir Portal Web Oficial', `${domain}/portal/${slug}`);
+      }
+
+      const msgText =
+        `📢 <b>CANALES OFICIALES OBLIGATORIOS</b>\n` +
+        `══════════════════════════════\n\n` +
+        `Para habilitar tu permiso de escritura, debes unirte a cada uno de nuestros canales:\n\n` +
+        channelListText +
+        `\n<i>Una vez unido a todos, presiona el botón de abajo para activar tu cuenta.</i>`;
+
+      if (ctx.chat?.type === 'private') {
+        await ctx.reply(msgText, { parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true });
+      } else {
+        try {
+          await ctx.api.sendMessage(ctx.from.id, msgText, { parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true });
+          await safeAnswerCallback(ctx, {
+            text: '📬 ¡Te hemos enviado los enlaces a tu chat privado!',
+            show_alert: true,
+          });
+        } catch {
+          // Si el usuario no tiene chat privado con el bot, responder en el grupo
+          await ctx.reply(msgText, { parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true });
+        }
+      }
     } catch (err) {
-      return ctx.answerCallbackQuery({ text: 'Error obteniendo canales.', show_alert: true });
+      console.error('⟡ Error en reverify_channels:', err.message);
+      await safeAnswerCallback(ctx, { text: 'Error al consultar canales.', show_alert: true });
     }
   });
 
