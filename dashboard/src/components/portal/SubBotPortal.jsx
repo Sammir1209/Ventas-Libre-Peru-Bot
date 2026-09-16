@@ -346,6 +346,20 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
     }
   };
 
+  const handleReverifyGroup = async (chatId, mode) => {
+    try {
+      const res = await fetchWithSubBotAuth(`/api/portal/${slug}/admin/groups/${chatId}/reverify`, {
+        method: 'POST',
+        body: JSON.stringify({ mode }),
+      });
+      addToast(res.message || 'Auditoría de miembros actualizada');
+      loadAdminData();
+    } catch (err) {
+      addToast(err.message, 'error');
+      throw err;
+    }
+  };
+
 
   // ════ VISTA 1: LANDING PÚBLICA DE CANALES (ULTRA-PREMIUM) ════
   if (view === 'public') {
@@ -644,6 +658,7 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
               groups={groups}
               onAddGroup={handleAddGroup}
               onRemoveGroup={handleRemoveGroup}
+              onReverifyGroup={handleReverifyGroup}
               isSubBot={true}
               botUsername={adminData?.subbot?.bot_username || portalData?.subbot?.bot_username}
             />

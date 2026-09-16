@@ -308,6 +308,20 @@ export default function DashboardPage() {
     }
   };
 
+  const handleReverifyGroup = async (chatId, mode) => {
+    try {
+      const res = await fetchWithAuth(`/api/groups/${chatId}/reverify`, {
+        method: 'POST',
+        body: JSON.stringify({ mode }),
+      });
+      addToast(res.message || 'Auditoría de miembros actualizada');
+      loadAllData();
+    } catch (err) {
+      addToast(err.message, 'error');
+      throw err;
+    }
+  };
+
   // Si está en modo Portal de Sub-Bot (Público de Canales o Admin B&W)
   if (viewMode === 'portal') {
     return <SubBotPortal onBackToMain={() => setViewMode('landing')} />;
@@ -512,6 +526,7 @@ export default function DashboardPage() {
               groups={groups}
               onAddGroup={handleAddGroup}
               onRemoveGroup={handleRemoveGroup}
+              onReverifyGroup={handleReverifyGroup}
             />
           )}
 

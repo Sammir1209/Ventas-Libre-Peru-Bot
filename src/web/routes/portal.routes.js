@@ -159,7 +159,12 @@ router.get('/:slug/admin/data', authenticateSubBotAdmin, async (req, res) => {
 
     const [staff, groups, allDeals, allBurned] = await Promise.all([
       subbotService.getTenantStaff(subBot.id),
-      db.getAllGroups(subBot.id),
+      db.getAllGroups(subBot.id).then(async (grps) => {
+        return Promise.all((grps || []).map(async (g) => {
+          const isReverifyActive = (await db.getSetting(`reverify_active_${g.chat_id}`)) === 'true';
+          return { ...g, isReverifyActive };
+        }));
+      }),
       dealService.listDeals(subBot.id).catch(() => []),
       gbanService.listBurnedUsers(subBot.id).catch(() => []),
     ]);
@@ -419,6 +424,39 @@ router.delete('/:slug/admin/groups/:chatId', authenticateSubBotAdmin, async (req
 
     await groupsService.removeGroup(req.params.chatId, subBot.id);
     res.json({ ok: true, message: 'Canal o grupo desvinculado de este sub-bot con éxito.' });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+// ── 11. Re-verificación Masiva de Miembros Antiguos en Sub-Bot ──
+router.post('/:slug/admin/groups/:chatId/reverify', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    if (!subBot) {
+      return res.status(404).json({ ok: false, error: 'Sub-bot no encontrado.' });
+    }
+
+    const activeBots = botManager.getActiveSubBots ? botManager.getActiveSubBots() : new Map();
+    const runtime = activeBots.get(subBot.id);
+    const botInstance = runtime?.bot || null;
+
+    if (!botInstance) {
+      return res.status(400).json({
+        ok: false,
+        error: 'El sub-bot no se encuentra en línea actualmente. Asegúrate de iniciarlo antes de ejecutar la auditoría.',
+      });
+    }
+
+    const { mode } = req.body;
+    const result = await groupsService.reverifyGroup({
+      chatId: req.params.chatId,
+      mode: mode || 'lock',
+      tenantId: subBot.id,
+      botInstance,
+    });
+
+    res.json(result);
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }

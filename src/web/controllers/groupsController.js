@@ -69,6 +69,22 @@ async function removeGroup(req, res) {
   }
 }
 
+async function reverifyGroup(req, res) {
+  try {
+    const mainBot = req.app.get('mainBot');
+    const { mode } = req.body;
+    const result = await groupsService.reverifyGroup({
+      chatId: req.params.chatId,
+      mode: mode || 'lock',
+      tenantId: null,
+      botInstance: mainBot,
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+}
+
 module.exports = {
   getGroupsList,
   getGroupSecurity,
@@ -76,5 +92,7 @@ module.exports = {
   getAvailableChats,
   addGroup,
   removeGroup,
+  reverifyGroup,
 };
+
 

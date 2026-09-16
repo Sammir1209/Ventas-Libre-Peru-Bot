@@ -16,5 +16,6 @@ router.delete('/:chatId', groupsController.removeGroup);
 router.get('/available', groupsController.getAvailableChats);
 router.get('/:chatId/security', groupsController.getGroupSecurity);
 router.put('/:chatId/security', groupsController.updateGroupSecurity);
+router.post('/:chatId/reverify', groupsController.reverifyGroup);
 
 module.exports = router;

@@ -6,7 +6,11 @@ const db = require('../../database/postgres');
 
 async function listGroups() {
   const groups = await db.getAllGroups();
-  return groups || [];
+  const enriched = await Promise.all((groups || []).map(async (g) => {
+    const isReverifyActive = (await db.getSetting(`reverify_active_${g.chat_id}`)) === 'true';
+    return { ...g, isReverifyActive };
+  }));
+  return enriched;
 }
 
 async function getGroupSecurity(chatId) {
@@ -213,6 +217,41 @@ async function removeGroup(chatId, tenantId = null) {
   return true;
 }
 
+async function reverifyGroup({ chatId, mode = 'lock', tenantId = null, botInstance = null }) {
+  if (!chatId) throw new Error('ID de chat requerido.');
+  if (!botInstance || !botInstance.api) {
+    throw new Error('La instancia del bot no se encuentra activa en este momento.');
+  }
+
+  const { executeReverify, executeUnreverify } = require('../../modules/verification/handler');
+
+  let tenant = null;
+  if (tenantId) {
+    tenant = await db.getSubBotById(tenantId);
+  }
+
+  if (mode === 'lock') {
+    await executeReverify(botInstance.api, chatId, tenant);
+    return {
+      ok: true,
+      active: true,
+      message: 'Filtro de auditoría activado. Quienes no estén unidos a los canales oficiales serán silenciados al intentar hablar. Los miembros ya verificados seguirán hablando normalmente.',
+    };
+  } else {
+    await executeUnreverify(botInstance.api, chatId, tenant);
+    return {
+      ok: true,
+      active: false,
+      message: 'Filtro de auditoría desactivado. El chat vuelve a operar sin restricciones de miembros antiguos.',
+    };
+  }
+}
+
+async function getReverifyStatus(chatId) {
+  const saved = await db.getSetting(`reverify_active_${chatId}`);
+  return saved === 'true';
+}
+
 module.exports = {
   listGroups,
   getGroupSecurity,
@@ -220,4 +259,7 @@ module.exports = {
   listAvailableChats,
   addGroup,
   removeGroup,
+  reverifyGroup,
+  getReverifyStatus,
 };
+

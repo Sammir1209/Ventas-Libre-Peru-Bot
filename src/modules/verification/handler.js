@@ -593,7 +593,268 @@ function register(bot) {
       console.error('⟡ Verificación: Error en how_it_works:', err.message);
     }
   });
+
+  // ══════════════════════════════════════════════════════════════════
+  // ⟡ SISTEMA DE RE-VERIFICACIÓN Y AUDITORÍA DE MIEMBROS ANTIGUOS
+  // ══════════════════════════════════════════════════════════════════
+
+  // ── Comando /reverify o /verificar_antiguos ──
+  bot.command(['reverify', 'verificar_antiguos', 'forzar_verificacion'], async (ctx) => {
+    try {
+      if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
+        return ctx.reply('✗ Este comando solo puede ejecutarse dentro de un grupo o supergrupo.', { parse_mode: 'HTML' });
+      }
+
+      const userId = ctx.from.id;
+      const isOwner = config.OWNER_IDS.includes(userId);
+      const isTenantOwner = ctx.tenant && (Array.isArray(ctx.tenant.owner_ids) ? ctx.tenant.owner_ids.includes(userId) : false);
+      const staffMember = await db.getStaffMember(userId, ctx.tenant?.id || null);
+
+      if (!isOwner && !isTenantOwner && !staffMember) {
+        return ctx.reply('✗ Solo miembros del Staff u Owners pueden activar la re-verificación de miembros.', { parse_mode: 'HTML' });
+      }
+
+      await executeReverify(ctx.api, ctx.chat.id, ctx.tenant, ctx.from.first_name);
+      await ctx.reply(
+        `🔒 <b>Filtro de auditoría de miembros activado.</b>\n\n` +
+        `▪ Quienes no estén unidos a los canales oficiales serán silenciados al intentar hablar.\n` +
+        `▪ <b>Los miembros que ya estén unidos o verificados seguirán hablando normalmente sin ser interrumpidos.</b>`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      console.error('⟡ Error en /reverify:', err.message);
+      await ctx.reply(`✗ Error al activar re-verificación: ${err.message}`, { parse_mode: 'HTML' });
+    }
+  });
+
+  // ── Comando /unreverify o /cancelar_reverificar ──
+  bot.command(['unreverify', 'cancelar_reverificar', 'desactivar_reverificar'], async (ctx) => {
+    try {
+      if (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup') {
+        return ctx.reply('✗ Este comando solo puede ejecutarse dentro de un grupo o supergrupo.', { parse_mode: 'HTML' });
+      }
+
+      const userId = ctx.from.id;
+      const isOwner = config.OWNER_IDS.includes(userId);
+      const isTenantOwner = ctx.tenant && (Array.isArray(ctx.tenant.owner_ids) ? ctx.tenant.owner_ids.includes(userId) : false);
+      const staffMember = await db.getStaffMember(userId, ctx.tenant?.id || null);
+
+      if (!isOwner && !isTenantOwner && !staffMember) {
+        return ctx.reply('✗ Solo miembros del Staff u Owners pueden desactivar la re-verificación.', { parse_mode: 'HTML' });
+      }
+
+      await executeUnreverify(ctx.api, ctx.chat.id, ctx.tenant);
+      await ctx.reply('🔓 <b>Filtro de auditoría desactivado con éxito.</b>', { parse_mode: 'HTML' });
+    } catch (err) {
+      console.error('⟡ Error en /unreverify:', err.message);
+      await ctx.reply(`✗ Error al desactivar re-verificación: ${err.message}`, { parse_mode: 'HTML' });
+    }
+  });
+
+  // ── Callback: Comprobar Membresía de Re-Verificación ──
+  bot.callbackQuery(['reverify_check', /^reverify_check(?::(\d+))?$/], async (ctx) => {
+    try {
+      const userId = ctx.from.id;
+      const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
+
+      // Debounce lock de 3 segundos para evitar spam de clics
+      const lockKey = `reverify_lock:${userId}`;
+      const isLocked = await redisDb.getCache(lockKey);
+      if (isLocked) {
+        return ctx.answerCallbackQuery({
+          text: '⏳ Comprobando membresía, por favor espera un momento...',
+          show_alert: false,
+        });
+      }
+      await redisDb.setCache(lockKey, true, 3);
+
+      const channels = await getChannelsToVerify(ctx);
+      if (!channels || channels.length === 0) {
+        if (chatId) await unmuteMember(ctx, userId);
+        return ctx.answerCallbackQuery({
+          text: '✅ ¡Estás verificado! Ya puedes escribir libremente en el grupo.',
+          show_alert: true,
+        });
+      }
+
+      const missingChannels = [];
+      for (const channel of channels) {
+        let targetChatId = channel;
+        if (typeof channel === 'string' && (channel.includes('3My6QWWVjMw2Mzc8') || channel.includes('MADRE'))) {
+          targetChatId = -1002561445231;
+        }
+
+        try {
+          const member = await ctx.api.getChatMember(targetChatId, userId);
+          const validStatuses = ['creator', 'administrator', 'member'];
+          if (validStatuses.includes(member.status)) continue;
+          if (member.status === 'restricted' && member.is_member !== false) continue;
+          missingChannels.push(channel);
+        } catch {
+          missingChannels.push(channel);
+        }
+      }
+
+      if (missingChannels.length > 0) {
+        const listText = missingChannels.map(ch => `• ${ch}`).join('\n');
+        return ctx.answerCallbackQuery({
+          text: `⚠️ ACCESO DENEGADO\n\nAún no estás unido a todos los canales requeridos:\n\n${listText}\n\nPresiona [ 📢 Ver Canales Requeridos ] para unirte y luego vuelve a presionar este botón.`,
+          show_alert: true,
+        });
+      }
+
+      // Si cumple todos los canales:
+      if (chatId) await unmuteMember(ctx, userId);
+      const tenantKey = ctx.tenant?.id || 'global';
+      await redisDb.setCache(`verified_user:${tenantKey}:${userId}`, true, 86400 * 30);
+      await redisDb.setCache(`verified_user:${userId}`, true, 86400 * 30);
+      await db.verifyUser(userId).catch(() => {});
+
+      return ctx.answerCallbackQuery({
+        text: '🎉 ¡VERIFICACIÓN EXITOSA!\n\nTus permisos han sido activados correctamente. Ya puedes escribir y participar en el grupo.',
+        show_alert: true,
+      });
+    } catch (err) {
+      console.error('⟡ Error en callback reverify_check:', err.message);
+      return ctx.answerCallbackQuery({
+        text: '✗ Error al verificar canales. Intenta de nuevo o inicia el bot por privado.',
+        show_alert: true,
+      });
+    }
+  });
+
+  // ── Callback: Ver Canales Requeridos ──
+  bot.callbackQuery(['reverify_channels', /^reverify_channels(?::(\d+))?$/], async (ctx) => {
+    try {
+      const channels = await getChannelsToVerify(ctx);
+      if (!channels || channels.length === 0) {
+        return ctx.answerCallbackQuery({
+          text: 'No hay canales obligatorios registrados.',
+          show_alert: true,
+        });
+      }
+
+      const listText = channels.map((ch, i) => `${i + 1}. ${ch}`).join('\n');
+      return ctx.answerCallbackQuery({
+        text: `📢 CANALES OFICIALES OBLIGATORIOS:\n\n${listText}\n\nDebes unirte a cada uno de ellos para poder escribir en el grupo.`,
+        show_alert: true,
+      });
+    } catch (err) {
+      return ctx.answerCallbackQuery({ text: 'Error obteniendo canales.', show_alert: true });
+    }
+  });
+
+  // ── Interceptor de Mensajes: Solo filtra a quienes NO estén verificados ni unidos ──
+  bot.on('message', async (ctx, next) => {
+    try {
+      if (!ctx.chat || (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup')) {
+        return next();
+      }
+
+      // Eximir canales de staff y escrow
+      if (ctx.chat.id === config.ESCROW_GROUP_ID || ctx.chat.id === config.STAFF_CHAT_ID) {
+        return next();
+      }
+
+      const chatId = ctx.chat.id;
+      const userId = ctx.from?.id;
+      if (!userId || ctx.from.is_bot) return next();
+
+      // Comprobar si la re-verificación está activa para este chat
+      const reverifyKey = `reverify_active:${chatId}`;
+      let isReverifyActive = await redisDb.getCache(reverifyKey);
+      if (isReverifyActive === null || isReverifyActive === undefined) {
+        const saved = await db.getSetting(`reverify_active_${chatId}`);
+        isReverifyActive = saved === 'true';
+        if (isReverifyActive) await redisDb.setCache(reverifyKey, true, 86400 * 365);
+      }
+
+      // Si la re-verificación no está activa en este grupo, continuar normalmente
+      if (!isReverifyActive) {
+        return next();
+      }
+
+      // Comprobar si el usuario es elegible (Admin, Staff, o YA verificado/unido a los canales)
+      const isAllowed = await isUserEligibleToSpeak(ctx, userId);
+      if (isAllowed) {
+        // Puede hablar con total libertad sin que se le pida nada
+        return next();
+      }
+
+      // ── El usuario NO está verificado Y NO está unido a los canales obligatorios ──
+      // 1. Eliminar su mensaje para que no quede en el chat
+      await ctx.deleteMessage().catch(() => {});
+
+      // 2. Silenciarlo preventivamente
+      await ctx.api.restrictChatMember(
+        chatId,
+        userId,
+        { can_send_messages: false },
+        { use_independent_chat_permissions: true }
+      ).catch(() => {});
+
+      // 3. Debounce para no repetir aviso en el grupo si el usuario insiste
+      const debounceKey = `reverify_warned:${chatId}:${userId}`;
+      const alreadyWarned = await redisDb.getCache(debounceKey);
+      if (!alreadyWarned) {
+        await redisDb.setCache(debounceKey, true, 25);
+
+        // Notificar por mensaje privado (DM)
+        const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+        let verifyUrl = `${domain}/verificar`;
+        if (ctx.tenant) {
+          const slug = ctx.tenant.bot_username || ctx.tenant.id;
+          verifyUrl = `${domain}/portal/${slug}`;
+        }
+
+        const { InlineKeyboard } = require('grammy');
+        const privateKb = new InlineKeyboard()
+          .text('✅ Verificar Mi Cuenta', 'reverify_check')
+          .row()
+          .text('📢 Ver Canales Requeridos', 'reverify_channels')
+          .url('🌐 Portal Web', verifyUrl);
+
+        const dmText =
+          `⚠️ <b>VERIFICACIÓN OBLIGATORIA</b>\n` +
+          `══════════════════════════════\n\n` +
+          `Tu mensaje en <b>${escapeHtml(ctx.chat.title || 'el grupo')}</b> no pudo publicarse porque aún no estás verificado ni unido a los canales oficiales.\n\n` +
+          `▪ Únete a los canales requeridos y presiona el botón abajo para activar tu permiso de escritura:`;
+
+        ctx.api.sendMessage(userId, dmText, {
+          parse_mode: 'HTML',
+          reply_markup: privateKb,
+        }).catch(() => {});
+
+        // Enviar aviso en el grupo con auto-destrucción en 15 segundos (CERO SPAM)
+        const groupKb = new InlineKeyboard()
+          .text('🛡️ Verificarme', 'reverify_check')
+          .text('📢 Canales', 'reverify_channels');
+
+        try {
+          const warnMsg = await ctx.reply(
+            `⚠️ ${mentionFromData(userId, ctx.from.first_name)}, debes unirte a nuestros canales oficiales para poder hablar en este grupo.`,
+            {
+              parse_mode: 'HTML',
+              reply_markup: groupKb,
+            }
+          );
+
+          if (warnMsg) {
+            setTimeout(() => {
+              ctx.api.deleteMessage(chatId, warnMsg.message_id).catch(() => {});
+            }, 15000); // Se auto-destruye en 15s para no llenar el grupo
+          }
+        } catch {}
+      }
+
+      return;
+    } catch (err) {
+      console.error('⟡ Error en interceptor de re-verificación:', err.message);
+      return next();
+    }
+  });
 }
+
 
 /**
  * Remueve completamente las restricciones de un usuario (desmuteo estilo Group Help / Bot API estándar).
@@ -701,4 +962,159 @@ async function unmuteMember(ctx, userId) {
   return unmutedSuccessfully;
 }
 
-module.exports = { register };
+/**
+ * Comprueba si un usuario está autorizado a hablar sin ser interrumpido.
+ * Exime administradores, staff y usuarios que ya estén verificados o unidos a todos los canales.
+ */
+async function isUserEligibleToSpeak(ctx, userId) {
+  if (ctx.from?.is_bot) return true;
+
+  // 1. Si es Creador o Administrador del grupo en Telegram -> Puede hablar
+  try {
+    const member = await ctx.api.getChatMember(ctx.chat.id, userId);
+    if (member && (member.status === 'creator' || member.status === 'administrator')) {
+      return true;
+    }
+  } catch {}
+
+  // 2. Si es Staff del bot o de este tenant -> Puede hablar
+  try {
+    const staff = await db.getStaffMember(userId, ctx.tenant?.id || null);
+    if (staff) return true;
+  } catch {}
+
+  const tenantKey = ctx.tenant?.id || 'global';
+
+  // 3. Si ya está marcado como verificado en Redis -> Puede hablar
+  const cachedVerified = await redisDb.getCache(`verified_user:${tenantKey}:${userId}`);
+  if (cachedVerified) return true;
+
+  // 4. Si ya está verificado en la Base de Datos -> Puede hablar
+  try {
+    const u = await db.getUser(userId);
+    if (u && (u.verified || u.is_verified)) {
+      await redisDb.setCache(`verified_user:${tenantKey}:${userId}`, true, 86400 * 30);
+      return true;
+    }
+  } catch {}
+
+  // 5. Si no está en BD, chequear si ya está unido a los canales obligatorios
+  const channels = await getChannelsToVerify(ctx);
+  if (!channels || channels.length === 0) {
+    return true; // No hay canales obligatorios
+  }
+
+  let allJoined = true;
+  for (const channel of channels) {
+    let targetChatId = channel;
+    if (typeof channel === 'string' && (channel.includes('3My6QWWVjMw2Mzc8') || channel.includes('MADRE'))) {
+      targetChatId = -1002561445231;
+    }
+
+    try {
+      const member = await ctx.api.getChatMember(targetChatId, userId);
+      const validStatuses = ['creator', 'administrator', 'member'];
+      if (validStatuses.includes(member.status)) continue;
+      if (member.status === 'restricted' && member.is_member !== false) continue;
+      allJoined = false;
+      break;
+    } catch {
+      allJoined = false;
+      break;
+    }
+  }
+
+  if (allJoined) {
+    // El usuario ya estaba unido a todos los canales. Marcarlo verificado y permitir hablar
+    await redisDb.setCache(`verified_user:${tenantKey}:${userId}`, true, 86400 * 30);
+    await db.verifyUser(userId).catch(() => {});
+    return true;
+  }
+
+  // NO está verificado Y NO está unido a los canales
+  return false;
+}
+
+/**
+ * Activa la auditoría y re-verificación masiva en un grupo.
+ */
+async function executeReverify(api, chatId, tenant = null, actorName = 'Administrador') {
+  await db.setSetting(`reverify_active_${chatId}`, 'true');
+  await redisDb.setCache(`reverify_active:${chatId}`, true, 86400 * 365);
+
+  const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+  let verifyUrl = `${domain}/verificar`;
+  if (tenant) {
+    const slug = tenant.bot_username || tenant.id;
+    verifyUrl = `${domain}/portal/${slug}`;
+  }
+
+  const { InlineKeyboard } = require('grammy');
+  const keyboard = new InlineKeyboard()
+    .text('✅ Verificar Mi Membresía', 'reverify_check')
+    .row()
+    .text('📢 Ver Canales Requeridos', 'reverify_channels')
+    .url('🌐 Portal Web', verifyUrl);
+
+  const bannerText =
+    `🔒 <b>AUDITORÍA DE MIEMBROS & VERIFICACIÓN OBLIGATORIA</b>\n` +
+    `═════════════════════════════════════\n\n` +
+    `▸ <b>Comunidad:</b> <b>${escapeHtml(tenant?.community_name || 'Ventas Libres Perú')}</b>\n` +
+    `▸ <b>Estado:</b> ⊱ <code>FILTRO ACTIVO</code> ⊰\n\n` +
+    `▪ Para garantizar la seguridad del grupo, todo miembro que aún no esté verificado o unido a los canales oficiales debe verificar su cuenta.\n` +
+    `▪ <i>Los miembros que ya estén verificados o unidos pueden continuar conversando con normalidad.</i>\n\n` +
+    `👇 <b>Si no estás verificado, presiona el botón abajo para activar tu permiso:</b>`;
+
+  try {
+    const bannerMsg = await api.sendMessage(chatId, bannerText, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+    });
+    if (bannerMsg?.message_id) {
+      await api.pinChatMessage(chatId, bannerMsg.message_id).catch(() => {});
+      await db.setSetting(`reverify_banner_${chatId}`, String(bannerMsg.message_id));
+    }
+  } catch (err) {
+    console.warn(`⟡ No se pudo fijar banner de re-verificación en ${chatId}:`, err.message);
+  }
+
+  return true;
+}
+
+/**
+ * Desactiva la auditoría de miembros antiguos en un grupo.
+ */
+async function executeUnreverify(api, chatId, tenant = null) {
+  await db.setSetting(`reverify_active_${chatId}`, 'false');
+  await redisDb.clearCache(`reverify_active:${chatId}`);
+
+  try {
+    const bannerId = await db.getSetting(`reverify_banner_${chatId}`);
+    if (bannerId) {
+      await api.unpinChatMessage(chatId, Number(bannerId)).catch(() => {});
+      await db.setSetting(`reverify_banner_${chatId}`, '');
+    }
+  } catch {}
+
+  try {
+    await api.sendMessage(
+      chatId,
+      `🔓 <b>FILTRO DE AUDITORÍA DESACTIVADO</b>\n` +
+      `═════════════════════════════════════\n\n` +
+      `✓ La auditoría de miembros antiguos ha sido desactivada por el Staff.`,
+      { parse_mode: 'HTML' }
+    );
+  } catch {}
+
+  return true;
+}
+
+module.exports = {
+  register,
+  executeReverify,
+  executeUnreverify,
+  isUserEligibleToSpeak,
+  unmuteMember,
+  getChannelsToVerify,
+};
+
