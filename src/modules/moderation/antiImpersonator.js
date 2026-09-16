@@ -1,6 +1,7 @@
 const db = require('../../database/postgres');
 const redisDb = require('../../database/redis');
 const config = require('../../config/env');
+const { isGlobalOwner, resolveOwnerIds } = require('../../utils/tenantContext');
 const { SYM } = require('../../config/constants');
 const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
 const logger = require('./logger');
@@ -105,29 +106,21 @@ async function getProtectedStaffList(botApi) {
   const list = [];
   const registeredIds = new Set();
 
-  // 1. Coder (Propietario & Dev)
-  list.push({
-    userId: 7794982496,
-    username: 'S_14xx',
-    firstName: 'Coder',
-    role: 'Creador / Desarrollador',
-  });
-  registeredIds.add(7794982496);
-
-  // 2. Agar / Otros Owners
-  for (const ownerId of config.OWNER_IDS) {
+  // 1. Owners configurados en la plataforma
+  const ownerIds = resolveOwnerIds();
+  for (const ownerId of ownerIds) {
     if (!registeredIds.has(ownerId)) {
       list.push({
         userId: ownerId,
         username: null,
         firstName: 'Owner',
-        role: 'Owner',
+        role: 'Propietario / Desarrollador',
       });
       registeredIds.add(ownerId);
     }
   }
 
-  // 3. Staff de Base de Datos
+  // 2. Staff de Base de Datos
   try {
     const staffMembers = await db.getAllStaff();
     for (const m of staffMembers) {
@@ -159,7 +152,7 @@ async function checkImpersonation(user, botApi) {
 
   // Si el usuario es miembro legítimo del Staff o es Owner, NO es un clon
   const isLegitStaff = staffList.some(s => s.userId === userId);
-  if (isLegitStaff || config.OWNER_IDS.includes(userId)) {
+  if (isLegitStaff || isGlobalOwner(userId)) {
     return null;
   }
 
@@ -197,9 +190,9 @@ async function checkImpersonation(user, botApi) {
     // 3. Caso crítico: Intento de suplantar a Coder (@S_14xx) o Agar con variaciones
     const normUser = normalizeString(userUsername || userFullName);
     if (normUser.includes('s14xx') || normUser.includes('coder') && userFullName.toLowerCase().includes('coder')) {
-      if (userId !== 7794982496) {
+      if (!isGlobalOwner(userId)) {
         return {
-          targetStaff: staffList[0], // Coder
+          targetStaff: staffList[0] || { firstName: 'Coder', role: 'Creador' },
           similarity: 95,
           matchType: 'Suplantación Directa de Creador (Coder)',
           matchedString: `${userFullName} (@${userUsername || 'sin_user'})`,

@@ -5,6 +5,7 @@ const redisDb = require('../../database/redis');
 const { SYM } = require('../../config/constants');
 const { escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
+const { isGlobalOwner, resolveCommunityName, DEFAULT_COMMUNITY_NAME } = require('../../utils/tenantContext');
 
 // ══════
 // ⟡ Módulo: Comando /panel & Generador de Acceso Seguro (Zero-Trust)
@@ -27,7 +28,7 @@ async function generatePanelSession(userId, role = 'STAFF', extra = {}) {
     createdAt: Date.now(),
     isGlobalOwner: extra.isGlobalOwner || false,
     tenantId,
-    communityName: extra.communityName || 'Ventas Libres Perú',
+    communityName: extra.communityName || DEFAULT_COMMUNITY_NAME,
     theme: extra.theme || 'owner',
     branding: extra.branding || {},
   };
@@ -183,16 +184,16 @@ function register(bot) {
       // ══════════════════════════════════════════════════════
       // CASO 2: BOT PRINCIPAL (VENTAS LIBRES PERÚ)
       // ══════════════════════════════════════════════════════
-      const isOwnerHardcoded = config.OWNER_IDS.includes(userId) || userId === 7794982496 || userId === 7849224682;
+      const isOwnerCheck = isGlobalOwner(userId);
       const staffMember = await db.getStaffMember(userId);
-      const isGlobalStaff = isOwnerHardcoded || (staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER')));
+      const isGlobalStaff = isOwnerCheck || (staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER')));
 
       if (!isGlobalStaff) {
         if (isGroup) {
           try { await ctx.deleteMessage(); } catch {}
         } else {
           await ctx.reply(
-            `${SYM.CROSS} <b>Acceso Restringido:</b> El comando <code>/panel</code> solo está habilitado para Owners y Staff oficial de Ventas Libres Perú.`,
+            `${SYM.CROSS} <b>Acceso Restringido:</b> El comando <code>/panel</code> solo está habilitado para Owners y Staff oficial.`,
             { parse_mode: 'HTML' }
           );
         }
@@ -203,14 +204,13 @@ function register(bot) {
         try { await ctx.deleteMessage(); } catch {}
       }
 
-      const isDev = userId === 7849224682;
-      const roleName = isOwnerHardcoded ? (isDev ? 'DEVELOPER SUPREMO' : 'OWNER SUPREMO') : staffMember.role;
+      const roleName = isOwnerCheck ? 'OWNER SUPREMO' : staffMember.role;
 
       const { sessionToken, tempPassword } = await generatePanelSession(userId, roleName, {
         isGlobalOwner: true,
         tenantId: null,
-        communityName: 'Ventas Libres Perú',
-        theme: isDev ? 'owner-dev' : 'owner',
+        communityName: DEFAULT_COMMUNITY_NAME,
+        theme: 'owner',
       });
 
       const masterPanelUrl = `${baseUrl}/#admin?token=${sessionToken}&uid=${userId}`;

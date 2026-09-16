@@ -1,6 +1,7 @@
 const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
+const { isEffectiveOwner, isSubBot } = require('../../utils/tenantContext');
 const fs = require('fs');
 const path = require('path');
 
@@ -66,7 +67,7 @@ function register(bot) {
       const userId = ctx.from.id;
 
       // 1. Validar que sea Owner
-      if (!config.OWNER_IDS.includes(userId)) {
+      if (!isEffectiveOwner(userId, ctx)) {
         return ctx.reply(`${SYM.CROSS} Solo los <b>Owners</b> pueden configurar este destino.`, {
           parse_mode: 'HTML',
         });
@@ -94,13 +95,25 @@ function register(bot) {
       }
 
       // 2. Guardar permanentemente
-      config.STAFF_CHAT_ID = targetChatId;
-      config.STAFF_THREAD_ID = targetThreadId;
-      await db.setSetting('staff_chat_id', targetChatId.toString());
-      await db.setSetting('staff_thread_id', targetThreadId ? targetThreadId.toString() : '');
-      await db.registerGroup(targetChatId, `Staff/Tratos: ${targetTitle}`);
-      updateEnvFile('STAFF_CHAT_ID', targetChatId);
-      if (targetThreadId) updateEnvFile('STAFF_THREAD_ID', targetThreadId);
+      if (isSubBot(ctx)) {
+        await db.updateSubBot(ctx.tenant.id, {
+          staff_chat_id: targetChatId,
+          custom_settings: {
+            ...(ctx.tenant.custom_settings || {}),
+            staff_chat_id: targetChatId,
+            staff_thread_id: targetThreadId,
+          },
+        });
+        await db.registerGroup(targetChatId, `Staff/Tratos: ${targetTitle}`, 'supergroup', null, ctx.tenant.id);
+      } else {
+        config.STAFF_CHAT_ID = targetChatId;
+        config.STAFF_THREAD_ID = targetThreadId;
+        await db.setSetting('staff_chat_id', targetChatId.toString());
+        await db.setSetting('staff_thread_id', targetThreadId ? targetThreadId.toString() : '');
+        await db.registerGroup(targetChatId, `Staff/Tratos: ${targetTitle}`);
+        updateEnvFile('STAFF_CHAT_ID', targetChatId);
+        if (targetThreadId) updateEnvFile('STAFF_THREAD_ID', targetThreadId);
+      }
 
       await ctx.reply(
         `⟡ <b>SALA DE TRATOS ADMIN</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
@@ -131,7 +144,7 @@ function register(bot) {
       const userId = ctx.from?.id;
 
       // Validar permisos en chats no-canales
-      if (!isChannel && userId && !config.OWNER_IDS.includes(userId)) {
+      if (!isChannel && userId && !isEffectiveOwner(userId, ctx)) {
         return ctx.reply(`⟡ ✗ <i>Solo los <b>Owners Supremos</b> pueden configurar el canal de logs.</i>`, {
           parse_mode: 'HTML',
         });
@@ -162,13 +175,24 @@ function register(bot) {
       }
 
       // Guardar permanentemente
-      config.LOG_CHANNEL_ID = targetChatId;
-      config.LOG_THREAD_ID = targetThreadId;
-      await db.setSetting('log_channel_id', targetChatId.toString());
-      await db.setSetting('log_thread_id', targetThreadId ? targetThreadId.toString() : '');
-      await db.registerGroup(targetChatId, `Logs: ${targetTitle}`);
-      updateEnvFile('LOG_CHANNEL_ID', targetChatId);
-      if (targetThreadId) updateEnvFile('LOG_THREAD_ID', targetThreadId);
+      if (isSubBot(ctx)) {
+        await db.updateSubBot(ctx.tenant.id, {
+          custom_settings: {
+            ...(ctx.tenant.custom_settings || {}),
+            log_channel_id: targetChatId,
+            log_thread_id: targetThreadId,
+          },
+        });
+        await db.registerGroup(targetChatId, `Logs: ${targetTitle}`, isChannel ? 'channel' : 'supergroup', null, ctx.tenant.id);
+      } else {
+        config.LOG_CHANNEL_ID = targetChatId;
+        config.LOG_THREAD_ID = targetThreadId;
+        await db.setSetting('log_channel_id', targetChatId.toString());
+        await db.setSetting('log_thread_id', targetThreadId ? targetThreadId.toString() : '');
+        await db.registerGroup(targetChatId, `Logs: ${targetTitle}`);
+        updateEnvFile('LOG_CHANNEL_ID', targetChatId);
+        if (targetThreadId) updateEnvFile('LOG_THREAD_ID', targetThreadId);
+      }
 
       const confirmText =
         `⟡ <b>CANAL DE AUDITORÍA & LOGS</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
@@ -209,7 +233,7 @@ function register(bot) {
       const isChannel = ctx.chat?.type === 'channel';
       const userId = ctx.from?.id;
 
-      if (!isChannel && userId && !config.OWNER_IDS.includes(userId)) {
+      if (!isChannel && userId && !isEffectiveOwner(userId, ctx)) {
         return ctx.reply(`⟡ ✗ <i>Solo los <b>Owners Supremos</b> pueden configurar este destino.</i>`, {
           parse_mode: 'HTML',
         });
@@ -238,13 +262,24 @@ function register(bot) {
         );
       }
 
-      config.BURN_CHAT_ID = targetChatId;
-      config.BURN_THREAD_ID = targetThreadId;
-      await db.setSetting('burn_chat_id', targetChatId.toString());
-      await db.setSetting('burn_thread_id', targetThreadId ? targetThreadId.toString() : '');
-      await db.registerGroup(targetChatId, `Quemar: ${targetTitle}`);
-      updateEnvFile('BURN_CHAT_ID', targetChatId);
-      if (targetThreadId) updateEnvFile('BURN_THREAD_ID', targetThreadId);
+      if (isSubBot(ctx)) {
+        await db.updateSubBot(ctx.tenant.id, {
+          custom_settings: {
+            ...(ctx.tenant.custom_settings || {}),
+            burn_chat_id: targetChatId,
+            burn_thread_id: targetThreadId,
+          },
+        });
+        await db.registerGroup(targetChatId, `Quemar: ${targetTitle}`, isChannel ? 'channel' : 'supergroup', null, ctx.tenant.id);
+      } else {
+        config.BURN_CHAT_ID = targetChatId;
+        config.BURN_THREAD_ID = targetThreadId;
+        await db.setSetting('burn_chat_id', targetChatId.toString());
+        await db.setSetting('burn_thread_id', targetThreadId ? targetThreadId.toString() : '');
+        await db.registerGroup(targetChatId, `Quemar: ${targetTitle}`);
+        updateEnvFile('BURN_CHAT_ID', targetChatId);
+        if (targetThreadId) updateEnvFile('BURN_THREAD_ID', targetThreadId);
+      }
 
       await ctx.reply(
         `⟡ <b>HILO DE REPORTES /QUEMAR</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +
@@ -275,7 +310,7 @@ function register(bot) {
       const userId = ctx.from?.id;
 
       // 1. Validar permisos en no-canales
-      if (!isChannel && userId && !config.OWNER_IDS.includes(userId)) {
+      if (!isChannel && userId && !isEffectiveOwner(userId, ctx)) {
         return ctx.reply(`⟡ ✗ <i>Solo los <b>Owners Supremos</b> pueden configurar este canal.</i>`, {
           parse_mode: 'HTML',
         });
@@ -306,13 +341,24 @@ function register(bot) {
       }
 
       // 2. Guardar permanentemente
-      config.PUBLIC_BURN_CHANNEL_ID = targetChatId;
-      config.PUBLIC_BURN_THREAD_ID = targetThreadId;
-      await db.setSetting('public_burn_channel_id', targetChatId.toString());
-      await db.setSetting('public_burn_thread_id', targetThreadId ? targetThreadId.toString() : '');
-      await db.registerGroup(targetChatId, `Canal Quemados: ${targetTitle}`);
-      updateEnvFile('PUBLIC_BURN_CHANNEL_ID', targetChatId);
-      if (targetThreadId) updateEnvFile('PUBLIC_BURN_THREAD_ID', targetThreadId);
+      if (isSubBot(ctx)) {
+        await db.updateSubBot(ctx.tenant.id, {
+          custom_settings: {
+            ...(ctx.tenant.custom_settings || {}),
+            public_burn_channel_id: targetChatId,
+            public_burn_thread_id: targetThreadId,
+          },
+        });
+        await db.registerGroup(targetChatId, `Canal Quemados: ${targetTitle}`, isChannel ? 'channel' : 'supergroup', null, ctx.tenant.id);
+      } else {
+        config.PUBLIC_BURN_CHANNEL_ID = targetChatId;
+        config.PUBLIC_BURN_THREAD_ID = targetThreadId;
+        await db.setSetting('public_burn_channel_id', targetChatId.toString());
+        await db.setSetting('public_burn_thread_id', targetThreadId ? targetThreadId.toString() : '');
+        await db.registerGroup(targetChatId, `Canal Quemados: ${targetTitle}`);
+        updateEnvFile('PUBLIC_BURN_CHANNEL_ID', targetChatId);
+        if (targetThreadId) updateEnvFile('PUBLIC_BURN_THREAD_ID', targetThreadId);
+      }
 
       const confirmText =
         `⟡ <b>CANAL PÚBLICO DE QUEMADOS</b> ⊱ <code>CONFIGURADO</code> ⊰\n` +

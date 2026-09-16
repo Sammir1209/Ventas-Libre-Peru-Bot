@@ -18,6 +18,7 @@ const {
 const dealQueue = require('./queue');
 const { rateAdmin } = require('./rating');
 const config = require('../../config/env');
+const { resolveEscrowGroupId, resolveCommunityName } = require('../../utils/tenantContext');
 const { InlineKeyboard, InputFile } = require('grammy');
 
 // ══════
@@ -41,20 +42,21 @@ async function clearDealForm(userId) {
 }
 
 /**
- * Obtiene el ID del grupo oficial de tratos (desde memoria, env, redis o base de datos).
+ * Obtiene el ID del grupo oficial de tratos (desde tenant, config, redis o base de datos).
  */
 async function getEscrowGroupId(ctx = null) {
-  if (ctx?.tenant?.escrow_group_id) return Number(ctx.tenant.escrow_group_id);
-  if (config.ESCROW_GROUP_ID) return config.ESCROW_GROUP_ID;
-  const cached = await redisDb.getCache(ESCROW_GROUP_KEY);
+  const resolved = resolveEscrowGroupId(ctx);
+  if (resolved) return resolved;
+
+  const tenantKey = ctx?.tenant?.id ? `escrow_group_id:${ctx.tenant.id}` : ESCROW_GROUP_KEY;
+  const cached = await redisDb.getCache(tenantKey);
   if (cached) {
-    config.ESCROW_GROUP_ID = Number(cached);
     return Number(cached);
   }
   try {
-    const saved = await db.getSetting('escrow_group_id');
+    const settingKey = ctx?.tenant?.id ? `escrow_group_id_${ctx.tenant.id}` : 'escrow_group_id';
+    const saved = await db.getSetting(settingKey);
     if (saved) {
-      config.ESCROW_GROUP_ID = Number(saved);
       return Number(saved);
     }
   } catch {}
@@ -298,29 +300,37 @@ function register(bot) {
       }
 
       // 6. Guardar grupo oficial de tratos de forma permanente
-      config.ESCROW_GROUP_ID = chatId;
-      await redisDb.setCache(ESCROW_GROUP_KEY, chatId.toString(), 86400 * 365); // 1 año
-      try {
-        await db.setSetting('escrow_group_id', chatId.toString());
-        await db.registerGroup(chatId, chatInfo.title || 'Grupo de Tratos Admin');
-      } catch {}
+      if (ctx.tenant?.id) {
+        await redisDb.setCache(`escrow_group_id:${ctx.tenant.id}`, chatId.toString(), 86400 * 365);
+        try {
+          await db.updateSubBot(ctx.tenant.id, { escrow_group_id: chatId });
+          await db.registerGroup(chatId, chatInfo.title || 'Grupo de Tratos Admin', 'supergroup', null, ctx.tenant.id);
+        } catch {}
+      } else {
+        config.ESCROW_GROUP_ID = chatId;
+        await redisDb.setCache(ESCROW_GROUP_KEY, chatId.toString(), 86400 * 365); // 1 año
+        try {
+          await db.setSetting('escrow_group_id', chatId.toString());
+          await db.registerGroup(chatId, chatInfo.title || 'Grupo de Tratos Admin');
+        } catch {}
 
-      // Actualizar variable en archivo .env en disco
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const envPath = path.resolve(__dirname, '../../../.env');
-        if (fs.existsSync(envPath)) {
-          let envText = fs.readFileSync(envPath, 'utf-8');
-          if (/^ESCROW_GROUP_ID=.*$/m.test(envText)) {
-            envText = envText.replace(/^ESCROW_GROUP_ID=.*$/m, `ESCROW_GROUP_ID=${chatId}`);
-          } else {
-            envText += `\nESCROW_GROUP_ID=${chatId}\n`;
+        // Actualizar variable en archivo .env en disco
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const envPath = path.resolve(__dirname, '../../../.env');
+          if (fs.existsSync(envPath)) {
+            let envText = fs.readFileSync(envPath, 'utf-8');
+            if (/^ESCROW_GROUP_ID=.*$/m.test(envText)) {
+              envText = envText.replace(/^ESCROW_GROUP_ID=.*$/m, `ESCROW_GROUP_ID=${chatId}`);
+            } else {
+              envText += `\nESCROW_GROUP_ID=${chatId}\n`;
+            }
+            fs.writeFileSync(envPath, envText, 'utf-8');
           }
-          fs.writeFileSync(envPath, envText, 'utf-8');
+        } catch (fsErr) {
+          console.warn('⟡ No se pudo escribir ESCROW_GROUP_ID en .env:', fsErr.message);
         }
-      } catch (fsErr) {
-        console.warn('⟡ No se pudo escribir ESCROW_GROUP_ID en .env:', fsErr.message);
       }
 
       await ctx.reply(templates.escrowGroupConfigured(chatInfo.title || 'Grupo Oficial', chatId), {

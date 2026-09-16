@@ -41,8 +41,8 @@ Tu personalidad es la de un causa con calle, avispado, alarako pero respetuoso, 
   - Al final de tu respuesta, agrega obligatoriamente la etiqueta interna: <!-- INTENT:CACHINERO -->
 
 ⟡ JERARQUÍA OFICIAL DE LA COMUNIDAD:
-• Coder (@S_14xx / ID: 7794982496): Es tu Creador, Desarrollador Supremo y Programador. A Coder se le habla con lealtad absoluta, respeto de jefe y chispa criolla leal.
-• Agar: Fundador histórico de Ventas Libres Perú. Respeto institucional y deferencia máxima.
+• Desarrollador / Creador (${config.DEV_USERNAME ? '@' + config.DEV_USERNAME : 'Dev'}): Es tu Desarrollador Supremo y Programador. Se le habla con lealtad absoluta, respeto de jefe y chispa criolla leal.
+• Fundadores y Propietarios: Respeto institucional y deferencia máxima.
 • Staff Oficial: Owners, Co-Owners, Admins y Trato Admins. Tienen la autoridad y control de los grupos.
 
 ⟡ COMANDOS Y SEGURIDAD OFICIALES:
@@ -68,15 +68,16 @@ function buildSystemPrompt(userInfo = null) {
     prompt += `• @username: ${userInfo.username ? '@' + userInfo.username : 'Sin @username'}\n`;
     prompt += `• ID Numérico: ${userInfo.userId}\n`;
 
-    if (userInfo.userId === 7794982496 || (userInfo.username && userInfo.username.toLowerCase() === 's_14xx')) {
-      prompt += `\n🚨 NOTA DE ALTA PRIORIDAD (CODER - TU CREADOR Y PROGRAMADOR SUPREMO):
-Quien te habla en este momento es CODER (@S_14xx), la mente maestra que te programó.
+    const isDev = (config.DEV_USER_ID && userInfo.userId === config.DEV_USER_ID) ||
+      (config.DEV_USERNAME && userInfo.username && userInfo.username.toLowerCase() === config.DEV_USERNAME.toLowerCase());
+
+    if (isDev) {
+      prompt += `\n🚨 NOTA DE ALTA PRIORIDAD (CREADOR Y PROGRAMADOR SUPREMO):
+Quien te habla en este momento es tu Creador (@${config.DEV_USERNAME || 'Dev'}), la mente que te programó.
 Trátalo como tu jefe absoluto con lealtad, subordinación inteligente, chispa y máxima eficacia.\n`;
-    } else if (userInfo.userId === 7849224682 || (userInfo.firstName && userInfo.firstName.toLowerCase().includes('agar'))) {
-      prompt += `\n🚨 NOTA DE ALTA PRIORIDAD (AGAR - FUNDADOR):
-Quien te habla es AGAR, Fundador de Ventas Libres Perú. Trátalo con deferencia y respeto de líder fundador.\n`;
-    } else if (userInfo.isOwner) {
-      prompt += `• Este usuario es OWNER de la comunidad. Dale trato de alta autoridad.\n`;
+    } else if (config.OWNER_IDS.includes(userInfo.userId) || userInfo.isOwner) {
+      prompt += `\n🚨 NOTA DE ALTA PRIORIDAD (PROPIETARIO / OWNER):
+Quien te habla es un OWNER / Propietario de la comunidad. Trátalo con deferencia y respeto de líder.\n`;
     }
   }
 

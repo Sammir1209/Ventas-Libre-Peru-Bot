@@ -27,6 +27,8 @@ const config = {
   // Bot
   BOT_TOKEN: requireEnv('BOT_TOKEN'),
   OWNER_IDS: parseJsonArray(process.env.OWNER_IDS, [7849224682, 7794982496]),
+  DEV_USER_ID: process.env.DEV_USER_ID ? Number(process.env.DEV_USER_ID) : 7794982496,
+  DEV_USERNAME: process.env.DEV_USERNAME || 'S_14xx',
 
   // Verificación
   CHANNELS_TO_VERIFY: parseJsonArray(process.env.CHANNELS_TO_VERIFY, ['@quemando_ventaslibreperu', 'https://t.me/+3My6QWWVjMw2Mzc8']),

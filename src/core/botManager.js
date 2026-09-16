@@ -61,21 +61,40 @@ class BotManager {
     // Middleware Anti-Spam
     bot.use(antiSpam());
 
-    // Registro de todos los módulos
+    // ── Módulos CORE (Siempre activos para todo bot / sub-bot) ──
     verificationHandler.register(bot);
-    escrowHandler.register(bot);
-    staffHandler.register(bot);
-    staffList.register(bot);
-    burnHandler.register(bot);
-    burnReview.register(bot);
     moderationHandler.register(bot);
     groupsHandler.register(bot);
+    staffHandler.register(bot);
+    staffList.register(bot);
     infoHandler.register(bot);
     helpHandler.register(bot);
-    aiHandler.register(bot);
-    searchHandler.register(bot);
-    setupHandler.register(bot);
     securityHandler.register(bot);
+    setupHandler.register(bot);
+
+    // ── Módulos OPICIONALES (Configurables por tenant o activos por defecto) ──
+    const enabledModules = tenant.enabled_modules || tenant.custom_settings?.modules || null;
+
+    const isModuleEnabled = (modName) => {
+      if (!enabledModules) return true; // Si no está especificado, habilitado por compatibilidad
+      if (Array.isArray(enabledModules)) return enabledModules.includes(modName);
+      if (typeof enabledModules === 'object') return enabledModules[modName] !== false;
+      return true;
+    };
+
+    if (isModuleEnabled('escrow')) {
+      escrowHandler.register(bot);
+    }
+    if (isModuleEnabled('burn')) {
+      burnHandler.register(bot);
+      burnReview.register(bot);
+    }
+    if (isModuleEnabled('ai')) {
+      aiHandler.register(bot);
+    }
+    if (isModuleEnabled('search')) {
+      searchHandler.register(bot);
+    }
 
     bot.catch((err) => {
       console.error(`⟡ [Sub-Bot: ${tenant.community_name}] Error no controlado:`, err.message);

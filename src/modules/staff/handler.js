@@ -6,6 +6,7 @@ const { requireOwner } = require('../../middleware/auth');
 const { extractTarget, safeEditMessage } = require('../../utils/helpers');
 const { mentionFromData, escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
+const { isGlobalOwner, isEffectiveOwner, resolveCommunityName } = require('../../utils/tenantContext');
 
 // ══════
 // ⟡ Módulo 3: Staff — Sistema de Roles Múltiples y Tags Dinámicos
@@ -628,7 +629,7 @@ function register(bot) {
       }
 
       // ── MODO BOT PRINCIPAL: Portal Maestro Ventas Libres Perú ──
-      const isOwner = config.OWNER_IDS.includes(senderId) || senderId === 7849224682 || senderId === 7794982496;
+      const isOwner = isGlobalOwner(senderId);
       let hasPerm = isOwner;
 
       if (!hasPerm) {

@@ -7,6 +7,7 @@ const subbotService = require('../services/subbotService');
 const panelHandler = require('../../modules/security/panelHandler');
 const config = require('../../config/env');
 const db = require('../../database/postgres');
+const { isGlobalOwner } = require('../../utils/tenantContext');
 const groupsService = require('../services/groupsService');
 const botManager = require('../../core/botManager');
 
@@ -98,7 +99,7 @@ router.post('/:slug/admin/login', async (req, res) => {
     // Verificar si es Owner del sub-bot en la base de datos
     const ownerIds = Array.isArray(subBot.owner_ids) ? subBot.owner_ids.map(Number) : [];
     const isOwner = ownerIds.includes(numUserId);
-    const isGlobal = config.OWNER_IDS.includes(numUserId) || numUserId === 7849224682 || numUserId === 7794982496;
+    const isGlobal = isGlobalOwner(numUserId);
     const staff = await db.getStaffMember(numUserId, subBot.id);
     const isStaffAdmin = staff && (staff.role.includes('OWNER') || staff.role.includes('CO-OWNER'));
 

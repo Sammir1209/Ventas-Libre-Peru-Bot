@@ -1598,9 +1598,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // 11. GESTIÓN OFICIAL DE STAFF Y SYNC TELEGRAM
   // ══════
 
-  const staffContainer = document.getElementById('staff-container');
-  const btnOpenStaffModal = document.getElementById('btn-open-staff-modal');
-
   async function fetchStaff() {
     if (!staffContainer) return;
     staffContainer.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando equipo de Staff oficial...</p></div>`;

@@ -11,6 +11,7 @@ const { securityFirewall } = require('./middlewares/firewall');
 const { requireAdminAuth } = require('./middlewares/auth');
 const apiRoutes = require('./routes');
 const { telegramApiCall } = require('./services/telegramSyncService');
+const { isGlobalOwner, DEFAULT_COMMUNITY_NAME } = require('../utils/tenantContext');
 
 function createWebApp(mainBot = null) {
   const app = express();
@@ -135,12 +136,10 @@ function createWebApp(mainBot = null) {
     try {
       const session = req.sessionUser || {};
       const userId = session.userId;
-      const isGlobalOwner = session.isGlobalOwner || false;
-      const isDev = userId === 7849224682;
+      const isGlobalOwnerFlag = session.isGlobalOwner || false;
 
       let theme = session.theme || 'owner';
-      if (isDev) theme = 'owner-dev';
-      else if (isGlobalOwner) theme = 'owner';
+      if (isGlobalOwnerFlag) theme = 'owner';
       else if (session.tenantId) theme = 'client';
 
       let branding = session.branding || {};
@@ -159,10 +158,9 @@ function createWebApp(mainBot = null) {
         session: {
           userId,
           role: session.role || 'STAFF',
-          isGlobalOwner,
-          isDev,
+          isGlobalOwner: isGlobalOwnerFlag,
           tenantId: session.tenantId || null,
-          communityName: session.communityName || 'Ventas Libres Perú',
+          communityName: session.communityName || DEFAULT_COMMUNITY_NAME,
           theme,
           branding,
         },
@@ -187,11 +185,11 @@ function createWebApp(mainBot = null) {
         return res.status(400).json({ ok: false, error: 'ID de Telegram inválido.' });
       }
 
-      const isOwnerHardcoded = config.OWNER_IDS.includes(numId) || numId === 7794982496 || numId === 7849224682;
+      const isOwnerAuthed = isGlobalOwner(numId);
       const staffMember = await db.getStaffMember(numId);
       const isStaffOwner = staffMember && (staffMember.role.includes('OWNER') || staffMember.role.includes('CO-OWNER'));
 
-      if (!isOwnerHardcoded && !isStaffOwner) {
+      if (!isOwnerAuthed && !isStaffOwner) {
         return res.status(403).json({
           ok: false,
           error: 'El ID proporcionado no tiene rango de Owner o Co-Owner autorizado.',
