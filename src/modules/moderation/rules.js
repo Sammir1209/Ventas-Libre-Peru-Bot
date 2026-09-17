@@ -8,13 +8,13 @@ const { escapeHtml } = require('../../utils/formatting');
 // ══════
 
 const DEFAULT_RULES = 
-  `<blockquote><b>1. INTERMEDIACIÓN Y SEGURIDAD (/tratoadm)</b>\n` +
-  `El uso de Trato Admin es opcional y decisión de cada miembro. Sin embargo, si decides comerciar por tu cuenta fuera de la comunidad y resultas estafado, el Staff no podrá intervenir ni responsabilizarse. Si ambas partes pertenecen a nuestra comunidad, te brindaremos respaldo pericial, fichaje del infractor y apoyo oficial.</blockquote>\n\n` +
-  `<blockquote><b>2. RESPETO A LOS PRECIOS (ANTI-CACHINEROS)</b>\n` +
-  `Cada vendedor fija el valor de sus productos o servicios libremente. Queda estrictamente prohibido desvalorizar publicaciones, hostigar con ofertas absurdas o exigir rebajas agresivas en el chat. Si no te interesa el precio, continúa sin generar desorden.</blockquote>\n\n` +
-  `<blockquote><b>3. ENLACES Y PUBLICIDAD EXTERNA</b>\n` +
-  `Prohibido compartir enlaces de invitación a otros grupos, canales externos o publicidad no autorizada sin previo permiso del Staff.</blockquote>\n\n` +
-  `<blockquote><b>4. CERO TOLERANCIA A FRAUDES Y MULTICUENTAS</b>\n` +
+  `<blockquote expandable><b>1. INTERMEDIACIÓN Y SEGURIDAD (/tratoadm)</b>\n` +
+  `El uso de Trato Admin es opcional y decisión de cada miembro. Sin embargo, si decides comerciar por tu cuenta fuera de la comunidad y resultas estafado, el Staff no podrá intervenir ni responsabilizarse. Si ambas partes pertenecen a nuestra comunidad, te brindaremos respaldo pericial, fichaje del infractor y apoyo oficial.\n\n` +
+  `<b>2. RESPETO A LOS PRECIOS (ANTI-CACHINEROS)</b>\n` +
+  `Cada vendedor fija el valor de sus productos o servicios libremente. Queda estrictamente prohibido desvalorizar publicaciones, hostigar con ofertas absurdas o exigir rebajas agresivas en el chat. Si no te interesa el precio, continúa sin generar desorden.\n\n` +
+  `<b>3. ENLACES Y PUBLICIDAD EXTERNA</b>\n` +
+  `Prohibido compartir enlaces de invitación a otros grupos, canales externos o publicidad no autorizada sin previo permiso del Staff.\n\n` +
+  `<b>4. CERO TOLERANCIA A FRAUDES Y MULTICUENTAS</b>\n` +
   `Cualquier intento de suplantación, perfiles falsos o intento de estafa derivará en expulsión inmediata y baneo global permanente (/gban).</blockquote>`;
 
 async function getGroupRules(chatId, tenantId = null) {
@@ -49,7 +49,12 @@ function register(bot) {
       }
 
       const tenantId = ctx.tenant?.id || null;
-      const rules = await getGroupRules(ctx.chat.id, tenantId);
+      let rules = await getGroupRules(ctx.chat.id, tenantId);
+
+      // Si las reglas personalizadas no tienen blockquote, envolverlas en <blockquote expandable> para colapso elegante
+      if (!rules.includes('<blockquote')) {
+        rules = `<blockquote expandable>${escapeHtml(rules)}</blockquote>`;
+      }
 
       const text =
         `⟡ <b>REGLAMENTO OFICIAL</b> ⊱ <code>${escapeHtml(ctx.chat.title || 'COMUNIDAD')}</code> ⊰\n` +
