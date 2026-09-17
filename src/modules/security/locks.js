@@ -7,7 +7,10 @@ const config = require('../../config/env');
 
 // Lista de tipos de bloqueos soportados
 const SUPPORTED_LOCKS = [
-  'links',     // Enlaces http / https / t.me
+  'links',     // Enlaces http / https generales
+  'invites',   // Enlaces de invitación de Telegram (t.me/+, t.me/joinchat, addlist)
+  'channels',  // Menciones o enlaces a canales externos (@canal, t.me/canal)
+  'service',   // Mensajes de servicio de Telegram (unirse, salir, fotos de grupo)
   'forwards',  // Mensajes reenviados de canales / bots
   'stickers',  // Stickers convencionales
   'gifs',      // Animaciones / gifs
@@ -29,6 +32,9 @@ async function getGroupLocks(chatId) {
   } catch {}
   return {
     links: false,
+    invites: true,    // Bloqueo de enlaces de invitación a otros grupos por defecto
+    channels: false,
+    service: true,    // Limpieza de mensajes de servicio activa por defecto
     forwards: false,
     stickers: false,
     gifs: false,
@@ -36,8 +42,8 @@ async function getGroupLocks(chatId) {
     voice: false,
     video: false,
     docs: false,
-    bots: true, // Bloqueo de bots agresivos activo por defecto
-    arab: false,
+    bots: true,       // Bloqueo de bots intrusos activo por defecto
+    arab: true,       // Anti-scripts árabes / raid activo por defecto
   };
 }
 
@@ -80,47 +86,81 @@ async function evaluateMessageLocks(ctx) {
   const chatId = ctx.chat.id;
   const locks = await getGroupLocks(chatId);
 
-  // 1. Lock Forwards
+  // 1. Lock Service Messages (uniones, salidas, fotos de grupo cambiadas, etc.)
+  if (locks.service) {
+    if (
+      ctx.message?.new_chat_members ||
+      ctx.message?.left_chat_member ||
+      ctx.message?.new_chat_title ||
+      ctx.message?.new_chat_photo ||
+      ctx.message?.delete_chat_photo ||
+      ctx.message?.group_chat_created ||
+      ctx.message?.supergroup_chat_created ||
+      ctx.message?.pinned_message
+    ) {
+      return { shouldDelete: true, reason: 'Mensaje de servicio eliminado (Modo Limpio).' };
+    }
+  }
+
+  // 2. Lock Forwards
   if (locks.forwards) {
     if (ctx.message?.forward_origin || ctx.message?.forward_from || ctx.message?.forward_from_chat) {
       return { shouldDelete: true, reason: 'Reenvío de mensajes bloqueado en este grupo.' };
     }
   }
 
-  // 2. Lock Stickers
+  // 3. Lock Stickers
   if (locks.stickers && ctx.message?.sticker) {
     return { shouldDelete: true, reason: 'Stickers bloqueados en este grupo.' };
   }
 
-  // 3. Lock GIFs
+  // 4. Lock GIFs
   if (locks.gifs && ctx.message?.animation) {
     return { shouldDelete: true, reason: 'Animaciones (GIFs) bloqueadas en este grupo.' };
   }
 
-  // 4. Lock Audio
+  // 5. Lock Audio
   if (locks.audio && ctx.message?.audio) {
     return { shouldDelete: true, reason: 'Archivos de audio bloqueados en este grupo.' };
   }
 
-  // 5. Lock Voice
+  // 6. Lock Voice
   if (locks.voice && ctx.message?.voice) {
     return { shouldDelete: true, reason: 'Notas de voz bloqueadas en este grupo.' };
   }
 
-  // 6. Lock Video
+  // 7. Lock Video
   if (locks.video && (ctx.message?.video || ctx.message?.video_note)) {
     return { shouldDelete: true, reason: 'Videos bloqueados en este grupo.' };
   }
 
-  // 7. Lock Documents
+  // 8. Lock Documents
   if (locks.docs && ctx.message?.document && !ctx.message?.animation) {
     return { shouldDelete: true, reason: 'Documentos adjuntos bloqueados en este grupo.' };
   }
 
-  // 8. Lock Links
+  const text = ctx.message?.text || ctx.message?.caption || '';
+  const entities = [...(ctx.message?.entities || []), ...(ctx.message?.caption_entities || [])];
+
+  // 9. Lock Invites (t.me/+, t.me/joinchat, addlist, telegram.me/+)
+  if (locks.invites) {
+    const isInvite = /(t\.me\/(?:\+|joinchat\/|addlist\/)|telegram\.me\/(?:\+|joinchat\/))/i.test(text);
+    if (isInvite) {
+      return { shouldDelete: true, reason: 'Enlaces de invitación a otros grupos bloqueados (Anti-Spam).' };
+    }
+  }
+
+  // 10. Lock Channels (@canal_externo o t.me/canal)
+  if (locks.channels) {
+    const hasMentionEntity = entities.some((e) => e.type === 'mention');
+    const isChannelUrl = /(t\.me\/[a-zA-Z0-9_]{4,32})/i.test(text);
+    if (hasMentionEntity || isChannelUrl) {
+      return { shouldDelete: true, reason: 'Canales y menciones externas bloqueadas en este grupo.' };
+    }
+  }
+
+  // 11. Lock General Links
   if (locks.links) {
-    const text = ctx.message?.text || ctx.message?.caption || '';
-    const entities = [...(ctx.message?.entities || []), ...(ctx.message?.caption_entities || [])];
     const hasUrlEntity = entities.some((e) => e.type === 'url' || e.type === 'text_link');
     const hasRawLink = /(https?:\/\/|t\.me\/|telegram\.me\/|wa\.me\/)/i.test(text);
 
@@ -129,9 +169,8 @@ async function evaluateMessageLocks(ctx) {
     }
   }
 
-  // 9. Lock Arab / RTL Scripts
+  // 12. Lock Arab / RTL Scripts
   if (locks.arab) {
-    const text = ctx.message?.text || ctx.message?.caption || '';
     const senderName = [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(' ');
     if (containsArabicOrRtl(text) || containsArabicOrRtl(senderName)) {
       return { shouldDelete: true, reason: 'Caracteres árabes o scripts no autorizados (Anti-Raid).' };

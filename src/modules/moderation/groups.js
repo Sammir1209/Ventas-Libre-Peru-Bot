@@ -5,6 +5,8 @@ const { isEffectiveOwner, isSubBot } = require('../../utils/tenantContext');
 const fs = require('fs');
 const path = require('path');
 
+const rulesModule = require('./rules');
+
 // ══════
 // ⟡ Módulo 5: Gestión y Configuración de Grupos Oficiales
 // ══════
@@ -31,6 +33,8 @@ function updateEnvFile(key, value) {
 }
 
 function register(bot) {
+  // Registrar sistema de Reglas del grupo
+  rulesModule.register(bot);
   // ── Evento: Bot añadido a un grupo → registrar automáticamente ──
   bot.on('my_chat_member', async (ctx) => {
     try {

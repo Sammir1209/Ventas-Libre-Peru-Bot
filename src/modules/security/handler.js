@@ -66,6 +66,21 @@ function register(bot) {
     return next();
   });
 
+  // ── Interceptor de Miembros que Salen (Clean Service) ──
+  bot.on('message:left_chat_member', async (ctx, next) => {
+    try {
+      if (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group') {
+        const locks = await locksModule.getGroupLocks(ctx.chat.id);
+        if (locks.service) {
+          try {
+            await ctx.deleteMessage();
+          } catch {}
+        }
+      }
+    } catch {}
+    return next();
+  });
+
   // ── /panico o /lockdown [on|off] — Modo Pánico Inmediato ──
   bot.command(['panico', 'lockdown', 'defcon'], requireStaff(), async (ctx) => {
     try {
@@ -373,6 +388,58 @@ function register(bot) {
       );
     } catch (err) {
       console.error('⟡ Error en /unlock:', err.message);
+    }
+  });
+
+  // ── /cleanservice [on|off] — Atajo directo para limpieza de mensajes de servicio de Telegram ──
+  bot.command(['cleanservice', 'cleanservices', 'limpiarservicio'], requireStaff(), async (ctx) => {
+    try {
+      if (ctx.chat.type === 'private') return;
+      const parts = (ctx.message.text || '').trim().split(/\s+/);
+      const sub = parts[1]?.toLowerCase();
+      const locks = await locksModule.getGroupLocks(ctx.chat.id);
+
+      if (sub === 'on') {
+        locks.service = true;
+        await locksModule.setGroupLocks(ctx.chat.id, locks);
+        return ctx.reply(
+          `⟡ <b>LIMPIEZA DE SERVICIO</b> ⊱ <code>ACTIVADO 🟢</code> ⊰\n` +
+          `══════\n\n` +
+          `▸ <b>Modo:</b> Limpieza automática de avisos de Telegram activada.\n` +
+          `▸ <b>Acción:</b> Mensajes de miembros que entran/salen, cambios de foto o título serán purgados al instante.\n` +
+          `──────\n` +
+          `🧹 <i>Chat limpio y sin saturación visual.</i>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      if (sub === 'off') {
+        locks.service = false;
+        await locksModule.setGroupLocks(ctx.chat.id, locks);
+        return ctx.reply(
+          `⟡ <b>LIMPIEZA DE SERVICIO</b> ⊱ <code>DESACTIVADO 🔴</code> ⊰\n` +
+          `══════\n\n` +
+          `▸ <b>Modo:</b> Mensajes de servicio permitidos.\n` +
+          `▸ <b>Acción:</b> Telegram mostrará uniones, salidas y cambios de chat con normalidad.\n` +
+          `──────\n` +
+          `💡 <i>Para reactivar escribe <code>/cleanservice on</code></i>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      return ctx.reply(
+        `⟡ <b>LIMPIEZA DE SERVICIO</b> ⊱ <code>CLEAN SERVICE</code> ⊰\n` +
+        `══════\n\n` +
+        `▸ <b>Estado actual:</b> ${locks.service ? '🟢 ACTIVADO (Modo Limpio)' : '🔴 DESACTIVADO'}\n` +
+        `▸ <b>Descripción:</b> Elimina automáticamente avisos de entradas, salidas y modificaciones del grupo para mantener el feed limpio.\n\n` +
+        `──────\n` +
+        `💡 <b>Comandos:</b>\n` +
+        `  • <code>/cleanservice on</code> (Activar auto-limpieza)\n` +
+        `  • <code>/cleanservice off</code> (Desactivar auto-limpieza)`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      console.error('⟡ Error en /cleanservice:', err.message);
     }
   });
 

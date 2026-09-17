@@ -2,6 +2,7 @@ const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { requireStaff } = require('../../middleware/auth');
+const { isEffectiveOwner } = require('../../utils/tenantContext');
 const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 const logger = require('./logger');
@@ -75,7 +76,7 @@ function register(bot) {
         );
       }
 
-      if (config.OWNER_IDS.includes(target.userId)) {
+      if (isEffectiveOwner(target.userId, ctx)) {
         return ctx.reply(`${SYM.CROSS} No se puede sancionar a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
       }
 
@@ -171,7 +172,7 @@ function register(bot) {
         );
       }
 
-      if (config.OWNER_IDS.includes(target.userId)) {
+      if (isEffectiveOwner(target.userId, ctx)) {
         return ctx.reply(`${SYM.CROSS} No se puede silenciar a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
       }
 
@@ -304,7 +305,7 @@ function register(bot) {
         );
       }
 
-      if (config.OWNER_IDS.includes(target.userId)) {
+      if (isEffectiveOwner(target.userId, ctx)) {
         return ctx.reply(`${SYM.CROSS} No se puede expulsar a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
       }
 
@@ -342,13 +343,13 @@ function register(bot) {
       if (!target || target.unresolved) {
         return ctx.reply(
           `⟡ <b>ADVERTIR USUARIO</b> ⊱ <code>WARN</code> ⊰\n` +
-          `══════\n` +
+          `══════\n\n` +
           `▸ <b>Uso:</b> <code>/warn [@usuario / ID / Responder] [Motivo]</code>`,
           { parse_mode: 'HTML' }
         );
       }
 
-      if (config.OWNER_IDS.includes(target.userId)) {
+      if (isEffectiveOwner(target.userId, ctx)) {
         return ctx.reply(`${SYM.CROSS} No se puede advertir a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
       }
 
