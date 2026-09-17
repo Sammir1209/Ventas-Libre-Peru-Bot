@@ -8,10 +8,14 @@ const { escapeHtml } = require('../../utils/formatting');
 // ══════
 
 const DEFAULT_RULES = 
-  `1. Prohibido realizar tratos comerciales sin intermediación oficial (/tratoadm).\n` +
-  `2. Prohibido enviar enlaces de invitación a otros grupos o canales no autorizados.\n` +
-  `3. Cero tolerancia con estafas, suplantación de identidad o multicuentas.\n` +
-  `4. Respeto mutuo entre todos los miembros de la comunidad.`;
+  `<blockquote><b>1. INTERMEDIACIÓN Y SEGURIDAD (/tratoadm)</b>\n` +
+  `El uso de Trato Admin es opcional y decisión de cada miembro. Sin embargo, si decides comerciar por tu cuenta fuera de la comunidad y resultas estafado, el Staff no podrá intervenir ni responsabilizarse. Si ambas partes pertenecen a nuestra comunidad, te brindaremos respaldo pericial, fichaje del infractor y apoyo oficial.</blockquote>\n\n` +
+  `<blockquote><b>2. RESPETO A LOS PRECIOS (ANTI-CACHINEROS)</b>\n` +
+  `Cada vendedor fija el valor de sus productos o servicios libremente. Queda estrictamente prohibido desvalorizar publicaciones, hostigar con ofertas absurdas o exigir rebajas agresivas en el chat. Si no te interesa el precio, continúa sin generar desorden.</blockquote>\n\n` +
+  `<blockquote><b>3. ENLACES Y PUBLICIDAD EXTERNA</b>\n` +
+  `Prohibido compartir enlaces de invitación a otros grupos, canales externos o publicidad no autorizada sin previo permiso del Staff.</blockquote>\n\n` +
+  `<blockquote><b>4. CERO TOLERANCIA A FRAUDES Y MULTICUENTAS</b>\n` +
+  `Cualquier intento de suplantación, perfiles falsos o intento de estafa derivará en expulsión inmediata y baneo global permanente (/gban).</blockquote>`;
 
 async function getGroupRules(chatId, tenantId = null) {
   try {
@@ -50,9 +54,9 @@ function register(bot) {
       const text =
         `⟡ <b>REGLAMENTO OFICIAL</b> ⊱ <code>${escapeHtml(ctx.chat.title || 'COMUNIDAD')}</code> ⊰\n` +
         `══════\n\n` +
-        `${escapeHtml(rules)}\n\n` +
+        `${rules}\n\n` +
         `──────\n` +
-        `🛡️ <i>El incumplimiento de las normas conlleva advertencias (/warn), silencio (/mute) o expulsión (/ban).</i>`;
+        `🛡️ <i>El incumplimiento de las normas conlleva advertencias (<code>/warn</code>), silencio (<code>/mute</code>) o expulsión (<code>/ban</code>).</i>`;
 
       await ctx.reply(text, { parse_mode: 'HTML' });
     } catch (err) {
