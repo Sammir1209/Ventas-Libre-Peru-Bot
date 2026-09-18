@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { IconPlus, IconTrash, IconX, IconAlertTriangle, IconShield, IconZap, IconCheck } from '../common/Icons';
 
 export default function GroupsSection({
