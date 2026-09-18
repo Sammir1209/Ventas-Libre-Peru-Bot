@@ -48,8 +48,26 @@ async function updateGroupSecurity(chatId, settings = {}) {
   return await getGroupSecurity(numId);
 }
 
+async function getPrimaryVerificationChat(tenantId = null) {
+  const key = tenantId ? `primary_verification_chat_${tenantId}` : 'primary_verification_chat';
+  return await db.getSetting(key, tenantId);
+}
+
+async function setPrimaryVerificationChat(chatId, tenantId = null) {
+  const key = tenantId ? `primary_verification_chat_${tenantId}` : 'primary_verification_chat';
+  if (!chatId) {
+    await db.setSetting(key, '', tenantId);
+    return null;
+  }
+  const strId = String(chatId).trim();
+  await db.setSetting(key, strId, tenantId);
+  return strId;
+}
+
 async function listAvailableChats(botInstance = null, tenantId = null) {
   const rawGroups = await db.getAllGroups(tenantId);
+  const primaryChatId = await getPrimaryVerificationChat(tenantId);
+
   if (!botInstance) {
     return (rawGroups || []).map(g => ({
       chatId: String(g.chat_id),
@@ -59,6 +77,7 @@ async function listAvailableChats(botInstance = null, tenantId = null) {
       isAdmin: false,
       status: 'unknown',
       badge: '⚠️ No Verificado',
+      isPrimaryVerification: primaryChatId && String(g.chat_id) === String(primaryChatId),
     }));
   }
 
@@ -101,6 +120,8 @@ async function listAvailableChats(botInstance = null, tenantId = null) {
         continue;
       }
 
+      const isPrimary = primaryChatId ? String(cid) === String(primaryChatId) : false;
+
       results.push({
         chatId: String(cid),
         title,
@@ -112,9 +133,11 @@ async function listAvailableChats(botInstance = null, tenantId = null) {
         canPost: isAdm ? (member.can_post_messages !== false) : false,
         canDelete: isAdm ? (member.can_delete_messages !== false) : false,
         canInvite: isAdm ? (member.can_invite_users !== false) : false,
+        isPrimaryVerification: isPrimary,
         badge: isAdm ? '🛡️ Admin' : '⚠️ No Admin',
       });
     } catch {
+      const isPrimary = primaryChatId ? String(cid) === String(primaryChatId) : false;
       results.push({
         chatId: String(cid),
         title: g.title || 'Chat',
@@ -122,6 +145,7 @@ async function listAvailableChats(botInstance = null, tenantId = null) {
         username: g.username ? `@${String(g.username).replace(/^@/, '')}` : null,
         isAdmin: false,
         status: 'unknown',
+        isPrimaryVerification: isPrimary,
         badge: '⚠️ Sin Acceso',
       });
     }
@@ -261,5 +285,7 @@ module.exports = {
   removeGroup,
   reverifyGroup,
   getReverifyStatus,
+  getPrimaryVerificationChat,
+  setPrimaryVerificationChat,
 };
 

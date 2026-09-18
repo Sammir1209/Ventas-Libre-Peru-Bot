@@ -125,7 +125,28 @@ function register(bot) {
 
   // ── Función Central para Procesar Consultas de IA ──
   async function handleAiQuery(ctx, promptText) {
-    if (ctx.tenant) return;
+    // Si es un Sub-Bot SaaS, validar si su plan tiene habilitado el módulo de Inteligencia Artificial
+    if (ctx.tenant) {
+      const planStatus = (ctx.tenant.plan_status || '').toUpperCase();
+      const customPlan = (ctx.tenant.custom_settings?.plan_tier || '').toUpperCase();
+      const modules = ctx.tenant.custom_settings?.modules || ctx.tenant.enabled_modules || {};
+      const isAiExplicitlyEnabled = Array.isArray(modules) ? modules.includes('ai') : modules.ai !== false;
+
+      const isElitePlan = planStatus === 'ELITE' || customPlan === 'ELITE' || isAiExplicitlyEnabled;
+
+      if (!isElitePlan) {
+        return ctx.reply(
+          `🏢 <b>S_WICK CORPORATION — MÓDULO INTELIGENCIA ARTIFICIAL</b>\n` +
+          `══════\n\n` +
+          `⚠️ <i>El asistente con Inteligencia Artificial avanzada no está incluido en el plan básico de esta comunidad.</i>\n\n` +
+          `▸ <b>Plan Requerido:</b> ⊱ <code>WICK ELITE ENTERPRISE</code> ⊰\n` +
+          `▸ <b>Beneficios:</b> Detección contextual de faltosos, radar de cachineros y asistente 24/7 en grupos.\n\n` +
+          `▪ <i>Contacta al soporte oficial de S_WICK CORPORATION para actualizar tu suscripción.</i>`,
+          { parse_mode: 'HTML' }
+        ).catch(() => {});
+      }
+    }
+
     if (await isEscrowOrStaffContext(ctx)) return;
 
     const userId = ctx.from.id;

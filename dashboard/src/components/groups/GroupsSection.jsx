@@ -27,6 +27,59 @@ export default function GroupsSection({
   const [isReverifying, setIsReverifying] = useState(false);
   const [reverifyError, setReverifyError] = useState(null);
 
+  // Estado del Grupo Principal de Verificación
+  const [availableChats, setAvailableChats] = useState([]);
+  const [primaryChatId, setPrimaryChatId] = useState('');
+  const [loadingPrimary, setLoadingPrimary] = useState(false);
+  const [savingPrimary, setSavingPrimary] = useState(false);
+  const [primarySuccessMsg, setPrimarySuccessMsg] = useState('');
+
+  // Cargar grupos disponibles con permisos y el chat principal actual
+  useEffect(() => {
+    async function loadChatStatus() {
+      setLoadingPrimary(true);
+      try {
+        const [availRes, primRes] = await Promise.all([
+          fetch('/api/groups/available').then((r) => r.json()).catch(() => ({ ok: false })),
+          fetch('/api/groups/primary').then((r) => r.json()).catch(() => ({ ok: false })),
+        ]);
+        if (availRes.ok && Array.isArray(availRes.chats)) {
+          setAvailableChats(availRes.chats);
+        }
+        if (primRes.ok && primRes.primaryChatId) {
+          setPrimaryChatId(String(primRes.primaryChatId));
+        }
+      } catch (err) {
+        console.warn('Error cargando estado de grupos:', err);
+      } finally {
+        setLoadingPrimary(false);
+      }
+    }
+    loadChatStatus();
+  }, []);
+
+  const handleSelectPrimary = async (chatId) => {
+    setSavingPrimary(true);
+    setPrimarySuccessMsg('');
+    try {
+      const res = await fetch('/api/groups/primary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setPrimaryChatId(chatId);
+        setPrimarySuccessMsg(chatId ? '✓ Grupo principal de verificación guardado.' : '✓ Grupo principal desvinculado.');
+        setTimeout(() => setPrimarySuccessMsg(''), 4000);
+      }
+    } catch (err) {
+      alert('Error guardando grupo principal: ' + err.message);
+    } finally {
+      setSavingPrimary(false);
+    }
+  };
+
   const handleOpenModal = () => {
     setFormData({ chatId: '', title: '', type: 'channel', username: '' });
     setFormError(null);
@@ -104,11 +157,79 @@ export default function GroupsSection({
 
   return (
     <>
+      {/* ── SECCIÓN CORPORATIVA: SELECCIÓN DEL GRUPO PRINCIPAL DE VERIFICACIÓN ── */}
+      <section className="panel-card" style={{ marginBottom: '24px', border: '1px solid var(--border-active)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '18px' }}>🛡️</span>
+              <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text-main)', margin: 0 }}>
+                Grupo Principal de Verificación
+              </h3>
+              <span className="badge badge-warning" style={{ fontSize: '11px', background: 'var(--orange-primary)', color: '#000', fontWeight: 700 }}>
+                S_WICK CORE
+              </span>
+            </div>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '640px', margin: 0 }}>
+              Elige el grupo oficial principal donde operará el sistema de silenciar y verificar miembros en tiempo real. Solo se listan grupos donde el bot tiene permisos confirmados.
+            </p>
+          </div>
+
+          {primarySuccessMsg && (
+            <div style={{ padding: '6px 12px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#10b981', fontSize: '12px', fontWeight: 600 }}>
+              {primarySuccessMsg}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: '18px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1', minWidth: '280px' }}>
+            <select
+              className="input-field"
+              style={{
+                width: '100%',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: 'rgba(14, 20, 33, 0.95)',
+                color: 'var(--text-main)',
+                border: '1px solid var(--border-subtle)',
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+              value={primaryChatId}
+              disabled={loadingPrimary || savingPrimary}
+              onChange={(e) => handleSelectPrimary(e.target.value)}
+            >
+              <option value="">-- Sin Grupo Principal Designado (Verificación Global) --</option>
+              {availableChats
+                .filter((c) => c.type !== 'channel')
+                .map((c) => (
+                  <option key={c.chatId} value={c.chatId}>
+                    👥 {c.title} ({c.chatId}) — {c.isAdmin ? '🛡️ Admin Completo' : '⚠️ Sin Permisos'}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {primaryChatId && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => handleSelectPrimary('')}
+              disabled={savingPrimary}
+              style={{ padding: '10px 14px', fontSize: '12px' }}
+            >
+              Desvincular
+            </button>
+          )}
+        </div>
+      </section>
+
       <section className="panel-card">
         <div className="panel-header">
           <div className="panel-header-left">
             <h3>Grupos Oficiales & Protocolos de Seguridad en Vivo</h3>
-            <p>Supervisa los chats conectados, ejecuta auditorías de miembros antiguos y gestiona canales oficiales.</p>
+            <p>Supervisa los chats conectados, verifica permisos en Telegram y gestiona canales oficiales.</p>
           </div>
           {onAddGroup && (
             <div className="panel-toolbar">
@@ -132,7 +253,7 @@ export default function GroupsSection({
                 <th>Título del Chat</th>
                 <th>ID de Telegram</th>
                 <th>Tipo</th>
-                <th>@Username</th>
+                <th>Permisos Bot</th>
                 <th>Fecha Registro</th>
                 {(onRemoveGroup || onReverifyGroup) && (
                   <th style={{ textAlign: 'center', minWidth: '160px' }}>Acciones</th>
@@ -150,11 +271,14 @@ export default function GroupsSection({
                   </td>
                 </tr>
               ) : (
-                groups.map((g) => (
-                  <tr key={g.chat_id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                groups.map((g) => {
+                  const matchedChat = availableChats.find((ac) => String(ac.chatId) === String(g.chat_id));
+                  const isPrimary = primaryChatId && String(primaryChatId) === String(g.chat_id);
+                  return (
+                    <tr key={g.chat_id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                           {g.title || 'Grupo sin título'}
                         </div>
                         {g.isReverifyActive && (
@@ -179,18 +303,43 @@ export default function GroupsSection({
                       </span>
                     </td>
                     <td>
-                      {g.username ? (
-                        <a
-                          href={`https://t.me/${String(g.username).replace(/^@/, '')}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ color: 'var(--cyan-primary)', textDecoration: 'none', fontWeight: 500 }}
-                        >
-                          @{String(g.username).replace(/^@/, '')}
-                        </a>
-                      ) : (
-                        <span style={{ color: 'var(--text-subtle)', fontSize: '12px' }}>Privado</span>
-                      )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            className={`badge ${matchedChat?.isAdmin ? 'badge-success' : 'badge-warning'}`}
+                            style={{ fontSize: '11px', padding: '2px 8px', fontWeight: 700 }}
+                          >
+                            {matchedChat?.isAdmin ? '🛡️ Admin' : '⚠️ No Admin'}
+                          </span>
+                          {isPrimary && (
+                            <span
+                              className="badge"
+                              style={{
+                                fontSize: '10px',
+                                padding: '2px 6px',
+                                fontWeight: 700,
+                                background: 'var(--orange-primary)',
+                                color: '#000',
+                              }}
+                            >
+                              ★ GRUPO PRINCIPAL
+                            </span>
+                          )}
+                        </div>
+                        {matchedChat?.isAdmin && (
+                          <div style={{ fontSize: '10px', color: 'var(--text-subtle)', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ color: matchedChat.canRestrict ? '#10b981' : '#f43f5e' }}>
+                              {matchedChat.canRestrict ? '✓ Silenciar' : '✗ Sin Silenciar'}
+                            </span>
+                            <span style={{ color: matchedChat.canDelete ? '#10b981' : '#f43f5e' }}>
+                              {matchedChat.canDelete ? '✓ Eliminar' : '✗ Sin Eliminar'}
+                            </span>
+                            <span style={{ color: matchedChat.canInvite ? '#10b981' : '#f43f5e' }}>
+                              {matchedChat.canInvite ? '✓ Invitar' : '✗ Sin Invitar'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -251,8 +400,9 @@ export default function GroupsSection({
                       </td>
                     )}
                   </tr>
-                ))
-              )}
+                );
+              })
+            )}
             </tbody>
           </table>
         </div>

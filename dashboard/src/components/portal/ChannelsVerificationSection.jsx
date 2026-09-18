@@ -30,6 +30,7 @@ export default function ChannelsVerificationSection({
 
   const [availableChats, setAvailableChats] = useState([]);
   const [loadingChats, setLoadingChats] = useState(false);
+  const [primaryGroup, setPrimaryGroup] = useState('');
 
   // Sincronizar formulario si settings cambia
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function ChannelsVerificationSection({
     }
   }, [settings]);
 
-  // Cargar chats donde el sub-bot es miembro o admin
+  // Cargar chats donde el sub-bot es miembro o admin y el grupo principal actual
   const loadAvailableChats = async () => {
     if (!slug) return;
     setLoadingChats(true);
@@ -53,10 +54,16 @@ export default function ChannelsVerificationSection({
       if (adminToken) queryParams.set('token', adminToken);
       if (adminKey) queryParams.set('key', adminKey);
 
-      const res = await fetch(`/api/portal/${encodeURIComponent(slug)}/admin/available-chats?${queryParams.toString()}`);
-      const data = await res.json();
-      if (data.ok && Array.isArray(data.chats)) {
-        setAvailableChats(data.chats);
+      const [chatsRes, primRes] = await Promise.all([
+        fetch(`/api/portal/${encodeURIComponent(slug)}/admin/available-chats?${queryParams.toString()}`).then((r) => r.json()),
+        fetch(`/api/portal/${encodeURIComponent(slug)}/admin/primary-group?${queryParams.toString()}`).then((r) => r.json()).catch(() => ({ ok: false })),
+      ]);
+
+      if (chatsRes.ok && Array.isArray(chatsRes.chats)) {
+        setAvailableChats(chatsRes.chats);
+      }
+      if (primRes.ok && primRes.primaryChatId) {
+        setPrimaryGroup(String(primRes.primaryChatId));
       }
     } catch (err) {
       console.warn('Error cargando chats disponibles del sub-bot:', err);
@@ -197,6 +204,63 @@ export default function ChannelsVerificationSection({
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+        {/* Selector Inteligente del Grupo Principal de Verificación */}
+        <div className="panel-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid rgba(0, 111, 238, 0.4)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>🛡️</span>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#f4f4f5', margin: 0 }}>
+                Grupo Principal de Verificación
+              </h3>
+            </div>
+            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '9999px', background: 'rgba(0, 111, 238, 0.15)', color: '#006FEE', fontWeight: 700 }}>
+              S_WICK CORE
+            </span>
+          </div>
+          <p style={{ fontSize: '13px', color: '#a1a1aa', marginBottom: '14px' }}>
+            Elige el grupo oficial principal donde este sub-bot silenciará a los miembros que aún no se hayan verificado.
+          </p>
+          <select
+            className="input-field"
+            style={{
+              width: '100%',
+              borderRadius: '12px',
+              fontSize: '13px',
+              background: 'rgba(24, 24, 27, 0.9)',
+              color: '#f4f4f5',
+              padding: '10px 14px',
+              cursor: 'pointer',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+            }}
+            value={primaryGroup}
+            onChange={async (e) => {
+              const val = e.target.value;
+              setPrimaryGroup(val);
+              try {
+                const queryParams = new URLSearchParams();
+                if (adminToken) queryParams.set('token', adminToken);
+                if (adminKey) queryParams.set('key', adminKey);
+                await fetch(`/api/portal/${encodeURIComponent(slug)}/admin/primary-group?${queryParams.toString()}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ chatId: val }),
+                });
+              } catch (err) {
+                console.warn('Error guardando grupo principal:', err);
+              }
+            }}
+          >
+            <option value="">-- Sin Grupo Principal Designado (Verificación en todos los grupos) --</option>
+            {availableChats
+              .filter((c) => c.type !== 'channel')
+              .map((c) => (
+                <option key={c.chatId} value={c.chatId}>
+                  👥 {c.title} ({c.chatId}) — {c.isAdmin ? '🛡️ Admin Completo' : '⚠️ No Admin'}
+                </option>
+              ))}
+          </select>
+        </div>
+
         {/* Selector Inteligente de Canales Desplegable */}
         <div className="panel-card" style={{ padding: '24px', borderRadius: '20px' }}>
           <ChatSelectorDropdown

@@ -488,4 +488,36 @@ router.post('/:slug/admin/groups/:chatId/reverify', authenticateSubBotAdmin, asy
   }
 });
 
+// ── 12. Asignar y Obtener Grupo Principal de Verificación en Sub-Bot ──
+router.get('/:slug/admin/primary-group', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    if (!subBot) {
+      return res.status(404).json({ ok: false, error: 'Sub-bot no encontrado.' });
+    }
+    const primaryChatId = await groupsService.getPrimaryVerificationChat(subBot.id);
+    res.json({ ok: true, primaryChatId });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+router.post('/:slug/admin/primary-group', authenticateSubBotAdmin, async (req, res) => {
+  try {
+    const subBot = req.subBot || await subbotService.getSubBotBySlug(req.params.slug);
+    if (!subBot) {
+      return res.status(404).json({ ok: false, error: 'Sub-bot no encontrado.' });
+    }
+    const { chatId } = req.body;
+    const assigned = await groupsService.setPrimaryVerificationChat(chatId, subBot.id);
+    res.json({
+      ok: true,
+      message: chatId ? 'Grupo principal de verificación asignado con éxito.' : 'Grupo principal de verificación desvinculado.',
+      primaryChatId: assigned,
+    });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
 module.exports = router;

@@ -85,6 +85,29 @@ async function reverifyGroup(req, res) {
   }
 }
 
+async function getPrimaryGroup(req, res) {
+  try {
+    const primaryChatId = await groupsService.getPrimaryVerificationChat(null);
+    res.json({ ok: true, primaryChatId });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
+async function setPrimaryGroup(req, res) {
+  try {
+    const { chatId } = req.body;
+    const assigned = await groupsService.setPrimaryVerificationChat(chatId, null);
+    res.json({
+      ok: true,
+      message: chatId ? 'Grupo principal de verificación asignado exitosamente.' : 'Grupo principal de verificación desvinculado.',
+      primaryChatId: assigned,
+    });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+}
+
 module.exports = {
   getGroupsList,
   getGroupSecurity,
@@ -93,6 +116,8 @@ module.exports = {
   addGroup,
   removeGroup,
   reverifyGroup,
+  getPrimaryGroup,
+  setPrimaryGroup,
 };
 
 
