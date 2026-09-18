@@ -254,17 +254,51 @@ export default function ChannelsVerificationSection({
           <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '6px', color: '#f4f4f5' }}>
             Identidad & Mensajería de la Comunidad
           </h3>
+          <p style={{ fontSize: '13px', color: '#a1a1aa', marginBottom: '16px' }}>
+            Elige el nombre de tu comunidad a partir del nombre de tu grupo oficial en tiempo real, o personalízalo manualmente.
+          </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '14px' }}>
             <div>
-              <label style={{ fontSize: '13px', fontWeight: 600, color: '#d4d4d8', display: 'block', marginBottom: '6px' }}>
-                Nombre Visible de la Comunidad
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ fontSize: '13px', fontWeight: 600, color: '#d4d4d8' }}>
+                  Nombre Visible de la Comunidad
+                </label>
+                {availableChats.length > 0 && (
+                  <span style={{ fontSize: '11px', color: '#006FEE', fontWeight: 600 }}>
+                    💡 Seleccionar de grupo oficial
+                  </span>
+                )}
+              </div>
+
+              {availableChats.length > 0 && (
+                <div style={{ marginBottom: '8px' }}>
+                  <select
+                    className="input-field"
+                    style={{ width: '100%', borderRadius: '12px', fontSize: '12px', background: 'rgba(24, 24, 27, 0.9)', color: '#f4f4f5', padding: '8px 12px', cursor: 'pointer' }}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setForm({ ...form, community_name: e.target.value });
+                      }
+                    }}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Seleccionar nombre desde tus grupos oficiales...</option>
+                    {availableChats.map((c) => (
+                      <option key={c.chatId} value={c.title}>
+                        {c.type === 'channel' ? '📢' : '👥'} {c.title} ({c.type})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <input
                 type="text"
                 className="input-field"
                 style={{ width: '100%', borderRadius: '14px' }}
                 value={form.community_name}
                 onChange={(e) => setForm({ ...form, community_name: e.target.value })}
+                placeholder="Ej: Ventas Libres Perú o nombre de tu comunidad"
               />
             </div>
             <div>

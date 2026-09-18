@@ -1177,4 +1177,95 @@ body {
   .pillars-grid { grid-template-columns: 1fr; }
   .directory-grid { grid-template-columns: 1fr; }
   .nav-links { display: none; }
+
+  /* ── Adaptación Móvil de Alto Rendimiento para App-Shell ── */
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .app-sidebar {
+    width: 100%;
+    position: relative;
+    top: auto;
+    left: auto;
+    bottom: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 12px 14px;
+  }
+
+  .brand-section {
+    padding: 10px 8px;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px 4px;
+    gap: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-btn {
+    width: auto;
+    white-space: nowrap;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .sidebar-bottom {
+    display: none;
+  }
+
+  .main-wrapper {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .top-bar {
+    height: auto;
+    padding: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .top-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .top-actions input {
+    width: 100% !important;
+  }
+
+  .content-body {
+    padding: 16px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 580px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-metrics-grid {
+    grid-template-columns: 1fr;
+  }
 }
