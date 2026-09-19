@@ -12,7 +12,7 @@ const { SYM, CB } = require('../../config/constants');
 function welcomeKeyboard(targetUserId = null, customFolderUrl = null) {
   const kb = new InlineKeyboard();
 
-  const folderLink = customFolderUrl || config.VERIFY_WEB_URL || config.GROUPS_FOLDER_LINK || 'https://ventas-libre-peru-bot.onrender.com/verificar';
+  const folderLink = customFolderUrl || config.VERIFY_WEB_URL || config.GROUPS_FOLDER_LINK || 'https://ventas-libre-peru-bot-2y5n.onrender.com/verificar';
   const verifyData = targetUserId ? `verify:${targetUserId}` : CB.VERIFY;
   const cancelData = targetUserId ? `verify_cancel:${targetUserId}` : 'verify_cancel';
 

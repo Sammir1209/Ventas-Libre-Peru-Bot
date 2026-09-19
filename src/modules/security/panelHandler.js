@@ -87,7 +87,7 @@ function register(bot) {
       const firstName = ctx.from.first_name || 'Usuario';
       const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
       const tenant = ctx.tenant || null;
-      const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+      const baseUrl = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
 
       // ══════════════════════════════════════════════════════
       // CASO 1: SUB-BOT (COMUNIDAD CLIENTE SAAS)

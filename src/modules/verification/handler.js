@@ -417,7 +417,7 @@ function register(bot) {
 
     // 4. Enviar mensaje de bienvenida con teclado interactivo y registrar en pending_verifications
     try {
-      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
       let verifyUrl = `${domain}/verificar`;
       if (ctx.tenant) {
         const slug = ctx.tenant.bot_username || ctx.tenant.id;
@@ -865,7 +865,7 @@ bot.callbackQuery(['reverify_channels', /^reverify_channels(?::(\d+))?$/], async
         await redisDb.setCache(debounceKey, true, 25);
 
         // Notificar por mensaje privado (DM)
-        const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+        const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
         let verifyUrl = `${domain}/verificar`;
         if (ctx.tenant) {
           const slug = ctx.tenant.bot_username || ctx.tenant.id;
@@ -1180,7 +1180,7 @@ async function executeReverify(api, chatId, tenant = null, actorName = 'Administ
   await db.setSetting(`reverify_active_${chatId}`, 'true');
   await redisDb.setCache(`reverify_active:${chatId}`, true, 86400 * 365);
 
-  const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+  const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
   let verifyUrl = `${domain}/verificar`;
   if (tenant) {
     const slug = tenant.bot_username || tenant.id;
@@ -1352,7 +1352,7 @@ async function sendRequiredChannelsDM(ctx, targetUserId = null) {
 
   kb.text('🛡️ Comprobar y Verificarme', 'reverify_check');
 
-  const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+  const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
   const slug = ctx.tenant?.bot_username || ctx.tenant?.id || '';
   if (slug) {
     kb.row().url('🌐 Abrir Portal Web Oficial', `${domain}/portal/${slug}`);

@@ -554,7 +554,7 @@ function register(bot) {
     try {
       const senderId = ctx.from.id;
       const tenantId = ctx.tenant?.id || null;
-      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
 
       // ── MODO SUB-BOT: Acceso al Portal Dedicado en Blanco y Negro ──
       if (tenantId && ctx.tenant) {

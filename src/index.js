@@ -182,7 +182,7 @@ async function main() {
   });
 
   // Self-ping preventivo cada 10 minutos
-  const renderUrl = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot.onrender.com';
+  const renderUrl = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
   if (renderUrl) {
     setInterval(() => {
       try {
