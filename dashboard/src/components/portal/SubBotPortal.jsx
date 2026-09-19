@@ -413,34 +413,38 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
   // Si está en vista admin pero aún no ha iniciado sesión válida
   if (!adminData) {
     return (
-      <div style={{ minHeight: '100vh', background: '#000000', color: '#f4f4f5', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: '-120px', left: '50%', transform: 'translateX(-50%)', width: '600px', height: '350px', background: 'radial-gradient(circle, rgba(0, 111, 238, 0.25) 0%, rgba(120, 40, 200, 0.15) 50%, transparent 75%)', filter: 'blur(80px)', pointerEvents: 'none' }} />
+      <div style={{ minHeight: '100vh', backgroundColor: '#050508', color: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px', position: 'relative', overflow: 'hidden', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        {/* Malla de Fondo Cyberpunk */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px)', backgroundSize: '32px 32px', pointerEvents: 'none', zIndex: 0 }} />
 
-        <div style={{ maxWidth: '440px', width: '100%', background: 'rgba(24, 24, 27, 0.8)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '24px', padding: '2.5rem 2rem', boxShadow: '0 30px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(0, 111, 238, 0.15)', position: 'relative', zIndex: 1 }}>
+        {/* Halo de Iluminación Ambiental */}
+        <div style={{ position: 'absolute', top: '-160px', left: '50%', transform: 'translateX(-50%)', width: '650px', height: '420px', background: 'radial-gradient(circle, rgba(255, 107, 0, 0.22) 0%, rgba(255, 59, 0, 0.05) 50%, transparent 75%)', filter: 'blur(70px)', pointerEvents: 'none', zIndex: 0 }} />
+
+        <div style={{ maxWidth: '440px', width: '100%', background: 'rgba(18, 22, 32, 0.75)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '20px', padding: '2.5rem 2rem', boxShadow: '0 30px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(255, 107, 0, 0.15)', position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: '1.8rem' }}>
-            <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(0, 111, 238, 0.2), rgba(120, 40, 200, 0.2))', border: '1px solid rgba(0, 111, 238, 0.4)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', color: '#006FEE' }}>
-              <IconShield size={28} />
+            <div style={{ width: '64px', height: '64px', borderRadius: '18px', background: 'linear-gradient(135deg, rgba(28, 34, 50, 0.9) 0%, rgba(12, 14, 20, 0.95) 100%)', border: '1px solid rgba(255, 107, 0, 0.4)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem', color: '#ff6b00', boxShadow: '0 10px 25px rgba(0,0,0,0.5), 0 0 20px rgba(255,107,0,0.2)' }}>
+              <IconShield size={32} />
             </div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 0.4rem 0', color: '#ffffff' }}>{communityDisplayName}</h2>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '9999px', background: 'rgba(0, 111, 238, 0.15)', border: '1px solid rgba(0, 111, 238, 0.3)', color: '#006FEE', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontSize: '1.6rem', fontWeight: 900, margin: '0 0 0.4rem 0', color: '#ffffff', letterSpacing: '-0.02em' }}>{communityDisplayName}</h2>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '9999px', background: 'rgba(255, 107, 0, 0.1)', border: '1px solid rgba(255, 107, 0, 0.3)', color: '#ff9d42', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               Autenticación de Owner • Zero-Trust
             </div>
           </div>
 
           {authError && (
-            <div style={{ padding: '0.75rem 1rem', borderRadius: '14px', background: 'rgba(243, 18, 96, 0.15)', border: '1px solid rgba(243, 18, 96, 0.4)', color: '#f31260', fontSize: '0.82rem', marginBottom: '1.2rem', textAlign: 'center' }}>
+            <div style={{ padding: '0.8rem 1rem', borderRadius: '12px', background: 'rgba(243, 18, 96, 0.15)', border: '1px solid rgba(243, 18, 96, 0.4)', color: '#f31260', fontSize: '0.85rem', marginBottom: '1.5rem', textAlign: 'center', fontWeight: 600 }}>
               {authError}
             </div>
           )}
 
-          <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+          <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
             <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#d4d4d8', display: 'block', marginBottom: '0.4rem' }}>Tu ID Numérico de Telegram</label>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>Tu ID Numérico de Telegram</label>
               <input
                 type="text"
                 required
                 className="input-field"
-                style={{ width: '100%', borderRadius: '14px' }}
+                style={{ width: '100%', borderRadius: '12px', background: 'rgba(12, 14, 20, 0.8)', border: '1px solid rgba(255, 255, 255, 0.12)', color: '#ffffff', padding: '0.85rem' }}
                 placeholder="Ej: 7849224682"
                 value={loginForm.userId}
                 onChange={(e) => setLoginForm({ ...loginForm, userId: e.target.value })}
@@ -448,12 +452,12 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
             </div>
 
             <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#d4d4d8', display: 'block', marginBottom: '0.4rem' }}>Contraseña Temporal de Acceso</label>
+              <label style={{ fontSize: '0.82rem', fontWeight: 700, color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>Contraseña Temporal de Acceso</label>
               <input
                 type="password"
                 required
                 className="input-field"
-                style={{ width: '100%', borderRadius: '14px' }}
+                style={{ width: '100%', borderRadius: '12px', background: 'rgba(12, 14, 20, 0.8)', border: '1px solid rgba(255, 255, 255, 0.12)', color: '#ffffff', padding: '0.85rem' }}
                 placeholder="Clave emitida por el bot"
                 value={loginForm.password}
                 onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
@@ -462,23 +466,26 @@ export default function SubBotPortal({ defaultSlug = '', defaultView = 'public',
 
             <button
               type="submit"
-              className="btn btn-primary"
-              style={{ width: '100%', padding: '0.9rem', fontWeight: 800, fontSize: '0.95rem', borderRadius: '9999px', marginTop: '0.4rem' }}
+              style={{ width: '100%', padding: '1rem', fontWeight: 800, fontSize: '0.98rem', borderRadius: '9999px', marginTop: '0.5rem', background: 'linear-gradient(135deg, #ff7a1a 0%, #ff3b00 100%)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.25)', boxShadow: '0 10px 25px rgba(255, 107, 0, 0.35)', cursor: 'pointer', transition: 'all 0.2s ease' }}
               disabled={loggingIn}
+              onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 35px rgba(255, 107, 0, 0.5)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 25px rgba(255, 107, 0, 0.35)'; }}
             >
               {loggingIn ? 'Validando Credenciales...' : 'Ingresar al Panel de Control'}
             </button>
           </form>
 
-          <div style={{ marginTop: '1.5rem', padding: '0.9rem 1rem', borderRadius: '14px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', fontSize: '0.78rem', color: '#a1a1aa', lineHeight: 1.5 }}>
-            💡 <strong>¿No tienes tu contraseña?</strong> Ejecuta <code>/panel</code> en tu grupo o en privado con tu bot para recibir de inmediato tus credenciales por mensaje privado.
+          <div style={{ marginTop: '1.8rem', padding: '1rem', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)', fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.6 }}>
+            <span style={{ color: '#ff6b00', fontWeight: 800 }}>💡 Tip:</span> <strong>¿No tienes tu contraseña?</strong> Ejecuta <code>/panel</code> en tu grupo o en privado con tu bot para recibir de inmediato tus credenciales por mensaje privado.
           </div>
 
-          <div style={{ marginTop: '1.2rem', textAlign: 'center' }}>
+          <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
             <button
               type="button"
               onClick={() => setView('public')}
-              style={{ background: 'none', border: 'none', color: '#a1a1aa', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
+              style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '0.85rem', cursor: 'pointer', textDecoration: 'none', transition: 'color 0.2s ease', fontWeight: 600 }}
+              onMouseOver={(e) => e.currentTarget.style.color = '#ff6b00'}
+              onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
             >
               ← Volver a la Landing de Canales
             </button>

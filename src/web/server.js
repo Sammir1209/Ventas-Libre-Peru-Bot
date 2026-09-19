@@ -93,12 +93,8 @@ function createWebApp(mainBot = null) {
   app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 
   app.get(['/verificar', '/verify', '/canales'], (req, res) => {
-    const verifyFile = path.join(__dirname, 'public', 'verify.html');
-    if (fs.existsSync(verifyFile)) {
-      sendFreshHtml(res, verifyFile);
-    } else {
-      res.status(404).send('Portal de verificación no disponible');
-    }
+    // Redirigir a la nueva versión en Next.js
+    res.redirect(302, '/portal/default');
   });
 
   // ── 4. Montar la Nueva API REST Modular ──

@@ -418,7 +418,7 @@ function register(bot) {
     // 4. Enviar mensaje de bienvenida con teclado interactivo y registrar en pending_verifications
     try {
       const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
-      let verifyUrl = `${domain}/verificar`;
+      let verifyUrl = `${domain}/portal/default`;
       if (ctx.tenant) {
         const slug = ctx.tenant.bot_username || ctx.tenant.id;
         verifyUrl = `${domain}/portal/${slug}`;
@@ -866,7 +866,7 @@ bot.callbackQuery(['reverify_channels', /^reverify_channels(?::(\d+))?$/], async
 
         // Notificar por mensaje privado (DM)
         const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
-        let verifyUrl = `${domain}/verificar`;
+        let verifyUrl = `${domain}/portal/default`;
         if (ctx.tenant) {
           const slug = ctx.tenant.bot_username || ctx.tenant.id;
           verifyUrl = `${domain}/portal/${slug}`;
@@ -1181,7 +1181,7 @@ async function executeReverify(api, chatId, tenant = null, actorName = 'Administ
   await redisDb.setCache(`reverify_active:${chatId}`, true, 86400 * 365);
 
   const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
-  let verifyUrl = `${domain}/verificar`;
+  let verifyUrl = `${domain}/portal/default`;
   if (tenant) {
     const slug = tenant.bot_username || tenant.id;
     verifyUrl = `${domain}/portal/${slug}`;

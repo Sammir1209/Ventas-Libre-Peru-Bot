@@ -30,551 +30,683 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
   const communityName = portalData?.community_name || 'Comunidad Oficial';
 
   return (
-    <div className="heroui-landing-container">
+    <div className="landing-container">
       <style jsx>{`
-        .heroui-landing-container {
+        .landing-container {
           min-height: 100vh;
-          background: #000000;
-          color: #f4f4f5;
+          background-color: #050508;
+          color: #f8fafc;
           display: flex;
           flex-direction: column;
           align-items: center;
           position: relative;
           overflow-x: hidden;
-          padding: 0 1.25rem 3.5rem;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+          line-height: 1.5;
         }
 
-        /* HeroUI Ambient Orbs & Grids */
-        .heroui-landing-container::before {
+        /* Malla de Fondo Cyberpunk */
+        .landing-container::before {
           content: '';
           position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
+          top: 0; left: 0; right: 0; bottom: 0;
           background-image: 
-            radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-          background-size: 28px 28px;
+            linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+          background-size: 32px 32px;
           pointer-events: none;
           z-index: 0;
         }
 
-        .ambient-glow-primary {
-          position: absolute;
-          top: -100px;
+        /* Halo de Iluminación Ambiental */
+        .ambient-aura {
+          position: fixed;
+          top: -160px;
           left: 50%;
           transform: translateX(-50%);
-          width: 700px;
-          height: 400px;
-          background: radial-gradient(circle, rgba(0, 111, 238, 0.22) 0%, rgba(120, 40, 200, 0.12) 50%, transparent 75%);
-          filter: blur(80px);
+          width: 650px;
+          height: 420px;
+          background: radial-gradient(circle, rgba(255, 107, 0, 0.22) 0%, rgba(255, 59, 0, 0.05) 50%, transparent 75%);
+          filter: blur(70px);
           border-radius: 50%;
           pointer-events: none;
           z-index: 0;
         }
 
-        /* HeroUI Sticky Frosted Navbar */
-        .heroui-navbar {
+        .container {
           width: 100%;
-          max-width: 680px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 1.2rem 0;
-          margin-bottom: 1.5rem;
-          position: relative;
+          max-width: 640px;
+          padding: 2.8rem 1.25rem 4rem;
           z-index: 10;
-        }
-
-        .heroui-nav-brand {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .heroui-brand-avatar {
-          width: 38px;
-          height: 38px;
-          border-radius: 9999px;
-          background: linear-gradient(135deg, #006FEE 0%, #7828c8 100%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #ffffff;
-          box-shadow: 0 0 16px rgba(0, 111, 238, 0.4);
-        }
-
-        .heroui-brand-name {
-          font-weight: 800;
-          font-size: 1.05rem;
-          letter-spacing: -0.02em;
-          color: #ffffff;
-        }
-
-        .heroui-nav-cta {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.4rem;
-          padding: 0.45rem 0.95rem;
-          border-radius: 9999px;
-          background: rgba(39, 39, 42, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          color: #d4d4d8;
-          font-size: 0.78rem;
-          font-weight: 600;
-          cursor: pointer;
-          text-decoration: none;
-          backdrop-filter: blur(12px);
-          transition: all 0.2s ease;
-        }
-
-        .heroui-nav-cta:hover {
-          background: rgba(63, 63, 70, 0.8);
-          color: #ffffff;
-          border-color: rgba(255, 255, 255, 0.25);
-        }
-
-        /* Contenido Central */
-        .landing-content {
-          position: relative;
-          z-index: 1;
-          width: 100%;
-          max-width: 680px;
           display: flex;
           flex-direction: column;
-          gap: 1.6rem;
+          gap: 1.8rem;
         }
 
-        /* HeroUI Card Principal */
-        .heroui-hero-card {
-          background: rgba(24, 24, 27, 0.75);
-          backdrop-filter: blur(24px);
-          -webkit-backdrop-filter: blur(24px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 28px;
-          padding: 2.4rem 2rem;
+        /* Header */
+        .header {
           text-align: center;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-          position: relative;
-          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.85rem;
         }
 
-        .heroui-hero-card::after {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 1px;
-          background: linear-gradient(90deg, transparent 0%, rgba(0, 111, 238, 0.6) 50%, transparent 100%);
-        }
-
-        /* HeroUI Chip Badge */
-        .heroui-chip {
+        .live-badge {
           display: inline-flex;
           align-items: center;
-          gap: 0.5rem;
-          padding: 0.35rem 0.9rem;
+          gap: 0.55rem;
+          padding: 0.4rem 0.95rem;
           border-radius: 9999px;
-          font-size: 0.75rem;
+          font-size: 0.76rem;
           font-weight: 700;
-          letter-spacing: 0.04em;
+          letter-spacing: 0.06em;
           text-transform: uppercase;
-          background: rgba(0, 111, 238, 0.15);
-          border: 1px solid rgba(0, 111, 238, 0.35);
-          color: #006FEE;
-          margin-bottom: 1.2rem;
+          background: rgba(255, 107, 0, 0.08);
+          border: 1px solid rgba(255, 107, 0, 0.3);
+          color: #ff9d42;
+          box-shadow: 0 0 15px rgba(255, 107, 0, 0.15);
         }
 
-        .heroui-pulse-dot {
+        .pulse-dot {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: #17c964;
-          box-shadow: 0 0 10px #17c964;
-          animation: herouiPulse 2s infinite;
+          background: #22c55e;
+          box-shadow: 0 0 8px #22c55e;
+          animation: pulse 2s infinite;
         }
 
-        @keyframes herouiPulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.3); opacity: 0.6; }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(1.2); }
+        }
+
+        .logo-badge {
+          width: 84px;
+          height: 84px;
+          border-radius: 24px;
+          background: linear-gradient(135deg, rgba(28, 34, 50, 0.9) 0%, rgba(12, 14, 20, 0.95) 100%);
+          border: 1px solid rgba(255, 107, 0, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6), 0 0 25px rgba(255, 107, 0, 0.2);
+          margin-top: 0.4rem;
+          position: relative;
+        }
+
+        .logo-badge::after {
+          content: '';
+          position: absolute;
+          inset: -1px;
+          border-radius: 24px;
+          background: linear-gradient(135deg, rgba(255, 107, 0, 0.5), transparent);
+          z-index: -1;
+        }
+
+        .logo-badge svg {
+          width: 44px;
+          height: 44px;
+          fill: none;
+          stroke: #ff6b00;
+          stroke-width: 2.2;
         }
 
         .hero-title {
-          font-size: 2.3rem;
+          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+          font-size: 2.25rem;
           font-weight: 900;
-          letter-spacing: -0.04em;
-          margin: 0 0 0.85rem 0;
-          background: linear-gradient(180deg, #ffffff 30%, #a1a1aa 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
+          letter-spacing: -0.03em;
+          color: #ffffff;
           line-height: 1.15;
+          margin: 0;
         }
 
-        .hero-subtitle {
-          font-size: 0.96rem;
+        .subtitle {
+          font-size: 0.95rem;
+          color: #94a3b8;
           line-height: 1.6;
-          color: #a1a1aa;
-          margin: 0 auto;
           max-width: 520px;
+          margin: 0;
         }
 
-        /* HeroUI Progress Card */
-        .heroui-progress-card {
-          background: rgba(24, 24, 27, 0.6);
+        /* Tarjeta de Pasos */
+        .steps-card {
+          background: rgba(18, 22, 32, 0.75);
+          backdrop-filter: blur(18px);
+          -webkit-backdrop-filter: blur(18px);
           border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 20px;
-          padding: 1.1rem 1.5rem;
+          border-radius: 16px;
+          padding: 1.3rem 1.4rem;
           display: flex;
           flex-direction: column;
-          gap: 0.7rem;
-          backdrop-filter: blur(16px);
+          gap: 0.85rem;
+          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
         }
 
-        .progress-meta {
+        .steps-header {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          font-size: 0.86rem;
+          font-weight: 700;
+          color: #ff6b00;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .step-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.9rem;
+          font-size: 0.88rem;
+          color: #94a3b8;
+          line-height: 1.45;
+        }
+
+        .step-num {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          font-weight: 800;
+          color: #ffffff;
+          flex-shrink: 0;
+          margin-top: 1px;
+        }
+
+        /* Barra de Progreso Dinámica */
+        .progress-box {
+          background: rgba(12, 14, 20, 0.7);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 12px;
+          padding: 0.9rem 1.2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .progress-info {
           display: flex;
           justify-content: space-between;
           align-items: center;
           font-size: 0.82rem;
         }
 
-        .progress-track {
+        .progress-bar-bg {
           width: 100%;
-          height: 8px;
+          height: 6px;
           border-radius: 9999px;
-          background: rgba(39, 39, 42, 0.8);
+          background: rgba(255, 255, 255, 0.08);
           overflow: hidden;
-          position: relative;
         }
 
-        .progress-fill {
+        .progress-bar-fill {
           height: 100%;
-          background: linear-gradient(90deg, #006FEE 0%, #17c964 100%);
-          transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+          background: linear-gradient(135deg, #ff7a1a 0%, #ff3b00 100%);
+          width: 0%;
           border-radius: 9999px;
-          box-shadow: 0 0 12px rgba(23, 201, 100, 0.5);
+          transition: width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 0 10px rgba(255, 107, 0, 0.45);
         }
 
-        /* HeroUI Channel Interactive Card */
-        .heroui-channel-card {
-          background: rgba(24, 24, 27, 0.7);
-          border: 1px solid rgba(255, 255, 255, 0.09);
-          border-radius: 20px;
-          padding: 1.2rem 1.4rem;
+        /* Stack de Canales */
+        .channels-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 0.85rem;
+        }
+
+        .channels-header h2 {
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: #ffffff;
+          letter-spacing: -0.01em;
+          margin: 0;
+        }
+
+        .badge-count {
+          font-size: 0.75rem;
+          font-weight: 700;
+          padding: 0.25rem 0.65rem;
+          border-radius: 9999px;
+          background: rgba(255, 255, 255, 0.06);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #64748b;
+        }
+
+        .cards-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+        }
+
+        .channel-card {
+          background: rgba(18, 22, 32, 0.75);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 16px;
+          padding: 1.1rem 1.25rem;
           display: flex;
           align-items: center;
           justify-content: space-between;
           gap: 1rem;
-          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           text-decoration: none;
           color: inherit;
-          backdrop-filter: blur(16px);
+          transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+          position: relative;
         }
 
-        .heroui-channel-card:hover {
-          border-color: rgba(0, 111, 238, 0.45);
-          background: rgba(39, 39, 42, 0.65);
+        .channel-card:hover {
+          background: rgba(28, 34, 48, 0.9);
+          border-color: rgba(255, 107, 0, 0.4);
           transform: translateY(-2px);
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 111, 238, 0.15);
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 107, 0, 0.2);
         }
 
         .channel-left {
           display: flex;
           align-items: center;
-          gap: 1.1rem;
+          gap: 1rem;
+          min-width: 0;
         }
 
         .channel-avatar {
-          width: 44px;
-          height: 44px;
+          width: 48px;
+          height: 48px;
           border-radius: 14px;
-          background: rgba(39, 39, 42, 0.8);
+          background: #141722;
           border: 1px solid rgba(255, 255, 255, 0.12);
+          overflow: hidden;
+          flex-shrink: 0;
           display: flex;
           align-items: center;
           justify-content: center;
+          color: #ffffff;
           font-weight: 800;
-          font-size: 1.1rem;
-          color: #f4f4f5;
-          flex-shrink: 0;
+          font-size: 1.2rem;
+        }
+
+        .channel-avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .channel-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+          min-width: 0;
         }
 
         .channel-name {
           font-weight: 700;
-          font-size: 1.05rem;
+          font-size: 0.98rem;
           color: #ffffff;
-          margin-bottom: 0.2rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
-        .channel-sub {
+        .channel-desc {
           font-size: 0.78rem;
-          color: #a1a1aa;
+          color: #94a3b8;
           display: flex;
           align-items: center;
-          gap: 0.45rem;
+          gap: 0.4rem;
         }
 
-        /* HeroUI Pill Button */
-        .heroui-btn-pill {
-          padding: 0.65rem 1.3rem;
-          border-radius: 9999px;
+        .badge-mandatory {
+          font-size: 0.68rem;
           font-weight: 700;
-          font-size: 0.85rem;
-          background: #ffffff;
-          color: #000000;
-          border: none;
-          cursor: pointer;
+          color: #ff9d42;
+          background: rgba(255, 107, 0, 0.1);
+          padding: 0.1rem 0.4rem;
+          border-radius: 4px;
+          border: 1px solid rgba(255, 107, 0, 0.2);
+        }
+
+        .badge-done {
+          color: #10b981 !important;
+          background: rgba(16, 185, 129, 0.1) !important;
+          border-color: rgba(16, 185, 129, 0.2) !important;
+        }
+
+        .btn-action {
+          padding: 0.65rem 1.25rem;
+          border-radius: 9999px;
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          color: #ffffff;
+          font-weight: 700;
+          font-size: 0.82rem;
           display: inline-flex;
           align-items: center;
           gap: 0.45rem;
-          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          cursor: pointer;
+          transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1);
           flex-shrink: 0;
           user-select: none;
         }
 
-        .heroui-btn-pill:active {
+        .btn-action:active {
           transform: scale(0.96);
         }
 
-        .heroui-btn-pill:hover {
-          background: #e4e4e7;
-          box-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
+        .channel-card:hover .btn-action {
+          background: linear-gradient(135deg, #ff7a1a 0%, #ff3b00 100%);
+          border-color: transparent;
+          color: #ffffff;
+          box-shadow: 0 0 20px rgba(255, 107, 0, 0.45);
         }
 
-        .heroui-btn-visited {
-          background: rgba(23, 201, 100, 0.15);
-          color: #17c964;
-          border: 1px solid rgba(23, 201, 100, 0.35);
+        .btn-action.done {
+          background: rgba(16, 185, 129, 0.15);
+          border-color: rgba(16, 185, 129, 0.3);
+          color: #10b981;
         }
 
-        .heroui-btn-visited:hover {
-          background: rgba(23, 201, 100, 0.25);
-          box-shadow: 0 0 16px rgba(23, 201, 100, 0.3);
+        .btn-action svg {
+          width: 14px;
+          height: 14px;
+          stroke-width: 2.5;
         }
 
-        /* HeroUI Big Master Unlock Button */
-        .heroui-master-cta {
+        /* Botón Maestro CTA hacia Telegram */
+        .cta-box {
+          margin-top: 0.5rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.9rem;
+        }
+
+        .btn-verify-guide {
           width: 100%;
-          padding: 1.25rem;
+          padding: 1.2rem;
           border-radius: 9999px;
-          background: linear-gradient(135deg, #006FEE 0%, #7828c8 100%);
+          background: linear-gradient(135deg, #ff7a1a 0%, #ff3b00 100%);
           color: #ffffff;
           font-weight: 800;
           font-size: 1.05rem;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 0.8rem;
-          box-shadow: 0 10px 35px -5px rgba(0, 111, 238, 0.5);
-          transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          gap: 0.75rem;
           text-decoration: none;
+          box-shadow: 0 12px 35px rgba(255, 107, 0, 0.4);
+          transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+          border: 1px solid rgba(255, 255, 255, 0.25);
           user-select: none;
         }
 
-        .heroui-master-cta:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 14px 45px -5px rgba(0, 111, 238, 0.65);
-        }
-
-        .heroui-master-cta:active {
+        .btn-verify-guide:active {
           transform: scale(0.98);
         }
 
-        /* HeroUI Footer */
-        .heroui-footer {
-          margin-top: 2.5rem;
-          text-align: center;
-          font-size: 0.8rem;
-          color: #71717a;
-          display: flex;
-          flex-direction: column;
-          gap: 0.6rem;
+        .btn-verify-guide:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 18px 45px rgba(255, 107, 0, 0.55);
+          filter: brightness(1.06);
         }
 
-        .heroui-footer-link {
-          color: #a1a1aa;
+        .btn-verify-guide.completed {
+          box-shadow: 0 0 30px rgba(16, 185, 129, 0.6);
+        }
+
+        /* Footer */
+        .footer {
+          text-align: center;
+          font-size: 0.78rem;
+          color: #64748b;
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+          margin-top: 1.5rem;
+        }
+
+        .footer-link {
+          color: #ff6b00;
+          background: none;
+          border: none;
           text-decoration: none;
           font-weight: 600;
           cursor: pointer;
-          transition: color 0.2s ease;
         }
 
-        .heroui-footer-link:hover {
-          color: #006FEE;
+        @media (max-width: 480px) {
+          .container {
+            padding: 1.8rem 1rem 3rem;
+            gap: 1.4rem;
+          }
+          .hero-title {
+            font-size: 1.85rem;
+          }
+          .logo-badge {
+            width: 72px;
+            height: 72px;
+          }
+          .channel-card {
+            padding: 0.95rem 1rem;
+          }
+          .channel-name {
+            font-size: 0.92rem;
+          }
+          .btn-action span {
+            display: none;
+          }
+          .btn-action {
+            padding: 0.55rem;
+          }
         }
       `}</style>
 
-      <div className="ambient-glow-primary" />
+      <div className="ambient-aura" />
 
-      {/* HeroUI Frosted Top Bar */}
-      <div className="heroui-navbar">
-        <div className="heroui-nav-brand">
-          <div className="heroui-brand-avatar">
-            <IconShield size={18} />
+      <div className="container">
+        {/* Header */}
+        <header className="header">
+          <div className="live-badge">
+            <span className="pulse-dot"></span>
+            <span>Red Oficial Activa • MTProto 24/7</span>
           </div>
-          <span className="heroui-brand-name">{communityName}</span>
-        </div>
 
-        {onGoToAdmin && (
-          <button type="button" onClick={onGoToAdmin} className="heroui-nav-cta">
-            <IconLock size={12} />
-            <span>Panel Admin</span>
-          </button>
-        )}
-      </div>
-
-      <div className="landing-content">
-        {/* HeroUI Hero Card */}
-        <div className="heroui-hero-card">
-          <div className="heroui-chip">
-            <span className="heroui-pulse-dot"></span>
-            <span>{botUsername ? `@${botUsername}` : 'Sistema de Verificación'}</span>
+          <div className="logo-badge">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
           </div>
 
           <h1 className="hero-title">{communityName}</h1>
-          <p className="hero-subtitle">
+          <p className="subtitle">
             {portalData?.welcome_message ||
-              'Por directiva de seguridad y control perimetral, debes estar unido a los canales oficiales obligatorios para habilitar tus privilegios de chat en los grupos.'}
+              'Por normativas de seguridad y defensa perimetral contra fraudes, debes ingresar a los canales oficiales para desbloquear tu escritura en el chat grupal.'}
           </p>
-        </div>
+        </header>
+
+        {/* Instrucciones Rápidas */}
+        <section className="steps-card">
+          <div className="steps-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Protocolo de Acceso en 3 Pasos</span>
+          </div>
+          <div className="step-item">
+            <span className="step-num">1</span>
+            <div>Únete a los <strong>canales oficiales requeridos</strong> listados aquí abajo.</div>
+          </div>
+          <div className="step-item">
+            <span className="step-num">2</span>
+            <div>Regresa al chat grupal de Telegram donde recibiste el mensaje del Bot.</div>
+          </div>
+          <div className="step-item">
+            <span className="step-num">3</span>
+            <div>Presiona el botón <strong>[ VERIFICAR ]</strong> para quitar el silencio al instante.</div>
+          </div>
+        </section>
 
         {/* Estado de Carga o Error */}
         {loading && (
-          <div className="heroui-hero-card" style={{ padding: '2rem' }}>
-            <p style={{ color: '#a1a1aa', margin: 0 }}>Cargando especificaciones de la comunidad...</p>
+          <div className="steps-card" style={{ textAlign: 'center', padding: '2rem' }}>
+            <p style={{ color: '#94a3b8', margin: 0 }}>Cargando especificaciones de la comunidad...</p>
           </div>
         )}
-
         {error && (
-          <div className="heroui-hero-card" style={{ borderColor: '#f31260' }}>
+          <div className="steps-card" style={{ borderColor: '#f31260', textAlign: 'center' }}>
             <p style={{ color: '#f31260', margin: 0 }}>{error}</p>
           </div>
         )}
 
-        {/* ── CASO A: TIENE CANALES OBLIGATORIOS ── */}
+        {/* Canales y Grupos Requeridos */}
         {!loading && !error && totalChannels > 0 && (
           <>
-            {/* HeroUI Barra de Progreso */}
-            <div className="heroui-progress-card">
-              <div className="progress-meta">
-                <span style={{ color: '#a1a1aa', fontWeight: 600 }}>Pasos Completados:</span>
-                <span style={{ fontWeight: 800, color: '#f4f4f5' }}>
-                  {completedCount} de {totalChannels} canales completados
+            {/* Barra de Progreso Dinámica */}
+            <div className="progress-box">
+              <div className="progress-info">
+                <span style={{ color: '#94a3b8', fontWeight: 600 }}>Progreso de Canales:</span>
+                <span style={{ fontWeight: 800, color: '#ffffff' }}>
+                  {completedCount} de {totalChannels} listos
                 </span>
               </div>
-              <div className="progress-track">
+              <div className="progress-bar-bg">
                 <div
-                  className="progress-fill"
+                  className="progress-bar-fill"
                   style={{ width: `${(completedCount / totalChannels) * 100}%` }}
                 />
               </div>
             </div>
 
-            {/* Lista de Canales Estilo HeroUI */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-              {channels.map((ch, idx) => {
-                const isVisited = visitedChannels[idx];
-                return (
-                  <a
-                    key={idx}
-                    href={ch.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="heroui-channel-card"
-                    onClick={() => toggleChannelVisited(idx)}
-                  >
-                    <div className="channel-left">
-                      <div className="channel-avatar">{idx + 1}</div>
-                      <div>
-                        <div className="channel-name">{ch.name}</div>
-                        <div className="channel-sub">
-                          <span>Canal Oficial Requerido</span>
-                          {isVisited && (
-                            <span style={{ color: '#17c964', display: 'inline-flex', alignItems: 'center', gap: '3px', fontWeight: 700 }}>
-                              • <IconCheck size={12} /> Listo
-                            </span>
+            <section>
+              <div className="channels-header">
+                <h2>Canales Oficiales Obligatorios</h2>
+                <span className="badge-count">{totalChannels} Canales Requeridos</span>
+              </div>
+
+              <div className="cards-stack">
+                {channels.map((ch, idx) => {
+                  const isVisited = visitedChannels[idx];
+                  
+                  // Intentamos mapear imagenes conocidas por el nombre original
+                  // si no tiene, muestra el numero (podriamos usar initiales pero el diseño orignal tenia numeros o imagenes fijas)
+                  let imgSrc = null;
+                  const nameLower = ch.name.toLowerCase();
+                  if (nameLower.includes('ventas libre per')) imgSrc = '/assets/channels/principal.jpg';
+                  if (nameLower.includes('quemando')) imgSrc = '/assets/channels/quemando.jpg';
+                  if (nameLower.includes('respaldo')) imgSrc = '/assets/channels/respaldo.svg';
+                  if (nameLower.includes('madre')) imgSrc = '/assets/channels/madre_ventas.jpg';
+
+                  return (
+                    <a
+                      key={idx}
+                      href={ch.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="channel-card"
+                      onClick={() => toggleChannelVisited(idx)}
+                    >
+                      <div className="channel-left">
+                        <div className="channel-avatar">
+                          {imgSrc ? (
+                            <img src={imgSrc} alt={ch.name} loading="lazy" onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = idx + 1; }} />
+                          ) : (
+                            idx + 1
                           )}
                         </div>
+                        <div className="channel-meta">
+                          <div className="channel-name">{ch.name}</div>
+                          <div className="channel-desc">
+                            <span className={`badge-mandatory ${isVisited ? 'badge-done' : ''}`}>
+                              {isVisited ? '✓ Listo' : 'Obligatorio'}
+                            </span>
+                            <span>Canal Requerido</span>
+                          </div>
+                        </div>
+                      </div>
+                      <button type="button" className={`btn-action ${isVisited ? 'done' : ''}`}>
+                        <span>{isVisited ? 'Listo' : 'Unirme'}</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </a>
+                  );
+                })}
+
+                {/* Carpeta Oficial si existe */}
+                {portalData?.groups_folder_link && (
+                  <a
+                    href={portalData.groups_folder_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="channel-card"
+                    style={{ borderColor: 'rgba(255, 107, 0, 0.3)', background: 'rgba(255, 107, 0, 0.06)' }}
+                  >
+                    <div className="channel-left">
+                      <div className="channel-avatar" style={{ background: 'rgba(255, 107, 0, 0.2)', color: '#ff6b00' }}>
+                        <IconFolder size={20} />
+                      </div>
+                      <div className="channel-meta">
+                        <div className="channel-name">Carpeta Oficial de Grupos</div>
+                        <div className="channel-desc" style={{ marginTop: '2px' }}>Añade la red a tu Telegram en 1 toque</div>
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      className={`heroui-btn-pill ${isVisited ? 'heroui-btn-visited' : ''}`}
-                    >
-                      <span>{isVisited ? 'Unido' : 'Unirme'}</span>
-                      <IconExternalLink size={14} />
+                    <button type="button" className="btn-action" style={{ background: '#ff6b00', color: '#ffffff', borderColor: '#ff6b00' }}>
+                      <span>Añadir</span>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
                     </button>
                   </a>
-                );
-              })}
+                )}
+              </div>
+            </section>
 
-              {/* Carpeta Oficial si existe */}
-              {portalData?.groups_folder_link && (
-                <a
-                  href={portalData.groups_folder_link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="heroui-channel-card"
-                  style={{ borderColor: 'rgba(0, 111, 238, 0.3)', background: 'rgba(0, 111, 238, 0.06)' }}
-                >
-                  <div className="channel-left">
-                    <div className="channel-avatar" style={{ background: 'rgba(0, 111, 238, 0.2)', color: '#006FEE' }}>
-                      <IconFolder size={20} />
-                    </div>
-                    <div>
-                      <div className="channel-name">Carpeta Oficial de Grupos</div>
-                      <div className="channel-sub">Añade toda la red de chats a tu Telegram con 1 solo toque</div>
-                    </div>
-                  </div>
-
-                  <button type="button" className="heroui-btn-pill" style={{ background: '#006FEE', color: '#ffffff' }}>
-                    <span>Añadir Carpeta</span>
-                    <IconArrowRight size={14} />
-                  </button>
-                </a>
-              )}
-            </div>
-
-            {/* HeroUI CTA Maestro: Retorno a Telegram */}
-            <a
-              href={botUsername ? `https://t.me/${botUsername}` : 'https://t.me'}
-              target="_blank"
-              rel="noreferrer"
-              className="heroui-master-cta"
-            >
-              <span>Regresar al Bot y Desbloquearme</span>
-              <IconArrowRight size={18} />
-            </a>
+            {/* Botón Maestro CTA hacia Telegram */}
+            <section className="cta-box">
+              <a 
+                href={botUsername ? `https://t.me/${botUsername}` : 'https://t.me'} 
+                className={`btn-verify-guide ${completedCount === totalChannels ? 'completed' : ''}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 6.75a2.25 2.25 0 0 0 .126 4.168l4.47 1.542 1.83 5.488a1.5 1.5 0 0 0 2.29.684l2.91-2.22 4.67 3.44a2.25 2.25 0 0 0 3.52-1.44l3-16.5a2.25 2.25 0 0 0-2.3-2.627z"/></svg>
+                <span>Regresar al Bot y Verificarme</span>
+              </a>
+            </section>
           </>
         )}
 
-        {/* ── CASO B: NO TIENE CANALES OBLIGATORIOS (ACCESO LIBRE) ── */}
+        {/* CASO B: NO TIENE CANALES OBLIGATORIOS (ACCESO LIBRE) */}
         {!loading && !error && totalChannels === 0 && (
-          <div className="heroui-hero-card" style={{ padding: '3.5rem 2rem' }}>
+          <div className="steps-card" style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
             <div
               style={{
                 width: '68px',
                 height: '68px',
                 borderRadius: '9999px',
-                background: 'rgba(23, 201, 100, 0.15)',
-                border: '1px solid rgba(23, 201, 100, 0.35)',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '0 auto 1.5rem auto',
-                boxShadow: '0 0 20px rgba(23, 201, 100, 0.3)',
+                boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)',
               }}
             >
-              <IconCheck size={32} color="#17c964" />
+              <IconCheck size={32} color="#10b981" />
             </div>
             <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: '0 0 0.6rem 0', color: '#ffffff' }}>
               Acceso Inmediato y Libre
             </h2>
-            <p style={{ color: '#a1a1aa', fontSize: '0.92rem', lineHeight: 1.6, margin: '0 0 2rem 0', maxWidth: '440px', marginLeft: 'auto', marginRight: 'auto' }}>
+            <p style={{ color: '#94a3b8', fontSize: '0.92rem', lineHeight: 1.6, margin: '0 0 2rem 0', maxWidth: '440px', marginLeft: 'auto', marginRight: 'auto' }}>
               Esta comunidad no requiere canales obligatorios de verificación en este momento. Puedes participar y escribir libremente en el chat grupal.
             </p>
 
@@ -582,32 +714,32 @@ export default function PublicChannelsLanding({ portalData, loading, error, onGo
               href={botUsername ? `https://t.me/${botUsername}` : 'https://t.me'}
               target="_blank"
               rel="noreferrer"
-              className="heroui-master-cta"
+              className="btn-verify-guide"
               style={{ maxWidth: '340px', margin: '0 auto' }}
             >
               <span>Abrir Chat Grupal</span>
-              <IconArrowRight size={16} />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M21.198 2.433a2.242 2.242 0 0 0-1.022.215l-16.5 6.75a2.25 2.25 0 0 0 .126 4.168l4.47 1.542 1.83 5.488a1.5 1.5 0 0 0 2.29.684l2.91-2.22 4.67 3.44a2.25 2.25 0 0 0 3.52-1.44l3-16.5a2.25 2.25 0 0 0-2.3-2.627z"/></svg>
             </a>
           </div>
         )}
 
-        {/* HeroUI Footer */}
-        <div className="heroui-footer">
-          <div>© 2026 Red Descentralizada de Comunidades Oficiales • Protocolo Enterprise</div>
+        {/* Footer */}
+        <footer className="footer">
+          <div>© 2026 {communityName} — Sistema de Seguridad Perimetral</div>
           {onGoToAdmin && (
             <div>
               <button
                 type="button"
                 onClick={onGoToAdmin}
-                className="heroui-footer-link"
-                style={{ background: 'none', border: 'none' }}
+                className="footer-link"
               >
-                Acceso de Gestión para Administradores de {communityName}
+                Acceso Administrativo de la Comunidad
               </button>
             </div>
           )}
-        </div>
+        </footer>
       </div>
     </div>
   );
 }
+
