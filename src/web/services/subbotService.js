@@ -5,6 +5,7 @@
 const db = require('../../database/postgres');
 const botManager = require('../../core/botManager');
 const { validateBotToken } = require('./telegramSyncService');
+const config = require('../../config/env');
 
 function maskToken(token) {
   if (!token || typeof token !== 'string') return 'N/A';
@@ -372,11 +373,29 @@ async function getSubBotBySlug(slug) {
   if (!slug) return null;
   const clean = String(slug).trim().replace(/^@/, '').toLowerCase();
   
-  // Soporte para sub-bot por defecto o activo
-  if (clean === 'default' || clean === 'active' || clean === 'main' || clean === 'current') {
+  // Soporte para sub-bot por defecto o activo, o el BOT PRINCIPAL de entorno
+  if (clean === 'default' || clean === 'main') {
+    // Retornamos SIEMPRE el Bot Principal (Ventas Libres Perú) si se usa 'default' o 'main'
+    return {
+      id: 'default',
+      bot_username: config.DEV_USERNAME || 'VentasLibresPeru',
+      community_name: 'Ventas Libres Perú',
+      channels_to_verify: config.CHANNELS_TO_VERIFY,
+      groups_folder_link: config.GROUPS_FOLDER_LINK,
+      bot_token: config.BOT_TOKEN,
+      owner_ids: config.OWNER_IDS,
+      is_active: true,
+      custom_settings: {
+        welcome_message: 'Bienvenido a Ventas Libres Perú'
+      }
+    };
+  }
+
+  if (clean === 'active' || clean === 'current') {
     const all = await db.getAllSubBots();
     const active = all.find(b => b.is_active) || all[0];
     if (active) return await enrichBotOwners(active);
+    return null;
   }
 
   // Buscar por ID si es UUID
