@@ -9,6 +9,7 @@ import DealsSection from '../components/deals/DealsSection';
 import GbanSection from '../components/gban/GbanSection';
 import SubBotsSection from '../components/subbots/SubBotsSection';
 import GroupsSection from '../components/groups/GroupsSection';
+import ChannelsVerificationSection from '../components/portal/ChannelsVerificationSection';
 import LandingPage from '../components/landing/LandingPage';
 import SubBotPortal from '../components/portal/SubBotPortal';
 import DocsSection from '../components/docs/DocsSection';
@@ -31,6 +32,8 @@ export default function DashboardPage() {
   const [burned, setBurned] = useState([]);
   const [subbots, setSubbots] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [channelSettings, setChannelSettings] = useState(null);
+  const [savingChannels, setSavingChannels] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
@@ -72,13 +75,14 @@ export default function DashboardPage() {
 
   const loadAllData = useCallback(async () => {
     try {
-      const [statsRes, staffRes, dealsRes, gbanRes, subbotsRes, groupsRes] = await Promise.allSettled([
+      const [statsRes, staffRes, dealsRes, gbanRes, subbotsRes, groupsRes, channelsRes] = await Promise.allSettled([
         fetchWithAuth('/api/stats'),
         fetchWithAuth('/api/staff'),
         fetchWithAuth('/api/deals'),
         fetchWithAuth('/api/gban'),
         fetchWithAuth('/api/subbots'),
         fetchWithAuth('/api/groups'),
+        fetchWithAuth('/api/channels'),
       ]);
 
       if (statsRes.status === 'fulfilled') setStats(statsRes.value.stats);
@@ -87,6 +91,7 @@ export default function DashboardPage() {
       if (gbanRes.status === 'fulfilled') setBurned(gbanRes.value.burned);
       if (subbotsRes.status === 'fulfilled') setSubbots(subbotsRes.value.subbots);
       if (groupsRes.status === 'fulfilled') setGroups(groupsRes.value.groups);
+      if (channelsRes.status === 'fulfilled') setChannelSettings(channelsRes.value.settings);
     } catch (err) {
       console.warn('Carga inicial:', err.message);
     }
@@ -95,6 +100,24 @@ export default function DashboardPage() {
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
+
+  // ── Channels Handlers ──
+  const handleSaveChannels = async (formData) => {
+    setSavingChannels(true);
+    try {
+      const res = await fetchWithAuth('/api/channels', {
+        method: 'PUT',
+        body: JSON.stringify(formData),
+      });
+      addToast(res.message || 'Canales y enlaces guardados exitosamente');
+      setChannelSettings(formData);
+      loadAllData();
+    } catch (err) {
+      addToast(err.message, 'error');
+    } finally {
+      setSavingChannels(false);
+    }
+  };
 
   // ── Staff Handlers ──
   const handleSyncStaff = async (userId) => {
@@ -431,6 +454,12 @@ export default function DashboardPage() {
                     Administra rápidamente las funciones críticas de la red oficial.
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <button className="btn btn-secondary" onClick={() => setActiveTab('channels')}>
+                      Configurar Canales de Verificación & Enlaces
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => setActiveTab('groups')}>
+                      Grupos Oficiales & Protocolos de Seguridad
+                    </button>
                     <button className="btn btn-secondary" onClick={() => setActiveTab('staff')}>
                       Gestionar y Sincronizar Staff
                     </button>
@@ -506,6 +535,19 @@ export default function DashboardPage() {
               onUpdateBurned={handleUpdateBurned}
               onRemoveBurned={handleRemoveBurned}
               onEnforceGban={handleEnforceGban}
+            />
+          )}
+
+          {/* Tab: Channels & Verification Links */}
+          {activeTab === 'channels' && (
+            <ChannelsVerificationSection
+              settings={channelSettings}
+              onSaveSettings={handleSaveChannels}
+              saving={savingChannels}
+              onPreviewLanding={() => setViewMode('landing')}
+              slug=""
+              adminKey={adminKey}
+              isMaster={true}
             />
           )}
 

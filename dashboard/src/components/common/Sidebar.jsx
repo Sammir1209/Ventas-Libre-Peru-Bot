@@ -19,13 +19,12 @@ export default function Sidebar({
 }) {
   const baseNavItems = [
     { id: 'stats', label: 'Centro de Mando', icon: IconActivity },
+    { id: 'channels', label: 'Canales & Enlaces', icon: IconShield },
+    { id: 'groups', label: 'Grupos & Seguridad', icon: IconShield },
     { id: 'staff', label: 'Gestión de Staff', icon: IconUsers },
     { id: 'deals', label: 'Tratos & Escrow', icon: IconScale },
     { id: 'gban', label: 'Lista Negra (Sanciones)', icon: IconAlertTriangle },
-    ...(isSubBot
-      ? [{ id: 'channels', label: 'Canales & Enlaces', icon: IconShield }]
-      : [{ id: 'subbots', label: 'Instancias Sub-Bots', icon: IconBot }]),
-    { id: 'groups', label: 'Grupos & Seguridad', icon: IconShield },
+    ...(!isSubBot ? [{ id: 'subbots', label: 'Instancias Sub-Bots', icon: IconBot }] : []),
     { id: 'docs', label: 'Guía de Comandos', icon: IconBook },
   ];
 

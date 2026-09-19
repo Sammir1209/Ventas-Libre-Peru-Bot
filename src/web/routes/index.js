@@ -10,6 +10,7 @@ const subbotsRoutes = require('./subbots.routes');
 const groupsRoutes = require('./groups.routes');
 const statsRoutes = require('./stats.routes');
 const portalRoutes = require('./portal.routes');
+const channelsRoutes = require('./channels.routes');
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use('/subbots', subbotsRoutes);
 router.use('/groups', groupsRoutes);
 router.use('/stats', statsRoutes);
 router.use('/portal', portalRoutes);
+router.use('/channels', channelsRoutes);
 
 module.exports = router;

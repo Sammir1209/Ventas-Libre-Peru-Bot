@@ -19,6 +19,7 @@ export default function ChannelsVerificationSection({
   slug,
   adminToken,
   adminKey,
+  isMaster = false,
 }) {
   const [form, setForm] = useState({
     staff_invite_link: settings?.staff_invite_link || '',
@@ -45,28 +46,44 @@ export default function ChannelsVerificationSection({
     }
   }, [settings]);
 
-  // Cargar chats donde el sub-bot es miembro o admin y el grupo principal actual
+  // Cargar chats donde el bot es miembro o admin y el grupo principal actual
   const loadAvailableChats = async () => {
-    if (!slug) return;
     setLoadingChats(true);
     try {
-      const queryParams = new URLSearchParams();
-      if (adminToken) queryParams.set('token', adminToken);
-      if (adminKey) queryParams.set('key', adminKey);
+      if (isMaster || !slug) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (adminKey) headers['x-admin-key'] = adminKey;
 
-      const [chatsRes, primRes] = await Promise.all([
-        fetch(`/api/portal/${encodeURIComponent(slug)}/admin/available-chats?${queryParams.toString()}`).then((r) => r.json()),
-        fetch(`/api/portal/${encodeURIComponent(slug)}/admin/primary-group?${queryParams.toString()}`).then((r) => r.json()).catch(() => ({ ok: false })),
-      ]);
+        const [chatsRes, primRes] = await Promise.all([
+          fetch('/api/groups/available', { headers }).then((r) => r.json()).catch(() => ({ ok: false })),
+          fetch('/api/groups/primary', { headers }).then((r) => r.json()).catch(() => ({ ok: false })),
+        ]);
 
-      if (chatsRes.ok && Array.isArray(chatsRes.chats)) {
-        setAvailableChats(chatsRes.chats);
-      }
-      if (primRes.ok && primRes.primaryChatId) {
-        setPrimaryGroup(String(primRes.primaryChatId));
+        if (chatsRes.ok && Array.isArray(chatsRes.chats)) {
+          setAvailableChats(chatsRes.chats);
+        }
+        if (primRes.ok && primRes.primaryChatId) {
+          setPrimaryGroup(String(primRes.primaryChatId));
+        }
+      } else {
+        const queryParams = new URLSearchParams();
+        if (adminToken) queryParams.set('token', adminToken);
+        if (adminKey) queryParams.set('key', adminKey);
+
+        const [chatsRes, primRes] = await Promise.all([
+          fetch(`/api/portal/${encodeURIComponent(slug)}/admin/available-chats?${queryParams.toString()}`).then((r) => r.json()),
+          fetch(`/api/portal/${encodeURIComponent(slug)}/admin/primary-group?${queryParams.toString()}`).then((r) => r.json()).catch(() => ({ ok: false })),
+        ]);
+
+        if (chatsRes.ok && Array.isArray(chatsRes.chats)) {
+          setAvailableChats(chatsRes.chats);
+        }
+        if (primRes.ok && primRes.primaryChatId) {
+          setPrimaryGroup(String(primRes.primaryChatId));
+        }
       }
     } catch (err) {
-      console.warn('Error cargando chats disponibles del sub-bot:', err);
+      console.warn('Error cargando chats disponibles:', err);
     } finally {
       setLoadingChats(false);
     }
@@ -74,7 +91,7 @@ export default function ChannelsVerificationSection({
 
   useEffect(() => {
     loadAvailableChats();
-  }, [slug, adminToken, adminKey]);
+  }, [slug, adminToken, adminKey, isMaster]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -84,6 +101,10 @@ export default function ChannelsVerificationSection({
   const channelCount = form.channels_to_verify
     ? form.channels_to_verify.split('\n').map((s) => s.trim()).filter(Boolean).length
     : 0;
+
+  const accentColor = isMaster ? '#ff6b00' : '#006FEE';
+  const accentBg = isMaster ? 'rgba(255, 107, 0, 0.12)' : 'rgba(0, 111, 238, 0.12)';
+  const accentBorder = isMaster ? 'rgba(255, 107, 0, 0.3)' : 'rgba(0, 111, 238, 0.3)';
 
   return (
     <div style={{ maxWidth: '960px', margin: '0 auto' }}>
@@ -98,9 +119,9 @@ export default function ChannelsVerificationSection({
                 gap: '6px',
                 padding: '4px 10px',
                 borderRadius: '9999px',
-                background: 'rgba(0, 111, 238, 0.12)',
-                border: '1px solid rgba(0, 111, 238, 0.3)',
-                color: '#006FEE',
+                background: accentBg,
+                border: `1px solid ${accentBorder}`,
+                color: accentColor,
                 fontSize: '11px',
                 fontWeight: 700,
                 letterSpacing: '0.05em',
@@ -108,7 +129,7 @@ export default function ChannelsVerificationSection({
               }}
             >
               <IconShield size={12} />
-              Seguridad Perimetral
+              {isMaster ? 'Seguridad Perimetral — S_WICK CORE' : 'Seguridad Perimetral'}
             </span>
           </div>
           <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#f4f4f5', letterSpacing: '-0.02em' }}>
@@ -205,7 +226,7 @@ export default function ChannelsVerificationSection({
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
         {/* Selector Inteligente del Grupo Principal de Verificación */}
-        <div className="panel-card" style={{ padding: '24px', borderRadius: '20px', border: '1px solid rgba(0, 111, 238, 0.4)' }}>
+        <div className="panel-card" style={{ padding: '24px', borderRadius: '20px', border: `1px solid ${accentBorder}` }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '18px' }}>🛡️</span>
@@ -213,7 +234,7 @@ export default function ChannelsVerificationSection({
                 Grupo Principal de Verificación
               </h3>
             </div>
-            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '9999px', background: 'rgba(0, 111, 238, 0.15)', color: '#006FEE', fontWeight: 700 }}>
+            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '9999px', background: accentBg, color: accentColor, fontWeight: 700 }}>
               S_WICK CORE
             </span>
           </div>
@@ -237,14 +258,24 @@ export default function ChannelsVerificationSection({
               const val = e.target.value;
               setPrimaryGroup(val);
               try {
-                const queryParams = new URLSearchParams();
-                if (adminToken) queryParams.set('token', adminToken);
-                if (adminKey) queryParams.set('key', adminKey);
-                await fetch(`/api/portal/${encodeURIComponent(slug)}/admin/primary-group?${queryParams.toString()}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ chatId: val }),
-                });
+                if (isMaster || !slug) {
+                  const headers = { 'Content-Type': 'application/json' };
+                  if (adminKey) headers['x-admin-key'] = adminKey;
+                  await fetch('/api/groups/primary', {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ chatId: val }),
+                  });
+                } else {
+                  const queryParams = new URLSearchParams();
+                  if (adminToken) queryParams.set('token', adminToken);
+                  if (adminKey) queryParams.set('key', adminKey);
+                  await fetch(`/api/portal/${encodeURIComponent(slug)}/admin/primary-group?${queryParams.toString()}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chatId: val }),
+                  });
+                }
               } catch (err) {
                 console.warn('Error guardando grupo principal:', err);
               }
@@ -391,8 +422,12 @@ export default function ChannelsVerificationSection({
             fontSize: '15px',
             fontWeight: 700,
             borderRadius: '9999px',
-            background: 'linear-gradient(135deg, #006FEE 0%, #7828c8 100%)',
-            boxShadow: '0 8px 25px -5px rgba(0, 111, 238, 0.4)',
+            background: isMaster
+              ? 'linear-gradient(135deg, #ff6b00 0%, #d9480f 100%)'
+              : 'linear-gradient(135deg, #006FEE 0%, #7828c8 100%)',
+            boxShadow: isMaster
+              ? '0 8px 25px -5px rgba(255, 107, 0, 0.4)'
+              : '0 8px 25px -5px rgba(0, 111, 238, 0.4)',
             transition: 'all 0.25s ease',
           }}
           disabled={saving}

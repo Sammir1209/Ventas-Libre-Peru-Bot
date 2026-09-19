@@ -18,6 +18,11 @@ let _channelsCache = null;
 let _channelsCacheTime = 0;
 const CHANNELS_CACHE_TTL = 5 * 60 * 1000; // 5 min
 
+function invalidateChannelsCache() {
+  _channelsCache = null;
+  _channelsCacheTime = 0;
+}
+
 async function getChannelsToVerify(ctx = null) {
   if (ctx?.tenant?.channels_to_verify && Array.isArray(ctx.tenant.channels_to_verify) && ctx.tenant.channels_to_verify.length > 0) {
     return ctx.tenant.channels_to_verify;
@@ -1297,6 +1302,7 @@ module.exports = {
   isUserEligibleToSpeak,
   unmuteMember,
   getChannelsToVerify,
+  invalidateChannelsCache,
   sendRequiredChannelsDM,
 };
 
