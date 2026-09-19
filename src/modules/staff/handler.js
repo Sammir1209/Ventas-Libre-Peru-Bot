@@ -77,15 +77,15 @@ async function applyTelegramAdminRights(api, chatId, userId, customTag) {
     const title = (customTag || 'Staff').slice(0, 16);
 
     const chat = await api.getChat(chatId);
-    if (chat.type === 'channel') return false;
+    if (chat.type === 'channel') return { ok: false, reason: 'Es un canal' };
 
     const me = await api.getMe();
     const botMember = await api.getChatMember(chatId, me.id);
     if (botMember.status !== 'administrator' && botMember.status !== 'creator') {
-      return false;
+      return { ok: false, title: chat.title || String(chatId), reason: 'El bot no es Administrador' };
     }
     if (botMember.status === 'administrator' && !botMember.can_promote_members) {
-      return false;
+      return { ok: false, title: chat.title || String(chatId), reason: 'El bot carece del permiso "Añadir administradores"' };
     }
 
     const targetMember = await api.getChatMember(chatId, userId);
@@ -93,7 +93,7 @@ async function applyTelegramAdminRights(api, chatId, userId, customTag) {
       try {
         await api.setChatAdministratorCustomTitle(chatId, userId, title);
       } catch { }
-      return true;
+      return { ok: true, title: chat.title || String(chatId), isCreator: true };
     }
 
     await api.promoteChatMember(chatId, userId, {
@@ -110,28 +110,28 @@ async function applyTelegramAdminRights(api, chatId, userId, customTag) {
     try {
       await api.setChatAdministratorCustomTitle(chatId, userId, title);
     } catch { }
-    return true;
-  } catch {
-    return false;
+    return { ok: true, title: chat.title || String(chatId) };
+  } catch (err) {
+    return { ok: false, reason: err.message };
   }
 }
 
 async function revokeTelegramAdminRights(api, chatId, userId) {
   try {
     const chat = await api.getChat(chatId);
-    if (chat.type === 'channel') return false;
+    if (chat.type === 'channel') return { ok: false, reason: 'Es un canal' };
 
     const me = await api.getMe();
     const botMember = await api.getChatMember(chatId, me.id);
     if (botMember.status !== 'administrator' && botMember.status !== 'creator') {
-      return false;
+      return { ok: false, title: chat.title || String(chatId), reason: 'El bot no es Administrador' };
     }
     if (botMember.status === 'administrator' && !botMember.can_promote_members) {
-      return false;
+      return { ok: false, title: chat.title || String(chatId), reason: 'El bot carece del permiso "Añadir administradores"' };
     }
 
     const targetMember = await api.getChatMember(chatId, userId);
-    if (targetMember.status === 'creator') return false;
+    if (targetMember.status === 'creator') return { ok: false, title: chat.title || String(chatId), reason: 'Es el creador del chat' };
 
     await api.promoteChatMember(chatId, userId, {
       can_manage_chat: false,
@@ -148,9 +148,9 @@ async function revokeTelegramAdminRights(api, chatId, userId) {
       can_delete_stories: false,
       is_anonymous: false,
     });
-    return true;
-  } catch {
-    return false;
+    return { ok: true, title: chat.title || String(chatId) };
+  } catch (err) {
+    return { ok: false, reason: err.message };
   }
 }
 
@@ -178,6 +178,56 @@ function register(bot) {
           `• O usa directamente su <b>ID numérico</b>: <code>/promote [ID]</code>`,
           { parse_mode: 'HTML' }
         );
+      }
+
+      // ── MODO DIRECTO: Si el owner escribió /promote @user admin o /promote @user trato admin [custom tag] ──
+      const rawText = (ctx.message?.text || '').trim();
+      const tokens = rawText.split(/\s+/);
+      const isReply = Boolean(ctx.message?.reply_to_message);
+
+      // Si es reply, los argumentos de rol empiezan en tokens[1]. Si no es reply, empiezan en tokens[2]
+      const roleArgs = isReply ? tokens.slice(1) : tokens.slice(2);
+
+      if (roleArgs.length > 0) {
+        const potentialRoleInput = roleArgs.join(' ').trim();
+        // Verificar si coincide con algún rol disponible
+        let matchedRoles = [];
+        let customTagCandidate = null;
+
+        const upperCandidate = potentialRoleInput.toUpperCase();
+        if (upperCandidate.includes('CO-OWNER') || upperCandidate.includes('COOWNER')) {
+          matchedRoles.push('CO-OWNER');
+        }
+        if (upperCandidate.includes('TRATO ADMIN') || upperCandidate.includes('TRATOADMIN')) {
+          matchedRoles.push('TRATO ADMIN');
+        }
+        if (upperCandidate.includes('OWNER') && !matchedRoles.includes('CO-OWNER')) {
+          matchedRoles.push('OWNER');
+        }
+        if (upperCandidate.includes('ADMIN') && !matchedRoles.includes('TRATO ADMIN')) {
+          matchedRoles.push('ADMIN');
+        }
+
+        // Si encontró al menos un rol válido por argumento directo
+        if (matchedRoles.length > 0) {
+          // Extraer tag si vino entre comillas o al final
+          const quotesMatch = potentialRoleInput.match(/["'](.*?)["']/);
+          if (quotesMatch) {
+            customTagCandidate = quotesMatch[1].slice(0, 16);
+          } else {
+            customTagCandidate = getRolePresetTag(matchedRoles[0]);
+          }
+
+          return await finishStaffAssignment(
+            ctx,
+            target.userId,
+            target.username,
+            target.firstName,
+            matchedRoles,
+            customTagCandidate,
+            null
+          );
+        }
       }
 
       // Obtener roles actuales del usuario en BD respetando el tenant del bot actual
@@ -240,7 +290,7 @@ function register(bot) {
     }
   });
 
-  // ── Comando /demote [ID, @username o reply] ──
+  // ── Comando /demote [ID, @username o reply] [-y|force] ──
   bot.command('demote', requireOwner(), async (ctx) => {
     try {
       const target = await resolveTarget(ctx);
@@ -249,7 +299,8 @@ function register(bot) {
         return ctx.reply(
           `⟡ <b>DEGRADACIÓN DE STAFF</b> ⊱ <code>USO DEL COMANDO</code> ⊰\n` +
           `══════\n\n` +
-          `▸ <b>Uso:</b> <code>/demote [ID, @username o responder a mensaje]</code>`,
+          `• <b>Uso interactivo:</b> <code>/demote [ID, @username o reply]</code>\n` +
+          `• <b>Remoción rápida:</b> <code>/demote [ID o @username] -y</code>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -257,6 +308,46 @@ function register(bot) {
       if (target.unresolved) {
         return ctx.reply(
           `✗ No se pudo obtener el ID de <b>@${target.username}</b>. Usa su ID numérico: <code>/demote [ID]</code>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      const rawText = (ctx.message?.text || '').toLowerCase();
+      const hasForceFlag = rawText.includes('-y') || rawText.includes('--yes') || rawText.includes('force');
+
+      // ── MODO RÁPIDO (-y): Remoción sin confirmación adicional ──
+      if (hasForceFlag) {
+        const tenantId = ctx.tenant?.id || null;
+        await db.removeStaff(target.userId, tenantId);
+
+        const auditReport = [];
+        try {
+          const groups = await db.getAllGroups(tenantId);
+          for (const grp of groups) {
+            if (grp.chat_id && grp.type !== 'channel') {
+              const res = await revokeTelegramAdminRights(ctx.api, grp.chat_id, target.userId);
+              auditReport.push(res);
+            }
+          }
+        } catch { }
+
+        const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
+        const userTag = target.username ? `<code>@${target.username}</code>` : '<i>Sin @username</i>';
+        const nameFormatted = escapeHtml(target.firstName || 'Usuario');
+
+        let auditText = '';
+        if (auditReport.length > 0) {
+          const revCount = auditReport.filter(r => r.ok).length;
+          auditText = `\n▸ <b>Permisos Revocados en Telegram:</b> <code>${revCount}/${auditReport.length} grupos</code>\n`;
+        }
+
+        return await ctx.reply(
+          `🛡️ <b>STAFF REMOVIDO CON ÉXITO</b>\n\n` +
+          `• <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
+          `• <b>ID:</b> <code>${target.userId}</code>\n` +
+          `• <b>Estado:</b> Rango y permisos revocados inmediatamente (-y)${auditText}\n` +
+          `──────\n` +
+          `<i>Ejecutado por: ${adminMention}</i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -803,12 +894,14 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
   // 1. Guardar en Base de Datos aislada por tenant
   await db.setStaffRole(targetId, username, firstName, rolesStr, adminId, customTag, tenantId);
 
-  // 2. Aplicar permisos en grupos registrados de este tenant
+  // 2. Aplicar permisos en grupos registrados de este tenant con auditoría
+  const auditReport = [];
   try {
     const groups = await db.getAllGroups(tenantId);
     for (const grp of groups) {
       if (grp.chat_id && grp.type !== 'channel') {
-        await applyTelegramAdminRights(ctx.api, grp.chat_id, targetId, customTag);
+        const res = await applyTelegramAdminRights(ctx.api, grp.chat_id, targetId, customTag);
+        auditReport.push(res);
       }
     }
   } catch { }
@@ -819,14 +912,31 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
   const nameFormatted = escapeHtml(firstName || 'Usuario');
   const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
+  // Formatear resumen de auditoría en grupos
+  let groupsAuditText = '';
+  if (auditReport.length > 0) {
+    const successCount = auditReport.filter(r => r.ok).length;
+    const failList = auditReport.filter(r => !r.ok);
+
+    groupsAuditText = `\n▸ <b>Sincronización Telegram:</b> <code>${successCount}/${auditReport.length} chats vinculados</code>\n`;
+    if (failList.length > 0) {
+      groupsAuditText += `⚠️ <i>Avisos en Telegram:</i>\n`;
+      for (const f of failList.slice(0, 3)) {
+        groupsAuditText += ` • ${escapeHtml(f.title || 'Chat')}: <i>${escapeHtml(f.reason || 'Sin permiso')}</i>\n`;
+      }
+    }
+  } else {
+    groupsAuditText = `\n▸ <b>Permisos de Administrador:</b> ⊱ <code>REGISTRADO EN BD ✓</code> ⊰\n`;
+  }
+
   const confirmationText =
     `⟡ <b>ASIGNACIÓN DE STAFF</b> ⊱ <code>CONFIGURACIÓN COMPLETADA</code> ⊰\n` +
     `══════\n\n` +
     `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
     `▸ <b>ID Numérico:</b> <code>${targetId}</code>\n` +
     `▸ <b>Jerarquía Asignada:</b> <b>${rolesStr}</b>\n` +
-    `▸ <b>Distintivo Oficial:</b> <code>${escapeHtml(customTag)}</code>\n` +
-    `▸ <b>Permisos de Administrador:</b> ⊱ <code>ACTIVOS EN TELEGRAM ✓</code> ⊰\n\n` +
+    `▸ <b>Distintivo Oficial:</b> <code>${escapeHtml(customTag)}</code>` +
+    `${groupsAuditText}\n` +
     `──────\n` +
     `🛡️ <i>Promovido por: ${adminMention}</i>`;
 

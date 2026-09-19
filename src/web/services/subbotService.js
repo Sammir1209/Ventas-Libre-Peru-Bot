@@ -375,18 +375,63 @@ async function getSubBotBySlug(slug) {
   
   // Soporte para sub-bot por defecto o activo, o el BOT PRINCIPAL de entorno
   if (clean === 'default' || clean === 'main') {
-    // Retornamos SIEMPRE el Bot Principal (Ventas Libres Perú) si se usa 'default' o 'main'
+    // ── OBTENCIÓN DINÁMICA DE CANALES PARA LA COMUNIDAD PRINCIPAL ──
+    let dynamicChannels = [];
+    try {
+      // 1. Canales agregados desde el Panel de Control Web (official_groups con type='channel' o similar)
+      const officialGroups = await db.getAllGroups(null);
+      if (Array.isArray(officialGroups)) {
+        for (const g of officialGroups) {
+          if (g.type === 'channel' || g.type === 'canal') {
+            const identifier = g.username ? `@${g.username.replace(/^@/, '')}` : String(g.chat_id);
+            if (!dynamicChannels.includes(identifier)) {
+              dynamicChannels.push(identifier);
+            }
+          }
+        }
+      }
+
+      // 2. Canales guardados explícitamente en bot_settings
+      const savedSetting = await db.getSetting('channels_to_verify', null);
+      if (savedSetting) {
+        try {
+          const parsed = JSON.parse(savedSetting);
+          if (Array.isArray(parsed)) {
+            for (const ch of parsed) {
+              const str = String(ch).trim();
+              if (str && !dynamicChannels.includes(str)) {
+                dynamicChannels.push(str);
+              }
+            }
+          }
+        } catch {}
+      }
+    } catch (err) {
+      console.warn('⟡ [subbotService] Aviso obteniendo canales dinámicos:', err.message);
+    }
+
+    // 3. Fallback y mezcla con .env si no estaban ya
+    if (Array.isArray(config.CHANNELS_TO_VERIFY)) {
+      for (const ch of config.CHANNELS_TO_VERIFY) {
+        const str = String(ch).trim();
+        if (str && !dynamicChannels.includes(str)) {
+          dynamicChannels.push(str);
+        }
+      }
+    }
+
+    // Retornamos el Bot Principal enriquecido con los canales de la Base de Datos
     return {
       id: 'default',
       bot_username: config.DEV_USERNAME || 'VentasLibresPeru',
       community_name: 'Ventas Libres Perú',
-      channels_to_verify: config.CHANNELS_TO_VERIFY,
+      channels_to_verify: dynamicChannels,
       groups_folder_link: config.GROUPS_FOLDER_LINK,
       bot_token: config.BOT_TOKEN,
       owner_ids: config.OWNER_IDS,
       is_active: true,
       custom_settings: {
-        welcome_message: 'Bienvenido a Ventas Libres Perú'
+        welcome_message: 'Bienvenido a la red de comercio seguro de Ventas Libres Perú'
       }
     };
   }
@@ -457,9 +502,18 @@ async function getPublicLandingData(slug) {
       name = `Canal Oficial #${i + 1}`;
     }
 
-    // 2. Si no tiene nombre amigable o URL válida (IDs numéricos), consultar API de Telegram
+    // 2. Si no tiene nombre amigable o URL válida (IDs numéricos), consultar BD official_groups o API de Telegram
     if (name === chStr || (!url.startsWith('http') && !chStr.startsWith('@'))) {
-      if (runningBot) {
+      try {
+        const dbGroups = await db.getAllGroups(b.id === 'default' ? null : b.id);
+        const match = dbGroups.find(g => String(g.chat_id) === chStr || (g.username && `@${g.username.replace(/^@/, '')}`.toLowerCase() === chStr.toLowerCase()));
+        if (match) {
+          if (match.title) name = match.title;
+          if (match.username) url = `https://t.me/${match.username.replace(/^@/, '')}`;
+        }
+      } catch {}
+
+      if ((name === chStr || !url.startsWith('http')) && runningBot) {
         try {
           const chat = await runningBot.api.getChat(chStr);
           if (chat && chat.title) name = chat.title;
