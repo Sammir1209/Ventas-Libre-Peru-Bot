@@ -35,11 +35,12 @@ const HOMOGLYPHS = {
 };
 
 /**
- * Normaliza un texto convirtiendo homóglifos, números y caracteres raros
+ * Normaliza un texto convirtiendo homóglifos, números, símbolos y tipografías matemáticas Unicode
  */
 function normalizeString(str) {
   if (!str) return '';
-  let clean = str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // NFKD descompone caracteres matemáticos / negritas / cursivas Unicode a letras ASCII
+  let clean = String(str).normalize('NFKD').toLowerCase().replace(/[\u0300-\u036f]/g, '');
   let out = '';
   for (const char of clean) {
     out += HOMOGLYPHS[char] !== undefined ? HOMOGLYPHS[char] : char;
@@ -269,9 +270,164 @@ async function handleImpersonator(ctx, chat, user, detection) {
   } catch {}
 }
 
+/**
+ * Escanea la comunidad en busca de clones o suplantadores de un nombre o usuario específico
+ */
+async function scanCommunityForClones(targetQuery, tenantId = null) {
+  const normTarget = normalizeString(targetQuery);
+  if (!normTarget || normTarget.length < 3) {
+    return { error: 'Nombre o consulta demasiado corta para analizar similitud.' };
+  }
+
+  let allUsers = [];
+  try {
+    if (db.pool) {
+      const q = tenantId
+        ? 'SELECT user_id, username, first_name FROM users WHERE tenant_id = $1 OR tenant_id IS NULL ORDER BY user_id DESC LIMIT 2000'
+        : 'SELECT user_id, username, first_name FROM users ORDER BY user_id DESC LIMIT 2000';
+      const res = await db.pool.query(q, tenantId ? [tenantId] : []);
+      allUsers = res.rows || [];
+    }
+  } catch (err) {
+    console.warn('⟡ Error obteniendo usuarios para scanCommunityForClones:', err.message);
+  }
+
+  const matches = [];
+  const seenIds = new Set();
+
+  for (const u of allUsers) {
+    if (seenIds.has(u.user_id)) continue;
+
+    const uNameNorm = normalizeString(u.first_name || '');
+    const uUserNorm = normalizeString(u.username || '');
+
+    const nameSim = calculateSimilarity(u.first_name || '', targetQuery);
+    const userSim = u.username ? calculateSimilarity(u.username, targetQuery) : 0;
+    const maxSim = Math.max(nameSim, userSim);
+
+    const isExact = (uNameNorm === normTarget || uUserNorm === normTarget);
+
+    if (isExact || maxSim >= 0.70) {
+      seenIds.add(u.user_id);
+      matches.push({
+        user_id: u.user_id,
+        username: u.username || null,
+        first_name: u.first_name || 'Usuario',
+        similarity: isExact ? 100 : Math.round(maxSim * 100),
+        matchType: isExact ? 'Nombre Normalizado Idéntico' : 'Alta Similitud Fonética / Gráfica',
+      });
+    }
+  }
+
+  matches.sort((a, b) => b.similarity - a.similarity);
+
+  return {
+    targetQuery,
+    normalizedTarget: normTarget,
+    matches: matches.slice(0, 10),
+  };
+}
+
+/**
+ * Escanea la comunidad en busca de colisiones masivas de nombres duplicados
+ */
+async function scanAllCollisions(tenantId = null) {
+  let allUsers = [];
+  try {
+    if (db.pool) {
+      const q = tenantId
+        ? 'SELECT user_id, username, first_name FROM users WHERE tenant_id = $1 OR tenant_id IS NULL ORDER BY user_id DESC LIMIT 1500'
+        : 'SELECT user_id, username, first_name FROM users ORDER BY user_id DESC LIMIT 1500';
+      const res = await db.pool.query(q, tenantId ? [tenantId] : []);
+      allUsers = res.rows || [];
+    }
+  } catch {}
+
+  const groups = new Map();
+  for (const u of allUsers) {
+    const norm = normalizeString(u.first_name || '');
+    if (!norm || norm.length < 4) continue;
+
+    if (!groups.has(norm)) {
+      groups.set(norm, []);
+    }
+    groups.get(norm).push(u);
+  }
+
+  const collisionList = [];
+  for (const [normName, users] of groups.entries()) {
+    if (users.length > 1) {
+      collisionList.push({
+        normName,
+        count: users.length,
+        users,
+      });
+    }
+  }
+
+  collisionList.sort((a, b) => b.count - a.count);
+  return collisionList.slice(0, 6);
+}
+
+/**
+ * Construye la ficha estética de reporte del Radar de Clones
+ */
+function buildClonesReport(result, communityName = 'Ventas Libres Perú') {
+  if (result.error) {
+    return { text: `⟡ ⚠️ ${result.error}`, keyboard: null };
+  }
+
+  const { targetQuery, normalizedTarget, matches } = result;
+
+  let text =
+    `<b>🛡️ [RADAR DE CLONES] DETECCIÓN DE SUPLANTACIÓN</b>\n` +
+    `──────\n\n` +
+    `▸ <b>Objetivo Analizado:</b> <code>${escapeHtml(targetQuery)}</code>\n` +
+    `▸ <b>Desofuscación NFKD:</b> <code>${escapeHtml(normalizedTarget)}</code>\n` +
+    `▸ <b>Comunidad:</b> <i>${escapeHtml(communityName)}</i>\n\n`;
+
+  if (matches.length === 0) {
+    text +=
+      `──────\n` +
+      `✓ <i>No se detectaron perfiles duplicados ni suplantadores de este nombre en la base de datos de la red.</i>`;
+    return { text, keyboard: null };
+  }
+
+  text += `<b>⚠️ Coincidencias y Posibles Clones Detectados (${matches.length}):</b>\n\n`;
+
+  const kb = new InlineKeyboard();
+
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const uMention = mentionFromData(m.user_id, m.username, m.first_name);
+    const badge = m.similarity === 100 ? '🔴 [IDÉNTICO]' : `⚠️ [${m.similarity}%]`;
+
+    text +=
+      `▸ <b>${i + 1}.</b> ${uMention} ⊰ <code>${m.user_id}</code>\n` +
+      `  ↳ Similitud: <b>${badge}</b> (${escapeHtml(m.matchType)})\n`;
+
+    // Botones interactivos para los primeros 3
+    if (i < 3) {
+      kb.text(`👤 Ver #${i + 1}`, `perfil_card:${m.user_id}`);
+      kb.text(`🚫 Banear`, `mod_ban_direct:${m.user_id}`).row();
+    }
+  }
+
+  text +=
+    `\n──────\n` +
+    `💡 <i>Compara siempre los IDs numéricos antes de pactar acuerdos para evitar estafas.</i>`;
+
+  kb.text('✖ Cerrar Radar', 'info_close');
+
+  return { text, keyboard: kb };
+}
+
 module.exports = {
   checkImpersonation,
   handleImpersonator,
   calculateSimilarity,
   normalizeString,
+  scanCommunityForClones,
+  scanAllCollisions,
+  buildClonesReport,
 };

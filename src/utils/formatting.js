@@ -77,10 +77,27 @@ function normalizeUnicodeText(text) {
     .trim();
 }
 
+/**
+ * Formatea una mención de Staff de forma "silenciosa" (Anti-Notificación Push).
+ * Inserta un Zero-Width Space (\u200B) después de la arroba para que visualmente se vea como @usuario
+ * pero Telegram no lo reconozca como una entidad de mención ni envíe notificación sonora/push al admin.
+ * Tampoco utiliza hipervínculo tg://user?id= para evitar entidades text_mention.
+ */
+function staffMention(userId, username, firstName, roleTitle = null) {
+  const name = escapeHtml(firstName || 'Staff');
+  const roleBadge = roleTitle ? ` [<i>${escapeHtml(roleTitle)}</i>]` : '';
+  if (username) {
+    // Inserta zero-width space inmediatamente después del @
+    return `<b>${name}</b> (<i>@\u200B${escapeHtml(username)}</i>)${roleBadge}`;
+  }
+  return `<b>${name}</b>${userId ? ` (<code>${userId}</code>)` : ''}${roleBadge}`;
+}
+
 module.exports = {
   escapeHtml,
   userMention,
   mentionFromData,
+  staffMention,
   formatId,
   formatDate,
   truncate,

@@ -6,6 +6,7 @@ const { InlineKeyboard } = require('grammy');
 const { mentionFromData, escapeHtml } = require('../../utils/formatting');
 const userbot = require('../../userbot/client');
 const muteUI = require('./muteUI');
+const antiImpersonator = require('./antiImpersonator');
 
 // ── Cache en Memoria de Membresía Activa en Grupos Oficiales (TTL: 10 minutos) ──
 const groupMembershipCache = new Map(); // `${chatId}:${userId}` -> { isMember: boolean, groupTitle: string, expires: number }
@@ -287,6 +288,74 @@ async function executeNoUsernameRadar(ctx) {
 }
 
 /**
+ * Radar de Detección de Clones y Suplantación (NFKD Multi-Script)
+ */
+async function executeCloneRadar(ctx, targetQuery = null) {
+  const tenantId = ctx.tenant?.id || null;
+  const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+
+  await ctx.replyWithChatAction('typing');
+
+  // Si se especifica un objetivo concreto (ej. 『 ༒ 𝙎𝙝𝙞𝙨𝙪𝙠𝙪 𝘽𝙋 ༒ 』)
+  if (targetQuery && targetQuery.trim().length > 0) {
+    const cleanQ = targetQuery.trim();
+    const result = await antiImpersonator.scanCommunityForClones(cleanQ, tenantId);
+    const { text, keyboard } = antiImpersonator.buildClonesReport(result, communityName);
+
+    return await ctx.reply(text, {
+      parse_mode: 'HTML',
+      reply_markup: keyboard || undefined,
+      link_preview_options: { is_disabled: true },
+    });
+  }
+
+  // Si no se especifica objetivo, buscar colisiones de nombres en la comunidad
+  const collisions = await antiImpersonator.scanAllCollisions(tenantId);
+
+  if (collisions.length === 0) {
+    return await ctx.reply(
+      `<b>🛡️ [RADAR DE CLONES] AUDITORÍA GENERAL</b>\n` +
+      `──────\n\n` +
+      `▸ <b>Comunidad:</b> <i>${escapeHtml(communityName)}</i>\n\n` +
+      `✓ <i>No se detectaron colisiones masivas de nombres idénticos o clones activos en la base de datos.</i>\n\n` +
+      `💡 <i>Para buscar clones de un nombre o perfil específico, usa:</i>\n` +
+      `<code>/clones [nombre o @]</code>\n` +
+      `<i>Ejemplo: <code>/clones 『 ༒ 𝙎𝙝𝙞𝙨𝙪𝙠𝙪 𝘽𝙋 ༒ 』</code></i>`,
+      { parse_mode: 'HTML', link_preview_options: { is_disabled: true } }
+    );
+  }
+
+  let text =
+    `<b>🛡️ [RADAR DE CLONES] COLISIONES Y PERFILES DUPLICADOS</b>\n` +
+    `──────\n\n` +
+    `▸ <b>Comunidad:</b> <i>${escapeHtml(communityName)}</i>\n` +
+    `▸ <b>Grupos de Clones Detectados:</b> <code>${collisions.length}</code>\n\n` +
+    `──────\n\n`;
+
+  for (let i = 0; i < collisions.length; i++) {
+    const col = collisions[i];
+    text += `<b>◈ Caso #${i + 1}:</b> <code>${escapeHtml(col.normName)}</code> ⊱ <b>${col.count} perfiles</b> ⊰\n`;
+    for (const u of col.users.slice(0, 4)) {
+      const uMention = mentionFromData(u.user_id, u.username, u.first_name);
+      text += `  ▸ ${uMention} | <code>${u.user_id}</code>\n`;
+    }
+    text += `\n`;
+  }
+
+  text +=
+    `──────\n` +
+    `💡 <i>Compara siempre los IDs numéricos antes de comerciar para evitar suplantaciones.</i>`;
+
+  const kb = new InlineKeyboard().text('✖ Cerrar', 'info_close');
+
+  return await ctx.reply(text, {
+    parse_mode: 'HTML',
+    reply_markup: kb,
+    link_preview_options: { is_disabled: true },
+  });
+}
+
+/**
  * Ejecución del Radar de Búsqueda Individual o por Palabras Cortas.
  * Filtra estrictamente solo usuarios que estén dentro de los grupos oficiales.
  */
@@ -533,9 +602,23 @@ function register(bot) {
     await routeSearch(ctx, args);
   });
 
-  bot.command(['multis', 'clones'], async (ctx) => {
+  bot.command('multis', async (ctx) => {
     if (!await isAuthorizedForSearch(ctx)) return;
     await executeMultiRadar(ctx);
+  });
+
+  bot.command(['clones', 'radarclones'], async (ctx) => {
+    if (!await isAuthorizedForSearch(ctx)) return;
+    const text = (ctx.message?.text || '').trim();
+    const parts = text.split(/\s+/).slice(1);
+    const reply = ctx.message?.reply_to_message;
+
+    let targetQuery = parts.join(' ');
+    if (!targetQuery && reply?.from) {
+      targetQuery = reply.from.username ? `@${reply.from.username}` : (reply.from.first_name || '');
+    }
+
+    await executeCloneRadar(ctx, targetQuery);
   });
 
   bot.command(['sinusername', 'sinat'], async (ctx) => {
@@ -564,8 +647,20 @@ function register(bot) {
       }
     }
 
+    // Detección de radar de clones en lenguaje natural ("búscame clones de [nombre]", "clones de [nombre]", etc.)
+    const isCloneIntent = /^(?:b[uú]scame\s+(?:a\s+)?clones?\s+de|busca\s+(?:a\s+)?clones?\s+de|analiza\s+clones?\s+de|clones?\s+de)\s+(.+)$/i.exec(text);
+    if (isCloneIntent) {
+      if (!await isAuthorizedForSearch(ctx)) return next();
+      try {
+        await executeCloneRadar(ctx, isCloneIntent[1]);
+        return;
+      } catch (err) {
+        console.error('⟡ Error en natural clone radar:', err.message);
+      }
+    }
+
     // Detección de intenciones de búsqueda en lenguaje natural
-    const isMultiQuery = /^(?:b[uú]scame\s+(?:a\s+)?(?:todas?\s+)?(?:las?\s+)?cuentas?\s+multis?|b[uú]scame\s+(?:a\s+)?(?:las?\s+)?multis?|busca\s+(?:a\s+)?(?:todas?\s+)?(?:las?\s+)?cuentas?\s+multis?|busca\s+(?:a\s+)?(?:las?\s+)?multis?|cuentas?\s+multis?|multicuentas|posibles\s+clones|clones|radar\s+multis?)/i.test(text);
+    const isMultiQuery = /^(?:b[uú]scame\s+(?:a\s+)?(?:todas?\s+)?(?:las?\s+)?cuentas?\s+multis?|b[uú]scame\s+(?:a\s+)?(?:las?\s+)?multis?|busca\s+(?:a\s+)?(?:todas?\s+)?(?:las?\s+)?cuentas?\s+multis?|busca\s+(?:a\s+)?(?:las?\s+)?multis?|cuentas?\s+multis?|multicuentas|posibles\s+clones|radar\s+multis?)/i.test(text);
 
     const isNoAtQuery = /^(?:b[uú]scame\s+a\s+tod[oa]s?\s+los?\s+que\s+no\s+tienen\s+@|b[uú]scame\s+a\s+los?\s+que\s+no\s+tienen\s+@|b[uú]scame\s+a\s+los?\s+sin\s+@|busca\s+a\s+tod[oa]s?\s+los?\s+que\s+no\s+tienen\s+@|busca\s+a\s+los?\s+que\s+no\s+tienen\s+@|busca\s+a\s+los?\s+sin\s+@|usuarios?\s+sin\s+@|usuarios?\s+sin\s+alias|sin\s+@|sin\s+arroba|sin\s+username|radar\s+sin\s+@)/i.test(text);
 
@@ -731,12 +826,27 @@ function register(bot) {
 
   // ── Registrar Callbacks de Silenciamiento (MuteUI) ──
   muteUI.registerCallbacks(bot);
+
+  // ── Callback: Banear Clon Detectado Directamente ──
+  bot.callbackQuery(/^mod_ban_direct:(\d+)$/, async (ctx) => {
+    if (!await isAuthorizedForSearch(ctx)) {
+      return ctx.answerCallbackQuery({ text: '⟡ Acción exclusiva para Staff.', show_alert: true });
+    }
+    const targetId = Number(ctx.match[1]);
+    try {
+      await ctx.api.banChatMember(ctx.chat.id, targetId);
+      await ctx.answerCallbackQuery({ text: '✓ Clon expulsado y baneado del grupo.' });
+    } catch (err) {
+      await ctx.answerCallbackQuery({ text: `✗ Error al banear: ${err.message}`, show_alert: true });
+    }
+  });
 }
 
 module.exports = {
   register,
   executeSearch,
   executeMultiRadar,
+  executeCloneRadar,
   executeNoUsernameRadar,
   markMemberInGroup,
   buildSearchCard,

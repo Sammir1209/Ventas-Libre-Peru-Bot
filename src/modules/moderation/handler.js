@@ -3,12 +3,15 @@ const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { requireStaff } = require('../../middleware/auth');
 const { isEffectiveOwner } = require('../../utils/tenantContext');
-const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
+const { mentionFromData, staffMention, formatId, escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 const logger = require('./logger');
 const sentinel = require('./sentinel');
 const { resolveTargetAndArgs, parseDuration } = sentinel;
 const muteUI = require('./muteUI');
+const dynamicBlacklist = require('./dynamicBlacklist');
+const scamAutoResponder = require('./scamAutoResponder');
+const profileImageScanner = require('./profileImageScanner');
 
 // ══════
 // ⟡ Módulo: Comandos de Moderación Universal y Seguridad
@@ -17,6 +20,15 @@ const muteUI = require('./muteUI');
 function register(bot) {
   // Registrar subsistema Centinela
   sentinel.register(bot);
+
+  // Registrar Lista Negra Dinámica & Reactive Defense
+  dynamicBlacklist.register(bot);
+
+  // Registrar Auto-Respuestas Preventivas de Estafadores
+  scamAutoResponder.register(bot);
+
+  // Registrar Scanner Visual de Perfiles por Imagen
+  profileImageScanner.register(bot);
 
   // ── 🛡️ CAPA 2 BLACKLIST DINÁMICO: Interceptor en Tiempo Real de Mensajes ──
   bot.on('message', async (ctx, next) => {
@@ -84,7 +96,7 @@ function register(bot) {
       await ctx.api.banChatMember(ctx.chat.id, target.userId);
 
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
-      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
+      const adminMention = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
       await ctx.reply(
         `⟡ <b>USUARIO BANEADO</b> ⊱ <code>SANCIÓN PERMANENTE</code> ⊰\n` +
@@ -133,7 +145,7 @@ function register(bot) {
         `══════\n\n` +
         `▸ <b>Usuario:</b> ${targetMention}\n` +
         `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Moderador:</b> @${ctx.from.username || ctx.from.first_name}\n\n` +
+        `▸ <b>Moderador:</b> ${staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name)}\n\n` +
         `──────\n` +
         `✓ <i>El usuario puede volver a unirse a la comunidad.</i>`,
         { parse_mode: 'HTML' }
@@ -236,7 +248,7 @@ function register(bot) {
       await ctx.api.unbanChatMember(ctx.chat.id, target.userId, { only_if_banned: true });
 
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
-      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
+      const adminMention = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
       await ctx.reply(
         `⟡ <b>USUARIO EXPULSADO</b> ⊱ <code>KICK</code> ⊰\n` +
@@ -281,7 +293,7 @@ function register(bot) {
       const warnCount = warns.length;
 
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
-      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
+      const adminMention = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
       let text =
         `⟡ <b>ADVERTENCIA APLICADA</b> ⊱ <code>WARN #${warnCount}</code> ⊰\n` +
@@ -500,7 +512,7 @@ function register(bot) {
       await logger.sendLog(ctx.api, 'GBAN', ctx.from, targetId, ctx.chat?.title || 'Global', reason);
 
       const targetMention = mentionFromData(targetId, username, firstName);
-      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
+      const adminMention = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
 
       await ctx.editMessageText(
         `🚨 <b>BANEO GLOBAL APLICADO (GBAN)</b> 🚨\n` +

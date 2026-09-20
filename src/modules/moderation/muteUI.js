@@ -3,7 +3,7 @@ const config = require('../../config/env');
 const { SYM, ROLES } = require('../../config/constants');
 const { getEffectiveOwners } = require('../../middleware/auth');
 const { InlineKeyboard } = require('grammy');
-const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
+const { mentionFromData, staffMention, formatId, escapeHtml } = require('../../utils/formatting');
 const { searchCandidatesInCommunity, resolveTarget } = require('../../utils/helpers');
 const sentinel = require('./sentinel');
 const logger = require('./logger');
@@ -153,7 +153,7 @@ async function executeMute(ctx, targetUser, durationStr = '1d', reason = 'Modera
   const targetUsername = targetUser.username || null;
   const targetFirstName = targetUser.firstName || targetUser.first_name || 'Usuario';
   const targetMention = mentionFromData(userId, targetUsername, targetFirstName);
-  const adminName = ctx.from.username ? `@${escapeHtml(ctx.from.username)}` : escapeHtml(ctx.from.first_name || 'Admin');
+  const adminName = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
   const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
   const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
   const dateFormatted = getSuperscriptDate();
@@ -226,7 +226,7 @@ async function executeUnmute(ctx, targetUser) {
   const targetUsername = targetUser.username || null;
   const targetFirstName = targetUser.firstName || targetUser.first_name || 'Usuario';
   const targetMention = mentionFromData(userId, targetUsername, targetFirstName);
-  const adminName = ctx.from.username ? `@${escapeHtml(ctx.from.username)}` : escapeHtml(ctx.from.first_name || 'Admin');
+  const adminName = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
   const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
   const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
   const dateFormatted = getSuperscriptDate();
