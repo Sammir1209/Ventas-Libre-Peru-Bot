@@ -3,6 +3,7 @@ const { StringSession } = require('telegram/sessions');
 const config = require('../config/env');
 
 let client = null;
+let meInfo = null;
 
 // ══════
 // ⟡ Inicialización del Userbot MTProto
@@ -23,7 +24,8 @@ async function initialize() {
 
     await client.connect();
     const me = await client.getMe();
-    const myName = me ? (me.username ? `@${me.username}` : me.firstName || 'Userbot') : 'Conectado';
+    meInfo = me;
+    const myName = me ? (me.username ? `@${me.username}` : `${me.firstName || 'Userbot'}${me.phone ? ` (+${me.phone})` : ''}`) : 'Conectado';
     console.log(`⟡ Userbot: Conectado correctamente vía MTProto (${myName}).`);
 
     // Cachear entidades (grupos/canales) al inicio para que getEntity(chatId) no falle con CHANNEL_INVALID
@@ -322,5 +324,6 @@ module.exports = {
   createDealGroup,
   isConnected,
   getClient: () => client,
+  getMeInfo: () => meInfo,
   close,
 };

@@ -201,9 +201,9 @@ async function main() {
           allowed_updates: ['message', 'callback_query', 'chat_member', 'my_chat_member', 'channel_post', 'chat_join_request'],
           onStart: async (botInfo) => {
             console.log('\n⊱ ────── ⊰');
-            console.log(`⟡ Bot @${botInfo.username} (ID: ${botInfo.id}) iniciado con éxito.`);
-            console.log(`⟡ Owners: ${config.OWNER_IDS.join(', ')}`);
-            console.log(`⟡ Userbot MTProto: ${userbot.isConnected() ? 'Activo (@cf_4chan)' : 'Inactivo'}`);
+            const ubInfo = userbot.getMeInfo();
+            const ubName = ubInfo ? (ubInfo.username ? `@${ubInfo.username}` : `${ubInfo.firstName || 'Userbot'}${ubInfo.phone ? ` (+${ubInfo.phone})` : ''}`) : 'Sesión Activa';
+            console.log(`⟡ Userbot MTProto: ${userbot.isConnected() ? `Activo (${ubName})` : 'Inactivo'}`);
             console.log('⊱ ────── ⊰');
 
             // Ejecutar Diagnóstico de Permisos en Grupos y Canales
