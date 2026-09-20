@@ -8,6 +8,7 @@ const { InlineKeyboard } = require('grammy');
 const logger = require('./logger');
 const sentinel = require('./sentinel');
 const { resolveTargetAndArgs, parseDuration } = sentinel;
+const muteUI = require('./muteUI');
 
 // ══════
 // ⟡ Módulo: Comandos de Moderación Universal y Seguridad
@@ -146,8 +147,8 @@ function register(bot) {
     }
   });
 
-  // ── /mute [@user/id/reply] [tiempo / 1s, 1m, 1h, 1d, 1w, 1y] [motivo] ──
-  bot.command('mute', requireStaff(), async (ctx) => {
+  // ── /mute, /silencia, /silenciame, /muteale [@user/id/reply] [tiempo] [motivo] ──
+  bot.command(['mute', 'silencia', 'silenciame', 'muteale'], requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
         return ctx.reply(`${SYM.CROSS} Este comando solo funciona en grupos o comunidades.`, { parse_mode: 'HTML' });
@@ -159,15 +160,12 @@ function register(bot) {
         return ctx.reply(
           `⟡ <b>SILENCIAR USUARIO</b> ⊱ <code>MODO MUTE</code> ⊰\n` +
           `══════\n\n` +
-          `▸ <b>Uso:</b> <code>/mute [@usuario / ID / Responder] [Tiempo] [Motivo]</code>\n\n` +
+          `▸ <b>Uso Directo:</b> <code>/silencia [@usuario / ID / Responder] [Tiempo] [Motivo]</code>\n` +
+          `▸ <b>Modo Interactivo:</b> <code>/silencia @usuario</code> (despliega botones interactivos)\n\n` +
           `⏱️ <b>Formatos de Tiempo Soportados:</b>\n` +
-          `• <code>1s</code>, <code>30s</code> (Segundos)\n` +
-          `• <code>1m</code>, <code>10m</code> (Minutos)\n` +
-          `• <code>1h</code>, <code>12h</code> (Horas)\n` +
-          `• <code>1d</code>, <code>7d</code> (Días)\n` +
-          `• <code>1w</code> (Semanas) | <code>1y</code> (Años)\n\n` +
+          `• <code>15m</code>, <code>1h</code>, <code>12h</code>, <code>1d</code>, <code>7d</code>, <code>1w</code>\n\n` +
           `──────\n` +
-          `💡 <i>Ejemplo: <code>/mute @usuario 1h Spam en el chat</code></i>`,
+          `💡 <i>Ejemplo: <code>/silencia @usuario 1h Spam en el chat</code></i>`,
           { parse_mode: 'HTML' }
         );
       }
@@ -176,59 +174,23 @@ function register(bot) {
         return ctx.reply(`${SYM.CROSS} No se puede silenciar a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
       }
 
-      const durationInfo = duration || parseDuration('1d');
+      // Si se especificó duración, aplicar de inmediato y mostrar tarjeta con botones
+      if (duration) {
+        const { text, keyboard } = await muteUI.executeMute(ctx, target, duration.humanReadable, reason || 'Moderación');
+        return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+      }
 
-      await ctx.api.restrictChatMember(
-        ctx.chat.id,
-        target.userId,
-        {
-          can_send_messages: false,
-          can_send_audios: false,
-          can_send_documents: false,
-          can_send_photos: false,
-          can_send_videos: false,
-          can_send_video_notes: false,
-          can_send_voice_notes: false,
-          can_send_polls: false,
-          can_send_other_messages: false,
-          can_add_web_page_previews: false,
-          can_change_info: false,
-          can_invite_users: false,
-          can_pin_messages: false,
-          can_manage_topics: false,
-        },
-        {
-          until_date: durationInfo.untilDate,
-          use_independent_chat_permissions: true,
-        }
-      );
-
-      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
-      const adminMention = mentionFromData(ctx.from.id, ctx.from.username, ctx.from.first_name);
-
-      await ctx.reply(
-        `⟡ <b>USUARIO SILENCIADO</b> ⊱ <code>MODO MUTE</code> ⊰\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Duración:</b> <code>${durationInfo.humanReadable}</code>\n` +
-        `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
-        `▸ <b>Moderador:</b> ${adminMention}\n\n` +
-        `──────\n` +
-        `🤐 <i>Permisos de envío de mensajes suspendidos temporalmente.</i>`,
-        { parse_mode: 'HTML' }
-      );
-
-      await db.addModLog('MUTE', ctx.from.id, target.userId, ctx.chat.id, `[${durationInfo.humanReadable}] ${reason}`);
-      await logger.sendLog(ctx.api, 'MUTE', ctx.from, target.userId, ctx.chat.title, `[${durationInfo.humanReadable}] ${reason}`);
+      // Si NO se especificó duración, desplegar panel con botones interactivos
+      const { text, keyboard } = await muteUI.buildMutePanel(ctx, target);
+      return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       console.error('⟡ Mod: Error en /mute:', err.message);
       await ctx.reply(`${SYM.CROSS} Error al silenciar: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 
-  // ── /unmute [@user / ID / Responder] ──
-  bot.command('unmute', requireStaff(), async (ctx) => {
+  // ── /unmute, /desilencia, /desilenciar [@user / ID / Responder] ──
+  bot.command(['unmute', 'desilencia', 'desilenciar'], requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
         return ctx.reply(`${SYM.CROSS} Este comando solo funciona en grupos o comunidades.`, { parse_mode: 'HTML' });
@@ -245,45 +207,11 @@ function register(bot) {
         );
       }
 
-      await ctx.api.restrictChatMember(
-        ctx.chat.id,
-        target.userId,
-        {
-          can_send_messages: true,
-          can_send_audios: true,
-          can_send_documents: true,
-          can_send_photos: true,
-          can_send_videos: true,
-          can_send_video_notes: true,
-          can_send_voice_notes: true,
-          can_send_polls: true,
-          can_send_other_messages: true,
-          can_add_web_page_previews: true,
-          can_invite_users: true,
-        },
-        {
-          use_independent_chat_permissions: true,
-        }
-      );
-
-      const targetMention = mentionFromData(target.userId, target.username, target.firstName);
-
-      await ctx.reply(
-        `⟡ <b>SILENCIO REMOVIDO</b> ⊱ <code>PERMISOS ACTIVADOS</code> ⊰\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Moderador:</b> @${ctx.from.username || ctx.from.first_name}\n\n` +
-        `──────\n` +
-        `✓ <i>El usuario puede participar y chatear nuevamente.</i>`,
-        { parse_mode: 'HTML' }
-      );
-
-      await db.addModLog('UNMUTE', ctx.from.id, target.userId, ctx.chat.id, null);
-      await logger.sendLog(ctx.api, 'UNMUTE', ctx.from, target.userId, ctx.chat.title, null);
+      const { text, keyboard } = await muteUI.executeUnmute(ctx, target);
+      return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
     } catch (err) {
       console.error('⟡ Mod: Error en /unmute:', err.message);
-      await ctx.reply(`${SYM.CROSS} Error al remover silencio: ${err.message}`, { parse_mode: 'HTML' });
+      await ctx.reply(`${SYM.CROSS} Error al desilenciar: ${err.message}`, { parse_mode: 'HTML' });
     }
   });
 

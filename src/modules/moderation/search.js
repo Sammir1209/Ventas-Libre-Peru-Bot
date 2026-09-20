@@ -5,6 +5,7 @@ const { getEffectiveOwners } = require('../../middleware/auth');
 const { InlineKeyboard } = require('grammy');
 const { mentionFromData, escapeHtml } = require('../../utils/formatting');
 const userbot = require('../../userbot/client');
+const muteUI = require('./muteUI');
 
 // ── Cache en Memoria de Membresía Activa en Grupos Oficiales (TTL: 10 minutos) ──
 const groupMembershipCache = new Map(); // `${chatId}:${userId}` -> { isMember: boolean, groupTitle: string, expires: number }
@@ -421,39 +422,84 @@ async function executeSearch(ctx, rawQuery) {
 
   const firstUser = finalResults[0];
   const requesterName = ctx.from?.first_name || 'amigo';
-  const targetName = escapeHtml(firstUser.first_name || 'Sin nombre registrado');
-  const targetUsername = firstUser.username 
-    ? `@${escapeHtml(firstUser.username)}` 
-    : '<i>Sin @username</i>';
+  const others = finalResults.slice(1, 6);
 
-  let replyText =
-    `Lo encontré para ti <b>${escapeHtml(requesterName)}</b>, toma:\n\n` +
-    `<b>☰ [ MODO FURTIVO ] ⊱ ${escapeHtml(communityName)} ⊰</b>\n` +
+  const { text: searchCardText, keyboard: searchCardKb } = buildSearchCard(
+    ctx,
+    firstUser,
+    requesterName,
+    communityName,
+    finalResults.length,
+    others,
+    cleanNoAt
+  );
+
+  await ctx.reply(searchCardText, {
+    parse_mode: 'HTML',
+    reply_markup: searchCardKb,
+    link_preview_options: { is_disabled: true },
+  });
+}
+
+/**
+ * Construye la plantilla estética con botones para el Radar de Búsqueda (buscame).
+ */
+function buildSearchCard(ctx, user, requesterName, communityName, totalCount = 1, otherMatches = [], query = '') {
+  const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
+  const targetName = escapeHtml(user.first_name || 'Sin nombre registrado');
+  const targetUsername = user.username ? `@${escapeHtml(user.username)}` : '<i>Sin @username</i>';
+  const dateFormatted = muteUI.getSuperscriptDate();
+  const profileUrl = user.username ? `https://t.me/${user.username}` : `tg://user?id=${user.user_id}`;
+
+  let text =
+    `<b>⟡ [${escapeHtml(botLabel)} BOT] RADAR DE BÚSQUEDA</b>\n` +
     `──────\n\n` +
+    `Lo encontré para ti, <b>${escapeHtml(requesterName)}</b>:\n\n` +
     `▸ <b>Nombre:</b> ${targetName}\n` +
-    `▸ <b>ID:</b> <code>${firstUser.user_id}</code>\n` +
+    `▸ <b>ID:</b> <code>${user.user_id}</code>\n` +
     `▸ <b>User:</b> ${targetUsername}\n` +
-    `▸ <b>Ubicación:</b> <code>${escapeHtml(firstUser.detectedGroupName || 'Grupo Oficial')}</code>\n` +
-    `▸ <b>Estado:</b> <i>${firstUser.communityShortStatus || '✓ En Grupo'}</i>\n` +
-    `▸ <b>Link:</b> <a href="tg://user?id=${firstUser.user_id}">Presiona aquí</a>`;
+    `▸ <b>Ubicación:</b> <code>${escapeHtml(user.detectedGroupName || 'Grupo Oficial')}</code>\n` +
+    `▸ <b>Estado:</b> <i>${user.communityShortStatus || '✓ En Grupo Oficial'}</i>\n` +
+    `▸ <b>Link de perfil:</b> <a href="tg://user?id=${user.user_id}">Presiona aquí</a>\n\n`;
 
-  if (finalResults.length > 1) {
-    replyText += `\n\n${SYM.THIN_LINE}\n▸ <b>Otras coincidencias en los grupos (${finalResults.length - 1}):</b>\n`;
-    const others = finalResults.slice(1, 6);
-    for (const other of others) {
+  if (otherMatches.length > 0) {
+    text += `▸ <b>Otras coincidencias en los grupos (${totalCount - 1}):</b>\n`;
+    for (const other of otherMatches.slice(0, 4)) {
       const oName = escapeHtml(other.first_name || 'Sin nombre');
       const oUser = other.username ? `@${escapeHtml(other.username)}` : '<i>Sin @</i>';
-      replyText += `• ${oName} | ${oUser} | <code>${other.user_id}</code> ⊰\n`;
+      text += `• ${oName} | ${oUser} | <code>${other.user_id}</code>\n`;
     }
-    if (finalResults.length > 6) {
-      replyText += `▪ <i>... y ${finalResults.length - 6} coincidencias más dentro de los grupos.</i>\n`;
+    if (totalCount - 1 > 4) {
+      text += `▪ <i>... y ${totalCount - 1 - 4} coincidencias más en grupos.</i>\n`;
+    }
+    text += '\n';
+  }
+
+  text +=
+    `──────\n` +
+    `${dateFormatted}`;
+
+  const kb = new InlineKeyboard()
+    .url('Perfil', profileUrl)
+    .text('Verificar', `info_check_burn:${user.user_id}`)
+    .text('🔇 Silenciar', `mod_mute_prompt:${user.user_id}`);
+
+  // Botones de selección para las otras coincidencias
+  if (otherMatches.length > 0) {
+    kb.row();
+    for (const other of otherMatches.slice(0, 4)) {
+      const oLabel = `👤 ${(other.first_name || 'Usuario').slice(0, 15)}`;
+      kb.text(oLabel, `search_select:${other.user_id}`);
     }
   }
 
-  await ctx.reply(replyText, {
-    parse_mode: 'HTML',
-    link_preview_options: { is_disabled: true },
-  });
+  if (query) {
+    const safeQ = encodeURIComponent(query).slice(0, 40);
+    kb.row().text('🌐 Buscar en Telegram Global', `info_global:${safeQ}`);
+  }
+  kb.row().text('✖ Cerrar', 'info_close');
+
+  return { text, keyboard: kb };
 }
 
 /**
@@ -506,6 +552,17 @@ function register(bot) {
 
     const text = (ctx.message?.text || '').trim();
     if (!text || text.startsWith('/')) return next();
+
+    // Detección de silenciamiento en lenguaje natural ("silencia a...", "silenciame a...", "muteale a...", etc.)
+    const isMuteAttempt = /^(?:sil[eé]nciame|silencia|sil[eé]ncial[oa]|muteale|mutea|mut[eé]al[oa]|mutear|silenciar)\b/i.test(text);
+    if (isMuteAttempt) {
+      try {
+        const handled = await muteUI.handleNaturalMute(ctx, text);
+        if (handled) return;
+      } catch (err) {
+        console.error('⟡ Error en natural mute:', err.message);
+      }
+    }
 
     // Detección de intenciones de búsqueda en lenguaje natural
     const isMultiQuery = /^(?:b[uú]scame\s+(?:a\s+)?(?:todas?\s+)?(?:las?\s+)?cuentas?\s+multis?|b[uú]scame\s+(?:a\s+)?(?:las?\s+)?multis?|busca\s+(?:a\s+)?(?:todas?\s+)?(?:las?\s+)?cuentas?\s+multis?|busca\s+(?:a\s+)?(?:las?\s+)?multis?|cuentas?\s+multis?|multicuentas|posibles\s+clones|clones|radar\s+multis?)/i.test(text);
@@ -622,6 +679,58 @@ function register(bot) {
       console.error('⟡ Error en search_gban_confirm callback:', err.message);
     }
   });
+
+  // ── Callback: Cambiar de usuario en Radar de Búsqueda ──
+  bot.callbackQuery(/^search_select:(\d+)$/, async (ctx) => {
+    try {
+      const targetId = Number(ctx.match[1]);
+      await ctx.answerCallbackQuery();
+
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const tenantId = ctx.tenant?.id || null;
+      const groups = await db.getAllGroups(tenantId).catch(() => []);
+      const { inGroup, groupTitle } = await checkUserInOfficialGroups(ctx.api, groups, targetId);
+
+      let targetUser = await db.getUser(targetId);
+      if (!targetUser) {
+        try {
+          const chat = await ctx.api.getChat(targetId);
+          targetUser = {
+            user_id: chat.id,
+            username: chat.username || null,
+            first_name: chat.first_name || 'Usuario',
+          };
+        } catch {}
+      }
+
+      if (!targetUser) {
+        return ctx.reply('⟡ Usuario no encontrado.');
+      }
+
+      targetUser.detectedGroupName = groupTitle || 'Grupo Oficial';
+      targetUser.communityShortStatus = inGroup ? '✓ En Grupo Oficial' : 'Fuera del grupo';
+
+      const requesterName = ctx.from?.first_name || 'amigo';
+      const { text, keyboard } = buildSearchCard(ctx, targetUser, requesterName, communityName, 1, []);
+
+      try {
+        await ctx.editMessageText(text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+          link_preview_options: { is_disabled: true },
+        });
+      } catch (err) {
+        if (!err.message?.includes('message is not modified')) {
+          console.error('⟡ Error en search_select edit:', err.message);
+        }
+      }
+    } catch (err) {
+      console.error('⟡ Error en callback search_select:', err.message);
+    }
+  });
+
+  // ── Registrar Callbacks de Silenciamiento (MuteUI) ──
+  muteUI.registerCallbacks(bot);
 }
 
 module.exports = {
@@ -630,4 +739,6 @@ module.exports = {
   executeMultiRadar,
   executeNoUsernameRadar,
   markMemberInGroup,
+  buildSearchCard,
 };
+
