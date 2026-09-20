@@ -69,9 +69,12 @@ const config = {
   SUPABASE_URL: process.env.SUPABASE_URL || '',
   SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY || '',
 
-  // Inteligencia Artificial (Gemini & Groq)
+  // Inteligencia Artificial (Gemini, Groq, OpenRouter)
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GEMINI_API_KEYS: (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean),
   GROQ_API_KEY: process.env.GROQ_API_KEY || '',
+  GROQ_API_KEYS: (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean),
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || '',
 };
 
 // ── Validar que el userbot tenga credenciales si se necesitan ──

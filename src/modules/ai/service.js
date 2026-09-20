@@ -87,27 +87,38 @@ Quien te habla es un OWNER / Propietario de la comunidad. Trátalo con deferenci
 // ── Modelos Disponibles por Proveedor ──
 
 const GEMINI_MODELS = [
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
   'gemini-flash-latest',
 ];
 
 const GROQ_MODELS = [
-  'openai/gpt-oss-120b',
-  'qwen/qwen3.8-27b',
-  'qwen/qwen3.6-27b',
-  'groq/compound-mini',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant',
+  'mixtral-8x7b-32768',
+  'gemma2-9b-it',
 ];
 
+const OPENROUTER_MODELS = [
+  'google/gemini-2.0-flash-lite-preview-02-05:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'qwen/qwen-2.5-vl-72b-instruct:free',
+  'deepseek/deepseek-r1:free',
+];
+
+let geminiKeyIndex = 0;
+let groqKeyIndex = 0;
+
 /**
- * Consulta a la API de Google Gemini vía REST.
+ * Consulta a la API de Google Gemini vía REST con rotación de claves.
  */
-async function callGemini(userMessage, conversationHistory, apiKey, systemPrompt) {
-  if (!apiKey) return null;
+async function callGemini(userMessage, conversationHistory, apiKeys, systemPrompt) {
+  const keys = Array.isArray(apiKeys) ? apiKeys : [apiKeys];
+  if (keys.length === 0) return null;
 
   const contents = [];
 
-  // Agregar historial previo si existe
   for (const item of conversationHistory) {
     const role = (item.role === 'model' || item.role === 'assistant') ? 'model' : 'user';
     const text = item.parts?.[0]?.text || item.content || '';
@@ -116,42 +127,52 @@ async function callGemini(userMessage, conversationHistory, apiKey, systemPrompt
     }
   }
 
-  // Agregar el mensaje actual del usuario
   contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
-  for (const modelName of GEMINI_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
-      const payload = {
-        systemInstruction: {
-          parts: [{ text: systemPrompt }],
-        },
-        contents,
-        generationConfig: {
-          temperature: 0.72,
-          maxOutputTokens: 1500,
-        },
-      };
+  for (let k = 0; k < keys.length; k++) {
+    const currentKey = keys[(geminiKeyIndex + k) % keys.length];
 
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    for (const modelName of GEMINI_MODELS) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${currentKey}`;
+        const payload = {
+          systemInstruction: {
+            parts: [{ text: systemPrompt }],
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.72,
+            maxOutputTokens: 1500,
+          },
+        };
 
-      if (!res.ok) {
-        console.warn(`⟡ Gemini (${modelName}) Status ${res.status}. Probando alternativo...`);
-        continue;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.status === 429) {
+          // Límite de cuota alcanzado en esta clave, pasar a la siguiente clave
+          break;
+        }
+
+        if (!res.ok) {
+          continue;
+        }
+
+        const data = await res.json();
+        let text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+          if (text) {
+            geminiKeyIndex = (geminiKeyIndex + 1) % keys.length;
+            return text;
+          }
+        }
+      } catch (err) {
+        // Continuar con el siguiente intento
       }
-
-      const data = await res.json();
-      let text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) {
-        text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-        if (text) return text;
-      }
-    } catch (err) {
-      console.warn(`⟡ Error en Gemini (${modelName}):`, err.message);
     }
   }
 
@@ -159,9 +180,73 @@ async function callGemini(userMessage, conversationHistory, apiKey, systemPrompt
 }
 
 /**
- * Consulta a la API de Groq LPU vía endpoint compatible OpenAI.
+ * Consulta a la API de Groq LPU vía endpoint compatible OpenAI con rotación.
  */
-async function callGroq(userMessage, conversationHistory, apiKey, systemPrompt) {
+async function callGroq(userMessage, conversationHistory, apiKeys, systemPrompt) {
+  const keys = Array.isArray(apiKeys) ? apiKeys : [apiKeys];
+  if (keys.length === 0) return null;
+
+  const messages = [{ role: 'system', content: systemPrompt }];
+
+  for (const item of conversationHistory) {
+    const role = (item.role === 'model' || item.role === 'assistant') ? 'assistant' : 'user';
+    const text = item.parts?.[0]?.text || item.content || '';
+    if (text) {
+      messages.push({ role, content: text });
+    }
+  }
+
+  messages.push({ role: 'user', content: userMessage });
+
+  for (let k = 0; k < keys.length; k++) {
+    const currentKey = keys[(groqKeyIndex + k) % keys.length];
+
+    for (const modelName of GROQ_MODELS) {
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${currentKey}`,
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages,
+            temperature: 0.72,
+            max_tokens: 1500,
+          }),
+        });
+
+        if (res.status === 429) {
+          break;
+        }
+
+        if (!res.ok) {
+          continue;
+        }
+
+        const data = await res.json();
+        let text = data?.choices?.[0]?.message?.content;
+        if (text) {
+          text = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+          if (text) {
+            groqKeyIndex = (groqKeyIndex + 1) % keys.length;
+            return text;
+          }
+        }
+      } catch (err) {
+        // Continuar con el siguiente intento
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Consulta a OpenRouter (Modelos 100% gratuitos)
+ */
+async function callOpenRouter(userMessage, conversationHistory, apiKey, systemPrompt) {
   if (!apiKey) return null;
 
   const messages = [{ role: 'system', content: systemPrompt }];
@@ -176,13 +261,15 @@ async function callGroq(userMessage, conversationHistory, apiKey, systemPrompt) 
 
   messages.push({ role: 'user', content: userMessage });
 
-  for (const modelName of GROQ_MODELS) {
+  for (const modelName of OPENROUTER_MODELS) {
     try {
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://ventas-libre-peru.com',
+          'X-Title': 'Ventas Libres Peru Bot',
         },
         body: JSON.stringify({
           model: modelName,
@@ -192,10 +279,7 @@ async function callGroq(userMessage, conversationHistory, apiKey, systemPrompt) 
         }),
       });
 
-      if (!res.ok) {
-        console.warn(`⟡ Groq (${modelName}) Status ${res.status}. Probando alternativo...`);
-        continue;
-      }
+      if (!res.ok) continue;
 
       const data = await res.json();
       let text = data?.choices?.[0]?.message?.content;
@@ -204,7 +288,7 @@ async function callGroq(userMessage, conversationHistory, apiKey, systemPrompt) 
         if (text) return text;
       }
     } catch (err) {
-      console.warn(`⟡ Error en Groq (${modelName}):`, err.message);
+      // Continuar con el siguiente modelo
     }
   }
 
@@ -212,34 +296,42 @@ async function callGroq(userMessage, conversationHistory, apiKey, systemPrompt) 
 }
 
 /**
- * Generador Principal Multi-Proveedor con Failover Resiliente.
- * Cadena de prioridad:
- * 1. Google Gemini 3.6 / 3.5 Flash (Ultrarrápido y coherente en español)
- * 2. Groq LPU (GPT-OSS 120B / Qwen 3.8B)
+ * Generador Principal Multi-Proveedor con Failover Resiliente y Balanceo de Carga.
+ * Cadena de prioridad para grupos masivos:
+ * 1. Groq LPU (Ultrarrápido en ~300ms)
+ * 2. Google Gemini Flash (Inteligente y estructurado, con pool multi-claves)
+ * 3. OpenRouter Free Tier (Modelos gratuitos de respaldo)
  */
 async function generateAiResponse(userMessage, conversationHistory = [], userInfo = null) {
-  const geminiKey = config.GEMINI_API_KEY;
-  const groqKey = config.GROQ_API_KEY;
+  const geminiKeys = config.GEMINI_API_KEYS.length > 0 ? config.GEMINI_API_KEYS : (config.GEMINI_API_KEY ? [config.GEMINI_API_KEY] : []);
+  const groqKeys = config.GROQ_API_KEYS.length > 0 ? config.GROQ_API_KEYS : (config.GROQ_API_KEY ? [config.GROQ_API_KEY] : []);
+  const openrouterKey = config.OPENROUTER_API_KEY;
 
-  if (!geminiKey && !groqKey) {
-    throw new Error('Ni GEMINI_API_KEY ni GROQ_API_KEY están configuradas en las variables de entorno.');
+  if (geminiKeys.length === 0 && groqKeys.length === 0 && !openrouterKey) {
+    throw new Error('No hay claves de Inteligencia Artificial (Gemini, Groq u OpenRouter) configuradas en el entorno.');
   }
 
   const systemPrompt = buildSystemPrompt(userInfo);
 
-  // 1. Intentar con Gemini
-  if (geminiKey) {
-    const geminiResult = await callGemini(userMessage, conversationHistory, geminiKey, systemPrompt);
-    if (geminiResult) return geminiResult;
-  }
-
-  // 2. Fallback a Groq
-  if (groqKey) {
-    const groqResult = await callGroq(userMessage, conversationHistory, groqKey, systemPrompt);
+  // 1. Prioridad: Groq LPU (Respuesta instantánea ~300ms)
+  if (groqKeys.length > 0) {
+    const groqResult = await callGroq(userMessage, conversationHistory, groqKeys, systemPrompt);
     if (groqResult) return groqResult;
   }
 
-  throw new Error('Los servicios de IA (Gemini y Groq) están saturados momentáneamente. Por favor, reintenta en unos instantes.');
+  // 2. Prioridad: Google Gemini Flash (Pool multi-claves con rotación)
+  if (geminiKeys.length > 0) {
+    const geminiResult = await callGemini(userMessage, conversationHistory, geminiKeys, systemPrompt);
+    if (geminiResult) return geminiResult;
+  }
+
+  // 3. Respaldo: OpenRouter (Modelos gratuitos)
+  if (openrouterKey) {
+    const openrouterResult = await callOpenRouter(userMessage, conversationHistory, openrouterKey, systemPrompt);
+    if (openrouterResult) return openrouterResult;
+  }
+
+  throw new Error('Todos los motores de IA (Groq, Gemini y OpenRouter) están saturados momentáneamente. Por favor, reintenta en unos instantes.');
 }
 
 module.exports = {

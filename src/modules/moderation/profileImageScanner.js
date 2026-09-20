@@ -52,79 +52,225 @@ class SimpleAsyncQueue {
 
 const scannerQueue = new SimpleAsyncQueue();
 
+const GROQ_VISION_MODELS = [
+  'llama-3.2-11b-vision-preview',
+  'llama-3.2-90b-vision-preview',
+];
+
+const OPENROUTER_VISION_MODELS = [
+  'qwen/qwen-2.5-vl-72b-instruct:free',
+  'meta-llama/llama-3.2-11b-vision-instruct:free',
+  'google/gemini-2.0-flash-lite-preview-02-05:free',
+];
+
+const VISION_SYSTEM_PROMPT =
+  'Eres un sistema experto de seguridad en Telegram encargado de analizar capturas de pantalla de perfiles y cabeceras de usuario. ' +
+  'Tu objetivo es identificar el perfil, desofuscar y transcribir el nombre de usuario (incluso si usa caracteres Unicode especiales como negritas matemáticas, cursivas, fuentes góticas o símbolos, por ejemplo: 『 ༒ 𝙎𝙝𝙞𝙨𝙪𝙠𝙪 𝘽𝙋 ༒ 』 o 𝔃𝓮𝓻𝓸𝓖𝓱𝓸𝓼𝓽 o 𝐈𝐓𝐇𝐀𝐍𝐍𝐘). ' +
+  'Devuelve EXCLUSIVAMENTE un JSON válido (sin formato markdown adicional ni bloques de código adicionales) con esta estructura exacta:\n' +
+  '{\n' +
+  '  "isTelegramProfile": true/false,\n' +
+  '  "rawName": "nombre tal cual aparece con sus símbolos y tipografías",\n' +
+  '  "normalizedName": "nombre traducido a caracteres ASCII estándar legibles",\n' +
+  '  "username": "alias sin el @ o null si no se visualiza",\n' +
+  '  "bio": "biografía o descripción si es visible",\n' +
+  '  "status": "estado de conexión o última vez si es visible"\n' +
+  '}';
+
 /**
- * Extrae texto e información del perfil mediante Gemini Vision
+ * Extracción vía Groq LPU Vision (Ultrarrápido ~300ms)
  */
-async function extractProfileDataFromImage(imageBuffer, mimeType = 'image/jpeg') {
-  const apiKey = config.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY no configurada.');
-  }
+async function extractWithGroqVision(base64Image, mimeType = 'image/jpeg') {
+  const groqKeys = config.GROQ_API_KEYS.length > 0 ? config.GROQ_API_KEYS : (config.GROQ_API_KEY ? [config.GROQ_API_KEY] : []);
+  if (groqKeys.length === 0) return null;
 
-  const base64Image = imageBuffer.toString('base64');
-
-  const systemPrompt =
-    'Eres un sistema experto de seguridad en Telegram encargado de analizar capturas de pantalla de perfiles y cabeceras de usuario. ' +
-    'Tu objetivo es identificar el perfil, desofuscar y transcribir el nombre de usuario (incluso si usa caracteres Unicode especiales como negritas matemáticas, cursivas, fuentes góticas o símbolos, por ejemplo: 『 ༒ 𝙎𝙝𝙞𝙨𝙪𝙠𝙪 𝘽𝙋 ༒ 』 o 𝔃𝓮𝓻𝓸𝓖𝓱𝓸𝓼𝓽 o 𝐈𝐓𝐇𝐀𝐍𝐍𝐘). ' +
-    'Devuelve EXCLUSIVAMENTE un JSON válido (sin formato markdown adicional ni bloques de código adicionales) con esta estructura exacta:\n' +
-    '{\n' +
-    '  "isTelegramProfile": true/false,\n' +
-    '  "rawName": "nombre tal cual aparece con sus símbolos y tipografías",\n' +
-    '  "normalizedName": "nombre traducido a caracteres ASCII estándar legibles",\n' +
-    '  "username": "alias sin el @ o null si no se visualiza",\n' +
-    '  "bio": "biografía o descripción si es visible",\n' +
-    '  "status": "estado de conexión o última vez si es visible"\n' +
-    '}';
-
-  for (const model of VISION_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const payload = {
-        systemInstruction: {
-          parts: [{ text: systemPrompt }],
-        },
-        contents: [
-          {
-            role: 'user',
-            parts: [
+  for (const key of groqKeys) {
+    for (const model of GROQ_VISION_MODELS) {
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
               {
-                text: 'Analiza detalladamente esta imagen de Telegram y extrae los datos del perfil.',
-              },
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64Image,
-                },
+                role: 'user',
+                content: [
+                  { type: 'text', text: VISION_SYSTEM_PROMPT + '\nAnaliza la imagen del perfil:' },
+                  {
+                    type: 'image_url',
+                    image_url: { url: `data:${mimeType};base64,${base64Image}` },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 1000,
-        },
-      };
+            temperature: 0.1,
+            max_tokens: 800,
+          }),
+        });
 
-      const res = await fetch(url, {
+        if (!res.ok) continue;
+
+        const data = await res.json();
+        let rawText = data?.choices?.[0]?.message?.content;
+        if (!rawText) continue;
+
+        rawText = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+        return JSON.parse(rawText);
+      } catch (err) {
+        // Continuar al siguiente modelo o proveedor
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extracción vía Google Gemini Multimodal Vision con rotación de claves
+ */
+async function extractWithGeminiVision(base64Image, mimeType = 'image/jpeg') {
+  const geminiKeys = config.GEMINI_API_KEYS.length > 0 ? config.GEMINI_API_KEYS : (config.GEMINI_API_KEY ? [config.GEMINI_API_KEY] : []);
+  if (geminiKeys.length === 0) return null;
+
+  for (const key of geminiKeys) {
+    for (const model of VISION_MODELS) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+        const payload = {
+          systemInstruction: {
+            parts: [{ text: VISION_SYSTEM_PROMPT }],
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                { text: 'Analiza detalladamente esta imagen de Telegram y extrae los datos del perfil.' },
+                {
+                  inlineData: {
+                    mimeType,
+                    data: base64Image,
+                  },
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 1000,
+          },
+        };
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.status === 429) break;
+        if (!res.ok) continue;
+
+        const data = await res.json();
+        let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!rawText) continue;
+
+        rawText = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+        return JSON.parse(rawText);
+      } catch (err) {
+        // Continuar al siguiente intento
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extracción vía OpenRouter Free Vision (Qwen2.5-VL / Llama 3.2 Vision)
+ */
+async function extractWithOpenRouterVision(base64Image, mimeType = 'image/jpeg') {
+  const apiKey = config.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+
+  for (const model of OPENROUTER_VISION_MODELS) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://ventas-libre-peru.com',
+          'X-Title': 'Ventas Libres Peru Bot',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: VISION_SYSTEM_PROMPT + '\nAnaliza la imagen del perfil:' },
+                {
+                  type: 'image_url',
+                  image_url: { url: `data:${mimeType};base64,${base64Image}` },
+                },
+              ],
+            },
+          ],
+          temperature: 0.1,
+          max_tokens: 800,
+        }),
       });
 
       if (!res.ok) continue;
 
       const data = await res.json();
-      let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      let rawText = data?.choices?.[0]?.message?.content;
       if (!rawText) continue;
 
-      // Limpiar posibles bloques ```json ... ```
       rawText = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(rawText);
-      return parsed;
+      return JSON.parse(rawText);
     } catch (err) {
-      // Continuar con el siguiente modelo en caso de error
+      // Continuar al siguiente modelo
     }
   }
+
+  return null;
+}
+
+/**
+ * Extrae texto e información del perfil mediante cascada multi-proveedor:
+ * 1. Groq Vision (Ultra-rápido ~300ms)
+ * 2. Gemini Vision (Preciso con rotación de claves)
+ * 3. OpenRouter Free Vision (Respaldo)
+ */
+async function extractProfileDataFromImage(imageBuffer, mimeType = 'image/jpeg') {
+  const base64Image = imageBuffer.toString('base64');
+
+  // 1. Probar con Groq Vision si está configurado
+  try {
+    const groqResult = await extractWithGroqVision(base64Image, mimeType);
+    if (groqResult && (groqResult.rawName || groqResult.username)) {
+      return groqResult;
+    }
+  } catch {}
+
+  // 2. Probar con Gemini Vision (Pool multi-claves)
+  try {
+    const geminiResult = await extractWithGeminiVision(base64Image, mimeType);
+    if (geminiResult && (geminiResult.rawName || geminiResult.username)) {
+      return geminiResult;
+    }
+  } catch {}
+
+  // 3. Probar con OpenRouter Free Vision
+  try {
+    const openRouterResult = await extractWithOpenRouterVision(base64Image, mimeType);
+    if (openRouterResult && (openRouterResult.rawName || openRouterResult.username)) {
+      return openRouterResult;
+    }
+  } catch {}
 
   return null;
 }
