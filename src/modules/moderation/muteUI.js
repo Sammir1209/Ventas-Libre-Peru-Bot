@@ -62,7 +62,12 @@ function isOwnerTarget(userId, ctx) {
  * Toda la auditoría detallada se envía a los canales de logs y base de datos.
  */
 async function executeMute(ctx, targetUser, durationStr = '1d', reason = 'Moderación') {
-  const userId = Number(targetUser.userId);
+  const rawId = targetUser.userId || targetUser.user_id || targetUser.id;
+  const userId = Number(rawId);
+
+  if (!userId || isNaN(userId)) {
+    throw new Error('ID de usuario no válido.');
+  }
 
   if (isOwnerTarget(userId, ctx)) {
     throw new Error('No se puede silenciar a un Propietario (Owner) del sistema.');
@@ -72,44 +77,82 @@ async function executeMute(ctx, targetUser, durationStr = '1d', reason = 'Modera
     throw new Error('Esta acción solo puede aplicarse dentro de un grupo o comunidad.');
   }
 
+  // 0. Comprobar si el usuario es miembro del grupo actual
+  let member = null;
+  try {
+    member = await ctx.api.getChatMember(ctx.chat.id, userId);
+  } catch (err) {
+    if (err.message?.includes('PARTICIPANT_ID_INVALID') || err.message?.includes('USER_NOT_PARTICIPANT')) {
+      throw new Error('El usuario no es participante de este grupo.');
+    }
+  }
+
+  if (member) {
+    if (member.status === 'left' || member.status === 'kicked') {
+      throw new Error('El usuario no está presente en este grupo (ha salido o fue expulsado).');
+    }
+    if (member.status === 'administrator' || member.status === 'creator') {
+      throw new Error('No se puede silenciar a un administrador o propietario del grupo.');
+    }
+  }
+
   let durationInfo;
-  if (durationStr === 'perm' || durationStr === 'permanente') {
+  if (typeof durationStr === 'object' && durationStr !== null && durationStr.seconds) {
+    durationInfo = {
+      seconds: durationStr.seconds,
+      humanReadable: durationStr.humanReadable || `${durationStr.seconds}s`,
+      untilDate: durationStr.untilDate || (Math.floor(Date.now() / 1000) + durationStr.seconds),
+    };
+  } else if (typeof durationStr === 'string' && (durationStr.toLowerCase() === 'perm' || durationStr.toLowerCase() === 'permanente')) {
     durationInfo = {
       seconds: 365 * 86400,
       humanReadable: 'Indefinido / Permanente',
       untilDate: Math.floor(Date.now() / 1000) + 365 * 86400,
     };
   } else {
-    durationInfo = parseDuration(durationStr) || parseDuration('1d');
+    durationInfo = parseDuration(String(durationStr || '1d')) || parseDuration('1d');
   }
 
-  // 1. Ejecutar restricción inmediata en Telegram API
-  await ctx.api.restrictChatMember(
-    ctx.chat.id,
-    userId,
-    {
-      can_send_messages: false,
-      can_send_audios: false,
-      can_send_documents: false,
-      can_send_photos: false,
-      can_send_videos: false,
-      can_send_video_notes: false,
-      can_send_voice_notes: false,
-      can_send_polls: false,
-      can_send_other_messages: false,
-      can_add_web_page_previews: false,
-      can_change_info: false,
-      can_invite_users: false,
-      can_pin_messages: false,
-      can_manage_topics: false,
-    },
-    {
-      until_date: durationInfo.untilDate,
-      use_independent_chat_permissions: true,
+  // 1. Ejecutar restricción en Telegram API con captura de errores descriptivos
+  try {
+    await ctx.api.restrictChatMember(
+      ctx.chat.id,
+      userId,
+      {
+        can_send_messages: false,
+        can_send_audios: false,
+        can_send_documents: false,
+        can_send_photos: false,
+        can_send_videos: false,
+        can_send_video_notes: false,
+        can_send_voice_notes: false,
+        can_send_polls: false,
+        can_send_other_messages: false,
+        can_add_web_page_previews: false,
+        can_change_info: false,
+        can_invite_users: false,
+        can_pin_messages: false,
+        can_manage_topics: false,
+      },
+      {
+        until_date: durationInfo.untilDate,
+        use_independent_chat_permissions: true,
+      }
+    );
+  } catch (apiErr) {
+    if (apiErr.message?.includes('PARTICIPANT_ID_INVALID')) {
+      throw new Error('El usuario no es participante activo de este grupo.');
+    } else if (apiErr.message?.includes('CHAT_ADMIN_REQUIRED')) {
+      throw new Error('El bot requiere permisos de administrador para restringir miembros.');
+    } else if (apiErr.message?.includes('USER_ADMIN_INVALID')) {
+      throw new Error('No se puede restringir a un administrador del grupo.');
     }
-  );
+    throw apiErr;
+  }
 
-  const targetMention = mentionFromData(userId, targetUser.username, targetUser.firstName);
+  const targetUsername = targetUser.username || null;
+  const targetFirstName = targetUser.firstName || targetUser.first_name || 'Usuario';
+  const targetMention = mentionFromData(userId, targetUsername, targetFirstName);
   const adminName = ctx.from.username ? `@${escapeHtml(ctx.from.username)}` : escapeHtml(ctx.from.first_name || 'Admin');
   const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
   const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
@@ -139,34 +182,50 @@ async function executeMute(ctx, targetUser, durationStr = '1d', reason = 'Modera
  * Remueve el silencio y reactiva los permisos de mensajería del usuario.
  */
 async function executeUnmute(ctx, targetUser) {
-  const userId = Number(targetUser.userId);
+  const rawId = targetUser.userId || targetUser.user_id || targetUser.id;
+  const userId = Number(rawId);
+
+  if (!userId || isNaN(userId)) {
+    throw new Error('ID de usuario no válido.');
+  }
 
   if (ctx.chat.type === 'private') {
     throw new Error('Esta acción solo puede aplicarse dentro de un grupo o comunidad.');
   }
 
-  await ctx.api.restrictChatMember(
-    ctx.chat.id,
-    userId,
-    {
-      can_send_messages: true,
-      can_send_audios: true,
-      can_send_documents: true,
-      can_send_photos: true,
-      can_send_videos: true,
-      can_send_video_notes: true,
-      can_send_voice_notes: true,
-      can_send_polls: true,
-      can_send_other_messages: true,
-      can_add_web_page_previews: true,
-      can_invite_users: true,
-    },
-    {
-      use_independent_chat_permissions: true,
+  try {
+    await ctx.api.restrictChatMember(
+      ctx.chat.id,
+      userId,
+      {
+        can_send_messages: true,
+        can_send_audios: true,
+        can_send_documents: true,
+        can_send_photos: true,
+        can_send_videos: true,
+        can_send_video_notes: true,
+        can_send_voice_notes: true,
+        can_send_polls: true,
+        can_send_other_messages: true,
+        can_add_web_page_previews: true,
+        can_invite_users: true,
+      },
+      {
+        use_independent_chat_permissions: true,
+      }
+    );
+  } catch (apiErr) {
+    if (apiErr.message?.includes('PARTICIPANT_ID_INVALID')) {
+      throw new Error('El usuario no es participante de este grupo.');
+    } else if (apiErr.message?.includes('CHAT_ADMIN_REQUIRED')) {
+      throw new Error('El bot requiere permisos de administrador para modificar permisos.');
     }
-  );
+    throw apiErr;
+  }
 
-  const targetMention = mentionFromData(userId, targetUser.username, targetUser.firstName);
+  const targetUsername = targetUser.username || null;
+  const targetFirstName = targetUser.firstName || targetUser.first_name || 'Usuario';
+  const targetMention = mentionFromData(userId, targetUsername, targetFirstName);
   const adminName = ctx.from.username ? `@${escapeHtml(ctx.from.username)}` : escapeHtml(ctx.from.first_name || 'Admin');
   const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
   const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
@@ -282,8 +341,12 @@ async function handleNaturalMute(ctx, rawText) {
       firstName: from.first_name || 'Usuario',
     };
 
-    const { text: resText } = await executeMute(ctx, targetUser, duration, reason);
-    await ctx.reply(resText, { parse_mode: 'HTML' });
+    try {
+      const { text: resText } = await executeMute(ctx, targetUser, duration, reason);
+      await ctx.reply(resText, { parse_mode: 'HTML' });
+    } catch (err) {
+      await ctx.reply(`⟡ ✗ Error al silenciar: ${err.message}`, { parse_mode: 'HTML' });
+    }
     return true;
   }
 
@@ -315,8 +378,9 @@ async function handleNaturalMute(ctx, rawText) {
   if (communityCandidates.length > 1 && !/^\d+$/.test(cleanNoAt)) {
     const kb = new InlineKeyboard();
     for (const u of communityCandidates.slice(0, 6)) {
-      const uLabel = `${u.firstName || 'Usuario'}${u.username ? ` (@${u.username})` : ` [${u.userId}]`}`;
-      kb.text(`👤 ${uLabel.slice(0, 30)}`, `mod_mute_direct:${u.userId}:${durToApply}`).row();
+      const uLabel = `${u.firstName || 'Usuario'}${u.username ? ` (@${u.username})` : ` [${u.userId || u.user_id}]`}`;
+      const uid = u.userId || u.user_id;
+      kb.text(`👤 ${uLabel.slice(0, 30)}`, `mod_mute_direct:${uid}:${durToApply}`).row();
     }
     kb.text('✖ Cancelar', 'info_close');
 
@@ -334,16 +398,24 @@ async function handleNaturalMute(ctx, rawText) {
   // Exactamente 1 coincidencia en la comunidad -> Silenciar de inmediato
   if (communityCandidates.length === 1) {
     const targetUser = communityCandidates[0];
-    const { text: resText } = await executeMute(ctx, targetUser, durToApply, reason);
-    await ctx.reply(resText, { parse_mode: 'HTML' });
+    try {
+      const { text: resText } = await executeMute(ctx, targetUser, durToApply, reason);
+      await ctx.reply(resText, { parse_mode: 'HTML' });
+    } catch (err) {
+      await ctx.reply(`⟡ ✗ Error al silenciar: ${err.message}`, { parse_mode: 'HTML' });
+    }
     return true;
   }
 
   // PRIORIDAD 2: Fallback Global
   const resolved = await resolveTarget(ctx, { tenantId });
-  if (resolved && resolved.userId && !resolved.unresolved) {
-    const { text: resText } = await executeMute(ctx, resolved, durToApply, reason);
-    await ctx.reply(resText, { parse_mode: 'HTML' });
+  if (resolved && (resolved.userId || resolved.user_id) && !resolved.unresolved) {
+    try {
+      const { text: resText } = await executeMute(ctx, resolved, durToApply, reason);
+      await ctx.reply(resText, { parse_mode: 'HTML' });
+    } catch (err) {
+      await ctx.reply(`⟡ ✗ Error al silenciar: ${err.message}`, { parse_mode: 'HTML' });
+    }
     return true;
   }
 
@@ -367,10 +439,24 @@ function registerCallbacks(bot) {
 
       const targetId = Number(ctx.match[1]);
       const durationStr = ctx.match[2] || '1d';
-      await ctx.answerCallbackQuery({ text: '⟡ Usuario silenciado.' });
 
-      const targetUser = { userId: targetId };
+      let targetUser = await db.getUser(targetId);
+      if (!targetUser) {
+        try {
+          const chat = await ctx.api.getChat(targetId);
+          targetUser = {
+            userId: chat.id,
+            username: chat.username || null,
+            firstName: chat.first_name || 'Usuario',
+          };
+        } catch {}
+      }
+      if (!targetUser) {
+        targetUser = { userId: targetId };
+      }
+
       const { text } = await executeMute(ctx, targetUser, durationStr, 'Acción de Moderación');
+      await ctx.answerCallbackQuery({ text: '✓ Usuario silenciado.' });
 
       try {
         await ctx.editMessageText(text, { parse_mode: 'HTML' });

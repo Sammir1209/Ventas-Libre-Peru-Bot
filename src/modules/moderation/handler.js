@@ -175,7 +175,7 @@ function register(bot) {
       }
 
       // Aplicar de inmediato y mostrar mensaje limpio en el chat (el reporte completo va a los logs)
-      const durStr = duration ? duration.humanReadable : '1d';
+      const durStr = duration || '1d';
       const { text } = await muteUI.executeMute(ctx, target, durStr, reason || 'Moderación');
       return await ctx.reply(text, { parse_mode: 'HTML' });
     } catch (err) {
