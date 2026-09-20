@@ -7,12 +7,11 @@ const { mentionFromData, formatId, escapeHtml } = require('../../utils/formattin
 const { searchCandidatesInCommunity, resolveTarget } = require('../../utils/helpers');
 const sentinel = require('./sentinel');
 const logger = require('../../utils/logger');
-const userbot = require('../../userbot/client');
 
 const { parseDuration } = sentinel;
 
 // ══════
-// ⟡ Módulo: Gestión Estética e Interactiva de Silencio (Mute UI)
+// ⟡ Módulo: Silenciamiento Directo y Notificación en Logs (Mute UI)
 // ══════
 
 /**
@@ -59,68 +58,8 @@ function isOwnerTarget(userId, ctx) {
 }
 
 /**
- * Construye el panel interactivo con opciones de tiempo para silenciar a un usuario.
- */
-async function buildMutePanel(ctx, targetUser) {
-  const userId = Number(targetUser.userId);
-  let username = targetUser.username;
-  let firstName = targetUser.firstName;
-
-  if (!username || !firstName) {
-    try {
-      const u = await db.getUser(userId);
-      if (u) {
-        if (!username) username = u.username || null;
-        if (!firstName) firstName = u.first_name || null;
-      }
-    } catch {}
-  }
-  if (!username || !firstName) {
-    try {
-      const chat = await ctx.api.getChat(userId);
-      if (chat) {
-        if (!username) username = chat.username || null;
-        if (!firstName) firstName = chat.first_name || null;
-      }
-    } catch {}
-  }
-
-  const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
-  const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
-  const chatTitle = ctx.chat?.title || 'Grupo Actual';
-  const dateFormatted = getSuperscriptDate();
-
-  const nameDisplay = escapeHtml(firstName || 'Usuario');
-  const userDisplay = username ? `@${escapeHtml(username)}` : '<i>Sin @username</i>';
-
-  const text =
-    `<b>⟡ [${escapeHtml(botLabel)} BOT] GESTIÓN DE SILENCIO (MUTE)</b>\n` +
-    `──────\n\n` +
-    `👤 <b>Usuario:</b> ${nameDisplay}\n` +
-    `🆔 <b>ID:</b> <code>${userId}</code>\n` +
-    `🆀 <b>User:</b> ${userDisplay}\n` +
-    `📍 <b>Chat:</b> <code>${escapeHtml(chatTitle)}</code>\n\n` +
-    `<i>Selecciona la duración para suspender sus permisos de chat:</i>\n` +
-    `──────\n` +
-    `${dateFormatted}`;
-
-  const kb = new InlineKeyboard()
-    .text('⏱ 15m', `mod_mute_exec:${userId}:15m`)
-    .text('⏱ 1h', `mod_mute_exec:${userId}:1h`)
-    .text('⏱ 12h', `mod_mute_exec:${userId}:12h`)
-    .row()
-    .text('⏱ 1d', `mod_mute_exec:${userId}:1d`)
-    .text('⏱ 7d', `mod_mute_exec:${userId}:7d`)
-    .text('🚫 Indefinido', `mod_mute_exec:${userId}:perm`)
-    .row()
-    .text('🔊 Desilenciar', `mod_unmute_exec:${userId}`)
-    .text('✖ Cancelar', 'info_close');
-
-  return { text, keyboard: kb };
-}
-
-/**
- * Ejecuta el silenciamiento en el chat de Telegram y devuelve la tarjeta de confirmación.
+ * Ejecuta el silenciamiento en el chat de Telegram y devuelve la confirmación limpia (sin botones).
+ * Toda la auditoría detallada se envía a los canales de logs y base de datos.
  */
 async function executeMute(ctx, targetUser, durationStr = '1d', reason = 'Moderación') {
   const userId = Number(targetUser.userId);
@@ -144,7 +83,7 @@ async function executeMute(ctx, targetUser, durationStr = '1d', reason = 'Modera
     durationInfo = parseDuration(durationStr) || parseDuration('1d');
   }
 
-  // Ejecutar restricción en Telegram API
+  // 1. Ejecutar restricción inmediata en Telegram API
   await ctx.api.restrictChatMember(
     ctx.chat.id,
     userId,
@@ -176,8 +115,9 @@ async function executeMute(ctx, targetUser, durationStr = '1d', reason = 'Modera
   const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
   const dateFormatted = getSuperscriptDate();
 
+  // Plantilla limpia sin botones molestos en el chat
   const text =
-    `<b>⟡ [${escapeHtml(botLabel)} BOT] USUARIO SILENCIADO [ ÉXITO ]</b>\n` +
+    `<b>⟡ [${escapeHtml(botLabel)} BOT] USUARIO SILENCIADO</b>\n` +
     `──────\n\n` +
     `▸ <b>Usuario:</b> ${targetMention}\n` +
     `▸ <b>ID:</b> <code>${userId}</code>\n` +
@@ -185,20 +125,14 @@ async function executeMute(ctx, targetUser, durationStr = '1d', reason = 'Modera
     `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
     `▸ <b>Moderador:</b> ${adminName}\n\n` +
     `──────\n` +
-    `🤐 <i>Permisos de envío de mensajes suspendidos temporalmente.</i>\n` +
+    `🤐 <i>Permisos de envío de mensajes suspendidos.</i>\n` +
     `${dateFormatted}`;
 
-  const kb = new InlineKeyboard()
-    .text('🔊 Desilenciar', `mod_unmute_exec:${userId}`)
-    .text('👤 Ver Perfil', `info_profile:${userId}`)
-    .row()
-    .text('✖ Cerrar', 'info_close');
-
-  // Registrar logs de auditoría
+  // 2. Notificación en canal de logs y registro en BD
   db.addModLog('MUTE', ctx.from.id, userId, ctx.chat.id, `[${durationInfo.humanReadable}] ${reason}`).catch(() => {});
   logger.sendLog(ctx.api, 'MUTE', ctx.from, userId, ctx.chat.title, `[${durationInfo.humanReadable}] ${reason}`).catch(() => {});
 
-  return { text, keyboard: kb };
+  return { text };
 }
 
 /**
@@ -239,7 +173,7 @@ async function executeUnmute(ctx, targetUser) {
   const dateFormatted = getSuperscriptDate();
 
   const text =
-    `<b>⟡ [${escapeHtml(botLabel)} BOT] SILENCIO REMOVIDO [ ÉXITO ]</b>\n` +
+    `<b>⟡ [${escapeHtml(botLabel)} BOT] SILENCIO REMOVIDO</b>\n` +
     `──────\n\n` +
     `▸ <b>Usuario:</b> ${targetMention}\n` +
     `▸ <b>ID:</b> <code>${userId}</code>\n` +
@@ -248,26 +182,18 @@ async function executeUnmute(ctx, targetUser) {
     `✓ <i>El usuario puede participar y enviar mensajes nuevamente.</i>\n` +
     `${dateFormatted}`;
 
-  const kb = new InlineKeyboard()
-    .text('🔇 Volver a Silenciar', `mod_mute_prompt:${userId}`)
-    .text('👤 Ver Perfil', `info_profile:${userId}`)
-    .row()
-    .text('✖ Cerrar', 'info_close');
-
   db.addModLog('UNMUTE', ctx.from.id, userId, ctx.chat.id, null).catch(() => {});
   logger.sendLog(ctx.api, 'UNMUTE', ctx.from, userId, ctx.chat.title, null).catch(() => {});
 
-  return { text, keyboard: kb };
+  return { text };
 }
 
 /**
- * Desglosa una consulta en lenguaje natural ("silencia a Carlos 2h spam")
- * para separar el nombre del objetivo, duración y motivo opcional.
+ * Desglosa argumentos de texto ("silencia a Carlos 2h spam").
  */
 function parseMuteArguments(rawText) {
   if (!rawText) return { targetQuery: '', duration: null, reason: 'Moderación' };
 
-  // Remover palabras conectoras iniciales
   let text = rawText
     .replace(/^(?:sil[eé]nciame(?:\s+a)?|silencia(?:\s+a)?|muteale(?:\s+a)?|mutea(?:\s+a)?|mutear(?:\s+a)?|silenciar(?:\s+a)?)\s+/i, '')
     .trim();
@@ -279,15 +205,12 @@ function parseMuteArguments(rawText) {
   let duration = null;
   let reasonParts = [];
 
-  // Revisar si el segundo token es una duración (ej. 15m, 1h, 2d, etc.)
   if (parts.length > 1) {
     const durParsed = parseDuration(parts[1]);
     if (durParsed) {
       duration = parts[1];
       reasonParts = parts.slice(2);
     } else {
-      // Podría ser un nombre compuesto ("Carlos Gomez 1h spam")
-      // Buscamos si algún token coincide con formato de duración
       let durIndex = -1;
       for (let i = 1; i < parts.length; i++) {
         if (parseDuration(parts[i])) {
@@ -313,8 +236,8 @@ function parseMuteArguments(rawText) {
 }
 
 /**
- * Atiende comandos en lenguaje natural para silenciar usuarios:
- * "silenciame a ...", "silencia a ...", "muteale a ...", responder "silencia", etc.
+ * Procesa órdenes de silencio en lenguaje natural ("silencia a...", "silénciame a...", reply "silencia").
+ * Silencia directamente sin llenar el chat de botones innecesarios.
  */
 async function handleNaturalMute(ctx, rawText) {
   const isReply = Boolean(ctx.message?.reply_to_message?.from);
@@ -325,7 +248,7 @@ async function handleNaturalMute(ctx, rawText) {
 
   if (!isReplyTrigger && !isMutePattern) return false;
 
-  // Comprobar autorización del emisor (Staff o Propietario)
+  // Solo Staff o Propietarios
   if (!await isAuthorizedStaff(ctx)) {
     return false;
   }
@@ -344,7 +267,7 @@ async function handleNaturalMute(ctx, rawText) {
     const subText = argsMatch && argsMatch[1] ? argsMatch[1].trim() : '';
     const parts = subText.split(/\s+/).filter(Boolean);
 
-    let duration = null;
+    let duration = '1d';
     let reason = 'Moderación';
     if (parts.length > 0 && parseDuration(parts[0])) {
       duration = parts[0];
@@ -359,13 +282,8 @@ async function handleNaturalMute(ctx, rawText) {
       firstName: from.first_name || 'Usuario',
     };
 
-    if (duration) {
-      const { text: resText, keyboard } = await executeMute(ctx, targetUser, duration, reason);
-      await ctx.reply(resText, { parse_mode: 'HTML', reply_markup: keyboard });
-    } else {
-      const { text: panelText, keyboard } = await buildMutePanel(ctx, targetUser);
-      await ctx.reply(panelText, { parse_mode: 'HTML', reply_markup: keyboard });
-    }
+    const { text: resText } = await executeMute(ctx, targetUser, duration, reason);
+    await ctx.reply(resText, { parse_mode: 'HTML' });
     return true;
   }
 
@@ -374,13 +292,13 @@ async function handleNaturalMute(ctx, rawText) {
 
   if (!targetQuery) {
     await ctx.reply(
-      `⟡ <b>COMANDO DE SILENCIO (MUTE)</b>\n` +
+      `⟡ <b>COMANDO DE SILENCIO</b>\n` +
       `──────\n\n` +
-      `▸ <b>Uso Natural:</b> <code>Silencia a [nombre, @user o ID] [tiempo] [motivo]</code>\n` +
+      `▸ <b>Uso:</b> <code>Silencia a [nombre, @user o ID] [tiempo opcional] [motivo]</code>\n` +
       `▸ <b>Ejemplo:</b> <code>Silencia a @usuario 2h Spam</code>\n` +
-      `▸ <b>O simplemente:</b> <code>Silenciame a Carlos</code> (para elegir duración con botones)\n\n` +
+      `▸ <b>O simplemente:</b> <code>Silencia a @usuario</code> (1 día por defecto)\n\n` +
       `──────\n` +
-      `▪ <i>También puedes responder a un mensaje y escribir simplemente: <code>silencia</code></i>`,
+      `▪ <i>O responde al mensaje de un usuario y escribe: <code>silencia</code></i>`,
       { parse_mode: 'HTML' }
     );
     return true;
@@ -388,16 +306,17 @@ async function handleNaturalMute(ctx, rawText) {
 
   const cleanNoAt = targetQuery.replace(/^@/, '').trim();
   const tenantId = ctx.tenant?.id || null;
+  const durToApply = duration || '1d';
 
   // PRIORIDAD 1: Buscar candidatos en la comunidad
   const communityCandidates = await searchCandidatesInCommunity(cleanNoAt, tenantId);
 
-  // Múltiples coincidencias en la comunidad -> Desplegar menú de selección
+  // Múltiples coincidencias en la comunidad -> Botones simples ÚNICAMENTE para elegir cuál usuario
   if (communityCandidates.length > 1 && !/^\d+$/.test(cleanNoAt)) {
     const kb = new InlineKeyboard();
-    for (const u of communityCandidates.slice(0, 8)) {
+    for (const u of communityCandidates.slice(0, 6)) {
       const uLabel = `${u.firstName || 'Usuario'}${u.username ? ` (@${u.username})` : ` [${u.userId}]`}`;
-      kb.text(`👤 ${uLabel.slice(0, 30)}`, `mod_mute_prompt:${u.userId}`).row();
+      kb.text(`👤 ${uLabel.slice(0, 30)}`, `mod_mute_direct:${u.userId}:${durToApply}`).row();
     }
     kb.text('✖ Cancelar', 'info_close');
 
@@ -412,131 +331,62 @@ async function handleNaturalMute(ctx, rawText) {
     return true;
   }
 
-  // Exactamente 1 coincidencia en la comunidad
+  // Exactamente 1 coincidencia en la comunidad -> Silenciar de inmediato
   if (communityCandidates.length === 1) {
     const targetUser = communityCandidates[0];
-    if (duration) {
-      const { text: resText, keyboard } = await executeMute(ctx, targetUser, duration, reason);
-      await ctx.reply(resText, { parse_mode: 'HTML', reply_markup: keyboard });
-    } else {
-      const { text: panelText, keyboard } = await buildMutePanel(ctx, targetUser);
-      await ctx.reply(panelText, { parse_mode: 'HTML', reply_markup: keyboard });
-    }
+    const { text: resText } = await executeMute(ctx, targetUser, durToApply, reason);
+    await ctx.reply(resText, { parse_mode: 'HTML' });
     return true;
   }
 
-  // PRIORIDAD 2: Fallback Global (si no está en la base local de la comunidad)
+  // PRIORIDAD 2: Fallback Global
   const resolved = await resolveTarget(ctx, { tenantId });
   if (resolved && resolved.userId && !resolved.unresolved) {
-    if (duration) {
-      const { text: resText, keyboard } = await executeMute(ctx, resolved, duration, reason);
-      await ctx.reply(resText, { parse_mode: 'HTML', reply_markup: keyboard });
-    } else {
-      const { text: panelText, keyboard } = await buildMutePanel(ctx, resolved);
-      await ctx.reply(panelText, { parse_mode: 'HTML', reply_markup: keyboard });
-    }
+    const { text: resText } = await executeMute(ctx, resolved, durToApply, reason);
+    await ctx.reply(resText, { parse_mode: 'HTML' });
     return true;
   }
 
   await ctx.reply(
-    `⟡ ✗ No se encontró a ningún usuario para: <code>${escapeHtml(cleanNoAt)}</code> dentro del grupo ni en la red oficial.`,
+    `⟡ ✗ No se encontró a ningún usuario para: <code>${escapeHtml(cleanNoAt)}</code> dentro de la comunidad.`,
     { parse_mode: 'HTML' }
   );
   return true;
 }
 
 /**
- * Registra los callbacks interactivos para gestionar y ejecutar silencios.
+ * Registra los callbacks de ejecución directa para moderadores.
  */
 function registerCallbacks(bot) {
-  // Callback: Desplegar panel de opciones de duración
-  bot.callbackQuery(/^mod_mute_prompt:(\d+)$/, async (ctx) => {
+  // Callback de silenciamiento directo desde lista de candidatos o botón de búscame
+  bot.callbackQuery(/^mod_mute_direct:(\d+)(?::([a-z0-9]+))?$/, async (ctx) => {
     try {
       if (!await isAuthorizedStaff(ctx)) {
         return ctx.answerCallbackQuery({ text: '⟡ Requiere permisos de Staff.', show_alert: true });
       }
 
       const targetId = Number(ctx.match[1]);
-      await ctx.answerCallbackQuery();
-
-      const { text, keyboard } = await buildMutePanel(ctx, { userId: targetId });
-      try {
-        await ctx.editMessageText(text, {
-          parse_mode: 'HTML',
-          reply_markup: keyboard,
-        });
-      } catch (err) {
-        if (!err.message?.includes('message is not modified')) {
-          await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
-        }
-      }
-    } catch (err) {
-      console.error('⟡ Error en mod_mute_prompt:', err.message);
-    }
-  });
-
-  // Callback: Ejecutar silencio con duración elegida
-  bot.callbackQuery(/^mod_mute_exec:(\d+):([a-z0-9]+)$/, async (ctx) => {
-    try {
-      if (!await isAuthorizedStaff(ctx)) {
-        return ctx.answerCallbackQuery({ text: '⟡ Requiere permisos de Staff.', show_alert: true });
-      }
-
-      const targetId = Number(ctx.match[1]);
-      const durationStr = ctx.match[2];
-      await ctx.answerCallbackQuery({ text: '⟡ Aplicando silencio...' });
+      const durationStr = ctx.match[2] || '1d';
+      await ctx.answerCallbackQuery({ text: '⟡ Usuario silenciado.' });
 
       const targetUser = { userId: targetId };
-      const { text, keyboard } = await executeMute(ctx, targetUser, durationStr, 'Panel de Moderación');
+      const { text } = await executeMute(ctx, targetUser, durationStr, 'Acción de Moderación');
 
       try {
-        await ctx.editMessageText(text, {
-          parse_mode: 'HTML',
-          reply_markup: keyboard,
-        });
+        await ctx.editMessageText(text, { parse_mode: 'HTML' });
       } catch (err) {
         if (!err.message?.includes('message is not modified')) {
-          await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+          await ctx.reply(text, { parse_mode: 'HTML' });
         }
       }
     } catch (err) {
-      console.error('⟡ Error en mod_mute_exec:', err.message);
-      await ctx.answerCallbackQuery({ text: `✗ Error: ${err.message}`, show_alert: true });
-    }
-  });
-
-  // Callback: Desilenciar
-  bot.callbackQuery(/^mod_unmute_exec:(\d+)$/, async (ctx) => {
-    try {
-      if (!await isAuthorizedStaff(ctx)) {
-        return ctx.answerCallbackQuery({ text: '⟡ Requiere permisos de Staff.', show_alert: true });
-      }
-
-      const targetId = Number(ctx.match[1]);
-      await ctx.answerCallbackQuery({ text: '⟡ Removiendo silencio...' });
-
-      const targetUser = { userId: targetId };
-      const { text, keyboard } = await executeUnmute(ctx, targetUser);
-
-      try {
-        await ctx.editMessageText(text, {
-          parse_mode: 'HTML',
-          reply_markup: keyboard,
-        });
-      } catch (err) {
-        if (!err.message?.includes('message is not modified')) {
-          await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
-        }
-      }
-    } catch (err) {
-      console.error('⟡ Error en mod_unmute_exec:', err.message);
+      console.error('⟡ Error en mod_mute_direct:', err.message);
       await ctx.answerCallbackQuery({ text: `✗ Error: ${err.message}`, show_alert: true });
     }
   });
 }
 
 module.exports = {
-  buildMutePanel,
   executeMute,
   executeUnmute,
   handleNaturalMute,

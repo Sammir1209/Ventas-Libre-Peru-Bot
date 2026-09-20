@@ -482,7 +482,7 @@ function buildSearchCard(ctx, user, requesterName, communityName, totalCount = 1
   const kb = new InlineKeyboard()
     .url('Perfil', profileUrl)
     .text('Verificar', `info_check_burn:${user.user_id}`)
-    .text('🔇 Silenciar', `mod_mute_prompt:${user.user_id}`);
+    .text('🔇 Silenciar', `mod_mute_direct:${user.user_id}:1d`);
 
   // Botones de selección para las otras coincidencias
   if (otherMatches.length > 0) {

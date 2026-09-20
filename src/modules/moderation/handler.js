@@ -174,15 +174,10 @@ function register(bot) {
         return ctx.reply(`${SYM.CROSS} No se puede silenciar a un Propietario (Owner) del sistema.`, { parse_mode: 'HTML' });
       }
 
-      // Si se especificó duración, aplicar de inmediato y mostrar tarjeta con botones
-      if (duration) {
-        const { text, keyboard } = await muteUI.executeMute(ctx, target, duration.humanReadable, reason || 'Moderación');
-        return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
-      }
-
-      // Si NO se especificó duración, desplegar panel con botones interactivos
-      const { text, keyboard } = await muteUI.buildMutePanel(ctx, target);
-      return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+      // Aplicar de inmediato y mostrar mensaje limpio en el chat (el reporte completo va a los logs)
+      const durStr = duration ? duration.humanReadable : '1d';
+      const { text } = await muteUI.executeMute(ctx, target, durStr, reason || 'Moderación');
+      return await ctx.reply(text, { parse_mode: 'HTML' });
     } catch (err) {
       console.error('⟡ Mod: Error en /mute:', err.message);
       await ctx.reply(`${SYM.CROSS} Error al silenciar: ${err.message}`, { parse_mode: 'HTML' });
@@ -207,8 +202,8 @@ function register(bot) {
         );
       }
 
-      const { text, keyboard } = await muteUI.executeUnmute(ctx, target);
-      return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+      const { text } = await muteUI.executeUnmute(ctx, target);
+      return await ctx.reply(text, { parse_mode: 'HTML' });
     } catch (err) {
       console.error('⟡ Mod: Error en /unmute:', err.message);
       await ctx.reply(`${SYM.CROSS} Error al desilenciar: ${err.message}`, { parse_mode: 'HTML' });
