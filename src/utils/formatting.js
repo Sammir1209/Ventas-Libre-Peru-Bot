@@ -78,17 +78,18 @@ function normalizeUnicodeText(text) {
 }
 
 /**
- * Formatea una mención de Staff de forma "silenciosa" (Anti-Notificación Push).
- * Inserta un Zero-Width Space (\u200B) después de la arroba para que visualmente se vea como @usuario
- * pero Telegram no lo reconozca como una entidad de mención ni envíe notificación sonora/push al admin.
- * Tampoco utiliza hipervínculo tg://user?id= para evitar entidades text_mention.
+ * Formatea una mención de Staff como enlace directo (https://t.me/username) con su @username.
+ * Al ser un enlace web (text_link) y no una entidad 'mention':
+ * 1. Muestra la opción "Copy Link" en Telegram Desktop / Móvil en lugar de "Copy Username".
+ * 2. Telegram NO envía alertas sonoras ni notificaciones push al staff.
+ * 3. Permite hacer clic y abrir el perfil inmediatamente.
  */
 function staffMention(userId, username, firstName, roleTitle = null) {
+  const cleanUser = username ? String(username).replace(/^@/, '').trim() : null;
   const name = escapeHtml(firstName || 'Staff');
   const roleBadge = roleTitle ? ` [<i>${escapeHtml(roleTitle)}</i>]` : '';
-  if (username) {
-    // Inserta zero-width space inmediatamente después del @
-    return `<b>${name}</b> (<i>@\u200B${escapeHtml(username)}</i>)${roleBadge}`;
+  if (cleanUser) {
+    return `<a href="https://t.me/${cleanUser}">@${escapeHtml(cleanUser)}</a>${roleBadge}`;
   }
   return `<b>${name}</b>${userId ? ` (<code>${userId}</code>)` : ''}${roleBadge}`;
 }

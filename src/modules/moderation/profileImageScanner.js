@@ -9,11 +9,12 @@ const { InlineKeyboard } = require('grammy');
 // Analiza capturas de perfiles de Telegram en cola para detectar estafadores
 // ══════
 
-// Modelos Gemini con soporte de visión multimodal
+// Modelos Gemini con soporte de visión multimodal activo
 const VISION_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-1.5-flash',
-  'gemini-2.0-flash',
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-3.6-flash',
   'gemini-flash-latest',
 ];
 
@@ -64,16 +65,17 @@ const OPENROUTER_VISION_MODELS = [
 ];
 
 const VISION_SYSTEM_PROMPT =
-  'Eres un sistema experto de seguridad en Telegram encargado de analizar capturas de pantalla de perfiles y cabeceras de usuario. ' +
-  'Tu objetivo es identificar el perfil, desofuscar y transcribir el nombre de usuario (incluso si usa caracteres Unicode especiales como negritas matemáticas, cursivas, fuentes góticas o símbolos, por ejemplo: 『 ༒ 𝙎𝙝𝙞𝙨𝙪𝙠𝙪 𝘽𝙋 ༒ 』 o 𝔃𝓮𝓻𝓸𝓖𝓱𝓸𝓼𝓽 o 𝐈𝐓𝐇𝐀𝐍𝐍𝐘). ' +
-  'Devuelve EXCLUSIVAMENTE un JSON válido (sin formato markdown adicional ni bloques de código adicionales) con esta estructura exacta:\n' +
+  'Eres un sistema experto de seguridad en Telegram. ' +
+  'Tu objetivo es analizar capturas de pantalla de perfiles, tarjetas de usuario, cabeceras recortadas (como una barra superior de chat con el nombre y última vez) o menciones de usuarios en Telegram. ' +
+  'Debes identificar, desofuscar y transcribir el nombre de usuario (incluso si usa caracteres Unicode especiales como negritas matemáticas, cursivas, fuentes góticas o símbolos, por ejemplo: ✦ AP | ZeroGhost | ITHANNY 💳 o 『 ༒ 𝙎𝙝𝙞𝙨𝙪𝙠𝙪 𝘽𝙋 ༒ 』 o 𝔃𝓮𝓻𝓸𝓖𝓱𝓸𝓼𝓽). ' +
+  'Devuelve EXCLUSIVAMENTE un objeto JSON con esta estructura exacta:\n' +
   '{\n' +
-  '  "isTelegramProfile": true/false,\n' +
+  '  "isTelegramProfile": true,\n' +
   '  "rawName": "nombre tal cual aparece con sus símbolos y tipografías",\n' +
   '  "normalizedName": "nombre traducido a caracteres ASCII estándar legibles",\n' +
   '  "username": "alias sin el @ o null si no se visualiza",\n' +
-  '  "bio": "biografía o descripción si es visible",\n' +
-  '  "status": "estado de conexión o última vez si es visible"\n' +
+  '  "bio": "biografía o descripción si es visible o null",\n' +
+  '  "status": "estado de conexión o última vez si es visible o null"\n' +
   '}';
 
 /**
@@ -92,6 +94,7 @@ async function extractWithGroqVision(base64Image, mimeType = 'image/jpeg') {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${key}`,
           },
+          signal: AbortSignal.timeout(6000),
           body: JSON.stringify({
             model,
             messages: [
@@ -117,8 +120,9 @@ async function extractWithGroqVision(base64Image, mimeType = 'image/jpeg') {
         let rawText = data?.choices?.[0]?.message?.content;
         if (!rawText) continue;
 
-        rawText = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-        return JSON.parse(rawText);
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        const toParse = jsonMatch ? jsonMatch[0] : rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+        return JSON.parse(toParse);
       } catch (err) {
         // Continuar al siguiente modelo o proveedor
       }
@@ -147,7 +151,7 @@ async function extractWithGeminiVision(base64Image, mimeType = 'image/jpeg') {
             {
               role: 'user',
               parts: [
-                { text: 'Analiza detalladamente esta imagen de Telegram y extrae los datos del perfil.' },
+                { text: 'Analiza detalladamente esta captura de Telegram y extrae los datos del perfil o cabecera.' },
                 {
                   inlineData: {
                     mimeType,
@@ -159,6 +163,7 @@ async function extractWithGeminiVision(base64Image, mimeType = 'image/jpeg') {
           ],
           generationConfig: {
             temperature: 0.1,
+            responseMimeType: 'application/json',
             maxOutputTokens: 1000,
           },
         };
@@ -166,6 +171,7 @@ async function extractWithGeminiVision(base64Image, mimeType = 'image/jpeg') {
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(8000),
           body: JSON.stringify(payload),
         });
 
@@ -173,11 +179,12 @@ async function extractWithGeminiVision(base64Image, mimeType = 'image/jpeg') {
         if (!res.ok) continue;
 
         const data = await res.json();
-        let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!rawText) continue;
 
-        rawText = rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
-        return JSON.parse(rawText);
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        const toParse = jsonMatch ? jsonMatch[0] : rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+        return JSON.parse(toParse);
       } catch (err) {
         // Continuar al siguiente intento
       }
@@ -248,27 +255,27 @@ async function extractWithOpenRouterVision(base64Image, mimeType = 'image/jpeg')
 async function extractProfileDataFromImage(imageBuffer, mimeType = 'image/jpeg') {
   const base64Image = imageBuffer.toString('base64');
 
-  // 1. Probar con Groq Vision si está configurado
-  try {
-    const groqResult = await extractWithGroqVision(base64Image, mimeType);
-    if (groqResult && (groqResult.rawName || groqResult.username)) {
-      return groqResult;
-    }
-  } catch {}
-
-  // 2. Probar con Gemini Vision (Pool multi-claves)
+  // 1. Probar con Google Gemini Multimodal Vision (Alta precisión y soporte activo)
   try {
     const geminiResult = await extractWithGeminiVision(base64Image, mimeType);
-    if (geminiResult && (geminiResult.rawName || geminiResult.username)) {
+    if (geminiResult && (geminiResult.rawName || geminiResult.username || geminiResult.normalizedName)) {
       return geminiResult;
     }
   } catch {}
 
-  // 3. Probar con OpenRouter Free Vision
+  // 2. Probar con OpenRouter Free Vision (Qwen2.5-VL / Llama 3.2 Vision)
   try {
     const openRouterResult = await extractWithOpenRouterVision(base64Image, mimeType);
-    if (openRouterResult && (openRouterResult.rawName || openRouterResult.username)) {
+    if (openRouterResult && (openRouterResult.rawName || openRouterResult.username || openRouterResult.normalizedName)) {
       return openRouterResult;
+    }
+  } catch {}
+
+  // 3. Probar con Groq Vision si está disponible
+  try {
+    const groqResult = await extractWithGroqVision(base64Image, mimeType);
+    if (groqResult && (groqResult.rawName || groqResult.username || groqResult.normalizedName)) {
+      return groqResult;
     }
   } catch {}
 
@@ -317,34 +324,44 @@ async function processProfileInspection(ctx, photoFileId) {
     const normalizedName = profileInfo.normalizedName || normalizeUnicodeText(rawName);
     const username = profileInfo.username ? profileInfo.username.replace(/^@/, '').trim().toLowerCase() : null;
 
-    // 3. Cruzar contra la base de datos de estafadores
+    // 3. Cruzar contra la base de datos de estafadores (Soporte Supabase REST + PostgreSQL Directo)
     let burnedRecord = null;
 
-    if (username) {
+    try {
+      if (typeof db.findBurnedUserFlexible === 'function') {
+        burnedRecord = await db.findBurnedUserFlexible({ username, normalizedName, rawName });
+      }
+    } catch {}
+
+    if (!burnedRecord && username) {
       try {
-        const qRes = await db.pool?.query(
-          'SELECT * FROM burned_users WHERE LOWER(username) = LOWER($1) LIMIT 1',
-          [username]
-        );
-        if (qRes && qRes.rows && qRes.rows.length > 0) {
-          burnedRecord = qRes.rows[0];
+        if (typeof db.getBurnedUserInfo === 'function') {
+          burnedRecord = await db.getBurnedUserInfo(username);
         }
       } catch {}
     }
 
-    if (!burnedRecord && normalizedName) {
+    if (!burnedRecord && db.pool) {
       try {
-        const cleanNoSpaces = normalizedName.replace(/[^a-z0-9]/g, '');
-        if (cleanNoSpaces.length >= 4) {
-          const qRes = await db.pool?.query(
-            `SELECT * FROM burned_users 
-             WHERE LOWER(first_name) ILIKE $1 
-                OR REPLACE(LOWER(first_name), ' ', '') ILIKE $2 
-             LIMIT 1`,
-            [`%${normalizedName}%`, `%${cleanNoSpaces}%`]
+        if (username) {
+          const qRes = await db.pool.query(
+            'SELECT * FROM burned_users WHERE LOWER(username) = LOWER($1) LIMIT 1',
+            [username]
           );
-          if (qRes && qRes.rows && qRes.rows.length > 0) {
-            burnedRecord = qRes.rows[0];
+          if (qRes?.rows?.length > 0) burnedRecord = qRes.rows[0];
+        }
+
+        if (!burnedRecord && normalizedName) {
+          const cleanNoSpaces = normalizedName.replace(/[^a-z0-9]/g, '');
+          if (cleanNoSpaces.length >= 4) {
+            const qRes = await db.pool.query(
+              `SELECT * FROM burned_users 
+               WHERE LOWER(first_name) ILIKE $1 
+                  OR REPLACE(LOWER(first_name), ' ', '') ILIKE $2 
+               LIMIT 1`,
+              [`%${normalizedName}%`, `%${cleanNoSpaces}%`]
+            );
+            if (qRes?.rows?.length > 0) burnedRecord = qRes.rows[0];
           }
         }
       } catch {}

@@ -443,9 +443,11 @@ function burnAlertBroadcast(targetId, context = null, targetUsername = null, tar
 
 function formatStaffUser(username, userId) {
   const cleanUser = username ? String(username).replace(/^@/, '').trim() : null;
-  const userTag = cleanUser ? `@${escapeHtml(cleanUser)}` : `<a href="tg://user?id=${userId}">Perfil</a>`;
+  const userTag = cleanUser
+    ? `<a href="https://t.me/${cleanUser}">@${escapeHtml(cleanUser)}</a>`
+    : (userId ? `<code>${userId}</code>` : '<i>Sin alias</i>');
   const idTag = userId ? `<code>${userId}</code>` : '';
-  return `${userTag} | ${idTag}`;
+  return cleanUser ? `${userTag} | ${idTag}` : userTag;
 }
 
 function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {

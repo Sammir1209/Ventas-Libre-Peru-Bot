@@ -20,6 +20,7 @@ const { rateAdmin } = require('./rating');
 const config = require('../../config/env');
 const { resolveEscrowGroupId, resolveCommunityName } = require('../../utils/tenantContext');
 const { InlineKeyboard, InputFile } = require('grammy');
+const { staffMention } = require('../../utils/formatting');
 
 // ══════
 // ⟡ Módulo 2: Sistema de Tratos Admin (Escrow con Temas / Hilos)
@@ -931,9 +932,7 @@ function register(bot) {
         ? `@${dealCreatorUsername}`
         : `ID: <code>${deal.creator_id}</code>`;
 
-      const adminMention = adminUsername
-        ? `@${adminUsername}`
-        : `<a href="tg://user?id=${adminId}">${ctx.from.first_name || 'Admin'}</a>`;
+      const adminMention = staffMention(adminId, adminUsername, ctx.from.first_name);
 
       await ctx.api.sendMessage(
         escrowGroupId,

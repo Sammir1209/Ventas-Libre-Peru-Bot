@@ -1757,6 +1757,64 @@ async function getBurnedUserInfo(identifier) {
   return null;
 }
 
+/**
+ * Búsqueda flexible de usuario quemado por username, nombre normalizado o tokens
+ */
+async function findBurnedUserFlexible({ username, normalizedName, rawName } = {}) {
+  // 1. Por username
+  if (username) {
+    const cleanUser = String(username).replace(/^@/, '').trim().toLowerCase();
+    const byUser = await getBurnedUserInfo(cleanUser);
+    if (byUser) return byUser;
+  }
+
+  // 2. Extraer términos de búsqueda con longitud mínima de 3 caracteres
+  const searchTerms = new Set();
+  if (normalizedName) {
+    normalizedName
+      .split(/[\s|/\\_•\-\[\]\(\)\{\}\.,:;!¡?¿]+/g)
+      .map(w => w.trim())
+      .filter(w => w.length >= 3 && !/^(bot|admin|mod|user|ap|perfil|grupo)$/i.test(w))
+      .forEach(w => searchTerms.add(w));
+  }
+
+  if (rawName && rawName.length >= 4) {
+    searchTerms.add(rawName.trim());
+  }
+
+  if (searchTerms.size === 0) return null;
+
+  // 3. Buscar en Supabase REST
+  if (useSupabase && supabase) {
+    for (const term of searchTerms) {
+      try {
+        const { data } = await supabase
+          .from('burned_users')
+          .select('*')
+          .or(`first_name.ilike.%${term}%,username.ilike.%${term}%`)
+          .limit(1)
+          .maybeSingle();
+        if (data) return data;
+      } catch {}
+    }
+  }
+
+  // 4. Fallback Pool PostgreSQL
+  if (pool) {
+    for (const term of searchTerms) {
+      try {
+        const res = await pool.query(
+          `SELECT * FROM burned_users WHERE first_name ILIKE $1 OR username ILIKE $1 LIMIT 1`,
+          [`%${term}%`]
+        );
+        if (res.rows.length > 0) return res.rows[0];
+      } catch {}
+    }
+  }
+
+  return null;
+}
+
 // ── Gestión de Advertencias (Warnings) ──
 async function addWarning(userId, chatId, moderatorId, reason) {
   if (useSupabase && supabase) {
@@ -2517,6 +2575,7 @@ module.exports = {
   unburnUser,
   isUserBurned,
   getBurnedUserInfo,
+  findBurnedUserFlexible,
   getAllBurnedUsers,
   getBurnedUsersCount,
   // Logs & Warnings

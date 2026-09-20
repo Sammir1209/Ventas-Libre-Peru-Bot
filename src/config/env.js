@@ -70,10 +70,14 @@ const config = {
   SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY || '',
 
   // Inteligencia Artificial (Gemini, Groq, OpenRouter)
-  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   GEMINI_API_KEYS: (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean),
-  GROQ_API_KEY: process.env.GROQ_API_KEY || '',
+  get GEMINI_API_KEY() {
+    return this.GEMINI_API_KEYS[0] || '';
+  },
   GROQ_API_KEYS: (process.env.GROQ_API_KEYS || process.env.GROQ_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean),
+  get GROQ_API_KEY() {
+    return this.GROQ_API_KEYS[0] || '';
+  },
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || '',
 };
 
