@@ -6,7 +6,7 @@ const { InlineKeyboard } = require('grammy');
 const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
 const { searchCandidatesInCommunity, resolveTarget } = require('../../utils/helpers');
 const sentinel = require('./sentinel');
-const logger = require('../../utils/logger');
+const logger = require('./logger');
 
 const { parseDuration } = sentinel;
 
