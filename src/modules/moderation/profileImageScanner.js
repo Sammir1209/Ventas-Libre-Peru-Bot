@@ -466,6 +466,10 @@ async function processProfileInspection(ctx, photoFileId) {
 
     const kb = new InlineKeyboard();
 
+    const profileUrl = effectiveUsername
+      ? `https://t.me/${effectiveUsername}`
+      : (targetId ? `tg://user?id=${targetId}` : null);
+
     // ── CASO A: ESTAFADOR CONFIRMADO (GBAN ACTIVO) ──
     if (burnedRecord) {
       const burnText =
@@ -482,15 +486,17 @@ async function processProfileInspection(ctx, photoFileId) {
         `🚫 <b>ADVERTENCIA DE SEGURIDAD CRÍTICA:</b>\n` +
         `<i>El perfil capturado corresponde a un <b>ESTAFADOR CONFIRMADO</b>. Está expulsado globalmente (GBan). No envíes dinero, vouchers ni entregues productos.</i>`;
 
+      if (profileUrl) {
+        kb.url('Perfil', profileUrl);
+      }
       if (targetId) {
-        kb.text('👤 Ficha /info', `perfil_card:${targetId}`);
-        kb.text('🔍 Rastrear (Búscame)', `search_select:${targetId}`).row();
+        kb.text('Verificar', `info_check_burn:${targetId}`);
       }
 
       const burnChannelId = config.PUBLIC_BURN_CHANNEL_ID;
       if (burnChannelId) {
         const cleanChannel = String(burnChannelId).replace('-100', '');
-        kb.url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`);
+        kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`);
       }
       kb.row().text('✖ Entendido', 'info_close');
 
@@ -517,12 +523,14 @@ async function processProfileInspection(ctx, photoFileId) {
         `──────\n` +
         `💡 <i>Verifica siempre el directorio oficial con <code>/staff</code>. Ningún admin o mediador de tratos te escribirá primero al privado solicitando fondos.</i>`;
 
-      if (targetId) {
-        kb.text('👤 Ficha /info', `perfil_card:${targetId}`);
-        kb.text('🔍 Rastrear (Búscame)', `search_select:${targetId}`).row();
+      if (profileUrl) {
+        kb.url('Perfil', profileUrl);
       }
-      kb.text('🛡️ Ver Staff Oficial', 'staff_list').row();
-      kb.text('✖ Cerrar', 'info_close');
+      if (targetId) {
+        kb.text('Verificar', `info_check_burn:${targetId}`);
+      }
+      kb.row().text('🛡️ Ver Staff Oficial', 'staff_list');
+      kb.row().text('✖ Cerrar', 'info_close');
 
       return await ctx.reply(cloneText, {
         parse_mode: 'HTML',
@@ -569,17 +577,13 @@ async function processProfileInspection(ctx, photoFileId) {
       `──────\n` +
       `💡 <i>Para mayor seguridad, recuerda exigir siempre intermediario oficial (/trato).</i>`;
 
-    if (targetId) {
-      kb.text('👤 Ficha /info', `perfil_card:${targetId}`);
-      kb.text('🔍 Rastrear (Búscame)', `search_select:${targetId}`).row();
-    } else if (effectiveUsername) {
-      kb.text('👤 Consultar Perfil', `perfil_card_user:${effectiveUsername}`).row();
+    if (profileUrl) {
+      kb.url('Perfil', profileUrl);
     }
-
-    if (effectiveUsername) {
-      kb.url('🔗 Abrir Perfil', `https://t.me/${effectiveUsername}`);
-    } else if (targetId) {
-      kb.url('🔗 Abrir Perfil', `tg://user?id=${targetId}`);
+    if (targetId) {
+      kb.text('Verificar', `info_check_burn:${targetId}`);
+    } else if (effectiveUsername) {
+      kb.text('Verificar', `perfil_card_user:${effectiveUsername}`);
     }
 
     kb.row().text('✖ Cerrar', 'info_close');
