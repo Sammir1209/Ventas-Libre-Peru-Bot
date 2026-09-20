@@ -79,14 +79,31 @@ function extractTarget(ctx) {
 }
 
 /**
- * Resuelve de forma completa un target (ID, username, nombre o reply) buscando en Userbot, API y BD.
+ * Resuelve de forma completa un target (ID, username, nombre o reply).
+ * REGLA ESTRICTA DE PRIORIDAD:
+ * 1. Target directo (Reply o ID numérico explícito)
+ * 2. Base de datos de la comunidad activa (por username exacto o búsqueda)
+ * 3. Grupos activos de la comunidad en Userbot MTProto
+ * 4. Fallback Global: Solo si el usuario NO existe en la comunidad, buscar en Telegram general.
  */
-async function resolveTarget(ctx) {
+async function resolveTarget(ctx, options = {}) {
   const target = extractTarget(ctx);
   if (!target) return null;
 
+  const tenantId = options.tenantId !== undefined ? options.tenantId : (ctx.tenant?.id || null);
+
   // Si ya tenemos userId (de reply o número)
   if (target.userId) {
+    try {
+      const u = await db.getUser(target.userId);
+      if (u) {
+        target.username = target.username || u.username || null;
+        target.firstName = target.firstName || u.first_name || null;
+        target.isCommunity = true;
+        return target;
+      }
+    } catch {}
+
     if (!target.username) {
       try {
         const chatInfo = await ctx.api.getChat(target.userId);
@@ -102,31 +119,7 @@ async function resolveTarget(ctx) {
 
   const cleanUsername = query.replace(/^@/, '').trim();
 
-  // 1. Intentar resolver vía Userbot MTProto si es username o ID
-  if (userbot.isConnected() && !cleanUsername.includes(' ')) {
-    try {
-      const ubUser = await userbot.resolveUser(cleanUsername);
-      if (ubUser && ubUser.userId) {
-        return ubUser;
-      }
-    } catch (err) {}
-  }
-
-  // 2. Intentar resolver via Telegram API getChat (si no tiene espacios)
-  if (!cleanUsername.includes(' ')) {
-    try {
-      const chatInfo = await ctx.api.getChat(`@${cleanUsername}`);
-      if (chatInfo && chatInfo.id) {
-        return {
-          userId: chatInfo.id,
-          username: chatInfo.username || cleanUsername,
-          firstName: chatInfo.first_name || null,
-        };
-      }
-    } catch {}
-  }
-
-  // 3. Buscar en la base de datos de usuarios registrados (por username exacto o búsqueda tokenizada)
+  // 1. PRIORIDAD 1: Buscar en la base de datos de usuarios de la comunidad
   try {
     const dbUser = await db.getUserByUsername(cleanUsername);
     if (dbUser && dbUser.user_id) {
@@ -134,24 +127,31 @@ async function resolveTarget(ctx) {
         userId: Number(dbUser.user_id),
         username: dbUser.username || cleanUsername,
         firstName: dbUser.first_name || null,
+        isCommunity: true,
       };
     }
 
-    const searchMatches = await db.searchUsers(query);
+    const searchMatches = await db.searchUsers(query, tenantId);
     if (searchMatches && searchMatches.length > 0) {
-      const match = searchMatches[0];
+      // Si hay coincidencia exacta de username o solo un resultado, retornarlo
+      const exactMatch = searchMatches.find(
+        (m) => (m.username && m.username.toLowerCase() === cleanUsername.toLowerCase()) ||
+               (m.first_name && m.first_name.toLowerCase() === cleanUsername.toLowerCase())
+      );
+      const match = exactMatch || searchMatches[0];
       return {
         userId: Number(match.user_id),
         username: match.username || null,
         firstName: match.first_name || null,
+        isCommunity: true,
       };
     }
   } catch {}
 
-  // 4. Búsqueda inteligente con Userbot MTProto (contacts.Search y grupos)
+  // 2. PRIORIDAD 2: Buscar en los diálogos y grupos reales de la comunidad vía Userbot
   if (userbot.isConnected()) {
     try {
-      const ubMatches = await userbot.searchCommunityUsers(query);
+      const ubMatches = await userbot.searchCommunityDialogs(query);
       if (ubMatches && ubMatches.length > 0) {
         const match = ubMatches[0];
         db.upsertUser(match.user_id, match.username, match.first_name).catch(() => {});
@@ -159,18 +159,138 @@ async function resolveTarget(ctx) {
           userId: Number(match.user_id),
           username: match.username || null,
           firstName: match.first_name || null,
+          isCommunity: true,
         };
       }
     } catch {}
   }
 
-  // 5. Retornar con el username para indicar que no pudo resolverse
+  // Si la opción requiere solo comunidad, detenerse aquí
+  if (options.communityOnly) {
+    return {
+      userId: null,
+      username: cleanUsername,
+      firstName: null,
+      unresolved: true,
+    };
+  }
+
+  // 3. PRIORIDAD 3: FALLBACK GLOBAL EN TELEGRAM (Solo si NO existe en la comunidad)
+  // 3.1. Intentar resolver vía Userbot MTProto si es username sin espacios
+  if (userbot.isConnected() && !cleanUsername.includes(' ')) {
+    try {
+      const ubUser = await userbot.resolveUser(cleanUsername);
+      if (ubUser && ubUser.userId) {
+        db.upsertUser(ubUser.userId, ubUser.username, ubUser.firstName).catch(() => {});
+        return {
+          ...ubUser,
+          isGlobal: true,
+        };
+      }
+    } catch (err) {}
+  }
+
+  // 3.2. Intentar resolver via Telegram Bot API getChat (si no tiene espacios)
+  if (!cleanUsername.includes(' ')) {
+    try {
+      const chatInfo = await ctx.api.getChat(`@${cleanUsername}`);
+      if (chatInfo && chatInfo.id) {
+        db.upsertUser(chatInfo.id, chatInfo.username || cleanUsername, chatInfo.first_name).catch(() => {});
+        return {
+          userId: chatInfo.id,
+          username: chatInfo.username || cleanUsername,
+          firstName: chatInfo.first_name || null,
+          isGlobal: true,
+        };
+      }
+    } catch {}
+  }
+
+  // 3.3. Búsqueda Global MTProto (contacts.Search)
+  if (userbot.isConnected()) {
+    try {
+      const globalMatches = await userbot.searchGlobalTelegram(query);
+      if (globalMatches && globalMatches.length > 0) {
+        const match = globalMatches[0];
+        db.upsertUser(match.user_id, match.username, match.first_name).catch(() => {});
+        return {
+          userId: Number(match.user_id),
+          username: match.username || null,
+          firstName: match.first_name || null,
+          isGlobal: true,
+        };
+      }
+    } catch {}
+  }
+
+  // 4. Retornar con el username para indicar que no pudo resolverse
   return {
     userId: null,
     username: cleanUsername,
     firstName: null,
     unresolved: true,
   };
+}
+
+/**
+ * Busca exhaustivamente todos los candidatos en la comunidad primero,
+ * retornando lista de coincidencias comunitarias.
+ */
+async function searchCandidatesInCommunity(query, tenantId = null) {
+  if (!query) return [];
+  const clean = query.replace(/^@/, '').trim();
+  const resultsMap = new Map();
+
+  // 1. Por username exacto en BD
+  try {
+    const dbUser = await db.getUserByUsername(clean);
+    if (dbUser && dbUser.user_id) {
+      resultsMap.set(Number(dbUser.user_id), {
+        userId: Number(dbUser.user_id),
+        username: dbUser.username || clean,
+        firstName: dbUser.first_name || 'Usuario',
+        isExact: true,
+        isCommunity: true,
+      });
+    }
+  } catch {}
+
+  // 2. Por búsqueda inteligente en BD de la comunidad
+  try {
+    const dbMatches = await db.searchUsers(clean, tenantId);
+    for (const m of dbMatches) {
+      const uid = Number(m.user_id);
+      if (!resultsMap.has(uid)) {
+        resultsMap.set(uid, {
+          userId: uid,
+          username: m.username || null,
+          firstName: m.first_name || 'Usuario',
+          isCommunity: true,
+        });
+      }
+    }
+  } catch {}
+
+  // 3. Por participantes de grupos de la comunidad vía Userbot
+  if (userbot.isConnected()) {
+    try {
+      const groupMatches = await userbot.searchCommunityDialogs(clean);
+      for (const m of groupMatches) {
+        const uid = Number(m.user_id);
+        if (!resultsMap.has(uid)) {
+          resultsMap.set(uid, {
+            userId: uid,
+            username: m.username || null,
+            firstName: m.first_name || 'Usuario',
+            isCommunity: true,
+          });
+          db.upsertUser(uid, m.username, m.first_name).catch(() => {});
+        }
+      }
+    } catch {}
+  }
+
+  return Array.from(resultsMap.values());
 }
 
 /**
@@ -307,6 +427,7 @@ module.exports = {
   isOwner,
   extractTarget,
   resolveTarget,
+  searchCandidatesInCommunity,
   resolveStaffUserDetails,
   delay,
   forEachGroup,

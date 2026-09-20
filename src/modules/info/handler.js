@@ -1,7 +1,8 @@
 const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { SYM, ROLES } = require('../../config/constants');
-const { resolveTarget } = require('../../utils/helpers');
+const { resolveTarget, searchCandidatesInCommunity, extractTarget } = require('../../utils/helpers');
+const userbot = require('../../userbot/client');
 const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard, InputFile } = require('grammy');
 const { generateUserCardBuffer } = require('../../utils/userCard');
@@ -37,12 +38,13 @@ function getSuperscriptDate(date = new Date()) {
  * 🆔 ID: ...
  * 🆀 User: ...
  * 💼 Rol: ...
+ * 🌐 Origen: ...
  * 🔗 Link de perfil: Presiona aquí
  * ──────
  * ¹⁴⁰⁹²⁰²⁶
  */
 async function buildUserProfile(ctx, targetUser) {
-  const userId = targetUser.userId;
+  const userId = Number(targetUser.userId);
   let username = targetUser.username;
   let firstName = targetUser.firstName;
 
@@ -119,6 +121,10 @@ async function buildUserProfile(ctx, targetUser) {
   const userDisplay = username ? `@${escapeHtml(username)}` : '<i>Sin @username</i>';
   const dateFormatted = getSuperscriptDate();
 
+  const originLine = targetUser.isGlobal
+    ? `▸ <b>Origen:</b> 🌐 <i>Usuario Global (Fuera de la comunidad)</i>\n`
+    : `▸ <b>Comunidad:</b> 👥 <code>${escapeHtml(communityName)}</code>\n`;
+
   const text =
     `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
     `──────\n\n` +
@@ -126,6 +132,7 @@ async function buildUserProfile(ctx, targetUser) {
     `▸ <b>ID:</b> <code>${userId}</code>\n` +
     `▸ <b>User:</b> ${userDisplay}\n` +
     `▸ <b>Rol:</b> ${escapeHtml(roleName)}\n` +
+    originLine +
     `▸ <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>\n\n` +
     `──────\n` +
     `${dateFormatted}`;
@@ -135,49 +142,125 @@ async function buildUserProfile(ctx, targetUser) {
     .url('Perfil', profileUrl)
     .text('Verificar', `info_check_burn:${userId}`);
 
+  // Si se buscó por término y no es una consulta directa de reply/ID, agregar botón de búsqueda global
+  if (targetUser.searchQuery && !targetUser.isGlobal) {
+    const safeQ = encodeURIComponent(targetUser.searchQuery).slice(0, 40);
+    keyboard.row().text('🌐 ¿No es él? Buscar en Telegram', `info_global:${safeQ}`);
+  }
+
   return { text, keyboard };
+}
+
+/**
+ * Genera y envía la tarjeta gráfica de perfil (/perfil).
+ */
+async function sendUserCard(ctx, target) {
+  const statusMsg = await ctx.reply('▪ <i>Generando tarjeta de perfil...</i>', { parse_mode: 'HTML' });
+  try {
+    const { cardBuffer, userId: resolvedId } = await generateUserCardBuffer(ctx.api, target, {
+      tenantId: ctx.tenant?.id,
+      ownerIds: ctx.tenant?.owner_ids,
+      communityName: ctx.tenant?.community_name || 'Comunidad Oficial',
+    });
+    const cardFile = new InputFile(cardBuffer, `perfil_${resolvedId || target.userId || 'user'}.png`);
+    await ctx.replyWithPhoto(cardFile);
+    try {
+      await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id);
+    } catch {}
+  } catch (err) {
+    console.error('⟡ Info: Error generando tarjeta:', err.message);
+    try {
+      await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, `⟡ ✗ Error al generar tarjeta: ${err.message}`);
+    } catch {}
+  }
 }
 
 function register(bot) {
   // ── Comando /perfil [ID, @username o responder] (Solo la tarjeta / card) ──
   bot.command('perfil', async (ctx) => {
     try {
-      let target = await resolveTarget(ctx);
+      const extracted = extractTarget(ctx);
 
-      if (!target) {
-        target = {
+      // 1. Caso A: Sin argumento y sin reply -> consultar propio perfil
+      if (!extracted) {
+        return await sendUserCard(ctx, {
           userId: ctx.from.id,
           username: ctx.from.username || null,
           firstName: ctx.from.first_name || null,
-        };
+        });
       }
 
-      if (target.unresolved) {
-        return ctx.reply(
-          `${SYM.CROSS} No se pudo obtener la información de <b>@${target.username}</b> automáticamente.\n\n` +
-          `${SYM.ARROW} Esto ocurre si el usuario nunca ha iniciado el bot o su cuenta es privada.\n\n` +
-          `${SYM.STAR} <b>Soluciones:</b>\n` +
-          `${SYM.BULLET} Pídele que le envíe <code>/start</code> al bot una sola vez.\n` +
-          `${SYM.BULLET} O consulta su perfil usando su <b>ID numérico</b>: <code>/perfil [ID]</code>`,
-          { parse_mode: 'HTML' }
-        );
+      // 2. Caso B: Reply a mensaje o ID numérico explícito -> target directo
+      if (extracted.userId) {
+        let directTarget = await resolveTarget(ctx);
+        if (!directTarget || directTarget.unresolved) {
+          directTarget = {
+            userId: extracted.userId,
+            username: extracted.username || null,
+            firstName: extracted.firstName || null,
+          };
+        }
+        return await sendUserCard(ctx, directTarget);
       }
 
-      const statusMsg = await ctx.reply('▪ <i>Generando tarjeta de perfil...</i>', { parse_mode: 'HTML' });
+      // 3. Caso C: Búsqueda por texto (@username o nombre)
+      const rawQuery = extracted.query || extracted.username || '';
+      const cleanQuery = rawQuery.replace(/^@/, '').trim();
+      const tenantId = ctx.tenant?.id || null;
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
 
-      const { cardBuffer, userId: resolvedId } = await generateUserCardBuffer(ctx.api, target, {
-        tenantId: ctx.tenant?.id,
-        ownerIds: ctx.tenant?.owner_ids,
-        communityName: ctx.tenant?.community_name || 'Comunidad Oficial',
-      });
-      const cardFile = new InputFile(cardBuffer, `perfil_${resolvedId || target.userId || 'user'}.png`);
+      await ctx.replyWithChatAction('typing');
 
-      // Se envía únicamente la tarjeta gráfica limpia (sin texto largo de info)
-      await ctx.replyWithPhoto(cardFile);
+      // PRIORIDAD 1: Buscar en la comunidad
+      const communityCandidates = await searchCandidatesInCommunity(cleanQuery, tenantId);
 
-      try {
-        await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id);
-      } catch {}
+      if (communityCandidates.length > 1) {
+        const kb = new InlineKeyboard();
+        const displayList = communityCandidates.slice(0, 8);
+
+        for (const u of displayList) {
+          const uLabel = `${u.firstName || 'Usuario'}${u.username ? ` (@${u.username})` : ` [${u.userId}]`}`;
+          kb.text(`👤 ${uLabel.slice(0, 30)}`, `perfil_card:${u.userId}`).row();
+        }
+
+        const safeQ = encodeURIComponent(cleanQuery).slice(0, 40);
+        kb.text('🌐 Buscar en Telegram Global', `perfil_global:${safeQ}`).row();
+        kb.text('✖ Cerrar', 'info_close');
+
+        const msgText =
+          `👥 <b>TARJETA DE PERFIL</b> ⊱ <code>COINCIDENCIAS</code> ⊰\n` +
+          `══════\n\n` +
+          `Se encontraron <b>${communityCandidates.length}</b> usuarios en la comunidad para: <code>${escapeHtml(cleanQuery)}</code>\n` +
+          `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n\n` +
+          `<i>Selecciona a quién deseas generarle la tarjeta de perfil:</i>\n` +
+          `──────`;
+
+        return await ctx.reply(msgText, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        });
+      }
+
+      if (communityCandidates.length === 1) {
+        return await sendUserCard(ctx, communityCandidates[0]);
+      }
+
+      // PRIORIDAD 2: Fallback Global (Solo si NO está en la comunidad)
+      const globalTarget = await resolveTarget(ctx, { tenantId });
+      if (globalTarget && globalTarget.userId && !globalTarget.unresolved) {
+        return await sendUserCard(ctx, globalTarget);
+      }
+
+      return ctx.reply(
+        `⟡ <b>GENERADOR DE TARJETA</b> ⊱ <code>SIN RESULTADOS</code> ⊰\n` +
+        `══════\n\n` +
+        `✗ No se encontró a ningún usuario para: <code>${escapeHtml(cleanQuery)}</code>\n\n` +
+        `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code> (0 coincidencias)\n` +
+        `▸ <b>Telegram Global:</b> Sin coincidencias\n\n` +
+        `──────\n` +
+        `▪ <i>Verifica el @username o utiliza su ID numérico:</i> <code>/perfil [ID]</code>`,
+        { parse_mode: 'HTML' }
+      );
     } catch (err) {
       console.error('⟡ Info: Error en /perfil:', err.message);
       await ctx.reply(`⟡ ✗ Error al generar perfil: ${err.message}`, { parse_mode: 'HTML' });
@@ -187,33 +270,100 @@ function register(bot) {
   // ── Comando /info [ID, @username o responder] (Plantilla original en texto) ──
   bot.command('info', async (ctx) => {
     try {
-      let target = await resolveTarget(ctx);
+      const extracted = extractTarget(ctx);
 
-      // Si no se pasó argumento ni es reply, consultar el perfil propio
-      if (!target) {
-        target = {
+      // 1. Caso A: Sin argumento y sin reply -> consultar propio perfil
+      if (!extracted) {
+        const { text, keyboard } = await buildUserProfile(ctx, {
           userId: ctx.from.id,
           username: ctx.from.username || null,
           firstName: ctx.from.first_name || null,
-        };
+          isCommunity: true,
+        });
+        return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
       }
 
-      if (target.unresolved) {
-        return ctx.reply(
-          `${SYM.CROSS} No se pudo obtener la información de <b>@${target.username}</b> automáticamente.\n\n` +
-          `${SYM.ARROW} Esto ocurre si el usuario nunca ha iniciado el bot o su cuenta es privada.\n\n` +
-          `${SYM.STAR} <b>Soluciones:</b>\n` +
-          `${SYM.BULLET} Pídele que le envíe <code>/start</code> al bot una sola vez.\n` +
-          `${SYM.BULLET} O consulta su información usando su <b>ID numérico</b>: <code>/info [ID]</code>`,
-          { parse_mode: 'HTML' }
-        );
+      // 2. Caso B: Reply a mensaje o ID numérico explícito -> target directo
+      if (extracted.userId) {
+        let directTarget = await resolveTarget(ctx);
+        if (!directTarget || directTarget.unresolved) {
+          directTarget = {
+            userId: extracted.userId,
+            username: extracted.username || null,
+            firstName: extracted.firstName || null,
+          };
+        }
+        const { text, keyboard } = await buildUserProfile(ctx, directTarget);
+        return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
       }
 
-      const { text, keyboard } = await buildUserProfile(ctx, target);
-      await ctx.reply(text, {
-        parse_mode: 'HTML',
-        reply_markup: keyboard,
-      });
+      // 3. Caso C: Búsqueda por texto (@username, nombre o frase)
+      const rawQuery = extracted.query || extracted.username || '';
+      const cleanQuery = rawQuery.replace(/^@/, '').trim();
+      const tenantId = ctx.tenant?.id || null;
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+
+      await ctx.replyWithChatAction('typing');
+
+      // ── PASO 1: PRIORIDAD ABSOLUTA - BÚSQUEDA EN LA COMUNIDAD ──
+      const communityCandidates = await searchCandidatesInCommunity(cleanQuery, tenantId);
+
+      // Si hay MÁS DE 1 coincidencia en la comunidad: mostrar opciones interactivas
+      if (communityCandidates.length > 1) {
+        const kb = new InlineKeyboard();
+        const displayList = communityCandidates.slice(0, 8);
+
+        for (const u of displayList) {
+          const uLabel = `${u.firstName || 'Usuario'}${u.username ? ` (@${u.username})` : ` [${u.userId}]`}`;
+          kb.text(`👤 ${uLabel.slice(0, 30)}`, `info_profile:${u.userId}`).row();
+        }
+
+        const safeQ = encodeURIComponent(cleanQuery).slice(0, 40);
+        kb.text('🌐 Buscar en Telegram Global', `info_global:${safeQ}`).row();
+        kb.text('✖ Cerrar', 'info_close');
+
+        const msgText =
+          `👥 <b>USUARIOS ENCONTRADOS EN LA COMUNIDAD</b>\n` +
+          `══════\n\n` +
+          `Se encontraron <b>${communityCandidates.length}</b> coincidencias dentro de la comunidad para: <code>${escapeHtml(cleanQuery)}</code>\n` +
+          `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n\n` +
+          `<i>Selecciona un usuario de la lista para ver su perfil:</i>\n` +
+          `──────`;
+
+        return await ctx.reply(msgText, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        });
+      }
+
+      // Si hay EXACTAMENTE 1 coincidencia en la comunidad: mostrar perfil directamente
+      if (communityCandidates.length === 1) {
+        const target = communityCandidates[0];
+        target.searchQuery = cleanQuery;
+        const { text, keyboard } = await buildUserProfile(ctx, target);
+        return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+      }
+
+      // ── PASO 2: FALLBACK GLOBAL EN TELEGRAM (Solo si NO existe en la comunidad) ──
+      const globalTarget = await resolveTarget(ctx, { tenantId });
+
+      if (globalTarget && globalTarget.userId && !globalTarget.unresolved) {
+        globalTarget.isGlobal = true;
+        const { text, keyboard } = await buildUserProfile(ctx, globalTarget);
+        return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+      }
+
+      // Si no se encontró en ningún lado
+      return ctx.reply(
+        `⟡ <b>BÚSQUEDA DE USUARIO</b> ⊱ <code>SIN RESULTADOS</code> ⊰\n` +
+        `══════\n\n` +
+        `✗ No se encontró a ningún usuario para: <code>${escapeHtml(cleanQuery)}</code>\n\n` +
+        `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code> (0 coincidencias)\n` +
+        `▸ <b>Telegram Global:</b> Sin coincidencias\n\n` +
+        `──────\n` +
+        `▪ <i>Pídele que envíe un mensaje en el grupo o consulta directamente por su ID numérico:</i> <code>/info [ID]</code>`,
+        { parse_mode: 'HTML' }
+      );
     } catch (err) {
       console.error('⟡ Info: Error en /info:', err.message);
       await ctx.reply(`⟡ ✗ Error al consultar información: ${err.message}`, { parse_mode: 'HTML' });
@@ -415,6 +565,188 @@ function register(bot) {
       if (!err.message?.includes('message is not modified')) {
         console.error('⟡ Info: Error en info_back:', err.message);
       }
+    }
+  });
+
+  // ── Callback: Búsqueda Global en Telegram (/info) ──
+  bot.callbackQuery(/^info_global:(.+)$/, async (ctx) => {
+    try {
+      const rawQuery = decodeURIComponent(ctx.match[1]);
+      const cleanQuery = rawQuery.replace(/^@/, '').trim();
+      await ctx.answerCallbackQuery({ text: '⟡ Buscando fuera de la comunidad en Telegram...' });
+
+      const resultsMap = new Map();
+
+      // 1. Resolver por username exacto vía Bot API o Userbot si no tiene espacios
+      if (!cleanQuery.includes(' ')) {
+        try {
+          const chatInfo = await ctx.api.getChat(`@${cleanQuery}`);
+          if (chatInfo && chatInfo.id) {
+            resultsMap.set(Number(chatInfo.id), {
+              userId: Number(chatInfo.id),
+              username: chatInfo.username || cleanQuery,
+              firstName: chatInfo.first_name || 'Usuario',
+              isGlobal: true,
+            });
+            db.upsertUser(chatInfo.id, chatInfo.username, chatInfo.first_name).catch(() => {});
+          }
+        } catch {}
+
+        if (userbot.isConnected() && resultsMap.size === 0) {
+          try {
+            const ubUser = await userbot.resolveUser(cleanQuery);
+            if (ubUser && ubUser.userId) {
+              resultsMap.set(Number(ubUser.userId), {
+                userId: Number(ubUser.userId),
+                username: ubUser.username || cleanQuery,
+                firstName: ubUser.firstName || 'Usuario',
+                isGlobal: true,
+              });
+              db.upsertUser(ubUser.userId, ubUser.username, ubUser.firstName).catch(() => {});
+            }
+          } catch {}
+        }
+      }
+
+      // 2. Si no hubo match directo o la consulta tiene espacios, buscar global vía MTProto
+      if (userbot.isConnected() && resultsMap.size === 0) {
+        try {
+          const globalList = await userbot.searchGlobalTelegram(cleanQuery, 10);
+          for (const u of globalList) {
+            const uid = Number(u.user_id);
+            if (!resultsMap.has(uid)) {
+              resultsMap.set(uid, {
+                userId: uid,
+                username: u.username || null,
+                firstName: u.first_name || 'Usuario',
+                isGlobal: true,
+              });
+              db.upsertUser(uid, u.username, u.first_name).catch(() => {});
+            }
+          }
+        } catch {}
+      }
+
+      const globalResults = Array.from(resultsMap.values());
+
+      if (globalResults.length === 0) {
+        return await ctx.editMessageText(
+          `⟡ <b>BÚSQUEDA GLOBAL EN TELEGRAM</b> ⊱ <code>SIN COINCIDENCIAS</code> ⊰\n` +
+          `══════\n\n` +
+          `✗ No se localizó ninguna cuenta en Telegram para: <code>${escapeHtml(cleanQuery)}</code>\n\n` +
+          `──────\n` +
+          `▪ <i>Verifica que el @username o nombre esté correctamente escrito.</i>`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: new InlineKeyboard().text('✖ Cerrar', 'info_close'),
+          }
+        );
+      }
+
+      if (globalResults.length === 1) {
+        const { text, keyboard } = await buildUserProfile(ctx, globalResults[0]);
+        return await ctx.editMessageText(text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+        });
+      }
+
+      // Si hay varios resultados globales
+      const kb = new InlineKeyboard();
+      for (const u of globalResults.slice(0, 8)) {
+        const uLabel = `${u.firstName || 'Usuario'}${u.username ? ` (@${u.username})` : ` [${u.userId}]`}`;
+        kb.text(`🌐 ${uLabel.slice(0, 30)}`, `info_profile:${u.userId}`).row();
+      }
+      kb.text('✖ Cerrar', 'info_close');
+
+      await ctx.editMessageText(
+        `🌐 <b>RESULTADOS GLOBALES EN TELEGRAM</b>\n` +
+        `══════\n\n` +
+        `Se encontraron <b>${globalResults.length}</b> cuentas en Telegram para: <code>${escapeHtml(cleanQuery)}</code>\n\n` +
+        `<i>Selecciona al usuario para ver su información:</i>\n` +
+        `──────`,
+        {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        }
+      );
+    } catch (err) {
+      console.error('⟡ Info: Error en callback info_global:', err.message);
+    }
+  });
+
+  // ── Callback: Generar Tarjeta de Perfil desde Selección (/perfil) ──
+  bot.callbackQuery(/^perfil_card:(\d+)$/, async (ctx) => {
+    try {
+      const targetId = Number(ctx.match[1]);
+      await ctx.answerCallbackQuery({ text: '⟡ Generando tarjeta...' });
+      await sendUserCard(ctx, { userId: targetId });
+    } catch (err) {
+      console.error('⟡ Info: Error en callback perfil_card:', err.message);
+    }
+  });
+
+  // ── Callback: Búsqueda Global para Tarjeta de Perfil (/perfil) ──
+  bot.callbackQuery(/^perfil_global:(.+)$/, async (ctx) => {
+    try {
+      const rawQuery = decodeURIComponent(ctx.match[1]);
+      const cleanQuery = rawQuery.replace(/^@/, '').trim();
+      await ctx.answerCallbackQuery({ text: '⟡ Buscando globalmente en Telegram...' });
+
+      let resolvedTarget = null;
+
+      if (!cleanQuery.includes(' ')) {
+        try {
+          const chatInfo = await ctx.api.getChat(`@${cleanQuery}`);
+          if (chatInfo && chatInfo.id) {
+            resolvedTarget = {
+              userId: Number(chatInfo.id),
+              username: chatInfo.username || cleanQuery,
+              firstName: chatInfo.first_name || 'Usuario',
+              isGlobal: true,
+            };
+          }
+        } catch {}
+
+        if (!resolvedTarget && userbot.isConnected()) {
+          try {
+            const ub = await userbot.resolveUser(cleanQuery);
+            if (ub && ub.userId) {
+              resolvedTarget = {
+                userId: Number(ub.userId),
+                username: ub.username || cleanQuery,
+                firstName: ub.firstName || 'Usuario',
+                isGlobal: true,
+              };
+            }
+          } catch {}
+        }
+      }
+
+      if (!resolvedTarget && userbot.isConnected()) {
+        try {
+          const globalList = await userbot.searchGlobalTelegram(cleanQuery, 5);
+          if (globalList && globalList.length > 0) {
+            resolvedTarget = {
+              userId: Number(globalList[0].user_id),
+              username: globalList[0].username || null,
+              firstName: globalList[0].first_name || 'Usuario',
+              isGlobal: true,
+            };
+          }
+        } catch {}
+      }
+
+      if (resolvedTarget) {
+        await sendUserCard(ctx, resolvedTarget);
+      } else {
+        await ctx.reply(
+          `⟡ ✗ No se localizó a ningún usuario global en Telegram para: <code>${escapeHtml(cleanQuery)}</code>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+    } catch (err) {
+      console.error('⟡ Info: Error en callback perfil_global:', err.message);
     }
   });
 

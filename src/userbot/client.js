@@ -222,11 +222,10 @@ async function unrestrictUser(chatId, userId) {
 }
 
 /**
- * Busca usuarios directamente en Telegram usando el motor nativo MTProto.
- * Combina búsqueda global de contactos/usuarios y escaneo en los grupos activos del userbot.
- * Soporta fuentes decorativas, unicodes, nombres partidos con/sin espacios y usuarios sin username.
+/**
+ * Busca participantes exclusivamente en los grupos y canales activos en los que está el Userbot.
  */
-async function searchCommunityUsers(query, chatIds = []) {
+async function searchCommunityDialogs(query, chatIds = []) {
   if (!client || !isConnected() || !query) return [];
   const resultsMap = new Map();
 
@@ -238,47 +237,13 @@ async function searchCommunityUsers(query, chatIds = []) {
   const words = cleanNorm.split(/\s+/).filter(Boolean);
   const noSpaces = cleanNorm.replace(/[\s_\-\.]+/g, '');
 
-  // 1. Búsqueda Nativa Global MTProto (contacts.Search)
-  const searchVariants = [query, noSpaces];
-  if (words.length > 1) searchVariants.push(words[0]);
-
-  for (const qVar of searchVariants) {
-    if (!qVar || qVar.length < 2) continue;
-    try {
-      const globalRes = await client.invoke(new Api.contacts.Search({ q: qVar, limit: 15 }));
-      if (globalRes && globalRes.users) {
-        for (const u of globalRes.users) {
-          const uid = Number(u.id?.value || u.id);
-          const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Usuario';
-          const normName = fullName.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-          const normUser = (u.username || '').toLowerCase();
-          const normNameNoSpaces = normName.replace(/[\s_\-\.]+/g, '');
-          const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
-
-          const directMatch = normName.includes(cleanNorm) || normUser.includes(cleanNorm);
-          const noSpacesMatch = noSpaces.length >= 2 && (normNameNoSpaces.includes(noSpaces) || normUserNoSpaces.includes(noSpaces));
-          const wordsMatch = words.length > 1 && words.every((w) => normName.includes(w) || normUser.includes(w) || normNameNoSpaces.includes(w));
-
-          if (directMatch || noSpacesMatch || wordsMatch) {
-            if (!resultsMap.has(uid)) {
-              resultsMap.set(uid, {
-                user_id: uid,
-                username: u.username || null,
-                first_name: fullName,
-                is_burned: false,
-              });
-            }
-          }
-        }
-      }
-    } catch {}
-  }
-
-  // 2. Búsqueda en los diálogos reales y accesibles del Userbot
   try {
     const dialogs = await client.getDialogs({ limit: 40 });
     for (const d of dialogs) {
       if (!d.isGroup && !d.isChannel) continue;
+      if (chatIds.length > 0 && !chatIds.some((cid) => Number(cid) === Number(d.id?.value || d.id))) {
+        continue;
+      }
       try {
         const participants = await client.getParticipants(d.entity, {
           search: query,
@@ -303,6 +268,8 @@ async function searchCommunityUsers(query, chatIds = []) {
                 user_id: uid,
                 username: p.username || null,
                 first_name: fullName,
+                is_community: true,
+                group_title: d.title || null,
                 is_burned: false,
               });
             }
@@ -315,10 +282,82 @@ async function searchCommunityUsers(query, chatIds = []) {
   return Array.from(resultsMap.values());
 }
 
+/**
+ * Búsqueda Global en toda la red de Telegram vía MTProto (contacts.Search).
+ */
+async function searchGlobalTelegram(query, limit = 15) {
+  if (!client || !isConnected() || !query) return [];
+  const resultsMap = new Map();
+
+  const cleanNorm = query
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+  const words = cleanNorm.split(/\s+/).filter(Boolean);
+  const noSpaces = cleanNorm.replace(/[\s_\-\.]+/g, '');
+
+  const searchVariants = [query, noSpaces];
+  if (words.length > 1) searchVariants.push(words[0]);
+
+  for (const qVar of searchVariants) {
+    if (!qVar || qVar.length < 2) continue;
+    try {
+      const globalRes = await client.invoke(new Api.contacts.Search({ q: qVar, limit }));
+      if (globalRes && globalRes.users) {
+        for (const u of globalRes.users) {
+          const uid = Number(u.id?.value || u.id);
+          const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ') || 'Usuario';
+          const normName = fullName.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+          const normUser = (u.username || '').toLowerCase();
+          const normNameNoSpaces = normName.replace(/[\s_\-\.]+/g, '');
+          const normUserNoSpaces = normUser.replace(/[\s_\-\.]+/g, '');
+
+          const directMatch = normName.includes(cleanNorm) || normUser.includes(cleanNorm);
+          const noSpacesMatch = noSpaces.length >= 2 && (normNameNoSpaces.includes(noSpaces) || normUserNoSpaces.includes(noSpaces));
+          const wordsMatch = words.length > 1 && words.every((w) => normName.includes(w) || normUser.includes(w) || normNameNoSpaces.includes(w));
+
+          if (directMatch || noSpacesMatch || wordsMatch) {
+            if (!resultsMap.has(uid)) {
+              resultsMap.set(uid, {
+                user_id: uid,
+                username: u.username || null,
+                first_name: fullName,
+                is_global: true,
+                is_community: false,
+                is_burned: false,
+              });
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return Array.from(resultsMap.values());
+}
+
+/**
+ * Busca usuarios priorizando SIEMPRE los grupos de la comunidad primero,
+ * y como fallback búsqueda global en Telegram.
+ */
+async function searchCommunityUsers(query, chatIds = []) {
+  if (!query) return [];
+  // 1. Grupos de la comunidad primero
+  const groupResults = await searchCommunityDialogs(query, chatIds);
+  if (groupResults && groupResults.length > 0) {
+    return groupResults;
+  }
+  // 2. Si no hay en grupos de la comunidad, fallback a búsqueda global
+  return await searchGlobalTelegram(query, 15);
+}
+
 module.exports = {
   resolveUser,
   downloadProfilePhoto,
   unrestrictUser,
+  searchCommunityDialogs,
+  searchGlobalTelegram,
   searchCommunityUsers,
   initialize,
   createDealGroup,
