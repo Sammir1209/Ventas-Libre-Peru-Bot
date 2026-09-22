@@ -544,6 +544,97 @@ function register(bot) {
     }
   });
 
+  // ── Callback: Verificar Antecedentes de Estafa por Username (/scanperfil o /info) ──
+  bot.callbackQuery(/^(?:info_check_burn_user|perfil_card_user):(.+)$/, async (ctx) => {
+    try {
+      const username = ctx.match[1].toLowerCase().replace(/^@/, '').trim();
+      await ctx.answerCallbackQuery({ text: '⟡ Consultando base de datos de estafas...' });
+
+      // Consultar si está quemado por username o búsqueda flexible
+      let burnInfo = await db.getBurnedUserInfo(username);
+      if (!burnInfo && typeof db.findBurnedUserFlexible === 'function') {
+        burnInfo = await db.findBurnedUserFlexible({ username });
+      }
+
+      const kb = new InlineKeyboard();
+
+      if (!burnInfo) {
+        // USUARIO LIMPIO
+        const cleanText =
+          `⟡ <b>CONSULTA DE ANTECEDENTES</b> ⊱ <code>REGISTRO LIMPIO</code> ⊰\n` +
+          `══════\n\n` +
+          `▸ <b>Alias (@):</b> <a href="https://t.me/${escapeHtml(username)}">@${escapeHtml(username)}</a>\n` +
+          `▸ <b>Estado:</b> ⊱ <code>LIMPIO [ VERIFICADO ]</code> ⊰\n\n` +
+          `──────\n` +
+          `✓ <i>Este usuario NO registra antecedentes de estafa ni sanciones en la base de datos oficial.</i>`;
+
+        kb.url('Perfil', `https://t.me/${username}`);
+        kb.row().text('✖ Cerrar', 'info_close');
+
+        try {
+          await ctx.editMessageText(cleanText, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+          });
+        } catch (editErr) {
+          if (!editErr.message?.includes('message is not modified')) {
+            console.error('⟡ Info: Error editando cleanText por username:', editErr.message);
+          }
+        }
+      } else {
+        // USUARIO QUEMADO (ESTAFADOR)
+        const dateRaw = burnInfo.burned_at || burnInfo.created_at;
+        const dateStr = dateRaw
+          ? new Date(dateRaw).toLocaleString('es-PE', {
+              timeZone: 'America/Lima',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+            })
+          : 'Fecha no registrada';
+
+        const burnText =
+          `⟡ <b>[ LISTA NEGRA OFICIAL ] REGISTRO DE ESTAFADOR</b>\n` +
+          `══════\n\n` +
+          `▸ <b>Alias (@):</b> <a href="https://t.me/${escapeHtml(username)}">@${escapeHtml(username)}</a>\n` +
+          `▸ <b>ID Fichado:</b> <code>${burnInfo.user_id || 'Desconocido'}</code>\n` +
+          `▸ <b>Estado:</b> ⊱ <code>QUEMADO / ESTAFADOR [ SANCIONADO ]</code> ⊰\n` +
+          `▸ <b>Fecha:</b> <code>${dateStr}</code>\n` +
+          `▸ <b>Motivo / Hechos:</b>\n  ↳ <i>${escapeHtml(burnInfo.context || 'Reporte de estafa confirmado')}</i>\n\n` +
+          `▸ <b>Reportado por:</b> <code>${burnInfo.reported_by || 'Staff'}</code>\n` +
+          `──────\n` +
+          `⟡ <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
+          `<i>No realices transferencias, pagos ni entregas con este usuario bajo ninguna circunstancia.</i>`;
+
+        kb.url('Perfil', `https://t.me/${username}`);
+        const burnChannelId = config.PUBLIC_BURN_CHANNEL_ID;
+        if (burnChannelId) {
+          const cleanChannel = String(burnChannelId).replace('-100', '');
+          kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`);
+        }
+        kb.row().text('✖ Entendido', 'info_close');
+
+        try {
+          await ctx.editMessageText(burnText, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+          });
+        } catch (editErr) {
+          if (!editErr.message?.includes('message is not modified')) {
+            console.error('⟡ Info: Error editando burnText por username:', editErr.message);
+          }
+        }
+      }
+    } catch (err) {
+      if (!err.message?.includes('message is not modified')) {
+        console.error('⟡ Info: Error en info_check_burn_user:', err.message);
+      }
+    }
+  });
+
   // ── Callback: Volver a la Vista Principal del Perfil (o desde Search) ──
   bot.callbackQuery(/^(?:info_back|info_profile):(\d+)$/, async (ctx) => {
     try {

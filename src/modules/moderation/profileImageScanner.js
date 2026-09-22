@@ -11,13 +11,12 @@ const { normalizeString } = require('./antiImpersonator');
 // Analiza capturas de perfiles de Telegram en cola para detectar estafadores
 // ══════
 
-// Modelos Gemini con soporte de visión multimodal activo
+// Modelos Gemini con soporte de visión multimodal activo y ordenados por velocidad
 const VISION_MODELS = [
-  'gemini-3.1-flash-lite',
-  'gemini-3.5-flash-lite',
   'gemini-3.5-flash',
-  'gemini-3.6-flash',
+  'gemini-3.1-flash-lite',
   'gemini-flash-latest',
+  'gemini-3.5-flash-lite',
 ];
 
 /**
@@ -72,21 +71,22 @@ const VISION_SYSTEM_PROMPT =
   '⟡ PATRONES Y FORMAS VISUALES SOPORTADAS:\n' +
   '1. MODAL/DRAWER COMPLETO DE TELEGRAM ("User Info"):\n' +
   '   - Avatar circular superior con foto de perfil.\n' +
-  '   - Nombre principal debajo de la foto (con tipografías matemáticas, cursivas, símbolos como ╰┈➤, 『 』, etc.).\n' +
-  '   - Estado de conexión ("last seen recently", "últ. vez recientemente", "online", "en línea").\n' +
-  '   - Fila de Username (@ icon): El alias público (ej: "Vgsimi", o nombres largos divididos en dos líneas como "Quechuchaquieresahor" + "a" -> DEBES UNIRLOS COMO "Quechuchaquieresahora").\n' +
-  '   - Fila de Bio (icono i): Descripción del usuario, a menudo contiene enlaces a otros @usernames o canales (ej: "@Peru_corp1", "@DWPeru").\n' +
+  '   - Nombre principal o alias debajo de la foto (ej: "svlla_x", "Carlos", "『 ༒ 𝙎𝙝𝙞𝙨𝙪𝙠𝙪 𝘽𝙋 ༒ 』").\n' +
+  '   - Estado de conexión ("last seen 2 minutes ago", "last seen recently", "últ. vez recientemente", "online", "en línea").\n' +
+  '   - Fila de Username (@ icon): El alias público (ej: "svlla_x", "Vgsimi", o nombres largos divididos en dos líneas).\n' +
+  '   - Fila de Bio (icono i): Descripción del usuario, a menudo contiene enlaces a otros @usernames o canales.\n' +
   '   - Fila de Channel / Subscribers: Canales vinculados al usuario.\n\n' +
   '2. CABECERA RECORTADA / BARRA SUPERIOR DE CHAT:\n' +
-  '   - Barra superior con avatar pequeño, nombre con fuentes unicode (ej: "✧ AP | ZeroGhost | ITHANNY 💳") y debajo "últ. vez recientemente".\n' +
+  '   - Barra superior con avatar pequeño, nombre con fuentes unicode y debajo estado de conexión ("últ. vez recientemente").\n' +
   '   - Aunque no haya @ visible, extrae con total fidelidad el nombre completo y su versión normalizada en ASCII.\n\n' +
   '3. MENSAJES Y CITAS:\n' +
   '   - Mensajes reenviados ("Forwarded from / Reenviado de ...") con el nombre del remitente.\n\n' +
   '⟡ REGLAS CRÍTICAS:\n' +
   '- DESOFUSCACIÓN: Traduce cualquier tipografía unicode o matemática (Fraktur, Script, Mathematical Bold/Italic) a texto legible ASCII estándar.\n' +
-  '- LIMPIEZA DE USERNAME: Extrae ÚNICAMENTE el alias alfanumérico sin el símbolo @ ni espacios. Si viene en varias líneas, únelo en una sola palabra.\n' +
+  '- LIMPIEZA DE USERNAME: Extrae ÚNICAMENTE el alias alfanumérico sin el símbolo @ ni espacios. Si aparece debajo del avatar (como "svlla_x") o en la fila @, extráelo.\n' +
   '- MENCIONES EN BIO: Extrae una lista de todos los @usernames o canales mencionados dentro de la biografía.\n' +
-  '- DETECCIÓN DE ID: Si en la captura aparece algún ID numérico visible (ej: "ID: 123456789"), extráelo.\n\n' +
+  '- DETECCIÓN DE ID: Si en la captura aparece algún ID numérico visible (ej: "ID: 123456789"), extráelo.\n' +
+  '- DETECCIÓN DE PERFIL: Si la imagen es una captura de perfil, modal de usuario o chat de Telegram, define "isTelegramProfile": true.\n\n' +
   'Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:\n' +
   '{\n' +
   '  "isTelegramProfile": true,\n' +
@@ -192,12 +192,19 @@ async function extractWithGeminiVision(base64Image, mimeType = 'image/jpeg') {
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(16000),
           body: JSON.stringify(payload),
         });
 
-        if (res.status === 429) break;
-        if (!res.ok) continue;
+        if (res.status === 429 || res.status === 503) {
+          // Si hay congestión o rate limit, intentar de inmediato con el siguiente modelo de la lista
+          continue;
+        }
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '');
+          console.error(`⟡ Gemini Vision [${model}] status ${res.status}:`, errText.slice(0, 200));
+          continue;
+        }
 
         const data = await res.json();
         const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -207,7 +214,7 @@ async function extractWithGeminiVision(base64Image, mimeType = 'image/jpeg') {
         const toParse = jsonMatch ? jsonMatch[0] : rawText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
         return JSON.parse(toParse);
       } catch (err) {
-        // Continuar al siguiente intento
+        console.error(`⟡ Gemini Vision [${model}] exception:`, err.message);
       }
     }
   }
@@ -306,15 +313,20 @@ async function extractProfileDataFromImage(imageBuffer, mimeType = 'image/jpeg')
 /**
  * Procesa la imagen del perfil y responde con el diagnóstico de seguridad
  */
-async function processProfileInspection(ctx, photoFileId) {
+async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = false } = {}) {
   return scannerQueue.enqueue(async () => {
-    // Notificar acción
-    await ctx.replyWithChatAction('typing');
+    // Notificar acción si fue consulta explícita
+    if (isExplicitInquiry) {
+      await ctx.replyWithChatAction('typing').catch(() => {});
+    }
 
     // 1. Obtener enlace de descarga de la foto
     const file = await ctx.api.getFile(photoFileId);
     if (!file || !file.file_path) {
-      throw new Error('No se pudo acceder a la imagen en los servidores de Telegram.');
+      if (isExplicitInquiry) {
+        throw new Error('No se pudo acceder a la imagen en los servidores de Telegram.');
+      }
+      return;
     }
 
     const token = ctx.api.token || config.BOT_TOKEN;
@@ -322,7 +334,10 @@ async function processProfileInspection(ctx, photoFileId) {
 
     const res = await fetch(downloadUrl);
     if (!res.ok) {
-      throw new Error('Error al descargar el archivo de la foto.');
+      if (isExplicitInquiry) {
+        throw new Error('Error al descargar el archivo de la foto.');
+      }
+      return;
     }
 
     const arrayBuffer = await res.arrayBuffer();
@@ -331,14 +346,17 @@ async function processProfileInspection(ctx, photoFileId) {
     // 2. Extraer información mediante visión multimodal
     const profileInfo = await extractProfileDataFromImage(buffer, 'image/jpeg');
 
-    if (!profileInfo || (!profileInfo.rawName && !profileInfo.username)) {
-      return await ctx.reply(
-        `⟡ <b>[RADAR VISUAL] ANÁLISIS DE IMAGEN</b>\n` +
-        `──────\n\n` +
-        `No se logró identificar con claridad una cabecera o perfil de Telegram en la captura enviada.\n` +
-        `<i>Asegúrate de que el nombre o @ del perfil sea legible.</i>`,
-        { parse_mode: 'HTML' }
-      );
+    if (!profileInfo || (!profileInfo.rawName && !profileInfo.username) || !profileInfo.isTelegramProfile) {
+      if (isExplicitInquiry) {
+        return await ctx.reply(
+          `⟡ <b>[RADAR VISUAL] ANÁLISIS DE IMAGEN</b>\n` +
+          `──────\n\n` +
+          `No se logró identificar con claridad una cabecera o perfil de Telegram en la captura enviada.\n` +
+          `<i>Asegúrate de que el nombre o @ del perfil sea legible.</i>`,
+          { parse_mode: 'HTML' }
+        );
+      }
+      return;
     }
 
     const rawName = profileInfo.rawName || 'Sin nombre detectado';
@@ -491,6 +509,8 @@ async function processProfileInspection(ctx, photoFileId) {
       }
       if (targetId) {
         kb.text('Verificar', `info_check_burn:${targetId}`);
+      } else if (effectiveUsername) {
+        kb.text('Verificar', `info_check_burn_user:${effectiveUsername}`);
       }
 
       const burnChannelId = config.PUBLIC_BURN_CHANNEL_ID;
@@ -528,6 +548,8 @@ async function processProfileInspection(ctx, photoFileId) {
       }
       if (targetId) {
         kb.text('Verificar', `info_check_burn:${targetId}`);
+      } else if (effectiveUsername) {
+        kb.text('Verificar', `info_check_burn_user:${effectiveUsername}`);
       }
       kb.row().text('🛡️ Ver Staff Oficial', 'staff_list');
       kb.row().text('✖ Cerrar', 'info_close');
@@ -583,7 +605,7 @@ async function processProfileInspection(ctx, photoFileId) {
     if (targetId) {
       kb.text('Verificar', `info_check_burn:${targetId}`);
     } else if (effectiveUsername) {
-      kb.text('Verificar', `perfil_card_user:${effectiveUsername}`);
+      kb.text('Verificar', `info_check_burn_user:${effectiveUsername}`);
     }
 
     kb.row().text('✖ Cerrar', 'info_close');
@@ -596,6 +618,9 @@ async function processProfileInspection(ctx, photoFileId) {
     });
   });
 }
+
+const PROFILE_INQUIRY_REGEX =
+  /(?:conoce|conosen|conocen|ubica|ubican|sabe|saben|alguien|qui[eé]n|refe|referencia|confiable|fiar|seguro|estafa|scam|quemad|fichad|perfil|user|trato|fake|clon|legal|cuenta|info|averigua|revisa|checa|fichaje|opiniones)/i;
 
 /**
  * Registra listeners y comandos del Scanner Visual
@@ -618,30 +643,50 @@ function register(bot) {
       }
 
       const bestPhoto = photos[photos.length - 1];
-      await processProfileInspection(ctx, bestPhoto.file_id);
+      await processProfileInspection(ctx, bestPhoto.file_id, { isExplicitInquiry: true });
     } catch (err) {
       console.error('⟡ Error en /scanperfil:', err.message);
       await ctx.reply(`⟡ Error al inspeccionar perfil: ${err.message}`);
     }
   });
 
-  // ── Listener Automático: Detección cuando alguien envía foto preguntando por reputación ──
+  // ── Listener Automático: Detección cuando alguien envía foto (con o sin consulta) ──
   bot.on('message:photo', async (ctx, next) => {
     try {
-      const caption = (ctx.message?.caption || '').toLowerCase();
+      const caption = (ctx.message?.caption || '').trim();
       const photos = ctx.message?.photo || [];
+      if (photos.length === 0) return next();
 
-      // Palabras clave que indican consulta de reputación sobre una captura
-      const isProfileInquiry =
-        /(?:es\s+confiable|es\s+estafador|alguien\s+lo\s+conoce|alguien\s+conoce|quien\s+es|referencias|es\s+seguro|hicieron\s+trato|perfil|scam|quemado|fichado)/i.test(caption);
+      const isPrivate = ctx.chat?.type === 'private';
+      const isExplicitInquiry = PROFILE_INQUIRY_REGEX.test(caption) || isPrivate;
+      const shouldScan = isExplicitInquiry || caption.length <= 35;
 
-      if (isProfileInquiry && photos.length > 0) {
+      if (shouldScan) {
         const bestPhoto = photos[photos.length - 1];
-        await processProfileInspection(ctx, bestPhoto.file_id);
+        await processProfileInspection(ctx, bestPhoto.file_id, { isExplicitInquiry });
         return;
       }
     } catch (err) {
       console.error('⟡ Error en message:photo profile scanner:', err.message);
+    }
+
+    return next();
+  });
+
+  // ── Listener Automático: Detección cuando alguien responde a una foto preguntando reputación ──
+  bot.on('message:text', async (ctx, next) => {
+    try {
+      const reply = ctx.message?.reply_to_message;
+      if (reply && reply.photo && reply.photo.length > 0) {
+        const text = (ctx.message?.text || '').trim();
+        if (PROFILE_INQUIRY_REGEX.test(text)) {
+          const bestPhoto = reply.photo[reply.photo.length - 1];
+          await processProfileInspection(ctx, bestPhoto.file_id, { isExplicitInquiry: true });
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('⟡ Error en message:text reply profile scanner:', err.message);
     }
 
     return next();

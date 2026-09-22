@@ -1947,17 +1947,21 @@ async function getAllBurnedUsers(limit = 50, offset = 0, tenantId = null) {
 
 async function getBurnedUsersCount(tenantId = null) {
   if (useSupabase && supabase) {
-    let q = supabase
-      .from('burned_users')
-      .select('*', { count: 'exact', head: true });
-    if (tenantId) {
-      q = q.eq('tenant_id', tenantId);
-    } else {
-      q = q.is('tenant_id', null);
+    try {
+      if (tenantId) {
+        const { count, error } = await supabase
+          .from('burned_users')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', tenantId);
+        if (!error && count !== null) return count;
+      }
+      const { count } = await supabase
+        .from('burned_users')
+        .select('*', { count: 'exact', head: true });
+      return count || 0;
+    } catch {
+      return 0;
     }
-    const { count, error } = await q;
-    if (error && !error.message.includes('tenant_id')) console.error('⟡ Supabase getBurnedUsersCount error:', error.message);
-    return count || 0;
   }
   if (pool) {
     try {
