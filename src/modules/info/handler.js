@@ -238,6 +238,31 @@ function checkButtonSpam(userId) {
 }
 
 /**
+ * Sube un buffer de imagen a Catbox para obtener una URL pública directa.
+ * Permite incrustar la imagen en el mensaje de texto original vía link_preview_options
+ * sin crear mensajes adicionales y editando en el mismo lugar.
+ */
+async function uploadCardToHost(buffer) {
+  try {
+    const fd = new FormData();
+    fd.append('reqtype', 'fileupload');
+    fd.append('fileToUpload', new Blob([buffer], { type: 'image/png' }), `perfil_${Date.now()}.png`);
+    const res = await fetch('https://catbox.moe/user/api.php', {
+      method: 'POST',
+      body: fd,
+      signal: AbortSignal.timeout(6000),
+    });
+    if (res.ok) {
+      const url = (await res.text()).trim();
+      if (url.startsWith('http')) return url;
+    }
+  } catch (err) {
+    console.warn('⟡ Info: Aviso al hospedar tarjeta (fallback):', err.message);
+  }
+  return null;
+}
+
+/**
  * Genera y envía la tarjeta gráfica de perfil (/perfil).
  */
 async function sendUserCard(ctx, target) {
@@ -600,10 +625,15 @@ function register(bot) {
       const targetUser = userObj?.username ? userObj.username : null;
       const profileUrl = targetUser ? `https://t.me/${targetUser}` : `tg://user?id=${targetId}`;
 
+      const existingMediaUrl =
+        ctx.callbackQuery?.message?.link_preview_options?.url ||
+        ctx.callbackQuery?.message?.entities?.find((e) => e.type === 'text_link')?.url ||
+        null;
+
       const isMedia = Boolean(ctx.callbackQuery?.message?.photo || ctx.callbackQuery?.message?.video || ctx.callbackQuery?.message?.document);
 
       const kb = new InlineKeyboard();
-      if (isMedia) {
+      if (isMedia || existingMediaUrl) {
         kb.url('Perfil', profileUrl).text('Verificar', `info_check_burn:${targetId}`).success();
       } else {
         kb.text('Perfil', `info_view_card:${targetId}`).primary().text('Verificar', `info_check_burn:${targetId}`).success();
@@ -628,6 +658,17 @@ function register(bot) {
             caption: fullText,
             parse_mode: 'HTML',
             reply_markup: kb,
+          });
+        } else if (existingMediaUrl) {
+          const fullTextWithMedia = `<a href="${existingMediaUrl}">&#8205;</a>${fullText}`;
+          await ctx.editMessageText(fullTextWithMedia, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+            link_preview_options: {
+              url: existingMediaUrl,
+              prefer_large_media: true,
+              show_above_text: true,
+            },
           });
         } else {
           await ctx.editMessageText(fullText, {
@@ -669,10 +710,15 @@ function register(bot) {
         firstName: userObj?.first_name,
       });
 
+      const existingMediaUrl =
+        ctx.callbackQuery?.message?.link_preview_options?.url ||
+        ctx.callbackQuery?.message?.entities?.find((e) => e.type === 'text_link')?.url ||
+        null;
+
       const isMedia = Boolean(ctx.callbackQuery?.message?.photo || ctx.callbackQuery?.message?.video || ctx.callbackQuery?.message?.document);
 
       let finalKeyboard = keyboard;
-      if (isMedia) {
+      if (isMedia || existingMediaUrl) {
         const targetUser = userObj?.username ? userObj.username : null;
         const profileUrl = targetUser ? `https://t.me/${targetUser}` : `tg://user?id=${targetId}`;
         finalKeyboard = new InlineKeyboard()
@@ -686,6 +732,17 @@ function register(bot) {
             caption: text,
             parse_mode: 'HTML',
             reply_markup: finalKeyboard,
+          });
+        } else if (existingMediaUrl) {
+          const textWithMedia = `<a href="${existingMediaUrl}">&#8205;</a>${text}`;
+          await ctx.editMessageText(textWithMedia, {
+            parse_mode: 'HTML',
+            reply_markup: finalKeyboard,
+            link_preview_options: {
+              url: existingMediaUrl,
+              prefer_large_media: true,
+              show_above_text: true,
+            },
           });
         } else {
           await ctx.editMessageText(text, {
@@ -767,11 +824,16 @@ function register(bot) {
           `<i>No realices transferencias, pagos ni entregas con este usuario bajo ninguna circunstancia.</i>`;
       }
 
+      const existingMediaUrl =
+        ctx.callbackQuery?.message?.link_preview_options?.url ||
+        ctx.callbackQuery?.message?.entities?.find((e) => e.type === 'text_link')?.url ||
+        null;
+
       const isMedia = Boolean(ctx.callbackQuery?.message?.photo || ctx.callbackQuery?.message?.video || ctx.callbackQuery?.message?.document);
       const profileUrl = `https://t.me/${username}`;
 
       const kb = new InlineKeyboard();
-      if (isMedia) {
+      if (isMedia || existingMediaUrl) {
         kb.url('Perfil', profileUrl).text('Verificar', `info_check_burn_user:${username}`).success();
       } else {
         kb.text('Perfil', `info_view_card_user:${username}`).primary().text('Verificar', `info_check_burn_user:${username}`).success();
@@ -796,6 +858,17 @@ function register(bot) {
             caption: fullText,
             parse_mode: 'HTML',
             reply_markup: kb,
+          });
+        } else if (existingMediaUrl) {
+          const fullTextWithMedia = `<a href="${existingMediaUrl}">&#8205;</a>${fullText}`;
+          await ctx.editMessageText(fullTextWithMedia, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+            link_preview_options: {
+              url: existingMediaUrl,
+              prefer_large_media: true,
+              show_above_text: true,
+            },
           });
         } else {
           await ctx.editMessageText(fullText, {
@@ -831,10 +904,15 @@ function register(bot) {
       const username = ctx.match[1].toLowerCase().replace(/^@/, '').trim();
       const { text, keyboard } = await buildUserProfileByUsername(ctx, username);
 
+      const existingMediaUrl =
+        ctx.callbackQuery?.message?.link_preview_options?.url ||
+        ctx.callbackQuery?.message?.entities?.find((e) => e.type === 'text_link')?.url ||
+        null;
+
       const isMedia = Boolean(ctx.callbackQuery?.message?.photo || ctx.callbackQuery?.message?.video || ctx.callbackQuery?.message?.document);
 
       let finalKeyboard = keyboard;
-      if (isMedia) {
+      if (isMedia || existingMediaUrl) {
         finalKeyboard = new InlineKeyboard()
           .url('Perfil', `https://t.me/${username}`)
           .text('Verificar', `info_check_burn_user:${username}`).success();
@@ -846,6 +924,17 @@ function register(bot) {
             caption: text,
             parse_mode: 'HTML',
             reply_markup: finalKeyboard,
+          });
+        } else if (existingMediaUrl) {
+          const textWithMedia = `<a href="${existingMediaUrl}">&#8205;</a>${text}`;
+          await ctx.editMessageText(textWithMedia, {
+            parse_mode: 'HTML',
+            reply_markup: finalKeyboard,
+            link_preview_options: {
+              url: existingMediaUrl,
+              prefer_large_media: true,
+              show_above_text: true,
+            },
           });
         } else {
           await ctx.editMessageText(text, {
@@ -909,6 +998,26 @@ function register(bot) {
         .url('Perfil', profileUrl)
         .text('Verificar', `info_check_burn:${targetId}`).success();
 
+      // 1. Intentar incrustar la imagen en el MISMO mensaje original vía preview superior
+      const hostedUrl = await uploadCardToHost(cardBuffer);
+      if (hostedUrl) {
+        const textWithMedia = `<a href="${hostedUrl}">&#8205;</a>${text}`;
+        try {
+          return await ctx.editMessageText(textWithMedia, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+            link_preview_options: {
+              url: hostedUrl,
+              prefer_large_media: true,
+              show_above_text: true,
+            },
+          });
+        } catch (editMediaErr) {
+          console.warn('⟡ Info: Aviso editando mensaje con preview (usando fallback):', editMediaErr.message);
+        }
+      }
+
+      // 2. Fallback: Foto nueva con caption y eliminación del mensaje anterior
       const cardFile = new InputFile(cardBuffer, `perfil_${resolvedId || targetId}.png`);
 
       const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
@@ -971,6 +1080,26 @@ function register(bot) {
         .url('Perfil', `https://t.me/${username}`)
         .text('Verificar', `info_check_burn_user:${username}`).success();
 
+      // 1. Intentar incrustar la imagen en el MISMO mensaje original vía preview superior
+      const hostedUrl = await uploadCardToHost(cardBuffer);
+      if (hostedUrl) {
+        const textWithMedia = `<a href="${hostedUrl}">&#8205;</a>${text}`;
+        try {
+          return await ctx.editMessageText(textWithMedia, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+            link_preview_options: {
+              url: hostedUrl,
+              prefer_large_media: true,
+              show_above_text: true,
+            },
+          });
+        } catch (editMediaErr) {
+          console.warn('⟡ Info: Aviso editando mensaje de usuario con preview (usando fallback):', editMediaErr.message);
+        }
+      }
+
+      // 2. Fallback: Foto nueva con caption y eliminación del mensaje anterior
       const cardFile = new InputFile(cardBuffer, `perfil_${resolvedId || username}.png`);
 
       const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
