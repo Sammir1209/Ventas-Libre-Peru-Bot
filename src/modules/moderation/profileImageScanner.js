@@ -6,6 +6,7 @@ const { InlineKeyboard } = require('grammy');
 const userbot = require('../../userbot/client');
 const { normalizeString } = require('./antiImpersonator');
 const { buildUserProfile, buildUserProfileByUsername } = require('../info/handler');
+const Tesseract = require('tesseract.js');
 
 // ══════
 // ⟡ Módulo: Scanner Visual de Perfiles por Imagen (OCR & Vision Pipeline)
@@ -280,12 +281,91 @@ async function extractWithOpenRouterVision(base64Image, mimeType = 'image/jpeg')
 }
 
 /**
+ * Extracción vía OCR Local (Tesseract.js) sin IA, costo cero y sin límites de cuota.
+ * Normaliza fuentes Unicode y extrae Username (@), ID o nombres para búsqueda directa con Userbot.
+ */
+async function extractWithLocalOCR(imageBuffer) {
+  try {
+    const { data } = await Tesseract.recognize(imageBuffer, 'eng');
+    const rawText = data?.text || '';
+    if (!rawText || rawText.trim().length < 3) return null;
+
+    // Normalizar fuentes decorativas, góticas y unicode a ASCII
+    const normalizedText = normalizeUnicodeText(rawText);
+
+    // 1. Detectar ID numérico explícito (ej: ID: 123456789, User ID: 123456789)
+    let detectedId = null;
+    const idMatch = normalizedText.match(/(?:id|user\s*id|uid)[\s:;#]*([0-9]{6,14})/i);
+    if (idMatch) {
+      detectedId = Number(idMatch[1]);
+    } else {
+      // Buscar secuencia aislada de dígitos que parezca un ID de Telegram (8-11 dígitos)
+      const standaloneIdMatch = normalizedText.match(/\b([0-9]{8,11})\b/);
+      if (standaloneIdMatch) {
+        detectedId = Number(standaloneIdMatch[1]);
+      }
+    }
+
+    // 2. Detectar @username explícito
+    let username = null;
+    const usernameMatch = normalizedText.match(/@([a-zA-Z0-9_]{3,32})/);
+    if (usernameMatch) {
+      username = usernameMatch[1];
+    } else {
+      // Buscar formato t.me/usuario o "Username: usuario"
+      const tmeMatch = normalizedText.match(/(?:t\.me\/|username[\s:;]+|usuario[\s:;]+)([a-zA-Z0-9_]{3,32})/i);
+      if (tmeMatch) {
+        username = tmeMatch[1];
+      }
+    }
+
+    // 3. Extraer posible nombre de perfil de las primeras líneas legibles
+    const lines = normalizedText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+    let rawName = null;
+    for (const line of lines) {
+      // Omitir líneas de estado, horas, batería o iconos de sistema
+      if (/^(?:online|en línea|last seen|últ\. vez|username|info|bio|id\b)/i.test(line)) continue;
+      if (line.length >= 2 && line.length <= 40 && !line.startsWith('@')) {
+        rawName = line;
+        break;
+      }
+    }
+
+    const isTelegramProfile = !!(username || detectedId || /last seen|últ\. vez|online|en línea|info|bio/i.test(normalizedText));
+
+    if (username || detectedId || (isTelegramProfile && rawName)) {
+      return {
+        isTelegramProfile: true,
+        rawName: rawName || username || 'Usuario',
+        normalizedName: rawName ? normalizeString(rawName) : (username || 'Usuario'),
+        username: username || null,
+        detectedId: detectedId || null,
+        bio: null,
+        isFromLocalOCR: true,
+      };
+    }
+  } catch (err) {
+    console.warn('⟡ Local OCR (Tesseract): Fallback por error:', err.message);
+  }
+  return null;
+}
+
+/**
  * Extrae texto e información del perfil mediante cascada multi-proveedor:
- * 1. Groq Vision (Ultra-rápido ~300ms)
- * 2. Gemini Vision (Preciso con rotación de claves)
- * 3. OpenRouter Free Vision (Respaldo)
+ * 0. OCR Local Tesseract (Sin IA, 100% gratuito, sin límites ni rate limits)
+ * 1. Google Gemini Multimodal Vision (Alta precisión con rotación de claves)
+ * 2. OpenRouter Free Vision (Respaldo)
+ * 3. Groq Vision (Ultra-rápido)
  */
 async function extractProfileDataFromImage(imageBuffer, mimeType = 'image/jpeg') {
+  // 0. CAPA 0: OCR Local (Tesseract.js) - Extrae @username o ID sin consumir APIs
+  try {
+    const localResult = await extractWithLocalOCR(imageBuffer);
+    if (localResult && (localResult.username || localResult.detectedId)) {
+      return localResult;
+    }
+  } catch {}
+
   const base64Image = imageBuffer.toString('base64');
 
   // 1. Probar con Google Gemini Multimodal Vision (Alta precisión y soporte activo)

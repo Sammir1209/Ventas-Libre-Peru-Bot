@@ -28,6 +28,7 @@ const helpHandler = require('./modules/help/handler');
 const aiHandler = require('./modules/ai/handler');
 const searchHandler = require('./modules/moderation/search');
 const securityHandler = require('./modules/security/handler');
+const groupCensorShield = require('./modules/moderation/groupCensorShield');
 
 // ── Middleware ──
 const { antiSpam } = require('./middleware/antiSpam');
@@ -138,6 +139,9 @@ async function main() {
   const setupHandler = require('./modules/setup/handler');
   const botManager = require('./core/botManager');
   const { createWebApp } = require('./web/server');
+
+  // ── Escudo Anti-Ban de Grupos (Censor de Palabras Prohibidas por Telegram) ──
+  groupCensorShield.register(bot);
 
   // ── Registrar módulos ──
   verificationHandler.register(bot);

@@ -3,5 +3,6 @@ node_modules/
 *.log
 .DS_Store
 scratch/
+*.traineddata
 dashboard/.next/
 dashboard/node_modules/
