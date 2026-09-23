@@ -129,10 +129,10 @@ async function buildUserProfile(ctx, targetUser) {
   const bodyText =
     `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
     `──────\n\n` +
-    `👤 <b>Nombre:</b> ${nameDisplay}\n` +
-    `🆔 <b>ID:</b> <code>${userId}</code>\n` +
-    `🔍 <b>User:</b> ${userDisplay}\n` +
-    `💼 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
+    `〖☁〗 <b>Username:</b> ${nameDisplay}\n` +
+    `〖ϟ〗 <b>ID:</b> <code>${userId}</code>\n` +
+    `〖♝〗 <b>@User:</b> ${userDisplay}\n` +
+    `〖☾〗 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
     originLine +
     `🔗 <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>`;
 
@@ -205,16 +205,16 @@ async function buildUserProfileByUsername(ctx, username) {
   const bodyText =
     `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
     `──────\n\n` +
-    `👤 <b>Nombre:</b> ${nameDisplay}\n` +
-    `🆔 <b>ID:</b> <i>No detectado</i>\n` +
-    `🔍 <b>User:</b> ${userDisplay}\n` +
-    `💼 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
+    `〖☁〗 <b>Username:</b> ${nameDisplay}\n` +
+    `〖ϟ〗 <b>ID:</b> <i>No detectado</i>\n` +
+    `〖♝〗 <b>@User:</b> ${userDisplay}\n` +
+    `〖☾〗 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
     `🔗 <b>Link de perfil:</b> <a href="https://t.me/${cleanUser}">Presiona aquí</a>`;
 
   const text = `${bodyText}\n\n──────\n${dateFormatted}`;
 
   const keyboard = new InlineKeyboard()
-    .url('Perfil', `https://t.me/${cleanUser}`).primary()
+    .text('Perfil', `info_view_card_user:${cleanUser}`).primary()
     .text('Verificar', `info_check_burn_user:${cleanUser}`).success();
 
   return { text, keyboard, bodyText, dateFormatted };
@@ -599,8 +599,14 @@ function register(bot) {
       const targetUser = userObj?.username ? userObj.username : null;
       const profileUrl = targetUser ? `https://t.me/${targetUser}` : `tg://user?id=${targetId}`;
 
+      const isMedia = Boolean(ctx.callbackQuery?.message?.photo || ctx.callbackQuery?.message?.video || ctx.callbackQuery?.message?.document);
+
       const kb = new InlineKeyboard();
-      kb.text('Perfil', `info_view_card:${targetId}`).primary().text('Verificar', `info_check_burn:${targetId}`).success();
+      if (isMedia) {
+        kb.url('Perfil', profileUrl).text('Verificar', `info_check_burn:${targetId}`).success();
+      } else {
+        kb.text('Perfil', `info_view_card:${targetId}`).primary().text('Verificar', `info_check_burn:${targetId}`).success();
+      }
       kb.row().text('Ocultar', `info_hide_burn:${targetId}`).primary();
 
       if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
@@ -616,11 +622,19 @@ function register(bot) {
         `${dateFormatted}`;
 
       try {
-        await ctx.editMessageText(fullText, {
-          parse_mode: 'HTML',
-          reply_markup: kb,
-          link_preview_options: { is_disabled: true },
-        });
+        if (isMedia) {
+          await ctx.editMessageCaption({
+            caption: fullText,
+            parse_mode: 'HTML',
+            reply_markup: kb,
+          });
+        } else {
+          await ctx.editMessageText(fullText, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+            link_preview_options: { is_disabled: true },
+          });
+        }
       } catch (editErr) {
         if (!editErr.message?.includes('message is not modified')) {
           console.error('⟡ Info: Error editando verificación añadida:', editErr.message);
@@ -654,12 +668,31 @@ function register(bot) {
         firstName: userObj?.first_name,
       });
 
+      const isMedia = Boolean(ctx.callbackQuery?.message?.photo || ctx.callbackQuery?.message?.video || ctx.callbackQuery?.message?.document);
+
+      let finalKeyboard = keyboard;
+      if (isMedia) {
+        const targetUser = userObj?.username ? userObj.username : null;
+        const profileUrl = targetUser ? `https://t.me/${targetUser}` : `tg://user?id=${targetId}`;
+        finalKeyboard = new InlineKeyboard()
+          .url('Perfil', profileUrl)
+          .text('Verificar', `info_check_burn:${targetId}`).success();
+      }
+
       try {
-        await ctx.editMessageText(text, {
-          parse_mode: 'HTML',
-          reply_markup: keyboard,
-          link_preview_options: { is_disabled: true },
-        });
+        if (isMedia) {
+          await ctx.editMessageCaption({
+            caption: text,
+            parse_mode: 'HTML',
+            reply_markup: finalKeyboard,
+          });
+        } else {
+          await ctx.editMessageText(text, {
+            parse_mode: 'HTML',
+            reply_markup: finalKeyboard,
+            link_preview_options: { is_disabled: true },
+          });
+        }
       } catch (editErr) {
         if (!editErr.message?.includes('message is not modified')) {
           console.error('⟡ Info: Error ocultando verificación:', editErr.message);
@@ -733,8 +766,15 @@ function register(bot) {
           `<i>No realices transferencias, pagos ni entregas con este usuario bajo ninguna circunstancia.</i>`;
       }
 
+      const isMedia = Boolean(ctx.callbackQuery?.message?.photo || ctx.callbackQuery?.message?.video || ctx.callbackQuery?.message?.document);
+      const profileUrl = `https://t.me/${username}`;
+
       const kb = new InlineKeyboard();
-      kb.text('Perfil', `info_view_card_user:${username}`).primary().text('Verificar', `info_check_burn_user:${username}`).success();
+      if (isMedia) {
+        kb.url('Perfil', profileUrl).text('Verificar', `info_check_burn_user:${username}`).success();
+      } else {
+        kb.text('Perfil', `info_view_card_user:${username}`).primary().text('Verificar', `info_check_burn_user:${username}`).success();
+      }
       kb.row().text('Ocultar', `info_hide_burn_user:${username}`).primary();
 
       if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
@@ -750,11 +790,19 @@ function register(bot) {
         `${dateFormatted}`;
 
       try {
-        await ctx.editMessageText(fullText, {
-          parse_mode: 'HTML',
-          reply_markup: kb,
-          link_preview_options: { is_disabled: true },
-        });
+        if (isMedia) {
+          await ctx.editMessageCaption({
+            caption: fullText,
+            parse_mode: 'HTML',
+            reply_markup: kb,
+          });
+        } else {
+          await ctx.editMessageText(fullText, {
+            parse_mode: 'HTML',
+            reply_markup: kb,
+            link_preview_options: { is_disabled: true },
+          });
+        }
       } catch (editErr) {
         if (!editErr.message?.includes('message is not modified')) {
           console.error('⟡ Info: Error editando burnText por username:', editErr.message);
@@ -782,12 +830,29 @@ function register(bot) {
       const username = ctx.match[1].toLowerCase().replace(/^@/, '').trim();
       const { text, keyboard } = await buildUserProfileByUsername(ctx, username);
 
+      const isMedia = Boolean(ctx.callbackQuery?.message?.photo || ctx.callbackQuery?.message?.video || ctx.callbackQuery?.message?.document);
+
+      let finalKeyboard = keyboard;
+      if (isMedia) {
+        finalKeyboard = new InlineKeyboard()
+          .url('Perfil', `https://t.me/${username}`)
+          .text('Verificar', `info_check_burn_user:${username}`).success();
+      }
+
       try {
-        await ctx.editMessageText(text, {
-          parse_mode: 'HTML',
-          reply_markup: keyboard,
-          link_preview_options: { is_disabled: true },
-        });
+        if (isMedia) {
+          await ctx.editMessageCaption({
+            caption: text,
+            parse_mode: 'HTML',
+            reply_markup: finalKeyboard,
+          });
+        } else {
+          await ctx.editMessageText(text, {
+            parse_mode: 'HTML',
+            reply_markup: finalKeyboard,
+            link_preview_options: { is_disabled: true },
+          });
+        }
       } catch (editErr) {
         if (!editErr.message?.includes('message is not modified')) {
           console.error('⟡ Info: Error ocultando verificación por username:', editErr.message);
@@ -810,15 +875,57 @@ function register(bot) {
         });
       }
 
-      await ctx.answerCallbackQuery({ text: '🎨 Generando tarjeta gráfica de perfil...' }).catch(() => {});
+      await ctx.answerCallbackQuery({ text: '🎨 Cargando tarjeta de perfil...' }).catch(() => {});
       const targetId = parseInt(ctx.match[1]);
       const userObj = await db.getUser(targetId).catch(() => null);
 
-      await sendUserCard(ctx, {
+      // Reconstruir perfil base para mantener los datos idénticos de /info
+      const { text } = await buildUserProfile(ctx, {
         userId: targetId,
-        username: userObj?.username || null,
-        firstName: userObj?.first_name || 'Usuario',
+        username: userObj?.username,
+        firstName: userObj?.first_name,
       });
+
+      // Generar tarjeta gráfica oficial
+      const { cardBuffer, userId: resolvedId } = await generateUserCardBuffer(
+        ctx.api,
+        {
+          userId: targetId,
+          username: userObj?.username || null,
+          firstName: userObj?.first_name || 'Usuario',
+        },
+        {
+          tenantId: ctx.tenant?.id,
+          ownerIds: ctx.tenant?.owner_ids,
+          communityName: ctx.tenant?.community_name || 'Comunidad Oficial',
+        }
+      );
+
+      const targetUser = userObj?.username ? userObj.username : null;
+      const profileUrl = targetUser ? `https://t.me/${targetUser}` : `tg://user?id=${targetId}`;
+
+      const kb = new InlineKeyboard()
+        .url('Perfil', profileUrl)
+        .text('Verificar', `info_check_burn:${targetId}`).success();
+
+      const cardFile = new InputFile(cardBuffer, `perfil_${resolvedId || targetId}.png`);
+
+      const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
+      const messageId = ctx.callbackQuery?.message?.message_id;
+      const replyToMsgId = ctx.callbackQuery?.message?.reply_to_message?.message_id;
+      const replyOptions = {
+        caption: text,
+        parse_mode: 'HTML',
+        reply_markup: kb,
+      };
+      if (replyToMsgId) {
+        replyOptions.reply_parameters = { message_id: replyToMsgId };
+      }
+
+      await ctx.replyWithPhoto(cardFile, replyOptions);
+      if (chatId && messageId) {
+        await ctx.api.deleteMessage(chatId, messageId).catch(() => {});
+      }
     } catch (err) {
       console.error('⟡ Info: Error en info_view_card:', err.message);
     }
@@ -833,15 +940,48 @@ function register(bot) {
         });
       }
 
-      await ctx.answerCallbackQuery({ text: '🎨 Generando tarjeta gráfica de perfil...' }).catch(() => {});
+      await ctx.answerCallbackQuery({ text: '🎨 Cargando tarjeta de perfil...' }).catch(() => {});
       const username = ctx.match[1].replace(/^@/, '').trim();
       const userObj = await db.getUserByUsername(username).catch(() => null);
 
-      await sendUserCard(ctx, {
-        userId: userObj?.user_id || null,
-        username: username,
-        firstName: userObj?.first_name || username,
-      });
+      const { text } = await buildUserProfileByUsername(ctx, username);
+
+      const { cardBuffer, userId: resolvedId } = await generateUserCardBuffer(
+        ctx.api,
+        {
+          userId: userObj?.user_id || null,
+          username: username,
+          firstName: userObj?.first_name || username,
+        },
+        {
+          tenantId: ctx.tenant?.id,
+          ownerIds: ctx.tenant?.owner_ids,
+          communityName: ctx.tenant?.community_name || 'Comunidad Oficial',
+        }
+      );
+
+      const kb = new InlineKeyboard()
+        .url('Perfil', `https://t.me/${username}`)
+        .text('Verificar', `info_check_burn_user:${username}`).success();
+
+      const cardFile = new InputFile(cardBuffer, `perfil_${resolvedId || username}.png`);
+
+      const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
+      const messageId = ctx.callbackQuery?.message?.message_id;
+      const replyToMsgId = ctx.callbackQuery?.message?.reply_to_message?.message_id;
+      const replyOptions = {
+        caption: text,
+        parse_mode: 'HTML',
+        reply_markup: kb,
+      };
+      if (replyToMsgId) {
+        replyOptions.reply_parameters = { message_id: replyToMsgId };
+      }
+
+      await ctx.replyWithPhoto(cardFile, replyOptions);
+      if (chatId && messageId) {
+        await ctx.api.deleteMessage(chatId, messageId).catch(() => {});
+      }
     } catch (err) {
       console.error('⟡ Info: Error en info_view_card_user:', err.message);
     }
