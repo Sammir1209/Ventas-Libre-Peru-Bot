@@ -91,7 +91,7 @@ const VISION_SYSTEM_PROMPT =
   '  * Solo si el nombre de visualización es estrictamente una sola palabra simple alfanumérica sin espacios ni adornos (ej. "cvttzz"), asígnala como posible alias. Si tiene adornos, flechas o espacios (ej. "╰─➤ 『𝑷𝑷𝑴』Madres..."), "username" DEBE ser null obligatoriamente.\n' +
   '- DETECCIÓN DE ID:\n' +
   '  * Si en la imagen se observa un ID numérico (ej: "ID: 123456789", "User ID: ...", "ID 123456789" o una secuencia de 7 a 11 dígitos identificando al usuario), extráelo como número entero en "detectedId".\n' +
-  '- DETECCIÓN DE PERFIL: Si la imagen es una captura de perfil, modal de usuario o chat de Telegram, define "isTelegramProfile": true.\n\n' +
+  '- DETECCIÓN DE PERFIL: Toda captura que contenga un nombre de usuario, alias, avatar, cabecera de chat o modal de Telegram (incluso si está recortada o solo muestra el nombre y estado de conexión como "en línea", "online", "últ. vez"), define SIEMPRE "isTelegramProfile": true.\n\n' +
   'Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:\n' +
   '{\n' +
   '  "isTelegramProfile": true,\n' +
@@ -329,16 +329,20 @@ async function extractWithLocalOCR(imageBuffer) {
     let rawName = null;
     for (const line of lines) {
       // Omitir líneas de estado, horas, batería o iconos de sistema
-      if (/^(?:online|en línea|last seen|últ\. vez|username|info|bio|id\b|user info)/i.test(line)) continue;
-      if (line.length >= 2 && line.length <= 40 && !line.startsWith('@')) {
+      if (/^(?:online|en\s*l[iíì1l]nea|last\s*seen|[uú]lt\.?\s*vez|username|info|bio|id\b|user\s*info)/i.test(line)) continue;
+      if (line.length >= 2 && line.length <= 60 && !line.startsWith('@')) {
         rawName = line;
         break;
       }
     }
 
-    const isTelegramProfile = !!(username || detectedId || /last seen|últ\. vez|online|en línea|info|bio|user info/i.test(normalizedText));
+    const isTelegramProfile = !!(
+      username ||
+      detectedId ||
+      /(?:last\s*seen|[uú]lt\.?\s*vez|online|en\s*l[iíì1l]nea|info|bio|user\s*info)/i.test(normalizedText)
+    );
 
-    if (username || detectedId || (isTelegramProfile && rawName)) {
+    if (username || detectedId || rawName) {
       return {
         isTelegramProfile: true,
         rawName: rawName || username || 'Usuario',
@@ -555,7 +559,9 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
     // 2. Extraer información mediante visión multimodal y OCR Local
     const profileInfo = await extractProfileDataFromImage(buffer, 'image/jpeg');
 
-    if (!profileInfo || (!profileInfo.rawName && !profileInfo.username) || !profileInfo.isTelegramProfile) {
+    const hasIdentifier = !!(profileInfo && (profileInfo.rawName || profileInfo.username || profileInfo.detectedId));
+
+    if (!profileInfo || !hasIdentifier) {
       if (statusMsg) {
         if (isExplicitInquiry) {
           return await ctx.api.editMessageText(
@@ -563,7 +569,7 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
             statusMsg.message_id,
             `⟡ <b>[RADAR VISUAL] ANÁLISIS DE IMAGEN</b>\n` +
             `──────\n\n` +
-            `No se logró identificar con claridad una cabecera o perfil de Telegram en la captura enviada.\n` +
+            `No se logró identificar con claridad un nombre o perfil de Telegram en la captura enviada.\n` +
             `<i>Asegúrate de que el nombre o @ del perfil sea legible.</i>`,
             { parse_mode: 'HTML' }
           ).catch(() => {});
@@ -769,64 +775,119 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
     } catch {}
 
     // ══════════════════════════════════════════════════
-    // ⟡ RESPUESTA ESTÉTICA Y CONCISA (FORMATO /INFO)
+    // ⟡ VEREDICTO DE LISTA NEGRA Y ANTECEDENTES EN BD
     // ══════════════════════════════════════════════════
 
-    let profileResult = null;
-    if (targetId) {
-      profileResult = await buildUserProfile(ctx, {
-        userId: targetId,
-        username: effectiveUsername,
-        firstName: resolvedUser?.firstName || communityMatch?.first_name || normalizedName || rawName,
-      });
-    } else if (effectiveUsername) {
-      profileResult = await buildUserProfileByUsername(ctx, effectiveUsername);
-    } else {
-      const botLabel = ctx.tenant?.community_name || 'VENTAS LIBRES PERÚ';
-      const dateFormatted = getSuperscriptDate();
+    const botLabel = ctx.tenant?.community_name || 'Ventas Libres Perú';
+    const dateFormatted = getSuperscriptDate();
+    let outputText = '';
+    const kb = new InlineKeyboard();
 
-      let staffWarningSection = '';
-      let roleLabel = 'Usuario';
+    if (burnedRecord) {
+      const dateRaw = burnedRecord.burned_at || burnedRecord.created_at;
+      const dateStr = dateRaw
+        ? new Date(dateRaw).toLocaleString('es-PE', {
+            timeZone: 'America/Lima',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          })
+        : 'Fecha no registrada';
 
-      if (matchedStaffNameOnly) {
-        roleLabel = `${matchedStaffNameOnly.role || 'ADMIN'} (Staff Oficial)`;
-        staffWarningSection =
-          `🛡️ <b>[AVISO DE VERIFICACIÓN DE STAFF]</b>\n` +
-          `Este perfil lleva el nombre del Administrador/Owner <b>${escapeHtml(matchedStaffNameOnly.first_name)}</b>.\n` +
-          `⚠️ <i>Para confirmar que es el Staff legítimo y no una cuenta clon, asegúrate de que su @ sea <b>@${matchedStaffNameOnly.username || 'Oficial'}</b> o su ID numérico sea <code>${matchedStaffNameOnly.user_id}</code>.</i>\n\n`;
-      } else {
-        staffWarningSection =
-          `💡 <i>Para verificar antecedentes o ver su ID exacto, envía una captura donde se visualice su @username o desliza hacia abajo en el perfil.</i>\n\n`;
+      outputText =
+        `🚨 <b>[ LISTA NEGRA OFICIAL ] ESTAFADOR IDENTIFICADO</b> 🚨\n` +
+        `──────\n\n` +
+        `👤 <b>Identificado como:</b> ${escapeHtml(burnedRecord.raw_name || rawName || 'Desconocido')}\n` +
+        `🆔 <b>ID Fichado:</b> <code>${burnedRecord.user_id || targetId || 'No registrado'}</code>\n` +
+        `🔍 <b>Alias / @:</b> ${burnedRecord.username ? `@${escapeHtml(burnedRecord.username)}` : (effectiveUsername ? `@${escapeHtml(effectiveUsername)}` : '<i>Sin @ registrado</i>')}\n` +
+        `⚖️ <b>Estado:</b> ⊱ <code>QUEMADO / ESTAFADOR [ SANCIONADO ]</code> ⊰\n` +
+        `📅 <b>Fecha:</b> <code>${dateStr}</code>\n` +
+        `📋 <b>Motivo / Hechos:</b>\n  ↳ <i>${escapeHtml(burnedRecord.context || 'Reporte de estafa confirmado')}</i>\n` +
+        `👮 <b>Reportado por:</b> <code>${escapeHtml(burnedRecord.reported_by || 'Staff')}</code>\n\n` +
+        `──────\n` +
+        `🚫 <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
+        `<i>No realices transferencias, pagos ni entregas con este usuario bajo ninguna circunstancia.</i>\n\n` +
+        `${dateFormatted}`;
+
+      if (targetId) {
+        kb.text('Perfil', `info_view_card:${targetId}`).primary();
+      } else if (effectiveUsername) {
+        kb.text('Perfil', `info_view_card_user:${effectiveUsername}`).primary();
+      }
+      if (config.PUBLIC_BURN_CHANNEL_ID) {
+        const cleanChannel = String(config.PUBLIC_BURN_CHANNEL_ID).replace('-100', '');
+        kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`).danger();
       }
 
-      const fallbackText =
-        `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
-        `──────\n\n` +
-        `👤 <b>Nombre:</b> ${escapeHtml(rawName || normalizedName)}\n` +
-        `🆔 <b>ID:</b> <i>No visible en captura</i>\n` +
-        `🔍 <b>User:</b> <i>Sin @ visible</i>\n` +
-        `💼 <b>Rol:</b> ${roleLabel}\n` +
-        `🔗 <b>Link de perfil:</b> <i>No disponible</i>\n\n` +
-        `──────\n` +
-        staffWarningSection +
-        `${dateFormatted}`;
-      profileResult = { text: fallbackText, keyboard: null };
-    }
-
-    let { text: outputText, keyboard: outputKb } = profileResult;
-
-    // Alerta de suplantación de staff o estafador si corresponde
-    if (isStaffCloneAlert && imitatedStaff) {
+    } else if (isStaffCloneAlert && imitatedStaff) {
       outputText =
         `🚨 <b>[ALERTA CRÍTICA] CUENTA CLON DE ESTAFADOR</b> 🚨\n` +
-        `<i>Este usuario imita el nombre del Administrador <b>${escapeHtml(imitatedStaff.first_name)}</b> pero su ID o @username NO es el del Staff oficial (@${escapeHtml(imitatedStaff.username || '')}). <b>¡CUIDADO: ES UN ESTAFADOR SUPLANTANDO IDENTIDAD!</b></i>\n\n` +
-        outputText;
-    } else if (burnedRecord) {
+        `──────\n\n` +
+        `⚠️ <i>El perfil de la captura imita el nombre del Administrador <b>${escapeHtml(imitatedStaff.first_name)}</b>, pero su ID o @username no corresponde al Staff oficial (@${escapeHtml(imitatedStaff.username || '')}).</i>\n\n` +
+        `👤 <b>Nombre usado:</b> ${escapeHtml(rawName || normalizedName)}\n` +
+        `🆔 <b>ID en captura:</b> <code>${targetId || 'No visible'}</code>\n` +
+        `🔍 <b>User en captura:</b> ${effectiveUsername ? `@${escapeHtml(effectiveUsername)}` : '<i>Sin @ visible</i>'}\n` +
+        `🛡️ <b>Staff Real:</b> <code>${escapeHtml(imitatedStaff.first_name)}</code> (@${escapeHtml(imitatedStaff.username || '')})\n\n` +
+        `──────\n` +
+        `🚫 <b>¡PELIGRO: ES UN ESTAFADOR SUPLANTANDO IDENTIDAD!</b>\n` +
+        `<i>No envíes dinero ni entregues cuentas a este clon.</i>\n\n` +
+        `${dateFormatted}`;
+
+      if (targetId) {
+        kb.text('Perfil', `info_view_card:${targetId}`).primary().text('Verificar', `info_check_burn:${targetId}`).success();
+      } else if (effectiveUsername) {
+        kb.text('Perfil', `info_view_card_user:${effectiveUsername}`).primary().text('Verificar', `info_check_burn_user:${effectiveUsername}`).success();
+      }
+
+    } else if (isOfficialStaff && imitatedStaff) {
       outputText =
-        `🚨 <b>[LISTA NEGRA] ESTAFADOR IDENTIFICADO</b> 🚨\n` +
-        `<i>El perfil capturado corresponde a un <b>ESTAFADOR CONFIRMADO</b> (GBan activo). No envíes dinero ni realices tratos.</i>\n\n` +
-        outputText;
+        `🛡️ <b>[VERIFICACIÓN OFICIAL] STAFF DE LA RED</b>\n` +
+        `──────\n\n` +
+        `👤 <b>Nombre:</b> ${escapeHtml(imitatedStaff.first_name || rawName)}\n` +
+        `🆔 <b>ID:</b> <code>${imitatedStaff.user_id}</code>\n` +
+        `🔍 <b>User:</b> @${escapeHtml(imitatedStaff.username || 'Oficial')}\n` +
+        `💼 <b>Rango:</b> <code>${escapeHtml(imitatedStaff.role || 'ADMIN')} OFICIAL</code>\n` +
+        `👥 <b>Comunidad:</b> <code>${escapeHtml(botLabel)}</code>\n` +
+        `⚖️ <b>Estado en BD:</b> ⊱ <code>OFICIAL [ VERIFICADO ]</code> ⊰\n\n` +
+        `──────\n` +
+        `✓ <i>Este usuario es miembro legítimo y verificado del Staff Oficial. No registra antecedentes de estafa.</i>\n\n` +
+        `${dateFormatted}`;
+
+      kb.text('Perfil', `info_view_card:${imitatedStaff.user_id}`).primary().text('Verificar', `info_check_burn:${imitatedStaff.user_id}`).success();
+
+    } else {
+      // USUARIO LIMPIO / SIN ANTECEDENTES
+      let staffNotice = '';
+      if (matchedStaffNameOnly) {
+        staffNotice =
+          `\n🛡️ <b>[AVISO DE VERIFICACIÓN]</b>\n` +
+          `<i>Este nombre coincide con el del Administrador <b>${escapeHtml(matchedStaffNameOnly.first_name)}</b>. Para confirmar que es él y no una copia, verifica que su @ sea <b>@${escapeHtml(matchedStaffNameOnly.username || '')}</b> o su ID sea <code>${matchedStaffNameOnly.user_id}</code>.</i>\n`;
+      }
+
+      outputText =
+        `✅ <b>[RADAR DE SEGURIDAD] SIN ANTECEDENTES DE ESTAFA</b>\n` +
+        `──────\n\n` +
+        `👤 <b>Usuario en Captura:</b> ${escapeHtml(rawName || normalizedName)}\n` +
+        `🆔 <b>ID:</b> ${targetId ? `<code>${targetId}</code>` : '<i>No visible en captura</i>'}\n` +
+        `🔍 <b>User:</b> ${effectiveUsername ? `@${escapeHtml(effectiveUsername)}` : '<i>Sin @ visible</i>'}\n` +
+        `🛡️ <b>Estado en Base de Datos:</b> ⊱ <code>LIMPIO [ VERIFICADO ]</code> ⊰\n` +
+        staffNotice +
+        `\n──────\n` +
+        `✓ <i>El usuario analizado NO figura en la lista negra oficial de estafadores ni reportes de quemados.</i>\n` +
+        (!targetId && !effectiveUsername ? `\n💡 <i>Para mayor seguridad y verificar su ID exacto, envía una captura donde se visualice su @username o desliza hacia abajo en el perfil.</i>\n\n` : `\n`) +
+        `${dateFormatted}`;
+
+      if (targetId) {
+        kb.text('Perfil', `info_view_card:${targetId}`).primary().text('Verificar', `info_check_burn:${targetId}`).success();
+      } else if (effectiveUsername) {
+        kb.text('Perfil', `info_view_card_user:${effectiveUsername}`).primary().text('Verificar', `info_check_burn_user:${effectiveUsername}`).success();
+      }
     }
+
+    const outputKb = (kb.inline_keyboard && kb.inline_keyboard.length > 0) ? kb : null;
 
     // ⟡ Si existe statusMsg, editar el mensaje en el mismo lugar para fluidez visual
     if (statusMsg) {
@@ -835,7 +896,7 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
           parse_mode: 'HTML',
           link_preview_options: { is_disabled: true },
         };
-        if (outputKb && outputKb.inline_keyboard && outputKb.inline_keyboard.length > 0) {
+        if (outputKb) {
           editOptions.reply_markup = outputKb;
         }
         return await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, outputText, editOptions);
@@ -850,7 +911,7 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
       reply_parameters: { message_id: ctx.message.message_id },
       link_preview_options: { is_disabled: true },
     };
-    if (outputKb && outputKb.inline_keyboard && outputKb.inline_keyboard.length > 0) {
+    if (outputKb) {
       replyOptions.reply_markup = outputKb;
     }
 

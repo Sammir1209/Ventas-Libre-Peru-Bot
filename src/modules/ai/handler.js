@@ -35,6 +35,25 @@ async function isUserStaff(userId) {
 }
 
 /**
+ * Verifica si el usuario tiene permisos de administración para activar o apagar la IA en un grupo.
+ */
+async function canManageAi(ctx) {
+  const userId = ctx.from?.id;
+  if (!userId) return false;
+  if (config.OWNER_IDS.includes(userId)) return true;
+  if (await isUserStaff(userId)) return true;
+  if (ctx.chat?.type === 'group' || ctx.chat?.type === 'supergroup') {
+    try {
+      const member = await ctx.api.getChatMember(ctx.chat.id, userId);
+      if (['creator', 'administrator'].includes(member.status)) {
+        return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+
+/**
  * Verifica si el mensaje actual proviene de un grupo o hilo de Trato Admin (Escrow) o Staff.
  * La IA queda completamente DESACTIVADA en estos espacios para no interrumpir negociaciones.
  */
@@ -80,8 +99,43 @@ async function isEscrowOrStaffContext(ctx) {
   return false;
 }
 
+const ACCENT_MAP = {
+  'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u',
+  'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U', 'Ü': 'U',
+};
+
 /**
- * Convierte y limpia Markdown a HTML compatible estrictamente con Telegram.
+ * Convierte el alfabeto latino (A-Z, a-z) a Mathematical Italic (𝑙𝑒𝑡𝑟𝑎𝑠 𝑏𝑜𝑛𝑖𝑡𝑎𝑠).
+ * Respeta estrictamente etiquetas HTML, URLs y bloques de código para evitar rupturas en Telegram.
+ */
+function toMathematicalItalic(text) {
+  if (!text) return '';
+  return text.replace(
+    /(<code[^>]*>[\s\S]*?<\/code>|<pre[^>]*>[\s\S]*?<\/pre>|<[^>]+>)|(https?:\/\/[^\s<]+)|([a-zA-ZáéíóúüÁÉÍÓÚÜ])/g,
+    (match, htmlTag, url, letter) => {
+      if (htmlTag) return htmlTag;
+      if (url) return url;
+      if (letter) {
+        const base = ACCENT_MAP[letter] || letter;
+        const code = base.charCodeAt(0);
+        // A-Z: 0x41 a 0x5A -> 0x1D434 a 0x1D44D
+        if (code >= 65 && code <= 90) {
+          return String.fromCodePoint(0x1D434 + (code - 65));
+        }
+        // a-z: 0x61 a 0x7A -> 0x1D44E a 0x1D467, con h -> 0x210E (Planck constant ℎ)
+        if (code >= 97 && code <= 122) {
+          if (base === 'h') return String.fromCodePoint(0x210E);
+          return String.fromCodePoint(0x1D44E + (code - 97));
+        }
+      }
+      return match;
+    }
+  );
+}
+
+/**
+ * Convierte y limpia Markdown a HTML compatible estrictamente con Telegram,
+ * estilizando toda la respuesta en tipografía Mathematical Italic (𝑙𝑒𝑡𝑟𝑎𝑠 𝑏𝑜𝑛𝑖𝑡𝑎𝑠).
  */
 function formatAiReply(raw) {
   if (!raw) return '';
@@ -113,6 +167,9 @@ function formatAiReply(raw) {
   // 7. Cursiva *texto* o _texto_
   text = text.replace(/(?<!\*)\*(?!\*)([^*]+)(?<!\*)\*(?!\*)/g, '<i>$1</i>');
   text = text.replace(/(?<!_)_([^_]+)_(?!_)/g, '<i>$1</i>');
+
+  // 8. Transformar todo el texto a Mathematical Italic (𝑙𝑒𝑡𝑟𝑎𝑠 𝑏𝑜𝑛𝑖𝑡𝑎𝑠)
+  text = toMathematicalItalic(text);
 
   return text.trim();
 }
@@ -149,11 +206,23 @@ function register(bot) {
 
     if (await isEscrowOrStaffContext(ctx)) return;
 
+    const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
+    if (isGroup) {
+      const isAiDisabled = await redisDb.getCache(`ai_disabled:${ctx.chat.id}`);
+      if (isAiDisabled) {
+        if (ctx.message?.text?.startsWith('/')) {
+          return ctx.reply(
+            `🔒 <i>El asistente de IA se encuentra actualmente desactivado en este grupo. Un administrador puede activarlo con <code>/ia on</code>.</i>`,
+            { parse_mode: 'HTML' }
+          ).catch(() => {});
+        }
+        return;
+      }
+    }
+
     const userId = ctx.from.id;
     const cleanPrompt = promptText.trim();
     if (!cleanPrompt) return;
-
-    const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
 
     // 1. Acción de "escribiendo..." en el chat
     try {
@@ -346,10 +415,43 @@ function register(bot) {
     }
   });
 
-  // ── Comando /ask /ia /ai [pregunta] ──
+  // ── Comando /ask /ia /ai [on|off|pregunta] ──
   bot.command(['ask', 'ia', 'ai'], async (ctx) => {
     const text = ctx.message.text || '';
     const parts = text.split(/\s+/);
+    const sub = (parts[1] || '').toLowerCase().trim();
+
+    // ── Control de activación / desactivación de IA en el grupo ──
+    if (sub === 'on' || sub === 'activar' || sub === 'enable') {
+      const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
+      if (!isGroup) {
+        return ctx.reply('💡 <i>En chat privado la IA siempre está disponible.</i>', { parse_mode: 'HTML' });
+      }
+      if (!(await canManageAi(ctx))) {
+        return ctx.reply('⚠️ <i>Solo administradores o staff pueden activar la IA en este grupo.</i>', { parse_mode: 'HTML' });
+      }
+      await redisDb.deleteCache(`ai_disabled:${ctx.chat.id}`);
+      return ctx.reply(
+        `⚡ <b>ASISTENTE IA ACTIVADO</b>\n──────\n<i>La Inteligencia Artificial ahora responderá dudas y menciones en este grupo.</i>`,
+        { parse_mode: 'HTML' }
+      );
+    }
+
+    if (sub === 'off' || sub === 'desactivar' || sub === 'disable') {
+      const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
+      if (!isGroup) {
+        return ctx.reply('💡 <i>En chat privado la IA siempre está disponible.</i>', { parse_mode: 'HTML' });
+      }
+      if (!(await canManageAi(ctx))) {
+        return ctx.reply('⚠️ <i>Solo administradores o staff pueden desactivar la IA en este grupo.</i>', { parse_mode: 'HTML' });
+      }
+      await redisDb.setCache(`ai_disabled:${ctx.chat.id}`, '1', 60 * 60 * 24 * 30);
+      return ctx.reply(
+        `🔒 <b>ASISTENTE IA DESACTIVADO</b>\n──────\n<i>La Inteligencia Artificial ha sido apagada en este grupo para evitar spam.</i>`,
+        { parse_mode: 'HTML' }
+      );
+    }
+
     let prompt = parts.slice(1).join(' ').trim();
 
     if (!prompt && ctx.message.reply_to_message?.text) {
@@ -361,8 +463,8 @@ function register(bot) {
         `⟡ <b>ASISTENTE INTELIGENTE</b> ⊱ <code>VENTAS LIBRES PERÚ</code> ⊰\n` +
         `══════\n\n` +
         `▸ <b>Uso:</b> <code>/ask [tu pregunta o duda]</code>\n` +
-        `▸ <b>Ejemplo Serio:</b> <code>/ask Habla con cordura: ¿Cómo inicio un trato seguro?</code>\n` +
-        `▸ <b>Ejemplo Charla:</b> <code>/ask Habla causa, ¿qué cuentas recomiendas?</code>\n\n` +
+        `▸ <b>Control Staff:</b> <code>/ia on</code> o <code>/ia off</code> (activar/apagar en grupos)\n` +
+        `▸ <b>Ejemplo:</b> <code>/ask Habla causa, ¿cómo inicio un trato seguro?</code>\n\n` +
         `──────\n` +
         `💡 <i>También puedes mencionarme con @${botUsername} en cualquier grupo oficial o escribirme directamente al privado.</i>`,
         { parse_mode: 'HTML' }
@@ -419,10 +521,34 @@ function register(bot) {
       return next();
     }
 
+    // Comprobar si la IA fue desactivada en este grupo (/ia off)
+    const isAiDisabled = await redisDb.getCache(`ai_disabled:${ctx.chat.id}`);
+    if (isAiDisabled) {
+      return next();
+    }
+
     const isBotMentioned = text.toLowerCase().includes(`@${botUsername.toLowerCase()}`);
     const isReplyToBot = ctx.message.reply_to_message?.from?.is_bot && ctx.message.reply_to_message?.from?.username?.toLowerCase() === botUsername.toLowerCase();
 
     if (isBotMentioned || isReplyToBot) {
+      // Si fue una respuesta al bot (reply) pero NO mencionó explícitamente al bot con @username
+      if (isReplyToBot && !isBotMentioned) {
+        const replyMsg = ctx.message.reply_to_message;
+        const replyText = (replyMsg.text || replyMsg.caption || '').toUpperCase();
+
+        // Si el mensaje del bot al que se respondió es una tarjeta/comando de sistema (/rules, /perfil, /info, alertas, etc.)
+        const isSystemCard =
+          /(?:REGLAS|NORMAS|PERFIL DE USUARIO|RADAR|ESTAFADOR|LISTA NEGRA|ESCUDO ANTI-BAN|ANTI-RAID|VERIFICACI[OÓ]N|BIENVENID|VENTAS LIBRES.*BOT|TARJETA|SANCIONADO|ANTECEDENTES|QUEMADO)/i.test(replyText) ||
+          !!(replyMsg.reply_markup?.inline_keyboard?.some((row) =>
+            row.some((btn) => btn.callback_data && /^(?:info_|perfil_|deal_|rules_|verify_|escrow_)/.test(btn.callback_data))
+          ));
+
+        if (isSystemCard) {
+          // Ignorar para evitar spam cuando los usuarios o admins responden a mensajes de /rules o /perfil
+          return next();
+        }
+      }
+
       const regex = new RegExp(`@${botUsername}`, 'gi');
       const cleanPrompt = text.replace(regex, '').trim();
 

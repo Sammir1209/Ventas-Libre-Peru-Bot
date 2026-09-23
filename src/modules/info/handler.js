@@ -138,14 +138,12 @@ async function buildUserProfile(ctx, targetUser) {
 
   const text = `${bodyText}\n\n──────\n${dateFormatted}`;
 
-  const profileUrl = username ? `https://t.me/${username}` : (userId ? `tg://user?id=${userId}` : null);
   const keyboard = new InlineKeyboard();
-  if (profileUrl) {
-    keyboard.url('Perfil', profileUrl).primary();
-  }
   if (userId) {
+    keyboard.text('Perfil', `info_view_card:${userId}`).primary();
     keyboard.text('Verificar', `info_check_burn:${userId}`).success();
   } else if (username) {
+    keyboard.text('Perfil', `info_view_card_user:${username}`).primary();
     keyboard.text('Verificar', `info_check_burn_user:${username}`).success();
   }
 
@@ -602,7 +600,7 @@ function register(bot) {
       const profileUrl = targetUser ? `https://t.me/${targetUser}` : `tg://user?id=${targetId}`;
 
       const kb = new InlineKeyboard();
-      kb.url('Perfil', profileUrl).primary().text('Verificar', `info_check_burn:${targetId}`).success();
+      kb.text('Perfil', `info_view_card:${targetId}`).primary().text('Verificar', `info_check_burn:${targetId}`).success();
       kb.row().text('Ocultar', `info_hide_burn:${targetId}`).primary();
 
       if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
@@ -736,7 +734,7 @@ function register(bot) {
       }
 
       const kb = new InlineKeyboard();
-      kb.url('Perfil', `https://t.me/${username}`).primary().text('Verificar', `info_check_burn_user:${username}`).success();
+      kb.text('Perfil', `info_view_card_user:${username}`).primary().text('Verificar', `info_check_burn_user:${username}`).success();
       kb.row().text('Ocultar', `info_hide_burn_user:${username}`).primary();
 
       if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
@@ -799,6 +797,53 @@ function register(bot) {
       if (!err.message?.includes('message is not modified')) {
         console.error('⟡ Info: Error en info_hide_burn_user:', err.message);
       }
+    }
+  });
+
+  // ── Callback: Generar Tarjeta Gráfica de Perfil (/perfil) desde Botón [ Perfil ] ──
+  bot.callbackQuery(/^info_view_card:(\d+)$/, async (ctx) => {
+    try {
+      if (checkButtonSpam(ctx.from.id)) {
+        return await ctx.answerCallbackQuery({
+          text: '⚠️ Calma, no hagas spam de botones.',
+          show_alert: true,
+        });
+      }
+
+      await ctx.answerCallbackQuery({ text: '🎨 Generando tarjeta gráfica de perfil...' }).catch(() => {});
+      const targetId = parseInt(ctx.match[1]);
+      const userObj = await db.getUser(targetId).catch(() => null);
+
+      await sendUserCard(ctx, {
+        userId: targetId,
+        username: userObj?.username || null,
+        firstName: userObj?.first_name || 'Usuario',
+      });
+    } catch (err) {
+      console.error('⟡ Info: Error en info_view_card:', err.message);
+    }
+  });
+
+  bot.callbackQuery(/^info_view_card_user:(.+)$/, async (ctx) => {
+    try {
+      if (checkButtonSpam(ctx.from.id)) {
+        return await ctx.answerCallbackQuery({
+          text: '⚠️ Calma, no hagas spam de botones.',
+          show_alert: true,
+        });
+      }
+
+      await ctx.answerCallbackQuery({ text: '🎨 Generando tarjeta gráfica de perfil...' }).catch(() => {});
+      const username = ctx.match[1].replace(/^@/, '').trim();
+      const userObj = await db.getUserByUsername(username).catch(() => null);
+
+      await sendUserCard(ctx, {
+        userId: userObj?.user_id || null,
+        username: username,
+        firstName: userObj?.first_name || username,
+      });
+    } catch (err) {
+      console.error('⟡ Info: Error en info_view_card_user:', err.message);
     }
   });
 
