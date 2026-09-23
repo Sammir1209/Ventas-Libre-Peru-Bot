@@ -137,10 +137,16 @@ async function buildUserProfile(ctx, targetUser) {
     `──────\n` +
     `${dateFormatted}`;
 
-  const profileUrl = username ? `https://t.me/${username}` : `tg://user?id=${userId}`;
-  const keyboard = new InlineKeyboard()
-    .url('Perfil', profileUrl)
-    .text('Verificar', `info_check_burn:${userId}`);
+  const profileUrl = username ? `https://t.me/${username}` : (userId ? `tg://user?id=${userId}` : null);
+  const keyboard = new InlineKeyboard();
+  if (profileUrl) {
+    keyboard.url('Perfil', profileUrl);
+  }
+  if (userId) {
+    keyboard.text('Verificar', `info_check_burn:${userId}`);
+  } else if (username) {
+    keyboard.text('Verificar', `info_check_burn_user:${username}`);
+  }
 
   // Si se buscó por término y no es una consulta directa de reply/ID, agregar botón de búsqueda global
   if (targetUser.searchQuery && !targetUser.isGlobal) {
@@ -148,7 +154,91 @@ async function buildUserProfile(ctx, targetUser) {
     keyboard.row().text('🌐 ¿No es él? Buscar en Telegram', `info_global:${safeQ}`);
   }
 
+  keyboard.row().text('✖ Cerrar', 'info_close');
+
   return { text, keyboard };
+}
+
+/**
+ * Construye la plantilla estética de perfil cuando solo se cuenta con el @username
+ */
+async function buildUserProfileByUsername(ctx, username) {
+  const cleanUser = String(username).replace(/^@/, '').trim();
+  let dbUser = await db.getUserByUsername(cleanUser).catch(() => null);
+  if (dbUser && dbUser.user_id) {
+    return await buildUserProfile(ctx, {
+      userId: dbUser.user_id,
+      username: dbUser.username || cleanUser,
+      firstName: dbUser.first_name,
+    });
+  }
+
+  // Si no se encuentra en BD, intentar resolver por Userbot MTProto si está disponible
+  let resolvedId = null;
+  let resolvedFirst = null;
+  try {
+    const userbot = require('../../userbot/client');
+    if (userbot.isConnected()) {
+      const ub = await userbot.resolveUser(cleanUser);
+      if (ub && ub.userId) {
+        resolvedId = ub.userId;
+        resolvedFirst = ub.firstName;
+        db.upsertUser(ub.userId, ub.username || cleanUser, ub.firstName).catch(() => {});
+        return await buildUserProfile(ctx, {
+          userId: ub.userId,
+          username: ub.username || cleanUser,
+          firstName: ub.firstName,
+        });
+      }
+    }
+  } catch {}
+
+  const botLabel = ctx.tenant?.community_name || 'VENTAS LIBRES PERÚ';
+  const nameDisplay = escapeHtml(resolvedFirst || cleanUser);
+  const userDisplay = `@${escapeHtml(cleanUser)}`;
+  const dateFormatted = getSuperscriptDate();
+
+  let roleName = 'Usuario';
+  const staff = await db.getStaffMember(cleanUser, ctx.tenant?.id).catch(() => null);
+  if (staff) roleName = staff.role || 'Staff';
+
+  const burn = await db.getBurnedUserInfo(cleanUser).catch(() => null);
+  if (burn) roleName = 'Estafador [ LISTA NEGRA ]';
+
+  const text =
+    `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
+    `──────\n\n` +
+    `▸ <b>Nombre:</b> ${nameDisplay}\n` +
+    `▸ <b>ID:</b> <i>No detectado</i>\n` +
+    `▸ <b>User:</b> ${userDisplay}\n` +
+    `▸ <b>Rol:</b> ${escapeHtml(roleName)}\n` +
+    `▸ <b>Link de perfil:</b> <a href="https://t.me/${cleanUser}">Presiona aquí</a>\n\n` +
+    `──────\n` +
+    `${dateFormatted}`;
+
+  const keyboard = new InlineKeyboard()
+    .url('Perfil', `https://t.me/${cleanUser}`)
+    .text('Verificar', `info_check_burn_user:${cleanUser}`)
+    .row()
+    .text('✖ Cerrar', 'info_close');
+
+  return { text, keyboard };
+}
+
+// Rate limit / Anti-spam para botones interactivos de Ocultar / Verificar
+const BUTTON_SPAM_MAP = new Map(); // userId -> { count: number, lastReset: number }
+
+function checkButtonSpam(userId) {
+  const now = Date.now();
+  const record = BUTTON_SPAM_MAP.get(userId) || { count: 0, lastReset: now };
+  if (now - record.lastReset > 4000) {
+    record.count = 1;
+    record.lastReset = now;
+  } else {
+    record.count++;
+  }
+  BUTTON_SPAM_MAP.set(userId, record);
+  return record.count > 3; // Más de 3 clics en 4 segundos dispara alerta de spam
 }
 
 /**
@@ -455,46 +545,30 @@ function register(bot) {
   // ── Callback: Verificar Antecedentes de Estafa (/info) ──
   bot.callbackQuery(/^info_check_burn:(\d+)$/, async (ctx) => {
     try {
+      if (checkButtonSpam(ctx.from.id)) {
+        return await ctx.answerCallbackQuery({
+          text: '⚠️ Calma, no hagas spam de botones.',
+          show_alert: true,
+        });
+      }
+
       const targetId = parseInt(ctx.match[1]);
       await ctx.answerCallbackQuery({ text: '⟡ Consultando base de datos de estafas...' });
 
       // Consultar si está quemado
       const burnInfo = await db.getBurnedUserInfo(targetId);
 
-      let targetUsername = null;
-      let targetFirstName = null;
-      try {
-        const chatInfo = await ctx.api.getChat(targetId);
-        targetUsername = chatInfo.username || null;
-        targetFirstName = chatInfo.first_name || null;
-      } catch {}
+      // Reconstruir perfil base
+      const { text: baseText } = await buildUserProfile(ctx, { userId: targetId });
 
-      const userMention = mentionFromData(targetId, targetUsername, targetFirstName);
-
+      let verificationSection = '';
       if (!burnInfo) {
         // USUARIO LIMPIO
-        const cleanText =
-          `⟡ <b>CONSULTA DE ANTECEDENTES</b> ⊱ <code>REGISTRO LIMPIO</code> ⊰\n` +
-          `══════\n\n` +
-          `▸ <b>Usuario:</b> ${userMention}\n` +
-          `▸ <b>ID:</b> <code>${targetId}</code>\n` +
-          `▸ <b>Estado:</b> ⊱ <code>LIMPIO [ VERIFICADO ]</code> ⊰\n\n` +
-          `──────\n` +
+        verificationSection =
+          `\n\n──────\n` +
+          `⟡ <b>ESTADO DE ANTECEDENTES:</b>\n` +
+          `▸ <b>Estado:</b> ⊱ <code>LIMPIO [ VERIFICADO ]</code> ⊰\n` +
           `✓ <i>Este usuario NO registra antecedentes de estafa ni sanciones en la base de datos oficial.</i>`;
-
-        const kb = new InlineKeyboard()
-          .text('« VOLVER AL PERFIL', `info_back:${targetId}`).primary();
-
-        try {
-          await ctx.editMessageText(cleanText, {
-            parse_mode: 'HTML',
-            reply_markup: kb,
-          });
-        } catch (editErr) {
-          if (!editErr.message?.includes('message is not modified')) {
-            console.error('⟡ Info: Error editando mensaje cleanText:', editErr.message);
-          }
-        }
       } else {
         // USUARIO QUEMADO (ESTAFADOR)
         const dateRaw = burnInfo.burned_at || burnInfo.created_at;
@@ -510,31 +584,38 @@ function register(bot) {
             })
           : 'Fecha no registrada';
 
-        const burnText =
+        verificationSection =
+          `\n\n──────\n` +
           `⟡ <b>[ LISTA NEGRA OFICIAL ] REGISTRO DE ESTAFADOR</b>\n` +
-          `══════\n\n` +
-          `▸ <b>Usuario:</b> ${userMention}\n` +
-          `▸ <b>ID:</b> <code>${targetId}</code>\n` +
           `▸ <b>Estado:</b> ⊱ <code>QUEMADO / ESTAFADOR [ SANCIONADO ]</code> ⊰\n` +
           `▸ <b>Fecha:</b> <code>${dateStr}</code>\n` +
-          `▸ <b>Motivo / Hechos:</b>\n  ↳ <i>${escapeHtml(burnInfo.context || 'Reporte de estafa confirmado')}</i>\n\n` +
+          `▸ <b>Motivo / Hechos:</b>\n  ↳ <i>${escapeHtml(burnInfo.context || 'Reporte de estafa confirmado')}</i>\n` +
           `▸ <b>Reportado por:</b> <code>${burnInfo.reported_by || 'Staff'}</code>\n` +
-          `──────\n` +
-          `⟡ <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
-          `<i>No realices transferencias, pagos ni entregas con este usuario bajo ninguna circunstancia.</i>`;
+          `🚫 <i>ADVERTENCIA DE SEGURIDAD: No realices transferencias, pagos ni entregas con este usuario.</i>`;
+      }
 
-        const kb = new InlineKeyboard()
-          .text('« VOLVER AL PERFIL', `info_back:${targetId}`).primary();
+      let userObj = await db.getUser(targetId).catch(() => null);
+      let targetUser = userObj?.username ? userObj.username : null;
+      const profileUrl = targetUser ? `https://t.me/${targetUser}` : `tg://user?id=${targetId}`;
 
-        try {
-          await ctx.editMessageText(burnText, {
-            parse_mode: 'HTML',
-            reply_markup: kb,
-          });
-        } catch (editErr) {
-          if (!editErr.message?.includes('message is not modified')) {
-            console.error('⟡ Info: Error editando mensaje burnText:', editErr.message);
-          }
+      const kb = new InlineKeyboard();
+      kb.url('Perfil', profileUrl).text('Verificar', `info_check_burn:${targetId}`);
+      kb.row().text('Ocultar', `info_hide_burn:${targetId}`);
+
+      if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
+        const cleanChannel = String(config.PUBLIC_BURN_CHANNEL_ID).replace('-100', '');
+        kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`);
+      }
+
+      try {
+        await ctx.editMessageText(baseText + verificationSection, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+          link_preview_options: { is_disabled: true },
+        });
+      } catch (editErr) {
+        if (!editErr.message?.includes('message is not modified')) {
+          console.error('⟡ Info: Error editando verificación añadida:', editErr.message);
         }
       }
     } catch (err) {
@@ -544,9 +625,48 @@ function register(bot) {
     }
   });
 
+  // ── Callback: Ocultar Verificación (/info) ──
+  bot.callbackQuery(/^info_hide_burn:(\d+)$/, async (ctx) => {
+    try {
+      if (checkButtonSpam(ctx.from.id)) {
+        return await ctx.answerCallbackQuery({
+          text: '⚠️ Calma, no hagas spam de botones.',
+          show_alert: true,
+        });
+      }
+
+      const targetId = parseInt(ctx.match[1]);
+      await ctx.answerCallbackQuery({ text: '⟡ Verificación ocultada.' });
+
+      const { text, keyboard } = await buildUserProfile(ctx, { userId: targetId });
+      try {
+        await ctx.editMessageText(text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+          link_preview_options: { is_disabled: true },
+        });
+      } catch (editErr) {
+        if (!editErr.message?.includes('message is not modified')) {
+          console.error('⟡ Info: Error ocultando verificación:', editErr.message);
+        }
+      }
+    } catch (err) {
+      if (!err.message?.includes('message is not modified')) {
+        console.error('⟡ Info: Error en info_hide_burn:', err.message);
+      }
+    }
+  });
+
   // ── Callback: Verificar Antecedentes de Estafa por Username (/scanperfil o /info) ──
   bot.callbackQuery(/^(?:info_check_burn_user|perfil_card_user):(.+)$/, async (ctx) => {
     try {
+      if (checkButtonSpam(ctx.from.id)) {
+        return await ctx.answerCallbackQuery({
+          text: '⚠️ Calma, no hagas spam de botones.',
+          show_alert: true,
+        });
+      }
+
       const username = ctx.match[1].toLowerCase().replace(/^@/, '').trim();
       await ctx.answerCallbackQuery({ text: '⟡ Consultando base de datos de estafas...' });
 
@@ -556,31 +676,16 @@ function register(bot) {
         burnInfo = await db.findBurnedUserFlexible({ username });
       }
 
-      const kb = new InlineKeyboard();
+      const { text: baseText } = await buildUserProfileByUsername(ctx, username);
 
+      let verificationSection = '';
       if (!burnInfo) {
         // USUARIO LIMPIO
-        const cleanText =
-          `⟡ <b>CONSULTA DE ANTECEDENTES</b> ⊱ <code>REGISTRO LIMPIO</code> ⊰\n` +
-          `══════\n\n` +
-          `▸ <b>Alias (@):</b> <a href="https://t.me/${escapeHtml(username)}">@${escapeHtml(username)}</a>\n` +
-          `▸ <b>Estado:</b> ⊱ <code>LIMPIO [ VERIFICADO ]</code> ⊰\n\n` +
-          `──────\n` +
+        verificationSection =
+          `\n\n──────\n` +
+          `⟡ <b>ESTADO DE ANTECEDENTES:</b>\n` +
+          `▸ <b>Estado:</b> ⊱ <code>LIMPIO [ VERIFICADO ]</code> ⊰\n` +
           `✓ <i>Este usuario NO registra antecedentes de estafa ni sanciones en la base de datos oficial.</i>`;
-
-        kb.url('Perfil', `https://t.me/${username}`);
-        kb.row().text('✖ Cerrar', 'info_close');
-
-        try {
-          await ctx.editMessageText(cleanText, {
-            parse_mode: 'HTML',
-            reply_markup: kb,
-          });
-        } catch (editErr) {
-          if (!editErr.message?.includes('message is not modified')) {
-            console.error('⟡ Info: Error editando cleanText por username:', editErr.message);
-          }
-        }
       } else {
         // USUARIO QUEMADO (ESTAFADOR)
         const dateRaw = burnInfo.burned_at || burnInfo.created_at;
@@ -596,10 +701,9 @@ function register(bot) {
             })
           : 'Fecha no registrada';
 
-        const burnText =
+        verificationSection =
+          `\n\n──────\n` +
           `⟡ <b>[ LISTA NEGRA OFICIAL ] REGISTRO DE ESTAFADOR</b>\n` +
-          `══════\n\n` +
-          `▸ <b>Alias (@):</b> <a href="https://t.me/${escapeHtml(username)}">@${escapeHtml(username)}</a>\n` +
           `▸ <b>ID Fichado:</b> <code>${burnInfo.user_id || 'Desconocido'}</code>\n` +
           `▸ <b>Estado:</b> ⊱ <code>QUEMADO / ESTAFADOR [ SANCIONADO ]</code> ⊰\n` +
           `▸ <b>Fecha:</b> <code>${dateStr}</code>\n` +
@@ -608,29 +712,63 @@ function register(bot) {
           `──────\n` +
           `⟡ <b>ADVERTENCIA DE SEGURIDAD:</b>\n` +
           `<i>No realices transferencias, pagos ni entregas con este usuario bajo ninguna circunstancia.</i>`;
+      }
 
-        kb.url('Perfil', `https://t.me/${username}`);
-        const burnChannelId = config.PUBLIC_BURN_CHANNEL_ID;
-        if (burnChannelId) {
-          const cleanChannel = String(burnChannelId).replace('-100', '');
-          kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`);
-        }
-        kb.row().text('✖ Entendido', 'info_close');
+      const kb = new InlineKeyboard();
+      kb.url('Perfil', `https://t.me/${username}`).text('Verificar', `info_check_burn_user:${username}`);
+      kb.row().text('Ocultar', `info_hide_burn_user:${username}`);
 
-        try {
-          await ctx.editMessageText(burnText, {
-            parse_mode: 'HTML',
-            reply_markup: kb,
-          });
-        } catch (editErr) {
-          if (!editErr.message?.includes('message is not modified')) {
-            console.error('⟡ Info: Error editando burnText por username:', editErr.message);
-          }
+      if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
+        const cleanChannel = String(config.PUBLIC_BURN_CHANNEL_ID).replace('-100', '');
+        kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`);
+      }
+
+      try {
+        await ctx.editMessageText(baseText + verificationSection, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+          link_preview_options: { is_disabled: true },
+        });
+      } catch (editErr) {
+        if (!editErr.message?.includes('message is not modified')) {
+          console.error('⟡ Info: Error editando burnText por username:', editErr.message);
         }
       }
     } catch (err) {
       if (!err.message?.includes('message is not modified')) {
         console.error('⟡ Info: Error en info_check_burn_user:', err.message);
+      }
+    }
+  });
+
+  // ── Callback: Ocultar Verificación por Username (/info) ──
+  bot.callbackQuery(/^info_hide_burn_user:(.+)$/, async (ctx) => {
+    try {
+      if (checkButtonSpam(ctx.from.id)) {
+        return await ctx.answerCallbackQuery({
+          text: '⚠️ Calma, no hagas spam de botones.',
+          show_alert: true,
+        });
+      }
+
+      const username = ctx.match[1].toLowerCase().replace(/^@/, '').trim();
+      await ctx.answerCallbackQuery({ text: '⟡ Verificación ocultada.' });
+
+      const { text, keyboard } = await buildUserProfileByUsername(ctx, username);
+      try {
+        await ctx.editMessageText(text, {
+          parse_mode: 'HTML',
+          reply_markup: keyboard,
+          link_preview_options: { is_disabled: true },
+        });
+      } catch (editErr) {
+        if (!editErr.message?.includes('message is not modified')) {
+          console.error('⟡ Info: Error ocultando verificación por username:', editErr.message);
+        }
+      }
+    } catch (err) {
+      if (!err.message?.includes('message is not modified')) {
+        console.error('⟡ Info: Error en info_hide_burn_user:', err.message);
       }
     }
   });
@@ -857,4 +995,5 @@ function register(bot) {
 module.exports = {
   register,
   buildUserProfile,
+  buildUserProfileByUsername,
 };

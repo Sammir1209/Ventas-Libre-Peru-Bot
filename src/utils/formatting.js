@@ -94,6 +94,24 @@ function staffMention(userId, username, firstName, roleTitle = null) {
   return `<b>${name}</b>${userId ? ` (<code>${userId}</code>)` : ''}${roleBadge}`;
 }
 
+/**
+ * Convierte los dígitos de una fecha (DDMMYYYY) a caracteres superíndice Unicode (ej. ¹⁴⁰⁹²⁰²⁶).
+ */
+function getSuperscriptDate(date = new Date()) {
+  const digits = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+  };
+  const dStr = date.toLocaleDateString('es-PE', {
+    timeZone: 'America/Lima',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).replace(/\D/g, '');
+
+  return dStr.split('').map((ch) => digits[ch] || ch).join('');
+}
+
 module.exports = {
   escapeHtml,
   userMention,
@@ -103,4 +121,5 @@ module.exports = {
   formatDate,
   truncate,
   normalizeUnicodeText,
+  getSuperscriptDate,
 };

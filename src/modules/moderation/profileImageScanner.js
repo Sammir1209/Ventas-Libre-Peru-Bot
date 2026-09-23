@@ -1,10 +1,11 @@
 const config = require('../../config/env');
 const db = require('../../database/postgres');
 const { SYM } = require('../../config/constants');
-const { escapeHtml, mentionFromData, normalizeUnicodeText } = require('../../utils/formatting');
+const { escapeHtml, mentionFromData, normalizeUnicodeText, getSuperscriptDate } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 const userbot = require('../../userbot/client');
 const { normalizeString } = require('./antiImpersonator');
+const { buildUserProfile, buildUserProfileByUsername } = require('../info/handler');
 
 // ══════
 // ⟡ Módulo: Scanner Visual de Perfiles por Imagen (OCR & Vision Pipeline)
@@ -479,141 +480,54 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
     } catch {}
 
     // ══════════════════════════════════════════════════
-    // ⟡ CONSTRUCCIÓN DE RESPUESTAS FORENSES ESTÉTICAS
+    // ⟡ RESPUESTA ESTÉTICA Y CONCISA (FORMATO /INFO)
     // ══════════════════════════════════════════════════
 
-    const kb = new InlineKeyboard();
-
-    const profileUrl = effectiveUsername
-      ? `https://t.me/${effectiveUsername}`
-      : (targetId ? `tg://user?id=${targetId}` : null);
-
-    // ── CASO A: ESTAFADOR CONFIRMADO (GBAN ACTIVO) ──
-    if (burnedRecord) {
-      const burnText =
-        `<b>🚨 [RADAR VISUAL FORENSE] ESTAFADOR IDENTIFICADO 🚨</b>\n` +
-        `──────\n\n` +
-        `▸ <b>Nombre en Captura:</b> <code>${escapeHtml(rawName)}</code>\n` +
-        `▸ <b>Nombre Traducido:</b> <code>${escapeHtml(normalizedName)}</code>\n` +
-        `▸ <b>Alias (@):</b> ${effectiveUsername ? `<a href="https://t.me/${escapeHtml(effectiveUsername)}">@${escapeHtml(effectiveUsername)}</a>` : '<i>Sin @ visible</i>'}\n` +
-        `▸ <b>ID Fichado:</b> <code>${burnedRecord.user_id}</code>\n` +
-        (detectedGroupName ? `▸ <b>Detectado en Grupo:</b> <code>${escapeHtml(detectedGroupName)}</code>\n` : '') +
-        `▸ <b>Estado en Red:</b> ⊱ <code>LISTA NEGRA OFICIAL 🔴</code> ⊰\n` +
-        `▸ <b>Motivo de Sanción:</b> <i>${escapeHtml(burnedRecord.context || 'Estafa comprobada en la comunidad')}</i>\n\n` +
-        `──────\n` +
-        `🚫 <b>ADVERTENCIA DE SEGURIDAD CRÍTICA:</b>\n` +
-        `<i>El perfil capturado corresponde a un <b>ESTAFADOR CONFIRMADO</b>. Está expulsado globalmente (GBan). No envíes dinero, vouchers ni entregues productos.</i>`;
-
-      if (profileUrl) {
-        kb.url('Perfil', profileUrl);
-      }
-      if (targetId) {
-        kb.text('Verificar', `info_check_burn:${targetId}`);
-      } else if (effectiveUsername) {
-        kb.text('Verificar', `info_check_burn_user:${effectiveUsername}`);
-      }
-
-      const burnChannelId = config.PUBLIC_BURN_CHANNEL_ID;
-      if (burnChannelId) {
-        const cleanChannel = String(burnChannelId).replace('-100', '');
-        kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`);
-      }
-      kb.row().text('✖ Entendido', 'info_close');
-
-      return await ctx.reply(burnText, {
-        parse_mode: 'HTML',
-        reply_parameters: { message_id: ctx.message.message_id },
-        reply_markup: kb,
-        link_preview_options: { is_disabled: true },
-      });
-    }
-
-    // ── CASO B: ALERTA CRÍTICA DE SUPLANTACIÓN DE STAFF ──
-    if (isStaffCloneAlert) {
-      const cloneText =
-        `<b>⚠️ [RADAR VISUAL FORENSE] ALERTA DE SUPLANTACIÓN DE STAFF ⚠️</b>\n` +
-        `──────\n\n` +
-        `▸ <b>Nombre en Captura:</b> <code>${escapeHtml(rawName)}</code>\n` +
-        `▸ <b>Nombre Traducido:</b> <code>${escapeHtml(normalizedName)}</code>\n` +
-        `▸ <b>Alias (@):</b> ${effectiveUsername ? `<a href="https://t.me/${escapeHtml(effectiveUsername)}">@${escapeHtml(effectiveUsername)}</a>` : '<i>Sin @ visible</i>'}\n` +
-        (targetId ? `▸ <b>ID Resuelto (Agent Bot):</b> <code>${targetId}</code>\n` : '') +
-        (detectedGroupName ? `▸ <b>Ubicación:</b> <code>${escapeHtml(detectedGroupName)}</code>\n` : '') +
-        `\n🚨 <b>ALERTA DE SEGURIDAD:</b>\n` +
-        `<i>Este perfil utiliza o imita el nombre del Administrador Oficial <b>${escapeHtml(imitatedStaffName)}</b> pero NO cuenta con el ID verificado del Staff.</i>\n\n` +
-        `──────\n` +
-        `💡 <i>Verifica siempre el directorio oficial con <code>/staff</code>. Ningún admin o mediador de tratos te escribirá primero al privado solicitando fondos.</i>`;
-
-      if (profileUrl) {
-        kb.url('Perfil', profileUrl);
-      }
-      if (targetId) {
-        kb.text('Verificar', `info_check_burn:${targetId}`);
-      } else if (effectiveUsername) {
-        kb.text('Verificar', `info_check_burn_user:${effectiveUsername}`);
-      }
-      kb.row().text('🛡️ Ver Staff Oficial', 'staff_list');
-      kb.row().text('✖ Cerrar', 'info_close');
-
-      return await ctx.reply(cloneText, {
-        parse_mode: 'HTML',
-        reply_parameters: { message_id: ctx.message.message_id },
-        reply_markup: kb,
-        link_preview_options: { is_disabled: true },
-      });
-    }
-
-    // ── CASO C: PERFIL ANALIZADO (LIMPIO / STAFF LEGÍTIMO) ──
-    let badgeText = '<b>✓ LIMPIO</b> (Sin reportes activos en Lista Negra)';
-    if (isOfficialStaff) {
-      badgeText = '<b>🛡️ VERIFICADO: MIEMBRO OFICIAL DEL STAFF</b>';
-    }
-
-    let extraDetails = '';
+    let profileResult = null;
     if (targetId) {
-      extraDetails += `▸ <b>ID Resuelto (Agent Bot):</b> <code>${targetId}</code>\n`;
-    }
-    if (detectedGroupName) {
-      extraDetails += `▸ <b>Grupos Oficiales:</b> <code>✓ Presente en "${escapeHtml(detectedGroupName)}"</code>\n`;
-    } else if (targetId) {
-      extraDetails += `▸ <b>Grupos Oficiales:</b> <i>No detectado en grupos de la comunidad</i>\n`;
-    }
-    if (profileInfo.status) {
-      extraDetails += `▸ <b>Última Conexión:</b> <i>${escapeHtml(profileInfo.status)}</i>\n`;
-    }
-    const finalBio = resolvedUser?.bio || profileInfo.bio;
-    if (finalBio) {
-      extraDetails += `▸ <b>Bio / Info:</b> <i>${escapeHtml(finalBio.slice(0, 120))}</i>\n`;
-    }
-    if (profileInfo.bioMentions && profileInfo.bioMentions.length > 0) {
-      extraDetails += `▸ <b>Menciones en Bio:</b> ${profileInfo.bioMentions.map(m => escapeHtml(m)).join(' ')}\n`;
-    }
-
-    const cleanText =
-      `<b>⟡ [RADAR VISUAL FORENSE] PERFIL IDENTIFICADO</b> ⊱ <code>DIAGNÓSTICO</code> ⊰\n` +
-      `──────\n\n` +
-      `▸ <b>Nombre en Captura:</b> <code>${escapeHtml(rawName)}</code>\n` +
-      `▸ <b>Nombre Traducido:</b> <code>${escapeHtml(normalizedName)}</code>\n` +
-      `▸ <b>Alias (@):</b> ${effectiveUsername ? `<a href="https://t.me/${escapeHtml(effectiveUsername)}">@${escapeHtml(effectiveUsername)}</a>` : '<i>Sin @ visible</i>'}\n` +
-      extraDetails +
-      `\n▸ <b>Estado en Red:</b> ${badgeText}\n\n` +
-      `──────\n` +
-      `💡 <i>Para mayor seguridad, recuerda exigir siempre intermediario oficial (/trato).</i>`;
-
-    if (profileUrl) {
-      kb.url('Perfil', profileUrl);
-    }
-    if (targetId) {
-      kb.text('Verificar', `info_check_burn:${targetId}`);
+      profileResult = await buildUserProfile(ctx, {
+        userId: targetId,
+        username: effectiveUsername,
+        firstName: resolvedUser?.firstName || normalizedName || rawName,
+      });
     } else if (effectiveUsername) {
-      kb.text('Verificar', `info_check_burn_user:${effectiveUsername}`);
+      profileResult = await buildUserProfileByUsername(ctx, effectiveUsername);
+    } else {
+      const botLabel = ctx.tenant?.community_name || 'VENTAS LIBRES PERÚ';
+      const dateFormatted = getSuperscriptDate();
+      const fallbackText =
+        `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
+        `──────\n\n` +
+        `▸ <b>Nombre:</b> ${escapeHtml(normalizedName || rawName)}\n` +
+        `▸ <b>ID:</b> <i>No detectado</i>\n` +
+        `▸ <b>User:</b> <i>Sin @ visible</i>\n` +
+        `▸ <b>Rol:</b> Usuario\n` +
+        `▸ <b>Link de perfil:</b> <i>No disponible</i>\n\n` +
+        `──────\n` +
+        `${dateFormatted}`;
+      const fallbackKb = new InlineKeyboard().text('✖ Cerrar', 'info_close');
+      profileResult = { text: fallbackText, keyboard: fallbackKb };
     }
 
-    kb.row().text('✖ Cerrar', 'info_close');
+    let { text: outputText, keyboard: outputKb } = profileResult;
 
-    return await ctx.reply(cleanText, {
+    // Alerta de suplantación de staff o estafador si corresponde
+    if (isStaffCloneAlert) {
+      outputText =
+        `⚠️ <b>ALERTA DE SUPLANTACIÓN DE IDENTIDAD</b> ⚠️\n` +
+        `<i>Este usuario imita el nombre del Administrador <b>${escapeHtml(imitatedStaffName)}</b> pero no cuenta con el ID verificado del Staff.</i>\n\n` +
+        outputText;
+    } else if (burnedRecord) {
+      outputText =
+        `🚨 <b>[LISTA NEGRA] ESTAFADOR IDENTIFICADO</b> 🚨\n` +
+        `<i>El perfil capturado corresponde a un <b>ESTAFADOR CONFIRMADO</b> (GBan activo). No envíes dinero ni realices tratos.</i>\n\n` +
+        outputText;
+    }
+
+    return await ctx.reply(outputText, {
       parse_mode: 'HTML',
       reply_parameters: { message_id: ctx.message.message_id },
-      reply_markup: kb,
+      reply_markup: outputKb,
       link_preview_options: { is_disabled: true },
     });
   });
