@@ -7,6 +7,25 @@ const { InlineKeyboard } = require('grammy');
 const sentinel = require('./sentinel');
 const activityTracker = require('./activityTracker');
 const logger = require('./logger');
+const { toMathBold } = require('../../utils/aesthetic');
+
+/**
+ * Convierte la fecha actual a formato superíndice ²³⁻⁰⁹⁻²⁰²⁶
+ */
+function getSuperscriptDate(date = new Date()) {
+  const digits = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    '-': '⁻',
+  };
+  const dStr = date.toLocaleDateString('es-PE', {
+    timeZone: 'America/Lima',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).replace(/\//g, '-');
+  return dStr.split('').map((ch) => digits[ch] || ch).join('');
+}
 
 /**
  * Formatea una fecha al estilo: 16/07/2026 23:52:05
@@ -137,37 +156,39 @@ function register(bot) {
           }
         }
       } catch {}
-
       // Actividad en mensajes
       const activity = await activityTracker.getUserActivity(ctx.chat.id, targetId);
 
       // Título de la comunidad
       const communityName = (ctx.tenant?.community_name || 'VENTAS LIBRES PERÚ').toUpperCase();
+      const dateFormatted = getSuperscriptDate();
 
-      // Construcción del mensaje idéntico a la referencia
+      // Construcción del mensaje con estética oficial de corchetes unicode
       const messageText =
         `🖲 <b>[${escapeHtml(communityName)} - PANEL DE CONTROL]</b>\n` +
         `══════════════════════════════\n\n` +
-        `👤 <b>Nombre:</b> ${escapeHtml(targetName)}\n` +
-        `🆔 <b>ID:</b> <code>${targetId}</code>\n` +
-        `🔍 <b>User:</b> ${escapeHtml(targetUser)}\n` +
-        `🔗 <b>Link:</b> <a href="${profileLink}">Presiona aquí</a>\n` +
-        `📊 <b>Estado:</b> ${status}\n` +
-        `ℹ️ <b>Unido:</b> ${formatDate(joinedDate)}\n` +
-        `✉️ <b>Mensajes:</b> ${activity.count}\n` +
-        `💬 <b>Último Mensaje:</b> ${escapeHtml(activity.lastMessage)}\n\n` +
+        `〖☁〗 <b>Nombre:</b> ${escapeHtml(targetName)}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${targetId}</code>\n` +
+        `〖♝〗 <b>User:</b> ${escapeHtml(targetUser)}\n` +
+        `〖✦〗 <b>Link:</b> <a href="${profileLink}">Presiona aquí</a>\n` +
+        `〖☾〗 <b>Estado:</b> ${status}\n` +
+        `〖⏱️〗 <b>Unido:</b> ${formatDate(joinedDate)}\n` +
+        `〖✉️〗 <b>Mensajes:</b> ${activity.count}\n` +
+        `〖💬〗 <b>Último Mensaje:</b> ${escapeHtml(activity.lastMessage)}\n\n` +
         `──────────────────\n` +
-        `🔰 <b>Panel de control rápido:</b>`;
+        `🔰 <b>Panel de control rápido:</b>\n\n` +
+        `──────\n` +
+        `${dateFormatted}`;
 
-      // Botones de control rápido idénticos a la imagen
+      // Botones con estilo de letra negrita matemática y colores nativos (primary, success, danger)
       const kb = new InlineKeyboard()
-        .url('👤 Perfil ↗', profileLink)
-        .text('🛡️ Verificar', `data_act:verify:${targetId}`)
+        .url(`👤 ${toMathBold('Perfil ↗')}`, profileLink).primary()
+        .text(`🛡️ ${toMathBold('Verificar')}`, `data_act:verify:${targetId}`).success()
         .row()
-        .text('🔇 Mutear', `data_act:mute:${targetId}`)
-        .text('🚫 Ban', `data_act:ban:${targetId}`)
+        .text(`🔇 ${toMathBold('Mutear')}`, `data_act:mute:${targetId}`).primary()
+        .text(`🚫 ${toMathBold('Ban')}`, `data_act:ban:${targetId}`).danger()
         .row()
-        .text('⚠️ Blacklist', `data_act:burn:${targetId}`);
+        .text(`⚠️ ${toMathBold('Blacklist')}`, `data_act:burn:${targetId}`).primary();
 
       await ctx.reply(messageText, {
         parse_mode: 'HTML',

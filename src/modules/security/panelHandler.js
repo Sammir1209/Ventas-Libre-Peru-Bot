@@ -6,6 +6,22 @@ const { SYM } = require('../../config/constants');
 const { escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 const { isGlobalOwner, resolveCommunityName, DEFAULT_COMMUNITY_NAME } = require('../../utils/tenantContext');
+const { toMathBold } = require('../../utils/aesthetic');
+
+function getSuperscriptDate(date = new Date()) {
+  const digits = {
+    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
+    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    '-': '⁻',
+  };
+  const dStr = date.toLocaleDateString('es-PE', {
+    timeZone: 'America/Lima',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).replace(/\//g, '-');
+  return dStr.split('').map((ch) => digits[ch] || ch).join('');
+}
 
 // ══════
 // ⟡ Módulo: Comando /panel (Menú Interactivo de Comandos en Telegram)
@@ -220,6 +236,7 @@ const PANEL_CATEGORIES = {
 function renderMainMenuText(communityName, firstName) {
   const comm = escapeHtml(communityName || 'VENTAS LIBRES PERÚ');
   const user = escapeHtml(firstName || 'Operador');
+  const dateFormatted = getSuperscriptDate();
   return (
     `🖲 <b>[${comm.toUpperCase()} - PANEL DE COMANDOS]</b>\n` +
     `══════════════════════════════\n` +
@@ -233,30 +250,32 @@ function renderMainMenuText(communityName, firstName) {
     `🤖 <b>Asistente IA:</b> Encendido, apagado y consultas.\n` +
     `⚙️ <b>Configuración:</b> Setup, asignación de Staff y canales oficiales.\n` +
     `══════════════════════════════\n` +
-    `👇 <i>Presiona un botón para ver los comandos de cada sección:</i>`
+    `👇 <i>Presiona un botón para ver los comandos de cada sección:</i>\n\n` +
+    `──────\n` +
+    `${dateFormatted}`
   );
 }
 
 function getMainMenuKeyboard() {
   return new InlineKeyboard()
-    .text('🛡️ Moderación', 'panel_cat:mod')
-    .text('🚨 Seguridad & Defcon', 'panel_cat:sec')
+    .text(`🛡️ ${toMathBold('Moderación')}`, 'panel_cat:mod').primary()
+    .text(`🚨 ${toMathBold('Seguridad & Defcon')}`, 'panel_cat:sec').danger()
     .row()
-    .text('🔥 Lista Negra & GBan', 'panel_cat:blacklist')
-    .text('🤝 Tratos & Escrow', 'panel_cat:escrow')
+    .text(`🔥 ${toMathBold('Lista Negra & GBan')}`, 'panel_cat:blacklist').danger()
+    .text(`🤝 ${toMathBold('Tratos & Escrow')}`, 'panel_cat:escrow').success()
     .row()
-    .text('👤 Perfiles & Radar', 'panel_cat:profiles')
-    .text('🤖 Asistente IA', 'panel_cat:ai')
+    .text(`👤 ${toMathBold('Perfiles & Radar')}`, 'panel_cat:profiles').primary()
+    .text(`🤖 ${toMathBold('Asistente IA')}`, 'panel_cat:ai').primary()
     .row()
-    .text('⚙️ Configuración & Staff', 'panel_cat:config')
+    .text(`⚙️ ${toMathBold('Configuración & Staff')}`, 'panel_cat:config').primary()
     .row()
-    .text('✖ Cerrar Panel', 'panel_close');
+    .text(`✖ ${toMathBold('Cerrar Panel')}`, 'panel_close').danger();
 }
 
 function getCategoryKeyboard() {
   return new InlineKeyboard()
-    .text('◀ Volver al Menú', 'panel_back')
-    .text('✖ Cerrar', 'panel_close');
+    .text(`◀ ${toMathBold('Volver al Menú')}`, 'panel_back').primary()
+    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
 async function isStaffOrAdmin(ctx) {
@@ -316,7 +335,9 @@ function register(bot) {
       }
 
       await ctx.answerCallbackQuery();
-      await ctx.editMessageText(category.text, {
+      const dateFormatted = getSuperscriptDate();
+      const catText = `${category.text}\n\n──────\n${dateFormatted}`;
+      await ctx.editMessageText(catText, {
         parse_mode: 'HTML',
         reply_markup: getCategoryKeyboard(),
       });
