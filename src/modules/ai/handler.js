@@ -430,7 +430,12 @@ function register(bot) {
       if (!(await canManageAi(ctx))) {
         return ctx.reply('⚠️ <i>Solo administradores o staff pueden activar la IA en este grupo.</i>', { parse_mode: 'HTML' });
       }
-      await redisDb.deleteCache(`ai_disabled:${ctx.chat.id}`);
+      try {
+        if (redisDb.clearCache) await redisDb.clearCache(`ai_disabled:${ctx.chat.id}`);
+        else if (redisDb.deleteCache) await redisDb.deleteCache(`ai_disabled:${ctx.chat.id}`);
+      } catch (errCache) {
+        console.warn('⟡ Error limpiando caché ai_disabled:', errCache.message);
+      }
       return ctx.reply(
         `⚡ <b>ASISTENTE IA ACTIVADO</b>\n──────\n<i>La Inteligencia Artificial ahora responderá dudas y menciones en este grupo.</i>`,
         { parse_mode: 'HTML' }

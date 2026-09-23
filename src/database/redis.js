@@ -295,4 +295,6 @@ module.exports = {
   setCache,
   getCache,
   clearCache,
+  deleteCache: clearCache,
+  delCache: clearCache,
 };

@@ -640,8 +640,8 @@ function register(bot) {
     }
   });
 
-  // ── Comando /web y /panel: Acceso al Portal Web Secreto para Owners ──
-  bot.command(['web', 'panel', 'dashboard'], async (ctx) => {
+  // ── Comando /web y /dashboard: Acceso al Portal Web Secreto para Owners ──
+  bot.command(['web', 'dashboard', 'portal'], async (ctx) => {
     try {
       const senderId = ctx.from.id;
       const tenantId = ctx.tenant?.id || null;

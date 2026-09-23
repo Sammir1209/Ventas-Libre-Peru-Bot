@@ -12,6 +12,7 @@ const muteUI = require('./muteUI');
 const dynamicBlacklist = require('./dynamicBlacklist');
 const scamAutoResponder = require('./scamAutoResponder');
 const profileImageScanner = require('./profileImageScanner');
+const dataHandler = require('./dataHandler');
 
 // ══════
 // ⟡ Módulo: Comandos de Moderación Universal y Seguridad
@@ -20,6 +21,9 @@ const profileImageScanner = require('./profileImageScanner');
 function register(bot) {
   // Registrar subsistema Centinela
   sentinel.register(bot);
+
+  // Registrar panel rápido /data
+  dataHandler.register(bot);
 
   // Registrar Lista Negra Dinámica & Reactive Defense
   dynamicBlacklist.register(bot);

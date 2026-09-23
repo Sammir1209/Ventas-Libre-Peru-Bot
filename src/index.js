@@ -123,6 +123,11 @@ async function main() {
           ctx.from.username || null,
           ctx.from.first_name || null
         );
+        if (ctx.chat && (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup')) {
+          const actTracker = require('./modules/moderation/activityTracker');
+          const msgSnippet = ctx.message?.text || ctx.message?.caption || '';
+          actTracker.trackActivity(ctx.chat.id, ctx.from.id, msgSnippet).catch(() => {});
+        }
       }
       if (ctx.chat && (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup' || ctx.chat.type === 'channel')) {
         await db.registerOfficialGroup(

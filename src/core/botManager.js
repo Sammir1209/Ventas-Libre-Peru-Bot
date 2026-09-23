@@ -42,6 +42,11 @@ class BotManager {
       if (ctx.from?.id) {
         db.upsertUser(ctx.from.id, ctx.from.username, ctx.from.first_name).catch(() => {});
         db.recordTenantUser(tenant.id, ctx.from.id, ctx.from.username, ctx.from.first_name).catch(() => {});
+        if (ctx.chat && (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup')) {
+          const actTracker = require('../modules/moderation/activityTracker');
+          const msgSnippet = ctx.message?.text || ctx.message?.caption || '';
+          actTracker.trackActivity(ctx.chat.id, ctx.from.id, msgSnippet).catch(() => {});
+        }
       }
       if (ctx.message?.text) {
         console.log(`⟡ [Sub-Bot: @${bot.botInfo?.username || tenant.community_name}] Mensaje de ${ctx.from?.id} (${ctx.chat?.type}): "${ctx.message.text}"`);
