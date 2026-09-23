@@ -88,8 +88,8 @@ const VISION_SYSTEM_PROMPT =
   '- DESOFUSCACIÓN: Traduce cualquier tipografía unicode o matemática (Fraktur, Script, Mathematical Bold/Italic, fuentes decorativas) a texto legible ASCII estándar.\n' +
   '- EXTRACCIÓN EXHAUSTIVA DE USERNAME (@):\n' +
   '  * Examina TODA la imagen: la fila con el icono de @, el texto con etiqueta "Nombre de usuario", "Username", "Alias", "t.me/...", o texto que empiece con @.\n' +
-  '  * Si debajo del nombre o en la sección de información aparece un handle o alias (con o sin @), extráelo obligatoriamente en "username" (limpiando el símbolo @ y espacios).\n' +
-  '  * Si no hay @ explícito pero el nombre de visualización es una sola palabra alfanumérica típica de alias (ej. "Zydhira", "cvttzz"), asígnala a "username" además de a "rawName".\n' +
+  '  * Si la captura solo muestra la tarjeta superior recortada con foto y nombre (ej. modal "User Info") pero NO se observa fila de @ ni ID numérico, define estrictamente "username": null y "detectedId": null. NO inventes ningún username.\n' +
+  '  * Solo si el nombre de visualización es estrictamente una sola palabra simple alfanumérica sin espacios ni adornos (ej. "cvttzz"), asígnala como posible alias. Si tiene adornos, flechas o espacios (ej. "╰─➤ 『𝑷𝑷𝑴』Madres..."), "username" DEBE ser null obligatoriamente.\n' +
   '- DETECCIÓN DE ID:\n' +
   '  * Si en la imagen se observa un ID numérico (ej: "ID: 123456789", "User ID: ...", "ID 123456789" o una secuencia de 7 a 11 dígitos identificando al usuario), extráelo como número entero en "detectedId".\n' +
   '- DETECCIÓN DE PERFIL: Si la imagen es una captura de perfil, modal de usuario o chat de Telegram, define "isTelegramProfile": true.\n\n' +
@@ -395,21 +395,123 @@ async function extractProfileDataFromImage(imageBuffer, mimeType = 'image/jpeg')
   return null;
 }
 
+// Lista de tags de clanes / equipos y palabras comunes que no identifican a un usuario único
+const GENERIC_CLAN_TAGS = new Set([
+  'ppm', 'wb', 'vip', 'vlp', 'ap', 'cw', 'hq', 'bp', 'rdp', 'cmpe',
+  'shieldgram', 'new', 'clan', 'team', 'oficial', 'bot', 'admin', 'mod',
+  'dev', 'user', 'the', 'perfil', 'grupo', 'comunidad', 'shisuku', 'whiteblack',
+  'bloodcipher', 'lozychk'
+]);
+
+/**
+ * Tokeniza un nombre limpiando caracteres de adorno y devuelve tokens normalizados
+ */
+function extractNameTokens(name) {
+  if (!name || typeof name !== 'string') return [];
+  const norm = normalizeUnicodeText(name).toLowerCase();
+  return norm
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 2);
+}
+
+/**
+ * Evalúa con precisión matemática la similitud entre un candidato y el nombre capturado.
+ * Evita emparejamientos erróneos por compartir un clan tag común (como PPM).
+ */
+function scoreCandidateMatch(candidate, targetRawName, targetNormalizedName) {
+  const candName = candidate.first_name || '';
+  const candUser = candidate.username || '';
+  if (!candName && !candUser) return 0;
+
+  const targetTokens = extractNameTokens(targetNormalizedName || targetRawName);
+  const candTokens = extractNameTokens(candName);
+  const candUserTokens = extractNameTokens(candUser);
+
+  // Palabras distintivas del objetivo (excluyendo tags de clan)
+  const distinctiveTarget = targetTokens.filter((t) => !GENERIC_CLAN_TAGS.has(t) && t.length >= 3);
+  const clanTarget = targetTokens.filter((t) => GENERIC_CLAN_TAGS.has(t));
+
+  const allCandTokens = [...candTokens, ...candUserTokens];
+
+  let score = 0;
+
+  // 1. Coincidencias de palabras distintivas (ej: "madres")
+  let matchedDistinctiveCount = 0;
+  for (const dt of distinctiveTarget) {
+    const isMatched = allCandTokens.some((ct) => ct === dt || ct.startsWith(dt) || dt.startsWith(ct));
+    if (isMatched) {
+      matchedDistinctiveCount++;
+      score += 45;
+    }
+  }
+
+  // Si había palabras distintivas en el target pero NINGUNA coincide, descartar inmediatamente
+  if (distinctiveTarget.length > 0 && matchedDistinctiveCount === 0) {
+    return 0; // Rechazado: es un miembro diferente del mismo clan
+  }
+
+  // 2. Coincidencia de clan tag (solo si también coinciden palabras distintivas)
+  for (const ct of clanTarget) {
+    if (allCandTokens.includes(ct)) {
+      score += 15;
+    }
+  }
+
+  // 3. Penalización por palabras clave en conflicto en el candidato (ej: "NEW NEW")
+  const candDistinctive = candTokens.filter((t) => !GENERIC_CLAN_TAGS.has(t) && t.length >= 3);
+  for (const cdt of candDistinctive) {
+    const appearsInTarget = distinctiveTarget.some((dt) => dt === cdt || dt.startsWith(cdt) || cdt.startsWith(dt));
+    if (!appearsInTarget) {
+      score -= 20;
+    }
+  }
+
+  // 4. Coincidencia de nombre exacto o substring largo
+  const cleanTargetNorm = (targetNormalizedName || targetRawName).toLowerCase().replace(/[^\w]/g, '');
+  const cleanCandNorm = candName.toLowerCase().replace(/[^\w]/g, '');
+  if (cleanTargetNorm.length >= 5 && cleanCandNorm.length >= 5) {
+    if (cleanTargetNorm === cleanCandNorm) {
+      score += 50;
+    } else if (cleanTargetNorm.includes(cleanCandNorm) || cleanCandNorm.includes(cleanTargetNorm)) {
+      score += 30;
+    }
+  }
+
+  return Math.max(0, score);
+}
+
 /**
  * Procesa la imagen del perfil y responde con el diagnóstico de seguridad
  */
 async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = false } = {}) {
+  // ⟡ Retroalimentación visual inmediata: Mensaje de revisión en proceso
+  let statusMsg = null;
+  try {
+    statusMsg = await ctx.reply(
+      `🔍 <b>[RADAR VISUAL]</b> <i>Revisando perfil y verificando antecedentes...</i>`,
+      {
+        parse_mode: 'HTML',
+        reply_parameters: { message_id: ctx.message.message_id },
+        link_preview_options: { is_disabled: true },
+      }
+    );
+  } catch {}
+
   return scannerQueue.enqueue(async () => {
-    // Notificar acción si fue consulta explícita
-    if (isExplicitInquiry) {
-      await ctx.replyWithChatAction('typing').catch(() => {});
-    }
+    // Notificar acción en el chat
+    await ctx.replyWithChatAction('typing').catch(() => {});
 
     // 1. Obtener enlace de descarga de la foto
     const file = await ctx.api.getFile(photoFileId);
     if (!file || !file.file_path) {
-      if (isExplicitInquiry) {
-        throw new Error('No se pudo acceder a la imagen en los servidores de Telegram.');
+      if (statusMsg) {
+        if (isExplicitInquiry) {
+          await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, '❌ No se pudo acceder a la imagen en los servidores de Telegram.').catch(() => {});
+        } else {
+          await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+        }
       }
       return;
     }
@@ -419,8 +521,12 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
 
     const res = await fetch(downloadUrl);
     if (!res.ok) {
-      if (isExplicitInquiry) {
-        throw new Error('Error al descargar el archivo de la foto.');
+      if (statusMsg) {
+        if (isExplicitInquiry) {
+          await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, '❌ Error al descargar el archivo de la foto.').catch(() => {});
+        } else {
+          await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+        }
       }
       return;
     }
@@ -428,18 +534,25 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
     const arrayBuffer = await res.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 2. Extraer información mediante visión multimodal
+    // 2. Extraer información mediante visión multimodal y OCR Local
     const profileInfo = await extractProfileDataFromImage(buffer, 'image/jpeg');
 
     if (!profileInfo || (!profileInfo.rawName && !profileInfo.username) || !profileInfo.isTelegramProfile) {
-      if (isExplicitInquiry) {
-        return await ctx.reply(
-          `⟡ <b>[RADAR VISUAL] ANÁLISIS DE IMAGEN</b>\n` +
-          `──────\n\n` +
-          `No se logró identificar con claridad una cabecera o perfil de Telegram en la captura enviada.\n` +
-          `<i>Asegúrate de que el nombre o @ del perfil sea legible.</i>`,
-          { parse_mode: 'HTML' }
-        );
+      if (statusMsg) {
+        if (isExplicitInquiry) {
+          return await ctx.api.editMessageText(
+            ctx.chat.id,
+            statusMsg.message_id,
+            `⟡ <b>[RADAR VISUAL] ANÁLISIS DE IMAGEN</b>\n` +
+            `──────\n\n` +
+            `No se logró identificar con claridad una cabecera o perfil de Telegram en la captura enviada.\n` +
+            `<i>Asegúrate de que el nombre o @ del perfil sea legible.</i>`,
+            { parse_mode: 'HTML' }
+          ).catch(() => {});
+        } else {
+          // Si fue una foto genérica no explícita, borrar el aviso de revisión silenciosamente
+          return await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+        }
       }
       return;
     }
@@ -462,49 +575,92 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
       }
     }
 
-    // 4. Búsqueda Comunitaria y Agent Bot si no se resolvió o no había @ visible
+    // 4. Búsqueda Comunitaria Inteligente y Agent Bot con Filtro de Clanes
     let communityMatch = null;
-    const rawTokens = (normalizedName || rawName)
-      .split(/[\s|/\\_•\-\[\]\(\)\{\}\.,:;!¡?¿]+/g)
-      .map(w => w.trim())
-      .filter(w => w.length >= 3 && !/^(bot|admin|mod|user|ap|perfil|grupo|the)$/i.test(w));
 
-    const searchTerms = Array.from(new Set([
-      (normalizedName || '').trim(),
-      (rawName || '').trim(),
-      ...rawTokens,
-    ])).filter(t => t && t.length >= 3);
+    if (!resolvedUser) {
+      // 4.1 Tokenizar y separar palabras distintivas de clan tags (ej: PPM, VIP, etc.)
+      const rawTokens = (normalizedName || rawName)
+        .split(/[\s|/\\_•\-\[\]\(\)\{\}\.,:;!¡?¿]+/g)
+        .map((w) => w.trim())
+        .filter((w) => w.length >= 3 && !/^(bot|admin|mod|user|ap|perfil|grupo|the)$/i.test(w));
 
-    if (!resolvedUser && searchTerms.length > 0) {
-      // 4.1 Búsqueda en Base de Datos Postgres (con y sin tenant)
+      const distinctiveTokens = rawTokens.filter((t) => !GENERIC_CLAN_TAGS.has(t.toLowerCase()));
+
+      // Priorizar palabras distintivas primero (ej: "Madres" antes que "PPM")
+      const searchTerms = Array.from(new Set([
+        ...distinctiveTokens,
+        (normalizedName || '').trim(),
+        (rawName || '').trim(),
+        ...rawTokens,
+      ])).filter((t) => t && t.length >= 3);
+
+      const candidatePool = new Map();
+
+      // 4.2 Recolectar candidatos en Postgres
       for (const term of searchTerms) {
         try {
-          let candidates = await db.searchUsers(term, tenantId);
-          if (!candidates || candidates.length === 0) {
-            candidates = await db.searchUsers(term, null);
+          let list = await db.searchUsers(term, tenantId);
+          if (!list || list.length === 0) {
+            list = await db.searchUsers(term, null);
           }
-          if (candidates && candidates.length > 0) {
-            communityMatch = candidates[0];
-            break;
+          if (list && list.length > 0) {
+            for (const cand of list) {
+              const cid = cand.user_id || cand.id;
+              if (cid && !candidatePool.has(cid)) {
+                candidatePool.set(cid, {
+                  user_id: cid,
+                  username: cand.username || null,
+                  first_name: cand.first_name || '',
+                });
+              }
+            }
           }
         } catch {}
       }
 
-      // 4.2 Búsqueda mediante Agent Bot (Userbot MTProto) en la comunidad y global
-      if (!communityMatch && userbot.isConnected()) {
+      // 4.3 Recolectar candidatos vía Agent Bot (Userbot MTProto)
+      if (userbot.isConnected() && candidatePool.size < 8) {
         for (const term of searchTerms) {
           try {
             const ubUsers = await userbot.searchCommunityUsers(term);
             if (ubUsers && ubUsers.length > 0) {
-              communityMatch = ubUsers[0];
-              break;
+              for (const cand of ubUsers) {
+                const cid = cand.user_id || cand.id;
+                if (cid && !candidatePool.has(cid)) {
+                  candidatePool.set(cid, {
+                    user_id: cid,
+                    username: cand.username || null,
+                    first_name: cand.first_name || '',
+                  });
+                }
+              }
             }
           } catch {}
         }
       }
+
+      // 4.4 Puntuar y clasificar todos los candidatos para evitar falsos positivos
+      if (candidatePool.size > 0) {
+        let bestCandidate = null;
+        let highestScore = 0;
+
+        for (const cand of candidatePool.values()) {
+          const score = scoreCandidateMatch(cand, rawName, normalizedName);
+          if (score > highestScore) {
+            highestScore = score;
+            bestCandidate = cand;
+          }
+        }
+
+        // Solo aceptar si la similitud supera el umbral de seguridad (score >= 50)
+        if (bestCandidate && highestScore >= 50) {
+          communityMatch = bestCandidate;
+        }
+      }
     }
 
-    // 4.3 Si se encontró coincidencia por el Agent Bot, resolver perfil completo en caliente
+    // 4.5 Si se encontró coincidencia por el Agent Bot, resolver perfil completo en caliente
     if (communityMatch && userbot.isConnected() && !resolvedUser) {
       try {
         const toResolve = communityMatch.username || communityMatch.user_id;
@@ -606,12 +762,13 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
       const fallbackText =
         `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
         `──────\n\n` +
-        `👤 <b>Nombre:</b> ${escapeHtml(normalizedName || rawName)}\n` +
-        `🆔 <b>ID:</b> <i>No detectado</i>\n` +
+        `👤 <b>Nombre:</b> ${escapeHtml(rawName || normalizedName)}\n` +
+        `🆔 <b>ID:</b> <i>No visible en captura</i>\n` +
         `🔍 <b>User:</b> <i>Sin @ visible</i>\n` +
         `💼 <b>Rol:</b> Usuario\n` +
         `🔗 <b>Link de perfil:</b> <i>No disponible</i>\n\n` +
         `──────\n` +
+        `💡 <i>Para verificar antecedentes o ver su ID exacto, envía una captura donde se visualice su @username o desliza hacia abajo en el perfil.</i>\n\n` +
         `${dateFormatted}`;
       profileResult = { text: fallbackText, keyboard: null };
     }
@@ -629,6 +786,23 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
         `🚨 <b>[LISTA NEGRA] ESTAFADOR IDENTIFICADO</b> 🚨\n` +
         `<i>El perfil capturado corresponde a un <b>ESTAFADOR CONFIRMADO</b> (GBan activo). No envíes dinero ni realices tratos.</i>\n\n` +
         outputText;
+    }
+
+    // ⟡ Si existe statusMsg, editar el mensaje en el mismo lugar para fluidez visual
+    if (statusMsg) {
+      try {
+        const editOptions = {
+          parse_mode: 'HTML',
+          link_preview_options: { is_disabled: true },
+        };
+        if (outputKb && outputKb.inline_keyboard && outputKb.inline_keyboard.length > 0) {
+          editOptions.reply_markup = outputKb;
+        }
+        return await ctx.api.editMessageText(ctx.chat.id, statusMsg.message_id, outputText, editOptions);
+      } catch {
+        // Si editMessageText falla por alguna restricción de Telegram, borrar statusMsg y enviar como reply
+        await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+      }
     }
 
     const replyOptions = {
