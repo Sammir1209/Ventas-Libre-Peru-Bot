@@ -18,13 +18,14 @@ function getSuperscriptDate(date = new Date()) {
   const digits = {
     '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
     '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    '-': '⁻',
   };
   const dStr = date.toLocaleDateString('es-PE', {
     timeZone: 'America/Lima',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }).replace(/\D/g, ''); // "13092026"
+  }).replace(/\//g, '-'); // "23-09-2026"
 
   return dStr.split('').map((ch) => digits[ch] || ch).join('');
 }
@@ -123,8 +124,8 @@ async function buildUserProfile(ctx, targetUser) {
   const dateFormatted = getSuperscriptDate();
 
   const originLine = targetUser.isGlobal
-    ? `🌐 <b>Origen:</b> <i>Usuario Global (Fuera de la comunidad)</i>\n`
-    : `👥 <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n`;
+    ? `〖❖〗 <b>Origen:</b> <i>Usuario Global (Fuera de la comunidad)</i>\n`
+    : `〖❖〗 <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n`;
 
   const bodyText =
     `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
@@ -134,7 +135,7 @@ async function buildUserProfile(ctx, targetUser) {
     `〖♝〗 <b>@User:</b> ${userDisplay}\n` +
     `〖☾〗 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
     originLine +
-    `🔗 <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>`;
+    `〖✦〗 <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>`;
 
   const text = `${bodyText}\n\n──────\n${dateFormatted}`;
 
@@ -209,7 +210,7 @@ async function buildUserProfileByUsername(ctx, username) {
     `〖ϟ〗 <b>ID:</b> <i>No detectado</i>\n` +
     `〖♝〗 <b>@User:</b> ${userDisplay}\n` +
     `〖☾〗 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
-    `🔗 <b>Link de perfil:</b> <a href="https://t.me/${cleanUser}">Presiona aquí</a>`;
+    `〖✦〗 <b>Link de perfil:</b> <a href="https://t.me/${cleanUser}">Presiona aquí</a>`;
 
   const text = `${bodyText}\n\n──────\n${dateFormatted}`;
 
@@ -923,8 +924,14 @@ function register(bot) {
       }
 
       await ctx.replyWithPhoto(cardFile, replyOptions);
-      if (chatId && messageId) {
-        await ctx.api.deleteMessage(chatId, messageId).catch(() => {});
+      try {
+        if (chatId && messageId) {
+          await ctx.api.deleteMessage(chatId, messageId);
+        } else {
+          await ctx.deleteMessage();
+        }
+      } catch (delErr) {
+        console.warn('⟡ Info: Aviso - No se pudo eliminar mensaje previo (requiere permiso Eliminar Mensajes):', delErr.message);
       }
     } catch (err) {
       console.error('⟡ Info: Error en info_view_card:', err.message);
@@ -979,8 +986,14 @@ function register(bot) {
       }
 
       await ctx.replyWithPhoto(cardFile, replyOptions);
-      if (chatId && messageId) {
-        await ctx.api.deleteMessage(chatId, messageId).catch(() => {});
+      try {
+        if (chatId && messageId) {
+          await ctx.api.deleteMessage(chatId, messageId);
+        } else {
+          await ctx.deleteMessage();
+        }
+      } catch (delErr) {
+        console.warn('⟡ Info: Aviso - No se pudo eliminar mensaje previo (requiere permiso Eliminar Mensajes):', delErr.message);
       }
     } catch (err) {
       console.error('⟡ Info: Error en info_view_card_user:', err.message);
