@@ -732,30 +732,37 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
       } catch {}
     }
 
-    // 7. Verificación de Suplantación de Staff (Anti-Impersonator)
+    // 7. Verificación de Staff Oficial y Detección Estricta de Cuentas Clones
     let isOfficialStaff = false;
     let isStaffCloneAlert = false;
-    let imitatedStaffName = null;
+    let imitatedStaff = null;
+    let matchedStaffNameOnly = null;
 
     try {
       const staffList = await db.getAllStaff(tenantId).catch(() => []);
       for (const staff of staffList) {
-        if (targetId && Number(staff.user_id) === Number(targetId)) {
+        const isMatchingId = targetId && Number(staff.user_id) === Number(targetId);
+        const isMatchingUser = effectiveUsername && staff.username && staff.username.toLowerCase() === effectiveUsername.toLowerCase();
+
+        // Si coincide con el ID o @username oficial: Es Staff Oficial
+        if (isMatchingId || isMatchingUser) {
           isOfficialStaff = true;
-          break;
-        }
-        if (effectiveUsername && staff.username && staff.username.toLowerCase() === effectiveUsername.toLowerCase()) {
-          isOfficialStaff = true;
+          imitatedStaff = staff;
           break;
         }
 
+        // Comparar similitud de nombre
         const staffNorm = normalizeString(staff.first_name || '');
-        const targetNorm = normalizeString(normalizedName || '');
-        if (staffNorm.length >= 4 && targetNorm.length >= 4) {
-          if (staffNorm === targetNorm || targetNorm.includes(staffNorm)) {
+        const targetNorm = normalizeString(normalizedName || rawName || '');
+        if (staffNorm.length >= 4 && targetNorm.length >= 4 && (staffNorm === targetNorm || targetNorm.includes(staffNorm) || staffNorm.includes(targetNorm))) {
+          // Solo alertar de clon si la captura MUESTRA un @ o un ID que NO corresponde al verdadero Staff
+          if (targetId || effectiveUsername) {
             isStaffCloneAlert = true;
-            imitatedStaffName = staff.first_name;
+            imitatedStaff = staff;
             break;
+          } else {
+            // Si la captura no muestra @ ni ID, omitir falsa alarma y reconocer nombre de Staff
+            matchedStaffNameOnly = staff;
           }
         }
       }
@@ -777,16 +784,31 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
     } else {
       const botLabel = ctx.tenant?.community_name || 'VENTAS LIBRES PERÚ';
       const dateFormatted = getSuperscriptDate();
+
+      let staffWarningSection = '';
+      let roleLabel = 'Usuario';
+
+      if (matchedStaffNameOnly) {
+        roleLabel = `${matchedStaffNameOnly.role || 'ADMIN'} (Staff Oficial)`;
+        staffWarningSection =
+          `🛡️ <b>[AVISO DE VERIFICACIÓN DE STAFF]</b>\n` +
+          `Este perfil lleva el nombre del Administrador/Owner <b>${escapeHtml(matchedStaffNameOnly.first_name)}</b>.\n` +
+          `⚠️ <i>Para confirmar que es el Staff legítimo y no una cuenta clon, asegúrate de que su @ sea <b>@${matchedStaffNameOnly.username || 'Oficial'}</b> o su ID numérico sea <code>${matchedStaffNameOnly.user_id}</code>.</i>\n\n`;
+      } else {
+        staffWarningSection =
+          `💡 <i>Para verificar antecedentes o ver su ID exacto, envía una captura donde se visualice su @username o desliza hacia abajo en el perfil.</i>\n\n`;
+      }
+
       const fallbackText =
         `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
         `──────\n\n` +
         `👤 <b>Nombre:</b> ${escapeHtml(rawName || normalizedName)}\n` +
         `🆔 <b>ID:</b> <i>No visible en captura</i>\n` +
         `🔍 <b>User:</b> <i>Sin @ visible</i>\n` +
-        `💼 <b>Rol:</b> Usuario\n` +
+        `💼 <b>Rol:</b> ${roleLabel}\n` +
         `🔗 <b>Link de perfil:</b> <i>No disponible</i>\n\n` +
         `──────\n` +
-        `💡 <i>Para verificar antecedentes o ver su ID exacto, envía una captura donde se visualice su @username o desliza hacia abajo en el perfil.</i>\n\n` +
+        staffWarningSection +
         `${dateFormatted}`;
       profileResult = { text: fallbackText, keyboard: null };
     }
@@ -794,10 +816,10 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
     let { text: outputText, keyboard: outputKb } = profileResult;
 
     // Alerta de suplantación de staff o estafador si corresponde
-    if (isStaffCloneAlert) {
+    if (isStaffCloneAlert && imitatedStaff) {
       outputText =
-        `⚠️ <b>ALERTA DE SUPLANTACIÓN DE IDENTIDAD</b> ⚠️\n` +
-        `<i>Este usuario imita el nombre del Administrador <b>${escapeHtml(imitatedStaffName)}</b> pero no cuenta con el ID verificado del Staff.</i>\n\n` +
+        `🚨 <b>[ALERTA CRÍTICA] CUENTA CLON DE ESTAFADOR</b> 🚨\n` +
+        `<i>Este usuario imita el nombre del Administrador <b>${escapeHtml(imitatedStaff.first_name)}</b> pero su ID o @username NO es el del Staff oficial (@${escapeHtml(imitatedStaff.username || '')}). <b>¡CUIDADO: ES UN ESTAFADOR SUPLANTANDO IDENTIDAD!</b></i>\n\n` +
         outputText;
     } else if (burnedRecord) {
       outputText =
