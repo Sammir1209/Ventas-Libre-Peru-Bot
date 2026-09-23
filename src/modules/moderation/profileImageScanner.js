@@ -14,9 +14,10 @@ const { buildUserProfile, buildUserProfileByUsername } = require('../info/handle
 
 // Modelos Gemini con soporte de visión multimodal activo y ordenados por velocidad
 const VISION_MODELS = [
+  'gemini-3.6-flash',
   'gemini-3.5-flash',
-  'gemini-3.1-flash-lite',
   'gemini-flash-latest',
+  'gemini-3.1-flash-lite',
   'gemini-3.5-flash-lite',
 ];
 
@@ -72,21 +73,24 @@ const VISION_SYSTEM_PROMPT =
   '⟡ PATRONES Y FORMAS VISUALES SOPORTADAS:\n' +
   '1. MODAL/DRAWER COMPLETO DE TELEGRAM ("User Info"):\n' +
   '   - Avatar circular superior con foto de perfil.\n' +
-  '   - Nombre principal o alias debajo de la foto (ej: "svlla_x", "Carlos", "『 ༒ 𝙎𝙝𝙞𝙨𝙪𝙠𝙪 𝘽𝙋 ༒ 』").\n' +
+  '   - Nombre principal o alias debajo de la foto (ej: "svlla_x", "Carlos", "Zydhira", "『 ༒ 𝙎𝙝𝙞𝙨𝙪𝙠𝙪 𝘽𝙋 ༒ 』").\n' +
   '   - Estado de conexión ("last seen 2 minutes ago", "last seen recently", "últ. vez recientemente", "online", "en línea").\n' +
-  '   - Fila de Username (@ icon): El alias público (ej: "svlla_x", "Vgsimi", o nombres largos divididos en dos líneas).\n' +
+  '   - Fila de Username (@ icon o texto "Username" / "Nombre de usuario"): El alias público (ej: "@svlla_x", "zydhira", o nombres alfanuméricos).\n' +
   '   - Fila de Bio (icono i): Descripción del usuario, a menudo contiene enlaces a otros @usernames o canales.\n' +
   '   - Fila de Channel / Subscribers: Canales vinculados al usuario.\n\n' +
   '2. CABECERA RECORTADA / BARRA SUPERIOR DE CHAT:\n' +
   '   - Barra superior con avatar pequeño, nombre con fuentes unicode y debajo estado de conexión ("últ. vez recientemente").\n' +
-  '   - Aunque no haya @ visible, extrae con total fidelidad el nombre completo y su versión normalizada en ASCII.\n\n' +
+  '   - Si el nombre en la barra superior o en el chat parece un username alfanumérico (ej: "zydhira"), extráelo también.\n\n' +
   '3. MENSAJES Y CITAS:\n' +
   '   - Mensajes reenviados ("Forwarded from / Reenviado de ...") con el nombre del remitente.\n\n' +
-  '⟡ REGLAS CRÍTICAS:\n' +
-  '- DESOFUSCACIÓN: Traduce cualquier tipografía unicode o matemática (Fraktur, Script, Mathematical Bold/Italic) a texto legible ASCII estándar.\n' +
-  '- LIMPIEZA DE USERNAME: Extrae ÚNICAMENTE el alias alfanumérico sin el símbolo @ ni espacios. Si aparece debajo del avatar (como "svlla_x") o en la fila @, extráelo.\n' +
-  '- MENCIONES EN BIO: Extrae una lista de todos los @usernames o canales mencionados dentro de la biografía.\n' +
-  '- DETECCIÓN DE ID: Si en la captura aparece algún ID numérico visible (ej: "ID: 123456789"), extráelo.\n' +
+  '⟡ REGLAS CRÍTICAS DE OCR:\n' +
+  '- DESOFUSCACIÓN: Traduce cualquier tipografía unicode o matemática (Fraktur, Script, Mathematical Bold/Italic, fuentes decorativas) a texto legible ASCII estándar.\n' +
+  '- EXTRACCIÓN EXHAUSTIVA DE USERNAME (@):\n' +
+  '  * Examina TODA la imagen: la fila con el icono de @, el texto con etiqueta "Nombre de usuario", "Username", "Alias", "t.me/...", o texto que empiece con @.\n' +
+  '  * Si debajo del nombre o en la sección de información aparece un handle o alias (con o sin @), extráelo obligatoriamente en "username" (limpiando el símbolo @ y espacios).\n' +
+  '  * Si no hay @ explícito pero el nombre de visualización es una sola palabra alfanumérica típica de alias (ej. "Zydhira", "cvttzz"), asígnala a "username" además de a "rawName".\n' +
+  '- DETECCIÓN DE ID:\n' +
+  '  * Si en la imagen se observa un ID numérico (ej: "ID: 123456789", "User ID: ...", "ID 123456789" o una secuencia de 7 a 11 dígitos identificando al usuario), extráelo como número entero en "detectedId".\n' +
   '- DETECCIÓN DE PERFIL: Si la imagen es una captura de perfil, modal de usuario o chat de Telegram, define "isTelegramProfile": true.\n\n' +
   'Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:\n' +
   '{\n' +
@@ -378,17 +382,27 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
       }
     }
 
-    // 4. Búsqueda Comunitaria ("Búscame") si no se resolvió por userbot o no había @ visible
+    // 4. Búsqueda Comunitaria y Agent Bot si no se resolvió o no había @ visible
     let communityMatch = null;
-    const searchTerms = (normalizedName || rawName)
+    const rawTokens = (normalizedName || rawName)
       .split(/[\s|/\\_•\-\[\]\(\)\{\}\.,:;!¡?¿]+/g)
       .map(w => w.trim())
       .filter(w => w.length >= 3 && !/^(bot|admin|mod|user|ap|perfil|grupo|the)$/i.test(w));
 
+    const searchTerms = Array.from(new Set([
+      (normalizedName || '').trim(),
+      (rawName || '').trim(),
+      ...rawTokens,
+    ])).filter(t => t && t.length >= 3);
+
     if (!resolvedUser && searchTerms.length > 0) {
+      // 4.1 Búsqueda en Base de Datos Postgres (con y sin tenant)
       for (const term of searchTerms) {
         try {
-          const candidates = await db.searchUsers(term, tenantId);
+          let candidates = await db.searchUsers(term, tenantId);
+          if (!candidates || candidates.length === 0) {
+            candidates = await db.searchUsers(term, null);
+          }
           if (candidates && candidates.length > 0) {
             communityMatch = candidates[0];
             break;
@@ -396,6 +410,7 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
         } catch {}
       }
 
+      // 4.2 Búsqueda mediante Agent Bot (Userbot MTProto) en la comunidad y global
       if (!communityMatch && userbot.isConnected()) {
         for (const term of searchTerms) {
           try {
@@ -407,6 +422,19 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
           } catch {}
         }
       }
+    }
+
+    // 4.3 Si se encontró coincidencia por el Agent Bot, resolver perfil completo en caliente
+    if (communityMatch && userbot.isConnected() && !resolvedUser) {
+      try {
+        const toResolve = communityMatch.username || communityMatch.user_id;
+        if (toResolve) {
+          resolvedUser = await userbot.resolveUser(toResolve);
+          if (resolvedUser && resolvedUser.userId) {
+            db.upsertUser(resolvedUser.userId, resolvedUser.username || communityMatch.username, resolvedUser.firstName || communityMatch.first_name).catch(() => {});
+          }
+        }
+      } catch {}
     }
 
     const targetId = resolvedUser?.userId || profileInfo.detectedId || communityMatch?.user_id || null;
@@ -488,7 +516,7 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
       profileResult = await buildUserProfile(ctx, {
         userId: targetId,
         username: effectiveUsername,
-        firstName: resolvedUser?.firstName || normalizedName || rawName,
+        firstName: resolvedUser?.firstName || communityMatch?.first_name || normalizedName || rawName,
       });
     } else if (effectiveUsername) {
       profileResult = await buildUserProfileByUsername(ctx, effectiveUsername);
@@ -498,11 +526,11 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
       const fallbackText =
         `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
         `──────\n\n` +
-        `▸ <b>Nombre:</b> ${escapeHtml(normalizedName || rawName)}\n` +
-        `▸ <b>ID:</b> <i>No detectado</i>\n` +
-        `▸ <b>User:</b> <i>Sin @ visible</i>\n` +
-        `▸ <b>Rol:</b> Usuario\n` +
-        `▸ <b>Link de perfil:</b> <i>No disponible</i>\n\n` +
+        `👤 <b>Nombre:</b> ${escapeHtml(normalizedName || rawName)}\n` +
+        `🆔 <b>ID:</b> <i>No detectado</i>\n` +
+        `🔍 <b>User:</b> <i>Sin @ visible</i>\n` +
+        `💼 <b>Rol:</b> Usuario\n` +
+        `🔗 <b>Link de perfil:</b> <i>No disponible</i>\n\n` +
         `──────\n` +
         `${dateFormatted}`;
       profileResult = { text: fallbackText, keyboard: null };

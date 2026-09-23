@@ -4,6 +4,7 @@ const config = require('../config/env');
 
 let client = null;
 let meInfo = null;
+let cachedDialogs = [];
 
 // ══════
 // ⟡ Inicialización del Userbot MTProto
@@ -30,8 +31,8 @@ async function initialize() {
 
     // Cachear entidades (grupos/canales) al inicio para que getEntity(chatId) no falle con CHANNEL_INVALID
     try {
-      await client.getDialogs({}); // Sin límite, descarga todos los chats activos del userbot
-      console.log('⟡ Userbot: Entidades cacheadas correctamente.');
+      cachedDialogs = await client.getDialogs({}); // Sin límite, descarga todos los chats activos del userbot
+      console.log(`⟡ Userbot: ${cachedDialogs.length} entidades cacheadas correctamente.`);
     } catch (dErr) {
       console.warn('⟡ Userbot: Aviso al cachear diálogos:', dErr.message);
     }
@@ -238,7 +239,8 @@ async function searchCommunityDialogs(query, chatIds = []) {
   const noSpaces = cleanNorm.replace(/[\s_\-\.]+/g, '');
 
   try {
-    const dialogs = await client.getDialogs({ limit: 40 });
+    const dialogs = cachedDialogs && cachedDialogs.length > 0 ? cachedDialogs : await client.getDialogs({ limit: 40 }).catch(() => []);
+    if (cachedDialogs.length === 0 && dialogs.length > 0) cachedDialogs = dialogs;
     for (const d of dialogs) {
       if (!d.isGroup && !d.isChannel) continue;
       if (chatIds.length > 0 && !chatIds.some((cid) => Number(cid) === Number(d.id?.value || d.id))) {

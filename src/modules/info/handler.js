@@ -123,20 +123,20 @@ async function buildUserProfile(ctx, targetUser) {
   const dateFormatted = getSuperscriptDate();
 
   const originLine = targetUser.isGlobal
-    ? `▸ <b>Origen:</b> 🌐 <i>Usuario Global (Fuera de la comunidad)</i>\n`
-    : `▸ <b>Comunidad:</b> 👥 <code>${escapeHtml(communityName)}</code>\n`;
+    ? `🌐 <b>Origen:</b> <i>Usuario Global (Fuera de la comunidad)</i>\n`
+    : `👥 <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n`;
 
-  const text =
+  const bodyText =
     `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
     `──────\n\n` +
-    `▸ <b>Nombre:</b> ${nameDisplay}\n` +
-    `▸ <b>ID:</b> <code>${userId}</code>\n` +
-    `▸ <b>User:</b> ${userDisplay}\n` +
-    `▸ <b>Rol:</b> ${escapeHtml(roleName)}\n` +
+    `👤 <b>Nombre:</b> ${nameDisplay}\n` +
+    `🆔 <b>ID:</b> <code>${userId}</code>\n` +
+    `🔍 <b>User:</b> ${userDisplay}\n` +
+    `💼 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
     originLine +
-    `▸ <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>\n\n` +
-    `──────\n` +
-    `${dateFormatted}`;
+    `🔗 <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>`;
+
+  const text = `${bodyText}\n\n──────\n${dateFormatted}`;
 
   const profileUrl = username ? `https://t.me/${username}` : (userId ? `tg://user?id=${userId}` : null);
   const keyboard = new InlineKeyboard();
@@ -155,7 +155,7 @@ async function buildUserProfile(ctx, targetUser) {
     keyboard.row().text('🌐 ¿No es él? Buscar en Telegram', `info_global:${safeQ}`);
   }
 
-  return { text, keyboard };
+  return { text, keyboard, bodyText, dateFormatted };
 }
 
 /**
@@ -204,22 +204,22 @@ async function buildUserProfileByUsername(ctx, username) {
   const burn = await db.getBurnedUserInfo(cleanUser).catch(() => null);
   if (burn) roleName = 'Estafador [ LISTA NEGRA ]';
 
-  const text =
+  const bodyText =
     `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
     `──────\n\n` +
-    `▸ <b>Nombre:</b> ${nameDisplay}\n` +
-    `▸ <b>ID:</b> <i>No detectado</i>\n` +
-    `▸ <b>User:</b> ${userDisplay}\n` +
-    `▸ <b>Rol:</b> ${escapeHtml(roleName)}\n` +
-    `▸ <b>Link de perfil:</b> <a href="https://t.me/${cleanUser}">Presiona aquí</a>\n\n` +
-    `──────\n` +
-    `${dateFormatted}`;
+    `👤 <b>Nombre:</b> ${nameDisplay}\n` +
+    `🆔 <b>ID:</b> <i>No detectado</i>\n` +
+    `🔍 <b>User:</b> ${userDisplay}\n` +
+    `💼 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
+    `🔗 <b>Link de perfil:</b> <a href="https://t.me/${cleanUser}">Presiona aquí</a>`;
+
+  const text = `${bodyText}\n\n──────\n${dateFormatted}`;
 
   const keyboard = new InlineKeyboard()
     .url('Perfil', `https://t.me/${cleanUser}`).primary()
     .text('Verificar', `info_check_burn_user:${cleanUser}`).success();
 
-  return { text, keyboard };
+  return { text, keyboard, bodyText, dateFormatted };
 }
 
 // Rate limit / Anti-spam para botones interactivos de Ocultar / Verificar
@@ -561,7 +561,7 @@ function register(bot) {
       ]);
 
       // Reconstruir perfil base pasando datos de usuario en memoria
-      const { text: baseText } = await buildUserProfile(ctx, {
+      const { bodyText, dateFormatted } = await buildUserProfile(ctx, {
         userId: targetId,
         username: userObj?.username,
         firstName: userObj?.first_name,
@@ -571,7 +571,6 @@ function register(bot) {
       if (!burnInfo) {
         // USUARIO LIMPIO
         verificationSection =
-          `\n\n──────\n` +
           `⟡ <b>ESTADO DE ANTECEDENTES:</b>\n` +
           `▸ <b>Estado:</b> ⊱ <code>LIMPIO [ VERIFICADO ]</code> ⊰\n` +
           `✓ <i>Este usuario NO registra antecedentes de estafa ni sanciones en la base de datos oficial.</i>`;
@@ -591,7 +590,6 @@ function register(bot) {
           : 'Fecha no registrada';
 
         verificationSection =
-          `\n\n──────\n` +
           `⟡ <b>[ LISTA NEGRA OFICIAL ] REGISTRO DE ESTAFADOR</b>\n` +
           `▸ <b>Estado:</b> ⊱ <code>QUEMADO / ESTAFADOR [ SANCIONADO ]</code> ⊰\n` +
           `▸ <b>Fecha:</b> <code>${dateStr}</code>\n` +
@@ -605,15 +603,22 @@ function register(bot) {
 
       const kb = new InlineKeyboard();
       kb.url('Perfil', profileUrl).primary().text('Verificar', `info_check_burn:${targetId}`).success();
-      kb.row().text('Ocultar', `info_hide_burn:${targetId}`).danger();
+      kb.row().text('Ocultar', `info_hide_burn:${targetId}`).primary();
 
       if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
         const cleanChannel = String(config.PUBLIC_BURN_CHANNEL_ID).replace('-100', '');
         kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`).danger();
       }
 
+      const fullText =
+        `${bodyText}\n\n` +
+        `──────\n` +
+        `${verificationSection}\n\n` +
+        `──────\n` +
+        `${dateFormatted}`;
+
       try {
-        await ctx.editMessageText(baseText + verificationSection, {
+        await ctx.editMessageText(fullText, {
           parse_mode: 'HTML',
           reply_markup: kb,
           link_preview_options: { is_disabled: true },
@@ -694,13 +699,12 @@ function register(bot) {
         buildUserProfileByUsername(ctx, username),
       ]);
 
-      const baseText = baseProfile.text;
+      const { bodyText, dateFormatted } = baseProfile;
 
       let verificationSection = '';
       if (!burnInfo) {
         // USUARIO LIMPIO
         verificationSection =
-          `\n\n──────\n` +
           `⟡ <b>ESTADO DE ANTECEDENTES:</b>\n` +
           `▸ <b>Estado:</b> ⊱ <code>LIMPIO [ VERIFICADO ]</code> ⊰\n` +
           `✓ <i>Este usuario NO registra antecedentes de estafa ni sanciones en la base de datos oficial.</i>`;
@@ -720,7 +724,6 @@ function register(bot) {
           : 'Fecha no registrada';
 
         verificationSection =
-          `\n\n──────\n` +
           `⟡ <b>[ LISTA NEGRA OFICIAL ] REGISTRO DE ESTAFADOR</b>\n` +
           `▸ <b>ID Fichado:</b> <code>${burnInfo.user_id || 'Desconocido'}</code>\n` +
           `▸ <b>Estado:</b> ⊱ <code>QUEMADO / ESTAFADOR [ SANCIONADO ]</code> ⊰\n` +
@@ -734,15 +737,22 @@ function register(bot) {
 
       const kb = new InlineKeyboard();
       kb.url('Perfil', `https://t.me/${username}`).primary().text('Verificar', `info_check_burn_user:${username}`).success();
-      kb.row().text('Ocultar', `info_hide_burn_user:${username}`).danger();
+      kb.row().text('Ocultar', `info_hide_burn_user:${username}`).primary();
 
       if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
         const cleanChannel = String(config.PUBLIC_BURN_CHANNEL_ID).replace('-100', '');
         kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`).danger();
       }
 
+      const fullText =
+        `${bodyText}\n\n` +
+        `──────\n` +
+        `${verificationSection}\n\n` +
+        `──────\n` +
+        `${dateFormatted}`;
+
       try {
-        await ctx.editMessageText(baseText + verificationSection, {
+        await ctx.editMessageText(fullText, {
           parse_mode: 'HTML',
           reply_markup: kb,
           link_preview_options: { is_disabled: true },
