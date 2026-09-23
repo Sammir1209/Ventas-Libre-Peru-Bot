@@ -15,11 +15,10 @@ const Tesseract = require('tesseract.js');
 
 // Modelos Gemini con soporte de visión multimodal activo y ordenados por velocidad
 const VISION_MODELS = [
-  'gemini-3.6-flash',
   'gemini-3.5-flash',
   'gemini-flash-latest',
-  'gemini-3.1-flash-lite',
-  'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
 ];
 
 /**
@@ -306,16 +305,22 @@ async function extractWithLocalOCR(imageBuffer) {
       }
     }
 
-    // 2. Detectar @username explícito
+    // 2. Detectar @username explícito (filtrando bots y texto del sistema)
     let username = null;
     const usernameMatch = normalizedText.match(/@([a-zA-Z0-9_]{3,32})/);
     if (usernameMatch) {
-      username = usernameMatch[1];
-    } else {
-      // Buscar formato t.me/usuario o "Username: usuario"
+      const u = usernameMatch[1];
+      if (!/^(?:bot|admin|ventas_libres|ventaslibre|photo|message|comunidad|channel|user)$/i.test(u)) {
+        username = u;
+      }
+    }
+    if (!username) {
       const tmeMatch = normalizedText.match(/(?:t\.me\/|username[\s:;]+|usuario[\s:;]+)([a-zA-Z0-9_]{3,32})/i);
       if (tmeMatch) {
-        username = tmeMatch[1];
+        const u = tmeMatch[1];
+        if (!/^(?:bot|admin|ventas_libres|ventaslibre|photo|message|comunidad|channel|user)$/i.test(u)) {
+          username = u;
+        }
       }
     }
 
@@ -324,14 +329,14 @@ async function extractWithLocalOCR(imageBuffer) {
     let rawName = null;
     for (const line of lines) {
       // Omitir líneas de estado, horas, batería o iconos de sistema
-      if (/^(?:online|en línea|last seen|últ\. vez|username|info|bio|id\b)/i.test(line)) continue;
+      if (/^(?:online|en línea|last seen|últ\. vez|username|info|bio|id\b|user info)/i.test(line)) continue;
       if (line.length >= 2 && line.length <= 40 && !line.startsWith('@')) {
         rawName = line;
         break;
       }
     }
 
-    const isTelegramProfile = !!(username || detectedId || /last seen|últ\. vez|online|en línea|info|bio/i.test(normalizedText));
+    const isTelegramProfile = !!(username || detectedId || /last seen|últ\. vez|online|en línea|info|bio|user info/i.test(normalizedText));
 
     if (username || detectedId || (isTelegramProfile && rawName)) {
       return {
@@ -351,44 +356,57 @@ async function extractWithLocalOCR(imageBuffer) {
 }
 
 /**
- * Extrae texto e información del perfil mediante cascada multi-proveedor:
- * 0. OCR Local Tesseract (Sin IA, 100% gratuito, sin límites ni rate limits)
- * 1. Google Gemini Multimodal Vision (Alta precisión con rotación de claves)
- * 2. OpenRouter Free Vision (Respaldo)
- * 3. Groq Vision (Ultra-rápido)
+ * Extrae texto e información del perfil mediante arquitectura concurrente ultra-rápida:
+ * 1. Dispara en paralelo OCR Local (Tesseract) y Gemini Vision (3.5-Flash).
+ * 2. Si Local OCR detecta @username o ID primero (<1.5s), devuelve inmediatamente con costo 0.
+ * 3. Si Gemini Vision completa primero con perfil enriquecido, devuelve inmediatamente.
+ * 4. Respaldo secundario: OpenRouter Free Vision si Gemini reporta congestión.
  */
 async function extractProfileDataFromImage(imageBuffer, mimeType = 'image/jpeg') {
-  // 0. CAPA 0: OCR Local (Tesseract.js) - Extrae @username o ID sin consumir APIs
-  try {
-    const localResult = await extractWithLocalOCR(imageBuffer);
-    if (localResult && (localResult.username || localResult.detectedId)) {
-      return localResult;
-    }
-  } catch {}
-
   const base64Image = imageBuffer.toString('base64');
 
-  // 1. Probar con Google Gemini Multimodal Vision (Alta precisión y soporte activo)
-  try {
-    const geminiResult = await extractWithGeminiVision(base64Image, mimeType);
-    if (geminiResult && (geminiResult.rawName || geminiResult.username || geminiResult.normalizedName)) {
-      return geminiResult;
-    }
-  } catch {}
+  // Promesa de OCR Local (ultra-rápido para @ y IDs en memoria)
+  const localPromise = (async () => {
+    try {
+      const res = await extractWithLocalOCR(imageBuffer);
+      if (res && (res.username || res.detectedId)) {
+        return res;
+      }
+    } catch {}
+    return null;
+  })();
 
-  // 2. Probar con OpenRouter Free Vision (Qwen2.5-VL / Llama 3.2 Vision)
+  // Promesa de Visión Multimodal (Gemini 3.5 Flash ultrarrápido y preciso)
+  const visionPromise = (async () => {
+    try {
+      const res = await extractWithGeminiVision(base64Image, mimeType);
+      if (res && (res.rawName || res.username || res.normalizedName)) {
+        return res;
+      }
+    } catch {}
+    return null;
+  })();
+
+  // Carrera inteligente: El primero que obtenga un resultado concluyente resuelve
+  const earlyResult = await Promise.race([
+    localPromise.then((r) => (r ? r : new Promise(() => {}))),
+    visionPromise.then((r) => (r ? r : new Promise(() => {}))),
+    new Promise((resolve) => setTimeout(() => resolve(null), 6000)),
+  ]);
+
+  if (earlyResult) {
+    return earlyResult;
+  }
+
+  // Si ninguno resolvió en carrera temprana, esperar la promesa de visión
+  const fallbackVision = await visionPromise;
+  if (fallbackVision) return fallbackVision;
+
+  // Respaldo secundario con OpenRouter Free Vision
   try {
     const openRouterResult = await extractWithOpenRouterVision(base64Image, mimeType);
     if (openRouterResult && (openRouterResult.rawName || openRouterResult.username || openRouterResult.normalizedName)) {
       return openRouterResult;
-    }
-  } catch {}
-
-  // 3. Probar con Groq Vision si está disponible
-  try {
-    const groqResult = await extractWithGroqVision(base64Image, mimeType);
-    if (groqResult && (groqResult.rawName || groqResult.username || groqResult.normalizedName)) {
-      return groqResult;
     }
   } catch {}
 
