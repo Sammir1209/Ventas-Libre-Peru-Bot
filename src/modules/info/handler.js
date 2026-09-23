@@ -48,22 +48,23 @@ async function buildUserProfile(ctx, targetUser) {
   let username = targetUser.username;
   let firstName = targetUser.firstName;
 
-  // Si faltan datos de nombre/username, consultar API
+  // Consultar BD primero (instantáneo en Postgres)
+  if (!username || !firstName) {
+    try {
+      const u = await db.getUser(userId);
+      if (u) {
+        if (!username) username = u.username || null;
+        if (!firstName) firstName = u.first_name || null;
+      }
+    } catch {}
+  }
+  // Solo si sigue sin datos, consultar API de Telegram como fallback
   if (!username || !firstName) {
     try {
       const chatInfo = await ctx.api.getChat(userId);
       if (chatInfo) {
         if (!username) username = chatInfo.username || null;
         if (!firstName) firstName = chatInfo.first_name || null;
-      }
-    } catch {}
-  }
-  if (!firstName) {
-    try {
-      const u = await db.getUser(userId);
-      if (u) {
-        if (!username) username = u.username || null;
-        if (!firstName) firstName = u.first_name || null;
       }
     } catch {}
   }
@@ -140,12 +141,12 @@ async function buildUserProfile(ctx, targetUser) {
   const profileUrl = username ? `https://t.me/${username}` : (userId ? `tg://user?id=${userId}` : null);
   const keyboard = new InlineKeyboard();
   if (profileUrl) {
-    keyboard.url('Perfil', profileUrl);
+    keyboard.url('Perfil', profileUrl).primary();
   }
   if (userId) {
-    keyboard.text('Verificar', `info_check_burn:${userId}`);
+    keyboard.text('Verificar', `info_check_burn:${userId}`).success();
   } else if (username) {
-    keyboard.text('Verificar', `info_check_burn_user:${username}`);
+    keyboard.text('Verificar', `info_check_burn_user:${username}`).success();
   }
 
   // Si se buscó por término y no es una consulta directa de reply/ID, agregar botón de búsqueda global
@@ -153,8 +154,6 @@ async function buildUserProfile(ctx, targetUser) {
     const safeQ = encodeURIComponent(targetUser.searchQuery).slice(0, 40);
     keyboard.row().text('🌐 ¿No es él? Buscar en Telegram', `info_global:${safeQ}`);
   }
-
-  keyboard.row().text('✖ Cerrar', 'info_close');
 
   return { text, keyboard };
 }
@@ -217,10 +216,8 @@ async function buildUserProfileByUsername(ctx, username) {
     `${dateFormatted}`;
 
   const keyboard = new InlineKeyboard()
-    .url('Perfil', `https://t.me/${cleanUser}`)
-    .text('Verificar', `info_check_burn_user:${cleanUser}`)
-    .row()
-    .text('✖ Cerrar', 'info_close');
+    .url('Perfil', `https://t.me/${cleanUser}`).primary()
+    .text('Verificar', `info_check_burn_user:${cleanUser}`).success();
 
   return { text, keyboard };
 }
@@ -552,14 +549,23 @@ function register(bot) {
         });
       }
 
+      // Respuesta inmediata sin bloqueo para máxima fluidez
+      ctx.answerCallbackQuery().catch(() => {});
+
       const targetId = parseInt(ctx.match[1]);
-      await ctx.answerCallbackQuery({ text: '⟡ Consultando base de datos de estafas...' });
 
-      // Consultar si está quemado
-      const burnInfo = await db.getBurnedUserInfo(targetId);
+      // Consultas en paralelo a Postgres
+      const [burnInfo, userObj] = await Promise.all([
+        db.getBurnedUserInfo(targetId),
+        db.getUser(targetId).catch(() => null),
+      ]);
 
-      // Reconstruir perfil base
-      const { text: baseText } = await buildUserProfile(ctx, { userId: targetId });
+      // Reconstruir perfil base pasando datos de usuario en memoria
+      const { text: baseText } = await buildUserProfile(ctx, {
+        userId: targetId,
+        username: userObj?.username,
+        firstName: userObj?.first_name,
+      });
 
       let verificationSection = '';
       if (!burnInfo) {
@@ -594,17 +600,16 @@ function register(bot) {
           `🚫 <i>ADVERTENCIA DE SEGURIDAD: No realices transferencias, pagos ni entregas con este usuario.</i>`;
       }
 
-      let userObj = await db.getUser(targetId).catch(() => null);
-      let targetUser = userObj?.username ? userObj.username : null;
+      const targetUser = userObj?.username ? userObj.username : null;
       const profileUrl = targetUser ? `https://t.me/${targetUser}` : `tg://user?id=${targetId}`;
 
       const kb = new InlineKeyboard();
-      kb.url('Perfil', profileUrl).text('Verificar', `info_check_burn:${targetId}`);
-      kb.row().text('Ocultar', `info_hide_burn:${targetId}`);
+      kb.url('Perfil', profileUrl).primary().text('Verificar', `info_check_burn:${targetId}`).success();
+      kb.row().text('Ocultar', `info_hide_burn:${targetId}`).danger();
 
       if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
         const cleanChannel = String(config.PUBLIC_BURN_CHANNEL_ID).replace('-100', '');
-        kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`);
+        kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`).danger();
       }
 
       try {
@@ -635,10 +640,17 @@ function register(bot) {
         });
       }
 
-      const targetId = parseInt(ctx.match[1]);
-      await ctx.answerCallbackQuery({ text: '⟡ Verificación ocultada.' });
+      ctx.answerCallbackQuery().catch(() => {});
 
-      const { text, keyboard } = await buildUserProfile(ctx, { userId: targetId });
+      const targetId = parseInt(ctx.match[1]);
+      const userObj = await db.getUser(targetId).catch(() => null);
+
+      const { text, keyboard } = await buildUserProfile(ctx, {
+        userId: targetId,
+        username: userObj?.username,
+        firstName: userObj?.first_name,
+      });
+
       try {
         await ctx.editMessageText(text, {
           parse_mode: 'HTML',
@@ -667,16 +679,22 @@ function register(bot) {
         });
       }
 
+      ctx.answerCallbackQuery().catch(() => {});
+
       const username = ctx.match[1].toLowerCase().replace(/^@/, '').trim();
-      await ctx.answerCallbackQuery({ text: '⟡ Consultando base de datos de estafas...' });
 
-      // Consultar si está quemado por username o búsqueda flexible
-      let burnInfo = await db.getBurnedUserInfo(username);
-      if (!burnInfo && typeof db.findBurnedUserFlexible === 'function') {
-        burnInfo = await db.findBurnedUserFlexible({ username });
-      }
+      // Consultas concurrentes en paralelo
+      const [burnInfo, baseProfile] = await Promise.all([
+        db.getBurnedUserInfo(username).then(async (res) => {
+          if (!res && typeof db.findBurnedUserFlexible === 'function') {
+            return await db.findBurnedUserFlexible({ username });
+          }
+          return res;
+        }),
+        buildUserProfileByUsername(ctx, username),
+      ]);
 
-      const { text: baseText } = await buildUserProfileByUsername(ctx, username);
+      const baseText = baseProfile.text;
 
       let verificationSection = '';
       if (!burnInfo) {
@@ -715,12 +733,12 @@ function register(bot) {
       }
 
       const kb = new InlineKeyboard();
-      kb.url('Perfil', `https://t.me/${username}`).text('Verificar', `info_check_burn_user:${username}`);
-      kb.row().text('Ocultar', `info_hide_burn_user:${username}`);
+      kb.url('Perfil', `https://t.me/${username}`).primary().text('Verificar', `info_check_burn_user:${username}`).success();
+      kb.row().text('Ocultar', `info_hide_burn_user:${username}`).danger();
 
       if (burnInfo && config.PUBLIC_BURN_CHANNEL_ID) {
         const cleanChannel = String(config.PUBLIC_BURN_CHANNEL_ID).replace('-100', '');
-        kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`);
+        kb.row().url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`).danger();
       }
 
       try {
@@ -751,10 +769,11 @@ function register(bot) {
         });
       }
 
-      const username = ctx.match[1].toLowerCase().replace(/^@/, '').trim();
-      await ctx.answerCallbackQuery({ text: '⟡ Verificación ocultada.' });
+      ctx.answerCallbackQuery().catch(() => {});
 
+      const username = ctx.match[1].toLowerCase().replace(/^@/, '').trim();
       const { text, keyboard } = await buildUserProfileByUsername(ctx, username);
+
       try {
         await ctx.editMessageText(text, {
           parse_mode: 'HTML',

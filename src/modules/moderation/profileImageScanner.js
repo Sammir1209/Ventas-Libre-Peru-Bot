@@ -505,8 +505,7 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
         `▸ <b>Link de perfil:</b> <i>No disponible</i>\n\n` +
         `──────\n` +
         `${dateFormatted}`;
-      const fallbackKb = new InlineKeyboard().text('✖ Cerrar', 'info_close');
-      profileResult = { text: fallbackText, keyboard: fallbackKb };
+      profileResult = { text: fallbackText, keyboard: null };
     }
 
     let { text: outputText, keyboard: outputKb } = profileResult;
@@ -524,12 +523,16 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
         outputText;
     }
 
-    return await ctx.reply(outputText, {
+    const replyOptions = {
       parse_mode: 'HTML',
       reply_parameters: { message_id: ctx.message.message_id },
-      reply_markup: outputKb,
       link_preview_options: { is_disabled: true },
-    });
+    };
+    if (outputKb && outputKb.inline_keyboard && outputKb.inline_keyboard.length > 0) {
+      replyOptions.reply_markup = outputKb;
+    }
+
+    return await ctx.reply(outputText, replyOptions);
   });
 }
 
