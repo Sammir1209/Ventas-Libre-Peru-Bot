@@ -31,7 +31,7 @@ const config = {
   DEV_USERNAME: process.env.DEV_USERNAME || 'S_14xx',
 
   // Verificación
-  CHANNELS_TO_VERIFY: parseJsonArray(process.env.CHANNELS_TO_VERIFY, ['@quemando_ventaslibreperu', 'https://t.me/+3My6QWWVjMw2Mzc8']),
+  CHANNELS_TO_VERIFY: parseJsonArray(process.env.CHANNELS_TO_VERIFY, ['@quemando_ventaslibreperu']),
   GROUPS_FOLDER_LINK: process.env.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh',
   VERIFY_WEB_URL: process.env.VERIFY_WEB_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com/portal/default',
 

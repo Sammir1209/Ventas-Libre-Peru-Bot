@@ -447,10 +447,6 @@ function register(bot) {
       console.error('⟡ Mod: Error en /warns:', err.message);
     }
   });
-    } catch (err) {
-      console.error('⟡ Mod: Error en /warns:', err.message);
-    }
-  });
 
   // ── /gban [@user / ID / Responder] [Motivo] ──
   bot.command('gban', requireStaff(), async (ctx) => {

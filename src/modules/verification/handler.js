@@ -24,6 +24,30 @@ function invalidateChannelsCache() {
   _channelsCacheTime = 0;
 }
 
+function isChannelInaccessibleError(err) {
+  const msg = err?.message || '';
+  return (
+    msg.includes('kicked') ||
+    msg.includes('not a member') ||
+    msg.includes('chat not found') ||
+    msg.includes('Forbidden') ||
+    msg.includes('CHAT_ADMIN_REQUIRED') ||
+    msg.includes('403') ||
+    msg.includes('chat_id is empty')
+  );
+}
+
+function cleanChannelList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.filter(ch => {
+    const raw = String(ch).trim();
+    if (raw.includes('3My6QWWVjMw2Mzc8') || raw === '-1002561445231' || raw.includes('MADRE')) {
+      return false;
+    }
+    return true;
+  });
+}
+
 async function getChannelsToVerify(ctx = null) {
   if (ctx?.tenant?.channels_to_verify && Array.isArray(ctx.tenant.channels_to_verify) && ctx.tenant.channels_to_verify.length > 0) {
     return ctx.tenant.channels_to_verify;
@@ -31,7 +55,7 @@ async function getChannelsToVerify(ctx = null) {
 
   // Retornar cache si es reciente
   if (_channelsCache && (Date.now() - _channelsCacheTime) < CHANNELS_CACHE_TTL) {
-    return _channelsCache;
+    return cleanChannelList(_channelsCache);
   }
 
   try {
@@ -39,17 +63,19 @@ async function getChannelsToVerify(ctx = null) {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        _channelsCache = parsed;
+        const cleaned = cleanChannelList(parsed);
+        _channelsCache = cleaned;
         _channelsCacheTime = Date.now();
-        return parsed;
+        return cleaned;
       }
     }
   } catch {}
 
   if (Array.isArray(config.CHANNELS_TO_VERIFY) && config.CHANNELS_TO_VERIFY.length > 0) {
-    _channelsCache = config.CHANNELS_TO_VERIFY;
+    const cleaned = cleanChannelList(config.CHANNELS_TO_VERIFY);
+    _channelsCache = cleaned;
     _channelsCacheTime = Date.now();
-    return config.CHANNELS_TO_VERIFY;
+    return cleaned;
   }
 
   _channelsCache = [];
@@ -579,6 +605,10 @@ function register(bot) {
           missingChannels.push(channel);
         } catch (chkErr) {
           console.warn(`⟡ Verificación: No se pudo chequear al usuario ${userId} en canal ${channel}: ${chkErr.message}`);
+          if (isChannelInaccessibleError(chkErr)) {
+            console.warn(`⚠️ Verificación: Canal ${channel} inaccesible por el bot (${chkErr.message}). Omitiendo requisito.`);
+            continue;
+          }
           missingChannels.push(channel);
         }
       }
@@ -738,7 +768,11 @@ function register(bot) {
           if (validStatuses.includes(member.status)) continue;
           if (member.status === 'restricted' && member.is_member !== false) continue;
           missingChannels.push(channel);
-        } catch {
+        } catch (chkErr) {
+          if (isChannelInaccessibleError(chkErr)) {
+            console.warn(`⚠️ Re-Verificación: Canal ${channel} inaccesible (${chkErr?.message}). Omitiendo requisito.`);
+            continue;
+          }
           missingChannels.push(channel);
         }
       }
@@ -1122,7 +1156,10 @@ async function isUserEligibleToSpeak(ctx, userId) {
       if (member.status === 'restricted' && member.is_member !== false) continue;
       allJoined = false;
       break;
-    } catch {
+    } catch (chkErr) {
+      if (isChannelInaccessibleError(chkErr)) {
+        continue;
+      }
       allJoined = false;
       break;
     }
