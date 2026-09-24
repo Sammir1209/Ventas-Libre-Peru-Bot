@@ -4,7 +4,8 @@ const redisDb = require('../../database/redis');
 const templates = require('../../utils/templates');
 const { CB, SYM } = require('../../config/constants');
 const { welcomeKeyboard } = require('./keyboard');
-const { escapeHtml, mentionFromData } = require('../../utils/formatting');
+const { escapeHtml, mentionFromData, getSuperscriptDate } = require('../../utils/formatting');
+const { toMathBold } = require('../../utils/aesthetic');
 
 // ══════
 // ⟡ Módulo 1: Verificación de Membresía (Estilo Group Help Profesional)
@@ -135,28 +136,32 @@ function register(bot) {
         // Estaba desactivado -> Activar
         await redisDb.clearCache(key);
         await db.setSetting(`verify_disabled_${chatId}`, 'false');
+        const dateFormatted = getSuperscriptDate();
         await ctx.reply(
-          `⟡ <b>SISTEMA DE VERIFICACIÓN</b> ⊱ <code>FILTRO ACTIVADO</code> ⊰\n` +
-          `══════\n\n` +
-          `▸ <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Este grupo')}</b>\n` +
-          `▸ <b>Estado:</b> ⊱ <code>ACTIVO & BLINDADO</code> ⊰\n` +
-          `▸ <b>Base de Datos:</b> Sincronizado permanentemente en Supabase.\n` +
+          `<b>⟡ [SISTEMA DE VERIFICACIÓN] FILTRO ACTIVADO</b>\n` +
+          `──────\n\n` +
+          `〖❖〗 <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Este grupo')}</b>\n` +
+          `〖☾〗 <b>Estado:</b> ⊱ <code>ACTIVO & BLINDADO 🟢</code> ⊰\n` +
+          `〖💾〗 <b>Base de Datos:</b> Sincronizado permanentemente en Supabase.\n\n` +
           `──────\n` +
-          `▪ <i>Todo nuevo miembro será silenciado preventivamente hasta unirse a los canales oficiales.</i>`,
+          `<i>Todo nuevo miembro será silenciado preventivamente hasta unirse a los canales oficiales.</i>\n` +
+          `${dateFormatted}`,
           { parse_mode: 'HTML' }
         );
       } else {
         // Estaba activado -> Desactivar
         await redisDb.setCache(key, true, 86400 * 365);
         await db.setSetting(`verify_disabled_${chatId}`, 'true');
+        const dateFormatted = getSuperscriptDate();
         await ctx.reply(
-          `⟡ <b>SISTEMA DE VERIFICACIÓN</b> ⊱ <code>FILTRO SUSPENDIDO</code> ⊰\n` +
-          `══════\n\n` +
-          `▸ <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Este grupo')}</b>\n` +
-          `▸ <b>Estado:</b> ⊱ <code>DESACTIVADO</code> ⊰\n` +
-          `▸ <b>Base de Datos:</b> Sincronizado permanentemente en Supabase.\n` +
+          `<b>⟡ [SISTEMA DE VERIFICACIÓN] FILTRO SUSPENDIDO</b>\n` +
+          `──────\n\n` +
+          `〖❖〗 <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Este grupo')}</b>\n` +
+          `〖☾〗 <b>Estado:</b> ⊱ <code>DESACTIVADO 🔴</code> ⊰\n` +
+          `〖💾〗 <b>Base de Datos:</b> Sincronizado permanentemente en Supabase.\n\n` +
           `──────\n` +
-          `▪ <i>Los nuevos miembros ya no serán silenciados al entrar (ideal para salas de Staff o Tratos).</i>`,
+          `<i>Los nuevos miembros ya no serán silenciados al entrar.</i>\n` +
+          `${dateFormatted}`,
           { parse_mode: 'HTML' }
         );
       }
@@ -176,15 +181,17 @@ function register(bot) {
       }
 
       const args = ctx.message.text.split(/\s+/).slice(1);
+      const dateFormatted = getSuperscriptDate();
       if (args.length === 0) {
         return ctx.reply(
-          `⟡ <b>CANALES DE VERIFICACIÓN</b> ⊱ <code>CONFIGURACIÓN</code> ⊰\n` +
-          `══════\n\n` +
-          `▸ <b>Sintaxis:</b> <code>/set_canales [canal1] [canal2] [canal3]...</code>\n\n` +
-          `▸ <b>Ejemplo:</b>\n` +
+          `<b>⟡ [CANALES DE VERIFICACIÓN] CONFIGURACIÓN</b>\n` +
+          `──────\n\n` +
+          `〖❖〗 <b>Sintaxis:</b> <code>/set_canales [canal1] [canal2] [canal3]...</code>\n\n` +
+          `〖💡〗 <b>Ejemplo:</b>\n` +
           `  <code>/set_canales @VentasLibresPeru @CanalRespaldo -1001234567890</code>\n\n` +
           `──────\n` +
-          `⚠️ <i>El bot debe ser Administrador en todos los canales indicados para consultar membresías.</i>`,
+          `⚠️ <i>El bot debe ser Administrador en todos los canales indicados para consultar membresías.</i>\n` +
+          `${dateFormatted}`,
           { parse_mode: 'HTML' }
         );
       }
@@ -196,11 +203,12 @@ function register(bot) {
       _channelsCacheTime = Date.now();
 
       await ctx.reply(
-        `⟡ <b>CANALES REGISTRADOS</b> ⊱ <code>${args.length} CANALES</code> ⊰\n` +
-        `══════\n\n` +
-        args.map((ch, i) => `▸ <b>${i + 1}.</b> <code>${escapeHtml(ch)}</code>`).join('\n') +
+        `<b>⟡ [CANALES REGISTRADOS] ${args.length} CANALES</b>\n` +
+        `──────\n\n` +
+        args.map((ch, i) => `〖✦〗 <b>${i + 1}.</b> <code>${escapeHtml(ch)}</code>`).join('\n') +
         `\n\n──────\n` +
-        `✓ <i>Lista almacenada en base de datos perimetral.</i>`,
+        `✓ <i>Lista almacenada en base de datos perimetral.</i>\n` +
+        `${dateFormatted}`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
@@ -213,12 +221,15 @@ function register(bot) {
   bot.command(['canales_verificar', 'ver_canales', 'canales_verify'], async (ctx) => {
     try {
       const channels = await getChannelsToVerify();
+      const dateFormatted = getSuperscriptDate();
       if (channels.length === 0) {
         return ctx.reply(
-          `⟡ <b>CANALES DE VERIFICACIÓN</b> ⊱ <code>ESTADO</code> ⊰\n` +
-          `══════\n\n` +
+          `<b>⟡ [CANALES DE VERIFICACIÓN] ESTADO</b>\n` +
+          `──────\n\n` +
           `✗ No hay canales obligatorios registrados actualmente.\n` +
-          `▸ Configúralos con: <code>/set_canales [canal1] [canal2]</code>`,
+          `〖❖〗 Configúralos con: <code>/set_canales [canal1] [canal2]</code>\n\n` +
+          `──────\n` +
+          `${dateFormatted}`,
           { parse_mode: 'HTML' }
         );
       }

@@ -92,6 +92,7 @@ function register(bot) {
 
       const message = templates.renderStaffList(grouped, communityName);
       const { InlineKeyboard } = require('grammy');
+      const { toMathBold } = require('../../utils/aesthetic');
       let botUsername = 'ventas_libres_peru_Bot';
       try {
         const botInfo = await ctx.api.getMe();
@@ -99,7 +100,7 @@ function register(bot) {
       } catch {}
 
       const kb = new InlineKeyboard().url(
-        'INICIAR TRATO ADMIN',
+        toMathBold('INICIAR TRATO ADMIN'),
         `https://t.me/${botUsername}?start=tratoadm`
       ).primary();
 

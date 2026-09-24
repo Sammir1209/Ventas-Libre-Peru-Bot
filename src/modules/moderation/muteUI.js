@@ -3,7 +3,7 @@ const config = require('../../config/env');
 const { SYM, ROLES } = require('../../config/constants');
 const { getEffectiveOwners } = require('../../middleware/auth');
 const { InlineKeyboard } = require('grammy');
-const { mentionFromData, staffMention, formatId, escapeHtml } = require('../../utils/formatting');
+const { mentionFromData, staffMention, formatId, escapeHtml, getSuperscriptDate } = require('../../utils/formatting');
 const { searchCandidatesInCommunity, resolveTarget } = require('../../utils/helpers');
 const sentinel = require('./sentinel');
 const logger = require('./logger');
@@ -13,24 +13,6 @@ const { parseDuration } = sentinel;
 // ══════
 // ⟡ Módulo: Silenciamiento Directo y Notificación en Logs (Mute UI)
 // ══════
-
-/**
- * Convierte los dígitos de una fecha (DDMMYYYY) a caracteres superíndice Unicode.
- */
-function getSuperscriptDate(date = new Date()) {
-  const digits = {
-    '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
-    '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-  };
-  const dStr = date.toLocaleDateString('es-PE', {
-    timeZone: 'America/Lima',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).replace(/\D/g, '');
-
-  return dStr.split('').map((ch) => digits[ch] || ch).join('');
-}
 
 /**
  * Comprueba si un usuario es staff o propietario autorizado para moderar.
@@ -162,11 +144,11 @@ async function executeMute(ctx, targetUser, durationStr = '1d', reason = 'Modera
   const text =
     `<b>⟡ [${escapeHtml(botLabel)} BOT] USUARIO SILENCIADO</b>\n` +
     `──────\n\n` +
-    `▸ <b>Usuario:</b> ${targetMention}\n` +
-    `▸ <b>ID:</b> <code>${userId}</code>\n` +
-    `▸ <b>Duración:</b> <code>${durationInfo.humanReadable}</code>\n` +
-    `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
-    `▸ <b>Moderador:</b> ${adminName}\n\n` +
+    `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+    `〖ϟ〗 <b>ID:</b> <code>${userId}</code>\n` +
+    `〖⏱️〗 <b>Duración:</b> <code>${durationInfo.humanReadable}</code>\n` +
+    `〖⚖️〗 <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+    `〖🛡️〗 <b>Moderador:</b> ${adminName}\n\n` +
     `──────\n` +
     `🤐 <i>Permisos de envío de mensajes suspendidos.</i>\n` +
     `${dateFormatted}`;
@@ -234,9 +216,9 @@ async function executeUnmute(ctx, targetUser) {
   const text =
     `<b>⟡ [${escapeHtml(botLabel)} BOT] SILENCIO REMOVIDO</b>\n` +
     `──────\n\n` +
-    `▸ <b>Usuario:</b> ${targetMention}\n` +
-    `▸ <b>ID:</b> <code>${userId}</code>\n` +
-    `▸ <b>Moderador:</b> ${adminName}\n\n` +
+    `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+    `〖ϟ〗 <b>ID:</b> <code>${userId}</code>\n` +
+    `〖🛡️〗 <b>Moderador:</b> ${adminName}\n\n` +
     `──────\n` +
     `✓ <i>El usuario puede participar y enviar mensajes nuevamente.</i>\n` +
     `${dateFormatted}`;

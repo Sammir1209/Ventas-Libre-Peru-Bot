@@ -1,6 +1,7 @@
 const { InlineKeyboard } = require('grammy');
 const config = require('../../config/env');
 const { SYM, CB } = require('../../config/constants');
+const { toMathBold } = require('../../utils/aesthetic');
 
 // ══════
 // ⟡ Teclados de Verificación
@@ -17,12 +18,12 @@ function welcomeKeyboard(targetUserId = null, customFolderUrl = null) {
   const cancelData = targetUserId ? `verify_cancel:${targetUserId}` : 'verify_cancel';
 
   // Fila 1: [ UNIRME ] (Lleva a la web/carpeta oficial de canales) | [ VERIFICAR ] (Evalúa si ya se unió)
-  kb.url('UNIRME', folderLink);
-  kb.text('VERIFICAR', verifyData);
+  kb.url(toMathBold('UNIRME'), folderLink).primary();
+  kb.text(toMathBold('VERIFICAR'), verifyData).success();
 
   // Fila 2: [ CANCELAR ]
   kb.row();
-  kb.text('CANCELAR', cancelData);
+  kb.text(toMathBold('CANCELAR'), cancelData).danger();
 
   return kb;
 }

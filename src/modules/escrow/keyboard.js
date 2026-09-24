@@ -1,5 +1,6 @@
 const { InlineKeyboard } = require('grammy');
 const { SYM, CB } = require('../../config/constants');
+const { toMathBold } = require('../../utils/aesthetic');
 const config = require('../../config/env');
 
 // ══════
@@ -11,18 +12,18 @@ const config = require('../../config/env');
  */
 function dealMainKeyboard() {
   return new InlineKeyboard()
-    .text('TRATO ADMIN', CB.START_DEAL).success()
-    .text('INFORMACION', CB.DEAL_INFO).success()
+    .text(toMathBold('TRATO ADMIN'), CB.START_DEAL).success()
+    .text(toMathBold('INFORMACIÓN'), CB.DEAL_INFO).primary()
     .row()
-    .text('CANCELAR', CB.DEAL_CANCEL).danger();
+    .text(toMathBold('CANCELAR'), CB.DEAL_CANCEL).danger();
 }
 
 /**
- * Teclado para la vista detallada de información con botón Volver en verde.
+ * Teclado para la vista detallada de información con botón Volver.
  */
 function dealInfoKeyboard() {
   return new InlineKeyboard()
-    .text('VOLVER', 'deal_back_to_main').success();
+    .text(toMathBold('VOLVER'), 'deal_back_to_main').primary();
 }
 
 /**
@@ -30,10 +31,10 @@ function dealInfoKeyboard() {
  */
 function dealRoleKeyboard() {
   return new InlineKeyboard()
-    .text('VOY A VENDER', 'deal_role:VENDEDOR').success()
-    .text('VOY A COMPRAR', 'deal_role:COMPRADOR').success()
+    .text(toMathBold('VOY A VENDER'), 'deal_role:VENDEDOR').primary()
+    .text(toMathBold('VOY A COMPRAR'), 'deal_role:COMPRADOR').primary()
     .row()
-    .text('CANCELAR', CB.DEAL_CANCEL).danger();
+    .text(toMathBold('CANCELAR'), CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -41,7 +42,7 @@ function dealRoleKeyboard() {
  */
 function dealCancelKeyboard() {
   return new InlineKeyboard()
-    .text('CANCELAR SOLICITUD', CB.DEAL_CANCEL).danger();
+    .text(toMathBold('CANCELAR SOLICITUD'), CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -49,19 +50,19 @@ function dealCancelKeyboard() {
  */
 function dealConfirmKeyboard() {
   return new InlineKeyboard()
-    .text('CONFIRMAR', 'deal_confirm').success()
-    .text('CANCELAR', CB.DEAL_CANCEL).danger();
+    .text(toMathBold('CONFIRMAR'), 'deal_confirm').success()
+    .text(toMathBold('CANCELAR'), CB.DEAL_CANCEL).danger();
 }
 
 /**
- * Teclado en estado de espera con botón Canal Oficial y Cancelar (2 lado a lado).
+ * Teclado en estado de espera con botón Canal Oficial y Cancelar.
  */
 function dealWaitingKeyboard(dealId) {
   const kb = new InlineKeyboard();
 
   const channelUrl = config.GROUPS_FOLDER_LINK || 'https://t.me/+JSQRh7463MIzYmVh';
-  kb.url('CANAL OFICIAL', channelUrl);
-  kb.text('CANCELAR', `deal_cancel_pending:${dealId}`).danger();
+  kb.url(toMathBold('CANAL OFICIAL'), channelUrl);
+  kb.text(toMathBold('CANCELAR'), `deal_cancel_pending:${dealId}`).danger();
 
   return kb;
 }
@@ -71,8 +72,8 @@ function dealWaitingKeyboard(dealId) {
  */
 function dealAcceptKeyboard(dealId) {
   return new InlineKeyboard()
-    .text('ACEPTAR', `${CB.DEAL_ACCEPT}${dealId}`).success()
-    .text('RECHAZAR', `deal_reject:${dealId}`).danger();
+    .text(toMathBold('ACEPTAR'), `${CB.DEAL_ACCEPT}${dealId}`).success()
+    .text(toMathBold('RECHAZAR'), `deal_reject:${dealId}`).danger();
 }
 
 /**
@@ -80,8 +81,8 @@ function dealAcceptKeyboard(dealId) {
  */
 function dealCompleteKeyboard(dealId) {
   return new InlineKeyboard()
-    .text('FINALIZAR', `${CB.DEAL_COMPLETE}${dealId}`).success()
-    .text('CANCELAR', `deal_force_cancel:${dealId}`).danger();
+    .text(toMathBold('FINALIZAR'), `${CB.DEAL_COMPLETE}${dealId}`).success()
+    .text(toMathBold('CANCELAR'), `deal_force_cancel:${dealId}`).danger();
 }
 
 /**
@@ -89,12 +90,12 @@ function dealCompleteKeyboard(dealId) {
  */
 function dealRatingKeyboard(dealId) {
   return new InlineKeyboard()
-    .text('1 ESTRELLA', `${CB.DEAL_RATE}${dealId}:1`)
-    .text('2 ESTRELLAS', `${CB.DEAL_RATE}${dealId}:2`)
-    .text('3 ESTRELLAS', `${CB.DEAL_RATE}${dealId}:3`)
+    .text(toMathBold('⭐ 1'), `${CB.DEAL_RATE}${dealId}:1`).primary()
+    .text(toMathBold('⭐⭐ 2'), `${CB.DEAL_RATE}${dealId}:2`).primary()
+    .text(toMathBold('⭐⭐⭐ 3'), `${CB.DEAL_RATE}${dealId}:3`).primary()
     .row()
-    .text('4 ESTRELLAS', `${CB.DEAL_RATE}${dealId}:4`)
-    .text('5 ESTRELLAS', `${CB.DEAL_RATE}${dealId}:5`);
+    .text(toMathBold('⭐⭐⭐⭐ 4'), `${CB.DEAL_RATE}${dealId}:4`).success()
+    .text(toMathBold('⭐⭐⭐⭐⭐ 5'), `${CB.DEAL_RATE}${dealId}:5`).success();
 }
 
 /**
@@ -102,8 +103,8 @@ function dealRatingKeyboard(dealId) {
  */
 function dealTopicKeyboard(dealId) {
   return new InlineKeyboard()
-    .text('FINALIZAR', `${CB.DEAL_COMPLETE}${dealId}`).success()
-    .text('CANCELAR', `deal_force_cancel:${dealId}`).danger();
+    .text(toMathBold('FINALIZAR'), `${CB.DEAL_COMPLETE}${dealId}`).success()
+    .text(toMathBold('CANCELAR'), `deal_force_cancel:${dealId}`).danger();
 }
 
 module.exports = {

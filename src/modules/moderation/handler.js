@@ -3,7 +3,8 @@ const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { requireStaff } = require('../../middleware/auth');
 const { isEffectiveOwner } = require('../../utils/tenantContext');
-const { mentionFromData, staffMention, formatId, escapeHtml } = require('../../utils/formatting');
+const { mentionFromData, staffMention, formatId, escapeHtml, getSuperscriptDate } = require('../../utils/formatting');
+const { toMathBold } = require('../../utils/aesthetic');
 const { InlineKeyboard } = require('grammy');
 const logger = require('./logger');
 const sentinel = require('./sentinel');
@@ -101,16 +102,20 @@ function register(bot) {
 
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
       const adminMention = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
+      const dateFormatted = getSuperscriptDate();
 
       await ctx.reply(
-        `⟡ <b>USUARIO BANEADO</b> ⊱ <code>SANCIÓN PERMANENTE</code> ⊰\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
-        `▸ <b>Moderador:</b> ${adminMention}\n\n` +
+        `<b>⟡ [${escapeHtml(botLabel.toUpperCase())} BOT] USUARIO BANEADO</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
+        `〖⚖️〗 <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `〖🛡️〗 <b>Moderador:</b> ${adminMention}\n\n` +
         `──────\n` +
-        `🚫 <i>El usuario ha sido expulsado y bloqueado definitivamente del grupo.</i>`,
+        `🚫 <i>El usuario ha sido expulsado y bloqueado definitivamente del grupo.</i>\n` +
+        `${dateFormatted}`,
         { parse_mode: 'HTML' }
       );
 
@@ -133,9 +138,11 @@ function register(bot) {
 
       if (!target || target.unresolved) {
         return ctx.reply(
-          `⟡ <b>DESBANEAR USUARIO</b> ⊱ <code>USO DEL COMANDO</code> ⊰\n` +
-          `══════\n` +
-          `▸ <b>Uso:</b> <code>/unban [@usuario / ID / Responder]</code>`,
+          `<b>⟡ [MODERACIÓN] DESBANEAR USUARIO</b>\n` +
+          `──────\n\n` +
+          `〖❖〗 <b>Uso:</b> <code>/unban [@usuario / ID / Responder]</code>\n\n` +
+          `──────\n` +
+          `${getSuperscriptDate()}`,
           { parse_mode: 'HTML' }
         );
       }
@@ -143,15 +150,19 @@ function register(bot) {
       await ctx.api.unbanChatMember(ctx.chat.id, target.userId, { only_if_banned: true });
 
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
+      const dateFormatted = getSuperscriptDate();
 
       await ctx.reply(
-        `⟡ <b>USUARIO DESBANEADO</b> ⊱ <code>ACCESO RESTABLECIDO</code> ⊰\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Moderador:</b> ${staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name)}\n\n` +
+        `<b>⟡ [${escapeHtml(botLabel.toUpperCase())} BOT] USUARIO DESBANEADO</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
+        `〖🛡️〗 <b>Moderador:</b> ${staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name)}\n\n` +
         `──────\n` +
-        `✓ <i>El usuario puede volver a unirse a la comunidad.</i>`,
+        `✓ <i>El usuario puede volver a unirse a la comunidad.</i>\n` +
+        `${dateFormatted}`,
         { parse_mode: 'HTML' }
       );
 
@@ -253,16 +264,20 @@ function register(bot) {
 
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
       const adminMention = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
+      const dateFormatted = getSuperscriptDate();
 
       await ctx.reply(
-        `⟡ <b>USUARIO EXPULSADO</b> ⊱ <code>KICK</code> ⊰\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
-        `▸ <b>Moderador:</b> ${adminMention}\n\n` +
+        `<b>⟡ [${escapeHtml(botLabel.toUpperCase())} BOT] USUARIO EXPULSADO</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
+        `〖⚖️〗 <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `〖🛡️〗 <b>Moderador:</b> ${adminMention}\n\n` +
         `──────\n` +
-        `⚡ <i>El usuario fue removido del chat. Puede reingresar con enlace oficial.</i>`,
+        `⚡ <i>El usuario fue removido del chat. Puede reingresar con enlace oficial.</i>\n` +
+        `${dateFormatted}`,
         { parse_mode: 'HTML' }
       );
 
@@ -281,9 +296,11 @@ function register(bot) {
 
       if (!target || target.unresolved) {
         return ctx.reply(
-          `⟡ <b>ADVERTIR USUARIO</b> ⊱ <code>WARN</code> ⊰\n` +
-          `══════\n\n` +
-          `▸ <b>Uso:</b> <code>/warn [@usuario / ID / Responder] [Motivo]</code>`,
+          `<b>⟡ [MODERACIÓN] ADVERTIR USUARIO</b>\n` +
+          `──────\n\n` +
+          `〖❖〗 <b>Uso:</b> <code>/warn [@usuario / ID / Responder] [Motivo]</code>\n\n` +
+          `──────\n` +
+          `${getSuperscriptDate()}`,
           { parse_mode: 'HTML' }
         );
       }
@@ -298,15 +315,18 @@ function register(bot) {
 
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
       const adminMention = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
+      const dateFormatted = getSuperscriptDate();
 
       let text =
-        `⟡ <b>ADVERTENCIA APLICADA</b> ⊱ <code>WARN #${warnCount}</code> ⊰\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Acumulado:</b> <b>${warnCount} / 3 advertencias</b>\n` +
-        `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
-        `▸ <b>Moderador:</b> ${adminMention}\n\n`;
+        `<b>⟡ [${escapeHtml(botLabel.toUpperCase())} BOT] ADVERTENCIA APLICADA</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
+        `〖⚠️〗 <b>Acumulado:</b> <b>${warnCount} / 3 advertencias</b>\n` +
+        `〖⚖️〗 <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `〖🛡️〗 <b>Moderador:</b> ${adminMention}\n\n`;
 
       if (warnCount >= 3 && (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group')) {
         text +=
@@ -335,7 +355,8 @@ function register(bot) {
       }
 
       text += `──────\n` +
-              `⚠️ <i>Al acumular 3 advertencias oficiales se aplican sanciones automáticas.</i>`;
+              `⚠️ <i>Al acumular 3 advertencias oficiales se aplican sanciones automáticas.</i>\n` +
+              `${dateFormatted}`;
 
       await ctx.reply(text, { parse_mode: 'HTML' });
       await db.addModLog('WARN', ctx.from.id, target.userId, ctx.chat.id, `Warn #${warnCount}: ${reason}`);
@@ -353,23 +374,31 @@ function register(bot) {
 
       if (!target || target.unresolved) {
         return ctx.reply(
-          `${SYM.DIAMOND} <b>Uso:</b> <code>/unwarn [@usuario / ID / Responder]</code>`,
+          `<b>⟡ [MODERACIÓN] LIMPIAR ADVERTENCIAS</b>\n` +
+          `──────\n\n` +
+          `〖❖〗 <b>Uso:</b> <code>/unwarn [@usuario / ID / Responder]</code>\n\n` +
+          `──────\n` +
+          `${getSuperscriptDate()}`,
           { parse_mode: 'HTML' }
         );
       }
 
       await db.clearWarnings(target.userId, ctx.chat.id);
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
+      const dateFormatted = getSuperscriptDate();
 
       await ctx.reply(
-        `⟡ <b>ADVERTENCIAS RESTABLECIDAS</b> ⊱ <code>CLEAR WARNS</code> ⊰\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Estado:</b> ⊱ <code>0 / 3 ADVERTENCIAS</code> ⊰\n` +
-        `▸ <b>Moderador:</b> @${ctx.from.username || ctx.from.first_name}\n\n` +
+        `<b>⟡ [${escapeHtml(botLabel.toUpperCase())} BOT] ADVERTENCIAS RESTABLECIDAS</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
+        `〖⚠️〗 <b>Estado:</b> ⊱ <code>0 / 3 ADVERTENCIAS 🟢</code> ⊰\n` +
+        `〖🛡️〗 <b>Moderador:</b> ${staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name)}\n\n` +
         `──────\n` +
-        `✓ <i>Se han limpiado todas las advertencias en este chat.</i>`,
+        `✓ <i>Se han limpiado todas las advertencias en este chat.</i>\n` +
+        `${dateFormatted}`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
@@ -392,25 +421,32 @@ function register(bot) {
 
       const warns = await db.getWarnings(target.userId, ctx.chat.id);
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
+      const dateFormatted = getSuperscriptDate();
 
       let text =
-        `⟡ <b>HISTORIAL DE ADVERTENCIAS</b> ⊱ <code>CONSULTA</code> ⊰\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Total Acumulado:</b> <b>${warns.length} / 3</b>\n\n`;
+        `<b>⟡ [${escapeHtml(botLabel.toUpperCase())} BOT] HISTORIAL DE ADVERTENCIAS</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
+        `〖⚠️〗 <b>Total Acumulado:</b> <b>${warns.length} / 3</b>\n\n`;
 
       if (warns.length === 0) {
         text += `✓ <i>El usuario no registra advertencias activas en este grupo.</i>\n\n`;
       } else {
         warns.forEach((w, idx) => {
-          text += `▸ <b>#${idx + 1}:</b> <i>${escapeHtml(w.reason || 'Sin motivo')}</i>\n`;
+          text += `〖⚠️〗 <b>#${idx + 1}:</b> <i>${escapeHtml(w.reason || 'Sin motivo')}</i>\n`;
         });
         text += '\n';
       }
 
-      text += `──────`;
+      text += `──────\n${dateFormatted}`;
       await ctx.reply(text, { parse_mode: 'HTML' });
+    } catch (err) {
+      console.error('⟡ Mod: Error en /warns:', err.message);
+    }
+  });
     } catch (err) {
       console.error('⟡ Mod: Error en /warns:', err.message);
     }
@@ -423,11 +459,12 @@ function register(bot) {
 
       if (!target || target.unresolved) {
         return ctx.reply(
-          `⟡ <b>BANEO GLOBAL (GBAN)</b> ⊱ <code>USO DEL COMANDO</code> ⊰\n` +
-          `══════\n\n` +
-          `▸ <b>Uso:</b> <code>/gban [@usuario / ID / Responder] [Motivo]</code>\n\n` +
+          `<b>⟡ [MODERACIÓN] BANEO GLOBAL (GBAN)</b>\n` +
+          `──────\n\n` +
+          `〖❖〗 <b>Uso:</b> <code>/gban [@usuario / ID / Responder] [Motivo]</code>\n\n` +
           `──────\n` +
-          `🔥 <i>Banea permanentemente de todos los grupos y ficha en la Lista Negra.</i>`,
+          `🔥 <i>Banea permanentemente de todos los grupos y ficha en la Lista Negra.</i>\n` +
+          `${getSuperscriptDate()}`,
           { parse_mode: 'HTML' }
         );
       }
@@ -452,20 +489,22 @@ function register(bot) {
       );
 
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+      const dateFormatted = getSuperscriptDate();
 
       const kb = new InlineKeyboard()
-        .text('🔥 CONFIRMAR GBAN', `gban_confirm:${target.userId}`).danger()
-        .text('CANCELAR', 'gban_cancel').primary();
+        .text(toMathBold('CONFIRMAR GBAN'), `gban_confirm:${target.userId}`).danger()
+        .text(toMathBold('CANCELAR'), 'gban_cancel').primary();
 
       await ctx.reply(
-        `🚨 <b>CONFIRMACIÓN DE BANEO GLOBAL (GBAN)</b> 🚨\n` +
-        `══════\n\n` +
-        `▸ <b>Objetivo:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n\n` +
+        `<b>⟡ [SISTEMA DE SEGURIDAD] CONFIRMACIÓN DE GBAN</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Objetivo:</b> ${targetMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
+        `〖⚖️〗 <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n\n` +
         `──────\n` +
         `⚠️ <i>Esta acción expulsará al usuario de <b>TODAS las comunidades</b> y lo fichará de forma irreversible en la base de datos oficial.</i>\n\n` +
-        `¿Confirmas la ejecución?`,
+        `¿Confirmas la ejecución?\n` +
+        `${dateFormatted}`,
         {
           parse_mode: 'HTML',
           reply_markup: kb,
@@ -517,17 +556,20 @@ function register(bot) {
 
       const targetMention = mentionFromData(targetId, username, firstName);
       const adminMention = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
+      const dateFormatted = getSuperscriptDate();
 
       await ctx.editMessageText(
-        `🚨 <b>BANEO GLOBAL APLICADO (GBAN)</b> 🚨\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${targetId}</code>\n` +
-        `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
-        `▸ <b>Grupos Sancionados:</b> <code>${affectedCount} comunidades</code>\n` +
-        `▸ <b>Estado:</b> ⊱ <code>LISTA NEGRA PERMANENTE 🔴</code> ⊰\n\n` +
+        `<b>⟡ [LISTA NEGRA OFICIAL] BANEO GLOBAL APLICADO</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${targetId}</code>\n` +
+        `〖⚖️〗 <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `〖❖〗 <b>Grupos Sancionados:</b> <code>${affectedCount} comunidades</code>\n` +
+        `〖🔥〗 <b>Estado:</b> ⊱ <code>LISTA NEGRA PERMANENTE 🔴</code> ⊰\n` +
+        `〖🛡️〗 <b>Moderador:</b> ${adminMention}\n\n` +
         `──────\n` +
-        `🛡️ <i>Ejecutado por: ${adminMention}</i>`,
+        `🚫 <i>Usuario fichado y expulsado de la red oficial.</i>\n` +
+        `${dateFormatted}`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
@@ -540,10 +582,13 @@ function register(bot) {
   bot.callbackQuery('gban_cancel', async (ctx) => {
     try {
       await ctx.answerCallbackQuery({ text: 'Operación cancelada.' });
+      const dateFormatted = getSuperscriptDate();
       await ctx.editMessageText(
-        `⟡ <b>OPERACIÓN CANCELADA</b> ⊱ <code>GBAN DECLINADO</code> ⊰\n` +
-        `══════\n\n` +
-        `<i>No se aplicó ninguna sanción al usuario.</i>`,
+        `<b>⟡ [GBAN DECLINADO] OPERACIÓN CANCELADA</b>\n` +
+        `──────\n\n` +
+        `<i>No se aplicó ninguna sanción al usuario.</i>\n\n` +
+        `──────\n` +
+        `${dateFormatted}`,
         { parse_mode: 'HTML' }
       );
     } catch {}
@@ -556,12 +601,13 @@ function register(bot) {
 
       if (!target || target.unresolved) {
         return ctx.reply(
-          `⟡ <b>REHABILITAR USUARIO</b> ⊱ <code>UNGBAN</code> ⊰\n` +
-          `══════\n\n` +
-          `▸ <b>Uso:</b> <code>/ungban [@usuario / ID / Responder]</code>\n` +
-          `▸ <b>Alternativa:</b> <code>/desquemar [ID / @usuario]</code>\n\n` +
+          `<b>⟡ [MODERACIÓN] REHABILITAR USUARIO</b>\n` +
+          `──────\n\n` +
+          `〖❖〗 <b>Uso:</b> <code>/ungban [@usuario / ID / Responder]</code>\n` +
+          `〖✦〗 <b>Alternativa:</b> <code>/desquemar [ID / @usuario]</code>\n\n` +
           `──────\n` +
-          `🔓 <i>Remueve de la lista negra y permite el reingreso a los grupos oficiales.</i>`,
+          `🔓 <i>Remueve de la lista negra y permite el reingreso a los grupos oficiales.</i>\n` +
+          `${getSuperscriptDate()}`,
           { parse_mode: 'HTML' }
         );
       }
@@ -583,16 +629,19 @@ function register(bot) {
       await logger.sendLog(ctx.api, 'UNGBAN', ctx.from, target.userId, ctx.chat.title || 'Global', 'Rehabilitado');
 
       const targetMention = mentionFromData(target.userId, target.username, target.firstName);
+      const dateFormatted = getSuperscriptDate();
 
       await ctx.reply(
-        `⟡ <b>USUARIO REHABILITADO</b> ⊱ <code>LISTA NEGRA REMOVIDA</code> ⊰\n` +
-        `══════\n\n` +
-        `▸ <b>Usuario:</b> ${targetMention}\n` +
-        `▸ <b>ID Numérico:</b> <code>${target.userId}</code>\n` +
-        `▸ <b>Estado:</b> ⊱ <code>LIMPIO 🟢</code> ⊰\n` +
-        `▸ <b>Grupos Desbloqueados:</b> <code>${affectedCount} comunidades</code>\n\n` +
+        `<b>⟡ [LISTA NEGRA REMOVIDA] USUARIO REHABILITADO</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
+        `〖☾〗 <b>Estado:</b> ⊱ <code>LIMPIO 🟢</code> ⊰\n` +
+        `〖❖〗 <b>Grupos Desbloqueados:</b> <code>${affectedCount} comunidades</code>\n` +
+        `〖🛡️〗 <b>Moderador:</b> ${staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name)}\n\n` +
         `──────\n` +
-        `✓ <i>El usuario ha sido eliminado de la lista de estafadores y puede volver a participar.</i>`,
+        `✓ <i>El usuario ha sido eliminado de la lista de estafadores y puede volver a participar.</i>\n` +
+        `${dateFormatted}`,
         { parse_mode: 'HTML' }
       );
     } catch (err) {
@@ -724,16 +773,17 @@ function register(bot) {
       const userMention = mentionFromData(targetId, user.username, user.first_name);
 
       const kb = new InlineKeyboard()
-        .text('BANEAR GBAN', `gban_confirm:${targetId}`).danger()
-        .text('CANCELAR', 'gban_cancel').primary();
+        .text(toMathBold('BANEAR GBAN'), `gban_confirm:${targetId}`).danger()
+        .text(toMathBold('CANCELAR'), 'gban_cancel').primary();
 
       await ctx.reply(
-        `${SYM.DIVIDER}\n` +
-        `⚠️ <b>CONFIRMAR BANEO DESDE LOGS</b>\n` +
-        `${SYM.DIVIDER}\n\n` +
-        `➜ <b>Objetivo:</b> ${userMention}\n` +
-        `➜ <b>ID:</b> <code>${targetId}</code>\n\n` +
-        `¿Deseas aplicar baneo global a este usuario?`,
+        `<b>⟡ [LOGS DE SEGURIDAD] CONFIRMAR BANEO</b>\n` +
+        `──────\n\n` +
+        `〖☁〗 <b>Objetivo:</b> ${userMention}\n` +
+        `〖ϟ〗 <b>ID:</b> <code>${targetId}</code>\n\n` +
+        `──────\n` +
+        `¿Deseas aplicar baneo global a este usuario?\n` +
+        `${getSuperscriptDate()}`,
         { parse_mode: 'HTML', reply_markup: kb }
       );
     } catch (err) {
@@ -786,24 +836,26 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
 
   const users = await db.getAllBurnedUsers(PAGE_SIZE, offset);
   const closePayload = ownerId ? `blacklist_close:${ownerId}` : 'blacklist_close';
+  const dateFormatted = getSuperscriptDate();
 
   if (totalCount === 0 || users.length === 0) {
     return {
       text:
-        `⟡ <b>LISTA NEGRA OFICIAL</b> ⊱ <code>VENTAS LIBRES PERÚ</code> ⊰\n` +
-        `══════\n\n` +
+        `<b>⟡ [VENTAS LIBRES PERÚ] LISTA NEGRA OFICIAL</b>\n` +
+        `──────\n\n` +
         `✓ <b>Estado de la Comunidad:</b> ⊱ <code>LIMPIA 🟢</code> ⊰\n` +
         `Actualmente no hay estafadores registrados en la lista negra.\n\n` +
-        `──────`,
-      keyboard: new InlineKeyboard().text('CERRAR', closePayload).danger(),
+        `──────\n` +
+        `${dateFormatted}`,
+      keyboard: new InlineKeyboard().text(toMathBold('CERRAR'), closePayload).danger(),
     };
   }
 
   let text =
-    `🚨 <b>LISTA NEGRA OFICIAL DE ESTAFADORES</b> 🚨\n` +
-    `══════\n\n` +
-    `▸ <b>Total Fichados:</b> <code>${totalCount} estafadores</code>\n` +
-    `▸ <b>Página Actual:</b> <code>${currentPage} / ${totalPages}</code>\n\n` +
+    `<b>⟡ [VENTAS LIBRES PERÚ] LISTA NEGRA OFICIAL</b>\n` +
+    `──────\n\n` +
+    `〖🔥〗 <b>Total Fichados:</b> <code>${totalCount} estafadores</code>\n` +
+    `〖📄〗 <b>Página Actual:</b> <code>${currentPage} / ${totalPages}</code>\n\n` +
     `──────\n\n`;
 
   for (let i = 0; i < users.length; i++) {
@@ -818,19 +870,19 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
       userHeader = `Usuario [${u.user_id}]`;
     }
 
-    const dateFormatted = formatPeruDate(u.burned_at);
+    const regDate = formatPeruDate(u.burned_at);
     const reason = (u.context || 'Estafa comprobada').slice(0, 150);
 
     text +=
       `⛔ <b>#${itemNum} | ${userHeader}</b>\n` +
-      `▸ <b>ID Numérico:</b> <code>${u.user_id}</code>\n` +
-      `▸ <b>Username:</b> ${u.username ? `<code>@${u.username}</code>` : '<i>Sin @username</i>'}\n` +
-      `▸ <b>Registro:</b> <code>${dateFormatted}</code>\n` +
-      `▸ <b>Motivo:</b>\n  ↳ <i>${escapeHtml(reason)}</i>\n\n` +
+      `〖ϟ〗 <b>ID:</b> <code>${u.user_id}</code>\n` +
+      `〖♝〗 <b>Username:</b> ${u.username ? `<code>@${u.username}</code>` : '<i>Sin @username</i>'}\n` +
+      `〖⏱️〗 <b>Registro:</b> <code>${regDate}</code>\n` +
+      `〖⚖️〗 <b>Motivo:</b>\n  ↳ <i>${escapeHtml(reason)}</i>\n\n` +
       `──────\n`;
   }
 
-  text += `🛡️ <i>Para ver el expediente completo, escribe: <code>/info [ID o @user]</code></i>`;
+  text += `<i>Para ver el expediente completo, escribe: <code>/info [ID o @user]</code></i>\n${dateFormatted}`;
 
   const kb = new InlineKeyboard();
 
@@ -840,16 +892,16 @@ async function renderBlacklistPage(page = 1, ownerId = null) {
 
   // Fila 1: Paginación
   if (currentPage > 1) {
-    kb.text('ANTERIOR', prevPayload).primary();
+    kb.text(toMathBold('ANTERIOR'), prevPayload).primary();
   }
   if (currentPage < totalPages) {
-    kb.text('SIGUIENTE', nextPayload).primary();
+    kb.text(toMathBold('SIGUIENTE'), nextPayload).primary();
   }
 
   // Fila 2: Indicador de página y Cerrar
   kb.row();
-  kb.text(`PÁGINA ${currentPage} / ${totalPages}`, currPayload);
-  kb.text('CERRAR', closePayload).danger();
+  kb.text(toMathBold(`PÁGINA ${currentPage} / ${totalPages}`), currPayload);
+  kb.text(toMathBold('CERRAR'), closePayload).danger();
 
   return { text, keyboard: kb };
 }

@@ -101,13 +101,14 @@ function getSuperscriptDate(date = new Date()) {
   const digits = {
     '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
     '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
+    '-': '⁻',
   };
   const dStr = date.toLocaleDateString('es-PE', {
     timeZone: 'America/Lima',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  }).replace(/\D/g, '');
+  }).replace(/\//g, '-');
 
   return dStr.split('').map((ch) => digits[ch] || ch).join('');
 }
