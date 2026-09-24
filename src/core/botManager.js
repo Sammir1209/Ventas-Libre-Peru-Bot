@@ -4,6 +4,8 @@ const { apiThrottler } = require('@grammyjs/transformer-throttler');
 const db = require('../database/postgres');
 const { antiSpam } = require('../middleware/antiSpam');
 
+const { escapeHtml } = require('../utils/formatting');
+
 // Módulos del bot
 const verificationHandler = require('../modules/verification/handler');
 const escrowHandler = require('../modules/escrow/handler');
@@ -60,6 +62,48 @@ class BotManager {
           tenant.id
         ).catch(() => {});
       }
+      return next();
+    });
+
+    // ── Guardián de Suspensión / Expiración de Licencia de Sub-Bot ──
+    bot.use(async (ctx, next) => {
+      const currentStatus = ctx.tenant?.plan_status;
+      const isExpired = currentStatus === 'EXPIRED' ||
+                        currentStatus === 'INACTIVE' ||
+                        (ctx.tenant?.expires_at && new Date(ctx.tenant.expires_at) < new Date());
+
+      if (isExpired) {
+        // 1. Si es un clic en botón (callback query)
+        if (ctx.callbackQuery) {
+          return ctx.answerCallbackQuery({
+            text: '⚠️ Tu periodo de prueba de bot ha finalizado. El bot ha quedado inactivo.',
+            show_alert: true,
+          }).catch(() => {});
+        }
+
+        // 2. Si es comando o mensaje privado
+        const isCommand = Boolean(ctx.message?.text?.startsWith('/'));
+        const isPrivate = ctx.chat?.type === 'private';
+
+        if (isCommand || isPrivate) {
+          const commName = ctx.tenant?.community_name || 'Comunidad';
+          return ctx.reply(
+            `⚠️ <b>SERVICIO SUSPENDIDO</b> ⊱ <code>PRUEBA FINALIZADA</code> ⊰\n` +
+            `══════════════════════════════\n\n` +
+            `Estimada comunidad <b>${escapeHtml(commName)}</b>:\n\n` +
+            `Tu periodo de <b>prueba de bot ha finalizado</b> y el bot ha quedado <b>inactivo</b>.\n\n` +
+            `🚫 <i>Todos los módulos (verificación de miembros, moderación, tratos y seguridad) han sido desactivados por completo.</i>\n\n` +
+            `──────────────────\n` +
+            `💡 Si deseas renovar tu licencia o reactivar el bot oficial para tu comunidad, comunícate con el soporte oficial de <b>Ventas Libres Perú</b>.`,
+            { parse_mode: 'HTML' }
+          ).catch(() => {});
+        }
+
+        // 3. Si es mensaje normal en grupo o nuevo miembro ingresando:
+        // CORTAR EL FLUJO POR COMPLETO (desactivar verificación, captcha y moderación)
+        return;
+      }
+
       return next();
     });
 
@@ -239,7 +283,7 @@ class BotManager {
       console.log(`⟡ [SaaS Manager] Cargando ${activeBots.length} sub-bots registrados en BD...`);
 
       for (const t of activeBots) {
-        if (t.plan_status === 'ACTIVE' || t.plan_status === 'TRIAL') {
+        if (t.plan_status === 'ACTIVE' || t.plan_status === 'TRIAL' || t.plan_status === 'EXPIRED') {
           try {
             await this.startSubBot(t);
           } catch (err) {
