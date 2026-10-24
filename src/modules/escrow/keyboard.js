@@ -149,13 +149,27 @@ function dealTopicKeyboard(dealId, phase = 'AGREEMENT') {
       .row()
       .text('⚠️ Disputa', `deal_dispute:${dealId}`).danger()
       .text('❌ Cancelar', `deal_force_cancel:${dealId}`).danger();
+  } else if (phase === 'ACCOUNTS') {
+    kb.text('📋 Ver Resumen Trato', `deal_view_summary:${dealId}`).primary()
+      .text('💰 Fondos en Custodia', `deal_funds_rcv:${dealId}`).success()
+      .row()
+      .text('⚠️ Disputa', `deal_dispute:${dealId}`).danger()
+      .text('❌ Cancelar', `deal_force_cancel:${dealId}`).danger();
   } else if (phase === 'FUNDS_DEPOSITED') {
-    kb.text('📦 Notificar Entrega', `deal_notify_deliv:${dealId}`).primary()
-      .text('💸 Liberar Fondos', `${CB.DEAL_COMPLETE}${dealId}`).success()
+    kb.text('📦 Notificar Entrega (Vendedor)', `deal_notify_deliv:${dealId}`).primary()
+      .row()
+      .text('💸 Liberar Fondos al Vendedor', `${CB.DEAL_COMPLETE}${dealId}`).success()
       .row()
       .text('🔄 Reembolsar', `deal_refund:${dealId}`).danger()
       .text('⚠️ Disputa', `deal_dispute:${dealId}`).danger();
   } else if (phase === 'DELIVERY') {
+    kb.text('✅ Conformidad de Entrega (Comprador)', `deal_buyer_ok:${dealId}`).success()
+      .row()
+      .text('💸 Liberar Fondos al Vendedor', `${CB.DEAL_COMPLETE}${dealId}`).success()
+      .row()
+      .text('🔄 Reembolsar Comprador', `deal_refund:${dealId}`).danger()
+      .text('⚠️ Disputa', `deal_dispute:${dealId}`).danger();
+  } else if (phase === 'BUYER_CONFIRMED') {
     kb.text('💸 Liberar Fondos al Vendedor', `${CB.DEAL_COMPLETE}${dealId}`).success()
       .row()
       .text('🔄 Reembolsar Comprador', `deal_refund:${dealId}`).danger()
@@ -165,6 +179,13 @@ function dealTopicKeyboard(dealId, phase = 'AGREEMENT') {
       .text('🔄 Reembolsar Comprador', `deal_refund:${dealId}`).danger()
       .row()
       .text('❌ Cerrar Trato', `deal_force_cancel:${dealId}`).danger();
+  } else if (phase === 'COMPLETED') {
+    kb.text('⭐ 1', `${CB.DEAL_RATE}${dealId}:1`).primary()
+      .text('⭐⭐ 2', `${CB.DEAL_RATE}${dealId}:2`).primary()
+      .text('⭐⭐⭐ 3', `${CB.DEAL_RATE}${dealId}:3`).primary()
+      .row()
+      .text('⭐⭐⭐⭐ 4', `${CB.DEAL_RATE}${dealId}:4`).success()
+      .text('⭐⭐⭐⭐⭐ 5', `${CB.DEAL_RATE}${dealId}:5`).success();
   } else {
     kb.text('💸 Liberar Fondos', `${CB.DEAL_COMPLETE}${dealId}`).success()
       .text('❌ Cancelar', `deal_force_cancel:${dealId}`).danger();
