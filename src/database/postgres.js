@@ -2518,6 +2518,12 @@ async function initPanelSessionsTable() {
     if (pool) {
       await pool.query(`
         ALTER TABLE deals ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
+        ALTER TABLE deals ADD COLUMN IF NOT EXISTS amount NUMERIC(12, 2);
+        ALTER TABLE deals ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'PEN';
+        ALTER TABLE deals ADD COLUMN IF NOT EXISTS fee NUMERIC(12, 2);
+        ALTER TABLE deals ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+        ALTER TABLE deals ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50);
+        ALTER TABLE deals ADD COLUMN IF NOT EXISTS phase VARCHAR(50) DEFAULT 'AGREEMENT';
         CREATE INDEX IF NOT EXISTS idx_deals_tenant ON deals(tenant_id);
 
         ALTER TABLE staff ADD COLUMN IF NOT EXISTS tenant_id UUID DEFAULT NULL;
