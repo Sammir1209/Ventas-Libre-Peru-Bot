@@ -87,7 +87,7 @@ function roundRect(ctx, x, y, width, height, radius) {
 /**
  * Dibuja el anillo de historia de Telegram (segmentado en colores cian / esmeralda / azul)
  */
-function drawStoryRing(ctx, cx, cy, radius, isBurned = false) {
+function drawStoryRing(ctx, cx, cy, radius, isBurned = false, isPremium = false) {
   ctx.save();
   const segments = 4;
   const gap = 0.18; // radianes de separación
@@ -105,6 +105,10 @@ function drawStoryRing(ctx, cx, cy, radius, isBurned = false) {
     if (isBurned) {
       // Anillo rojo fuego de estafador
       ctx.strokeStyle = i % 2 === 0 ? '#ef4444' : '#b91c1c';
+    } else if (isPremium) {
+      // Anillo oficial Telegram Premium (Violeta, Púrpura, Azul Neón, Rosa)
+      const colors = ['#c084fc', '#a855f7', '#818cf8', '#6366f1'];
+      ctx.strokeStyle = colors[i % colors.length];
     } else {
       // Anillo oficial multicolor de historias Telegram (Cian, Turquesa, Azul)
       const colors = ['#29b6f6', '#26a69a', '#66bb6a', '#0288d1'];
@@ -145,6 +149,73 @@ function drawTelegramVerifiedBadge(ctx, x, y, size = 20) {
   ctx.lineTo(18.5, 9.5);
   ctx.stroke();
 
+  ctx.restore();
+}
+
+/**
+ * Dibuja la insignia oficial vectorial de Telegram Premium
+ * (Estrella redondeada con gradiente púrpura/violeta y estrella blanca interior)
+ */
+function drawTelegramPremiumStar(ctx, x, y, size = 20) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  const scaleFactor = size / 26;
+  ctx.scale(scaleFactor, scaleFactor);
+
+  // Gradiente oficial Telegram Premium púrpura -> violeta
+  const premGrad = ctx.createLinearGradient(0, 0, 26, 26);
+  premGrad.addColorStop(0, '#c084fc');
+  premGrad.addColorStop(0.5, '#a855f7');
+  premGrad.addColorStop(1, '#6366f1');
+
+  ctx.fillStyle = premGrad;
+  const starBg = new Path2D(
+    'M14.38 1.51L16.2 3.33C16.57 3.7 17.06 3.9 17.58 3.9H20.15C21.16 3.9 22 4.67 22.09 5.66L22.1 5.85V8.42C22.1 8.94 22.31 9.43 22.67 9.8L24.49 11.62C25.2 12.33 25.25 13.46 24.62 14.23L24.49 14.38L22.67 16.2C22.3 16.57 22.1 17.06 22.1 17.58V20.15C22.1 21.16 21.33 22 20.34 22.09L20.15 22.1H17.58C17.06 22.1 16.57 22.31 16.2 22.67L14.38 24.49C13.67 25.2 12.54 25.25 11.77 24.62L11.62 24.49L9.8 22.67C9.43 22.3 8.94 22.1 8.42 22.1H5.85C4.84 22.1 4 21.33 3.91 20.34L3.9 20.15V17.58C3.9 17.06 3.69 16.57 3.33 16.2L1.51 14.38C0.8 13.67 0.75 12.54 1.38 11.77L1.51 11.62L3.33 9.8C3.7 9.43 3.9 8.94 3.9 8.42V5.85C3.9 4.77 4.77 3.9 5.85 3.9H8.42C8.94 3.9 9.43 3.69 9.8 3.33L11.62 1.51C12.38 0.75 13.62 0.75 14.38 1.51Z'
+  );
+  ctx.fill(starBg);
+
+  // Estrella central blanca de 5 puntas
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  const cx = 13;
+  const cy = 13;
+  const spikes = 5;
+  const outerR = 6.0;
+  const innerR = 2.8;
+  let rot = (Math.PI / 2) * 3;
+  const step = Math.PI / spikes;
+
+  ctx.moveTo(cx, cy - outerR);
+  for (let i = 0; i < spikes; i++) {
+    let px = cx + Math.cos(rot) * outerR;
+    let py = cy + Math.sin(rot) * outerR;
+    ctx.lineTo(px, py);
+    rot += step;
+
+    px = cx + Math.cos(rot) * innerR;
+    py = cy + Math.sin(rot) * innerR;
+    ctx.lineTo(px, py);
+    rot += step;
+  }
+  ctx.lineTo(cx, cy - outerR);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/**
+ * Dibuja el icono de menú de 3 puntos verticales (Telegram Desktop)
+ */
+function drawMoreMenuIcon(ctx, x, y) {
+  ctx.save();
+  ctx.fillStyle = '#cfd8dc';
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(x, y - 6 + i * 6, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -377,6 +448,7 @@ async function generateTelegramProfileModal({
   role = null,
   rating = '5.0',
   totalRatings = 0,
+  isPremium = false,
 }) {
   const scale = 2; // Ultra HD 2x Retina
   const baseW = 380;
@@ -397,16 +469,14 @@ async function generateTelegramProfileModal({
 
   // Cálculo proporcional de altura con espaciado generoso
   // Cabecera hasta inicio de tarjeta: 294px
-  // Padding superior e inferior de tarjeta: 22px + 24px
   // Fila Username: 52px
-  // Gap Username -> Bio: 18px
   // Fila Bio: bioLines.length * 20 + 22px
-  // Gap Bio -> Notifications: 18px
+  // Fila Telegram Premium (si aplica): 52px + 18px
   // Fila Notifications: 44px
-  // Gap Notifications -> ID: 18px
   // Fila ID: 44px
   const bioContentHeight = bioLines.length * 20 + 22;
-  const innerCardContentHeight = 22 + 52 + 18 + bioContentHeight + 18 + 44 + 18 + 44 + 24;
+  const premiumRowHeight = isPremium ? (52 + 18) : 0;
+  const innerCardContentHeight = 22 + 52 + 18 + bioContentHeight + 18 + premiumRowHeight + 44 + 18 + 44 + 24;
   const cardH = innerCardContentHeight;
   const cardY = 294;
   const baseH = cardY + cardH + 20;
@@ -464,13 +534,16 @@ async function generateTelegramProfileModal({
   ctx.textBaseline = 'middle';
   ctx.fillText('User Info', 64, closeY);
 
+  // Menú contextual de 3 puntos (estilo Telegram Desktop)
+  drawMoreMenuIcon(ctx, baseW - 36, closeY);
+
   // 3. Avatar Circular de Telegram con Anillo de Historias
   const avX = baseW / 2;
   const avY = 118;
   const avR = 52;
 
-  // Anillo de historias segmentado
-  drawStoryRing(ctx, avX, avY, avR + 6, isBurned);
+  // Anillo de historias segmentado (multicolor o premium violeta)
+  drawStoryRing(ctx, avX, avY, avR + 6, isBurned, isPremium);
 
   // Recorte del avatar
   ctx.save();
@@ -535,33 +608,44 @@ async function generateTelegramProfileModal({
   }
   ctx.restore();
 
-  // 4. Nombre Completo debajo del Avatar (con Insignia de Verificado si corresponde)
-  const cleanName = cleanText(name || 'Usuario', 24);
+  // 4. Nombre Completo debajo del Avatar (con Insignia de Verificado y/o Telegram Premium)
+  const cleanName = cleanText(name || 'Usuario', 22);
   ctx.fillStyle = '#ffffff';
   ctx.font = `bold 20px ${FONT_STACK}`;
-  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  if (isVerified || (role && role.includes('OWNER'))) {
-    // Dibujar nombre y check centrado
-    const nameWidth = ctx.measureText(cleanName).width;
-    const totalW = nameWidth + 24;
-    const startX = avX - totalW / 2;
-    ctx.textAlign = 'left';
-    ctx.fillText(cleanName, startX, 198);
-    drawTelegramVerifiedBadge(ctx, startX + nameWidth + 6, 187, 20);
-    ctx.textAlign = 'center';
-  } else {
-    ctx.fillText(cleanName, avX, 198);
+  const hasVerified = isVerified || (role && role.includes('OWNER'));
+  const hasPremium = isPremium === true;
+
+  let extraIconsW = 0;
+  if (hasVerified) extraIconsW += 26;
+  if (hasPremium) extraIconsW += 26;
+
+  const nameWidth = ctx.measureText(cleanName).width;
+  const totalW = nameWidth + extraIconsW;
+  const startX = avX - totalW / 2;
+
+  ctx.textAlign = 'left';
+  ctx.fillText(cleanName, startX, 198);
+
+  let currentIconX = startX + nameWidth + 6;
+  if (hasVerified) {
+    drawTelegramVerifiedBadge(ctx, currentIconX, 187, 20);
+    currentIconX += 26;
+  }
+  if (hasPremium) {
+    drawTelegramPremiumStar(ctx, currentIconX, 187, 20);
   }
 
-  // 5. Estado del usuario ("online" o "últ. vez recientemente")
+  // 5. Estado del usuario ("en línea" o "últ. vez recientemente")
   const stateLabel = isBurned
     ? '🚨 ALERTA: USUARIO QUEMADO'
-    : (statusSubtitle || (isOnline ? 'online' : 'últ. vez recientemente'));
+    : (statusSubtitle || (isOnline ? 'en línea' : 'últ. vez recientemente'));
 
-  ctx.fillStyle = isBurned ? '#ff6b6b' : (isOnline ? '#64b5f6' : '#90a4ae');
+  ctx.fillStyle = isBurned ? '#ff6b6b' : (isOnline ? '#4dd0e1' : '#90a4ae');
   ctx.font = `13px ${FONT_STACK}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   ctx.fillText(stateLabel, avX, 222);
 
   // 6. Barra Horizontal de Canción / Estado de Telegram
@@ -681,6 +765,39 @@ async function generateTelegramProfileModal({
   ctx.fillText('Bio', textLeftX, bioBottomY);
 
   curY = bioBottomY + 18 + 18;
+
+  // ── Fila Telegram Premium (si aplica) ──
+  if (isPremium) {
+    drawTelegramPremiumStar(ctx, rowPadX + 2, curY + 6, 22);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold 14.5px ${FONT_STACK}`;
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'left';
+    ctx.fillText('Telegram Premium', textLeftX, curY + 2);
+
+    ctx.fillStyle = '#c084fc';
+    ctx.font = `12px ${FONT_STACK}`;
+    ctx.fillText('Suscripción Activa ✨', textLeftX, curY + 23);
+
+    // Badge píldora a la derecha
+    ctx.save();
+    roundRect(ctx, cardX + cardW - 84, curY + 8, 70, 22, 11);
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.2)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(168, 85, 247, 0.55)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#e9d5ff';
+    ctx.font = `bold 10.5px ${FONT_STACK}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PREMIUM', cardX + cardW - 49, curY + 19);
+    ctx.restore();
+
+    curY += 52 + 18;
+  }
 
   // ── Fila 3: Notifications ──
   drawBellIcon(ctx, rowPadX, curY + 6, 26);

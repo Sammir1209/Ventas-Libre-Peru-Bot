@@ -459,16 +459,11 @@ function register(bot) {
 
     // 4. Enviar mensaje de bienvenida con teclado interactivo y registrar en pending_verifications
     try {
-      const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
-      let verifyUrl = `${domain}/portal/default`;
-      if (ctx.tenant) {
-        const slug = ctx.tenant.bot_username || ctx.tenant.id;
-        verifyUrl = `${domain}/portal/${slug}`;
-      }
+      const folderLink = ctx.tenant?.groups_folder_link || config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/PodUrc_gHJs2ZjNh';
       const communityName = await resolveCommunityName(ctx);
       const welcomeMsg = await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName, communityName), {
         parse_mode: 'HTML',
-        reply_markup: welcomeKeyboard(userId, verifyUrl),
+        reply_markup: welcomeKeyboard(userId, folderLink),
       });
       await db.addPendingVerification(chatId, userId, username, firstName, welcomeMsg?.message_id);
     } catch (sendErr) {
@@ -915,19 +910,14 @@ bot.callbackQuery(['reverify_channels', /^reverify_channels(?::(\d+))?$/], async
         await redisDb.setCache(debounceKey, true, 25);
 
         // Notificar por mensaje privado (DM)
-        const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
-        let verifyUrl = `${domain}/portal/default`;
-        if (ctx.tenant) {
-          const slug = ctx.tenant.bot_username || ctx.tenant.id;
-          verifyUrl = `${domain}/portal/${slug}`;
-        }
+        const folderLink = ctx.tenant?.groups_folder_link || config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/PodUrc_gHJs2ZjNh';
 
         const { InlineKeyboard } = require('grammy');
         const privateKb = new InlineKeyboard()
           .text('✅ Verificar Mi Cuenta', 'reverify_check')
           .row()
           .text('📢 Ver Canales Requeridos', 'reverify_channels')
-          .url('🌐 Portal Web', verifyUrl);
+          .url('📁 Unirme a Canales', folderLink);
 
         const dmText =
           `⚠️ <b>VERIFICACIÓN OBLIGATORIA</b>\n` +
@@ -1233,12 +1223,7 @@ async function executeReverify(api, chatId, tenant = null, actorName = 'Administ
   await db.setSetting(`reverify_active_${chatId}`, 'true');
   await redisDb.setCache(`reverify_active:${chatId}`, true, 86400 * 365);
 
-  const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
-  let verifyUrl = `${domain}/portal/default`;
-  if (tenant) {
-    const slug = tenant.bot_username || tenant.id;
-    verifyUrl = `${domain}/portal/${slug}`;
-  }
+  const folderLink = tenant?.groups_folder_link || config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/PodUrc_gHJs2ZjNh';
 
   let botUsername = tenant?.bot_username;
   if (!botUsername) {
@@ -1254,7 +1239,7 @@ async function executeReverify(api, chatId, tenant = null, actorName = 'Administ
     .text('✅ Verificar Mi Membresía', 'reverify_check')
     .row()
     .url('📢 Ver Canales Requeridos', `https://t.me/${botUsername}?start=canales`)
-    .url('🌐 Portal Web', verifyUrl);
+    .url('📁 Unirme a Canales', folderLink);
 
   let communityTitle = tenant?.community_name;
   if (!communityTitle) {
@@ -1406,11 +1391,8 @@ async function sendRequiredChannelsDM(ctx, targetUserId = null) {
 
   kb.text('🛡️ Comprobar y Verificarme', 'reverify_check');
 
-  const domain = process.env.RENDER_EXTERNAL_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com';
-  const slug = ctx.tenant?.bot_username || ctx.tenant?.id || '';
-  if (slug) {
-    kb.row().url('🌐 Abrir Portal Web Oficial', `${domain}/portal/${slug}`);
-  }
+  const folderLink = ctx.tenant?.groups_folder_link || config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/PodUrc_gHJs2ZjNh';
+  kb.row().url('📁 Abrir Carpeta Oficial de Canales', folderLink);
 
   const msgText =
     `📢 <b>CANALES OFICIALES OBLIGATORIOS</b>\n` +

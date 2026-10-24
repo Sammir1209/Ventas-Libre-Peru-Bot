@@ -123,6 +123,11 @@ async function buildUserProfile(ctx, targetUser) {
   const userDisplay = username ? `@${escapeHtml(username)}` : '<i>Sin @username</i>';
   const dateFormatted = getSuperscriptDate();
 
+  const isPremium = !!(targetUser.is_premium || targetUser.isPremium || targetUser.rawUser?.is_premium);
+  const premiumLine = isPremium
+    ? `〖⭐️〗 <b>Telegram Premium:</b> ⊱ <code>ACTIVO ✨</code> ⊰\n`
+    : '';
+
   const originLine = targetUser.isGlobal
     ? `〖❖〗 <b>Origen:</b> <i>Usuario Global (Fuera de la comunidad)</i>\n`
     : `〖❖〗 <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n`;
@@ -134,6 +139,7 @@ async function buildUserProfile(ctx, targetUser) {
     `〖ϟ〗 <b>ID:</b> <code>${userId}</code>\n` +
     `〖♝〗 <b>@User:</b> ${userDisplay}\n` +
     `〖☾〗 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
+    premiumLine +
     originLine +
     `〖✦〗 <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>`;
 
@@ -268,10 +274,12 @@ async function uploadCardToHost(buffer) {
 async function sendUserCard(ctx, target) {
   const statusMsg = await ctx.reply('▪ <i>Generando tarjeta de perfil...</i>', { parse_mode: 'HTML' });
   try {
+    const isPremium = !!(target.isPremium || target.is_premium || (target.userId === ctx.from?.id && ctx.from?.is_premium));
     const { cardBuffer, userId: resolvedId } = await generateUserCardBuffer(ctx.api, target, {
       tenantId: ctx.tenant?.id,
       ownerIds: ctx.tenant?.owner_ids,
       communityName: ctx.tenant?.community_name || 'Comunidad Oficial',
+      isPremium: isPremium,
     });
     const cardFile = new InputFile(cardBuffer, `perfil_${resolvedId || target.userId || 'user'}.png`);
     await ctx.replyWithPhoto(cardFile);
@@ -298,6 +306,7 @@ function register(bot) {
           userId: ctx.from.id,
           username: ctx.from.username || null,
           firstName: ctx.from.first_name || null,
+          isPremium: !!ctx.from.is_premium,
         });
       }
 
@@ -310,6 +319,9 @@ function register(bot) {
             username: extracted.username || null,
             firstName: extracted.firstName || null,
           };
+        }
+        if (ctx.message?.reply_to_message?.from) {
+          directTarget.isPremium = directTarget.isPremium || !!ctx.message.reply_to_message.from.is_premium;
         }
         return await sendUserCard(ctx, directTarget);
       }

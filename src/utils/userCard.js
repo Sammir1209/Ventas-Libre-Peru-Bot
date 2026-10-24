@@ -60,6 +60,7 @@ async function generateUserCardBuffer(api, target, options = {}) {
 
   // 2. Verificar vía Agentbot / MTProto Userbot (resuelve cualquier usuario, ID, biografía, estado y foto en HD)
   let isOnline = true;
+  let isPremium = !!(options.isPremium || target.isPremium || target.is_premium);
   if ((!userId || !username || !avatarBuffer || !targetBio) && (username || userId)) {
     try {
       if (userbot.isConnected()) {
@@ -76,6 +77,9 @@ async function generateUserCardBuffer(api, target, options = {}) {
           }
           if (ubRes.isOnline !== undefined) {
             isOnline = ubRes.isOnline;
+          }
+          if (ubRes.isPremium !== undefined) {
+            isPremium = ubRes.isPremium;
           }
         }
 
@@ -240,6 +244,7 @@ async function generateUserCardBuffer(api, target, options = {}) {
     role: primaryRole,
     rating: rating,
     totalRatings: totalRatings,
+    isPremium: isPremium,
   });
 
   return {
@@ -248,12 +253,14 @@ async function generateUserCardBuffer(api, target, options = {}) {
     username,
     firstName,
     avatarBuffer,
+    isPremium,
     target: {
       ...target,
       userId,
       username,
       firstName,
       avatarBuffer,
+      isPremium,
     },
   };
 }

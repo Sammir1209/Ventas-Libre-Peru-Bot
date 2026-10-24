@@ -91,12 +91,14 @@ const VISION_SYSTEM_PROMPT =
   '  * Solo si el nombre de visualización es estrictamente una sola palabra simple alfanumérica sin espacios ni adornos (ej. "cvttzz"), asígnala como posible alias. Si tiene adornos, flechas o espacios (ej. "╰─➤ 『𝑷𝑷𝑴』Madres..."), "username" DEBE ser null obligatoriamente.\n' +
   '- DETECCIÓN DE ID:\n' +
   '  * Si en la imagen se observa un ID numérico (ej: "ID: 123456789", "User ID: ...", "ID 123456789" o una secuencia de 7 a 11 dígitos identificando al usuario), extráelo como número entero en "detectedId".\n' +
-  '- DETECCIÓN DE PERFIL: Toda captura que contenga un nombre de usuario, alias, avatar, cabecera de chat o modal de Telegram (incluso si está recortada o solo muestra el nombre y estado de conexión como "en línea", "online", "últ. vez"), define SIEMPRE "isTelegramProfile": true.\n\n' +
+  '- DETECCIÓN DE PERFIL DE TELEGRAM:\n' +
+  '  * Si la imagen contiene un perfil de Telegram, modal User Info, cabecera de chat con avatar y nombre, o tarjeta de usuario de Telegram, define "isTelegramProfile": true.\n' +
+  '  * Si la imagen es un comprobante de pago bancario (Yape, Plin, BCP, BBVA, etc.), un recibo, un meme, una foto personal/selfie sin interfaz de Telegram, una foto de producto, captura de otra red social o cualquier cosa que NO sea un perfil de Telegram, define OBLIGATORIAMENTE "isTelegramProfile": false, y define todos los demás campos ("rawName", "username", "detectedId", etc.) como null.\n\n' +
   'Devuelve EXCLUSIVAMENTE un objeto JSON válido con esta estructura:\n' +
   '{\n' +
   '  "isTelegramProfile": true,\n' +
-  '  "rawName": "nombre tal cual aparece con sus símbolos y tipografías",\n' +
-  '  "normalizedName": "nombre traducido a caracteres ASCII estándar legibles",\n' +
+  '  "rawName": "nombre tal cual aparece con sus símbolos o null si no es perfil",\n' +
+  '  "normalizedName": "nombre traducido a caracteres ASCII estándar o null",\n' +
   '  "username": "alias sin el @ o null si no se visualiza",\n' +
   '  "bio": "biografía o descripción si es visible o null",\n' +
   '  "bioMentions": ["lista", "de", "menciones", "en", "bio"],\n' +
@@ -339,10 +341,10 @@ async function extractWithLocalOCR(imageBuffer) {
     const isTelegramProfile = !!(
       username ||
       detectedId ||
-      /(?:last\s*seen|[uú]lt\.?\s*vez|online|en\s*l[iíì1l]nea|info|bio|user\s*info)/i.test(normalizedText)
+      /(?:last\s*seen|[uú]lt\.?\s*vez|online|en\s*l[iíì1l]nea|info|bio|user\s*info|notifications|notificaciones)/i.test(normalizedText)
     );
 
-    if (username || detectedId || rawName) {
+    if (isTelegramProfile && (username || detectedId || rawName)) {
       return {
         isTelegramProfile: true,
         rawName: rawName || username || 'Usuario',
@@ -560,8 +562,9 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
     const profileInfo = await extractProfileDataFromImage(buffer, 'image/jpeg');
 
     const hasIdentifier = !!(profileInfo && (profileInfo.rawName || profileInfo.username || profileInfo.detectedId));
+    const isProfile = !!(profileInfo && profileInfo.isTelegramProfile !== false && hasIdentifier);
 
-    if (!profileInfo || !hasIdentifier) {
+    if (!profileInfo || !isProfile) {
       if (statusMsg) {
         if (isExplicitInquiry) {
           return await ctx.api.editMessageText(
@@ -569,12 +572,12 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
             statusMsg.message_id,
             `⟡ <b>[RADAR VISUAL] ANÁLISIS DE IMAGEN</b>\n` +
             `──────\n\n` +
-            `No se logró identificar con claridad un nombre o perfil de Telegram en la captura enviada.\n` +
-            `<i>Asegúrate de que el nombre o @ del perfil sea legible.</i>`,
+            `La captura enviada no corresponde a un <b>perfil o usuario de Telegram</b> reconocible.\n` +
+            `<i>Asegúrate de enviar una captura clara del perfil de Telegram (User Info) o cabecera de chat con su @username.</i>`,
             { parse_mode: 'HTML' }
           ).catch(() => {});
         } else {
-          // Si fue una foto genérica no explícita, borrar el aviso de revisión silenciosamente
+          // Si fue una foto genérica no explícita, borrar el aviso silenciosamente
           return await ctx.api.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
         }
       }
@@ -919,8 +922,31 @@ async function processProfileInspection(ctx, photoFileId, { isExplicitInquiry = 
   });
 }
 
-const PROFILE_INQUIRY_REGEX =
-  /(?:conoce|conosen|conocen|ubica|ubican|sabe|saben|alguien|qui[eé]n|refe|referencia|confiable|fiar|seguro|estafa|scam|quemad|fichad|perfil|user|trato|fake|clon|legal|cuenta|info|averigua|revisa|checa|fichaje|opiniones)/i;
+const PROFILE_INQUIRY_REGEX = new RegExp(
+  '(?:' +
+  // Estafa / Scam / Rata / Ladrón / Delito
+  'estafador(?:es|as)?|es\\s+estafador|un\\s+estafador|una\\s+estafadora|scam(?:mer)?|' +
+  'rata(?:s)?|una\\s+rata|tremenda\\s+rata|ratero(?:s)?|ladron(?:es)?|choro(?:s)?|lacra(?:s)?|' +
+  'quemad[oa](?:s)?|fichad[oa](?:s)?|denuncia(?:s|do)?|rob[oó]|estaf[oó]|' +
+  // Preguntas sobre la persona o usuario
+  'conoce[ns]?\\s+a\\s+est[ea]\\s+(?:persona|usuario|user|cuenta|perfil|tipo|sujeto|chico|chica)|' +
+  'conoce[ns]?\\s+a\\s+est[ea]|' +
+  'alguien\\s+(?:lo|la|los)?\\s*conoce|' +
+  'qui[eé]n\\s+es\\s+est[ea](?:\\s+(?:persona|usuario|user|tipo|sujeto))?|' +
+  'alguien\\s+(?:sabe|ubica)\\s+(?:de|qui[eé]n\\s+es)\\s*est[ea]|' +
+  'ubica[ns]?\\s+a\\s+est[ea]|' +
+  // Confiabilidad / Referencias / Fiabilidad
+  'es\\s+confiable|es\\s+de\\s+fiar|se\\s+puede\\s+fiar|fiarme|es\\s+seguro|' +
+  'refe(?:s|rencias)?(?:\\s+de)?|opiniones(?:\\s+de)?|' +
+  'alguien\\s+le\\s+(?:ha\\s+)?compr[oó]|es\\s+legal|' +
+  // Clon / Fake / Falso
+  'cuenta\\s+falsa|fake|clon|impostor|' +
+  // Verificación explícita de perfil
+  'averigua|revisa(?:r)?\\s+(?:este|el)?\\s*perfil|checa(?:r)?\\s+(?:este|el)?\\s*perfil|scan(?:perfil)?|' +
+  'fichaje' +
+  ')',
+  'i'
+);
 
 /**
  * Registra listeners y comandos del Scanner Visual
@@ -950,7 +976,7 @@ function register(bot) {
     }
   });
 
-  // ── Listener Automático: Detección cuando alguien envía foto (con o sin consulta) ──
+  // ── Listener Automático: Detección cuando alguien envía foto CON consulta o palabras clave ──
   bot.on('message:photo', async (ctx, next) => {
     try {
       const caption = (ctx.message?.caption || '').trim();
@@ -959,9 +985,10 @@ function register(bot) {
 
       const isPrivate = ctx.chat?.type === 'private';
       const isExplicitInquiry = PROFILE_INQUIRY_REGEX.test(caption) || isPrivate;
-      const shouldScan = isExplicitInquiry || caption.length <= 35;
 
-      if (shouldScan) {
+      // SOLO escanear si incluye palabras clave explícitas o es en chat privado
+      // NO enviar ningún mensaje si solo envían foto sin texto
+      if (isExplicitInquiry) {
         const bestPhoto = photos[photos.length - 1];
         await processProfileInspection(ctx, bestPhoto.file_id, { isExplicitInquiry });
         return;

@@ -149,6 +149,7 @@ async function resolveUser(usernameOrId) {
         lastName: entity.lastName || null,
         bio: bio,
         isOnline: isOnline,
+        isPremium: !!entity.premium,
       };
     }
   } catch (err) {

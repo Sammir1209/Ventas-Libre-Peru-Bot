@@ -32,8 +32,8 @@ const config = {
 
   // Verificación
   CHANNELS_TO_VERIFY: parseJsonArray(process.env.CHANNELS_TO_VERIFY, ['@quemando_ventaslibreperu']),
-  GROUPS_FOLDER_LINK: process.env.GROUPS_FOLDER_LINK || 'https://t.me/addlist/wJgsKg3dZCQ4Njlh',
-  VERIFY_WEB_URL: process.env.VERIFY_WEB_URL || 'https://ventas-libre-peru-bot-2y5n.onrender.com/portal/default',
+  GROUPS_FOLDER_LINK: process.env.GROUPS_FOLDER_LINK || 'https://t.me/addlist/PodUrc_gHJs2ZjNh',
+  VERIFY_WEB_URL: process.env.VERIFY_WEB_URL || '',
 
   // PostgreSQL
   POSTGRES_URL: process.env.POSTGRES_URL || 'postgresql://localhost:5432/ventas_libres',
