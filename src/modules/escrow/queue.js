@@ -9,7 +9,14 @@ const { DEAL_STATUS } = require('../../config/constants');
 /**
  * Crea un nuevo trato y lo añade a la cola con datos enriquecidos.
  */
-async function enqueueDeal(creatorId, creatorUsername, role, counterpart, description, tenantId = null) {
+async function enqueueDeal(creatorId, creatorUsername, role, counterpart, description, tenantId = null, extraData = {}) {
+  const amount = extraData.amount ? Number(extraData.amount) : null;
+  const currency = extraData.currency || 'PEN';
+  const fee = extraData.fee ? Number(extraData.fee) : (amount ? Number((amount * 0.10).toFixed(2)) : null);
+  const category = extraData.category || 'OTRO';
+  const paymentMethod = extraData.paymentMethod || extraData.payment_method || 'A_COORDINAR';
+  const phase = extraData.phase || 'AGREEMENT';
+
   // Crear en PostgreSQL / Supabase
   const deal = await db.createDeal(creatorId, {
     role,
@@ -17,6 +24,12 @@ async function enqueueDeal(creatorId, creatorUsername, role, counterpart, descri
     description,
     creatorUsername,
     tenantId,
+    amount,
+    currency,
+    fee,
+    category,
+    paymentMethod,
+    phase,
   });
 
   const dealPayload = {
@@ -26,6 +39,12 @@ async function enqueueDeal(creatorId, creatorUsername, role, counterpart, descri
     role: role || 'Solicitante',
     counterpart: counterpart || 'Sin especificar',
     description: description || 'Sin especificar',
+    amount,
+    currency,
+    fee,
+    category,
+    paymentMethod,
+    phase,
     status: DEAL_STATUS.PENDING,
     createdAt: new Date().toISOString(),
   };
@@ -45,12 +64,11 @@ async function assignDealToAdmin(dealId, adminId) {
   await db.assignDeal(dealId, adminId);
 
   // Actualizar estado en Redis
-  const dealState = await redisDb.getDealState(dealId);
-  if (dealState) {
-    dealState.adminId = adminId;
-    dealState.status = DEAL_STATUS.ASSIGNED;
-    await redisDb.updateDealState(dealId, dealState);
-  }
+  const dealState = (await redisDb.getDealState(dealId)) || (await redisDb.getCache(`deal_full_info:${dealId}`)) || {};
+  dealState.adminId = adminId;
+  dealState.status = DEAL_STATUS.ASSIGNED;
+  await redisDb.updateDealState(dealId, dealState);
+  await redisDb.setCache(`deal_full_info:${dealId}`, dealState, 86400 * 7);
 }
 
 /**
@@ -59,14 +77,25 @@ async function assignDealToAdmin(dealId, adminId) {
 async function setDealInProgress(dealId, groupChatId, inviteLink, threadId = null) {
   await db.updateDealGroup(dealId, groupChatId, inviteLink, threadId);
 
-  const dealState = await redisDb.getDealState(dealId);
-  if (dealState) {
-    dealState.status = DEAL_STATUS.IN_PROGRESS;
-    dealState.groupChatId = groupChatId;
-    dealState.inviteLink = inviteLink;
-    dealState.threadId = threadId;
-    await redisDb.updateDealState(dealId, dealState);
-  }
+  const dealState = (await redisDb.getDealState(dealId)) || (await redisDb.getCache(`deal_full_info:${dealId}`)) || {};
+  dealState.status = DEAL_STATUS.IN_PROGRESS;
+  dealState.groupChatId = groupChatId;
+  dealState.inviteLink = inviteLink;
+  dealState.threadId = threadId;
+  await redisDb.updateDealState(dealId, dealState);
+  await redisDb.setCache(`deal_full_info:${dealId}`, dealState, 86400 * 7);
+}
+
+/**
+ * Actualiza la fase del trato (AGREEMENT -> FUNDS_DEPOSITED -> DELIVERY -> RELEASED, etc.)
+ */
+async function setDealPhase(dealId, phase) {
+  await db.updateDealPhase(dealId, phase);
+
+  const dealState = (await redisDb.getDealState(dealId)) || (await redisDb.getCache(`deal_full_info:${dealId}`)) || {};
+  dealState.phase = phase;
+  await redisDb.updateDealState(dealId, dealState);
+  await redisDb.setCache(`deal_full_info:${dealId}`, dealState, 86400 * 7);
 }
 
 /**
@@ -74,7 +103,12 @@ async function setDealInProgress(dealId, groupChatId, inviteLink, threadId = nul
  */
 async function completeDeal(dealId) {
   await db.updateDealStatus(dealId, DEAL_STATUS.COMPLETED);
+  await db.updateDealPhase(dealId, 'COMPLETED');
   await redisDb.removeDealFromQueue(dealId);
+  const dealState = (await redisDb.getDealState(dealId)) || (await redisDb.getCache(`deal_full_info:${dealId}`)) || {};
+  dealState.status = DEAL_STATUS.COMPLETED;
+  dealState.phase = 'COMPLETED';
+  await redisDb.setCache(`deal_full_info:${dealId}`, dealState, 86400 * 7);
 }
 
 /**
@@ -82,13 +116,19 @@ async function completeDeal(dealId) {
  */
 async function cancelDeal(dealId) {
   await db.updateDealStatus(dealId, DEAL_STATUS.CANCELLED);
+  await db.updateDealPhase(dealId, 'CANCELLED');
   await redisDb.removeDealFromQueue(dealId);
+  const dealState = (await redisDb.getDealState(dealId)) || (await redisDb.getCache(`deal_full_info:${dealId}`)) || {};
+  dealState.status = DEAL_STATUS.CANCELLED;
+  dealState.phase = 'CANCELLED';
+  await redisDb.setCache(`deal_full_info:${dealId}`, dealState, 86400 * 7);
 }
 
 module.exports = {
   enqueueDeal,
   assignDealToAdmin,
   setDealInProgress,
+  setDealPhase,
   completeDeal,
   cancelDeal,
 };

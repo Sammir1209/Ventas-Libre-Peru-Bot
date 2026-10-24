@@ -7,12 +7,16 @@ const {
   dealMainKeyboard,
   dealInfoKeyboard,
   dealRoleKeyboard,
+  dealCategoryKeyboard,
+  dealCurrencyKeyboard,
+  dealPaymentMethodKeyboard,
   dealCancelKeyboard,
   dealConfirmKeyboard,
   dealWaitingKeyboard,
   dealAcceptKeyboard,
   dealCompleteKeyboard,
   dealTopicKeyboard,
+  dealBuyerTopicKeyboard,
   dealRatingKeyboard,
 } = require('./keyboard');
 const dealQueue = require('./queue');
@@ -449,7 +453,7 @@ function register(bot) {
     }
   });
 
-  // ── Callback: Selección de Rol (Paso 2: Pedir Contraparte) ──
+  // ── Callback: Selección de Rol (Paso 1 -> Paso 2: Pedir Categoría) ──
   bot.callbackQuery(/^deal_role:(VENDEDOR|COMPRADOR)$/, async (ctx) => {
     try {
       await ctx.answerCallbackQuery();
@@ -457,34 +461,109 @@ function register(bot) {
       const role = ctx.match[1];
 
       await setDealForm(userId, {
-        step: 'AWAIT_COUNTERPART',
+        step: 'AWAIT_CATEGORY',
         role,
         messageId: ctx.callbackQuery?.message?.message_id,
         chatId: ctx.chat?.id,
       });
 
-      await ctx.editMessageText(templates.dealCounterpartStepMessage(role), {
+      await ctx.editMessageText(templates.dealCategoryStepMessage(role), {
         parse_mode: 'HTML',
-        reply_markup: dealCancelKeyboard(),
+        reply_markup: dealCategoryKeyboard(),
       });
     } catch (err) {
       console.error('⟡ Escrow: Error en deal_role:', err.message);
     }
   });
 
-  // ── Listener de texto para los pasos 2 y 3 del formulario en DM ──
+  // ── Callback: Selección de Categoría (Paso 2 -> Paso 3: Pedir Contraparte) ──
+  bot.callbackQuery(/^deal_cat:(CUENTAS|STREAMING|CRIPTO|REDES|FISICO|OTRO)$/, async (ctx) => {
+    try {
+      await ctx.answerCallbackQuery();
+      const userId = ctx.from.id;
+      const form = (await getDealForm(userId)) || {};
+      const catKey = ctx.match[1];
+      const catLabels = {
+        CUENTAS: '🎮 Cuentas / Juegos',
+        STREAMING: '📺 Streaming',
+        CRIPTO: '💎 Cripto / Saldo',
+        REDES: '📱 Redes / Canales',
+        FISICO: '📦 Producto Físico',
+        OTRO: '⚡ Otro Trato',
+      };
+      form.category = catLabels[catKey] || 'General';
+      form.step = 'AWAIT_COUNTERPART';
+      await setDealForm(userId, form);
+
+      await ctx.editMessageText(templates.dealCounterpartStepMessage(form.role, form.category), {
+        parse_mode: 'HTML',
+        reply_markup: dealCancelKeyboard(),
+      });
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_cat:', err.message);
+    }
+  });
+
+  // ── Callback: Selección de Moneda (Paso 4 -> Paso 5: Pedir Monto) ──
+  bot.callbackQuery(/^deal_curr:(PEN|USD|USDT)$/, async (ctx) => {
+    try {
+      await ctx.answerCallbackQuery();
+      const userId = ctx.from.id;
+      const form = (await getDealForm(userId)) || {};
+      form.currency = ctx.match[1];
+      form.step = 'AWAIT_AMOUNT';
+      await setDealForm(userId, form);
+
+      await ctx.editMessageText(templates.dealAmountStepMessage(form.role, form.category, form.currency), {
+        parse_mode: 'HTML',
+        reply_markup: dealCancelKeyboard(),
+      });
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_curr:', err.message);
+    }
+  });
+
+  // ── Callback: Selección de Método de Pago (Paso 6 -> Pedir Descripción) ──
+  bot.callbackQuery(/^deal_pay:(YAPE_PLIN|BANCO|BINANCE|EN_SALA)$/, async (ctx) => {
+    try {
+      await ctx.answerCallbackQuery();
+      const userId = ctx.from.id;
+      const form = (await getDealForm(userId)) || {};
+      const payLabels = {
+        YAPE_PLIN: '🇵🇪 Yape / Plin',
+        BANCO: '🏦 Banco BCP/BBVA',
+        BINANCE: '🟡 Binance Pay',
+        EN_SALA: '💬 En Sala (Coordinar)',
+      };
+      form.paymentMethod = payLabels[ctx.match[1]] || 'A coordinar';
+      form.step = 'AWAIT_DESCRIPTION';
+      await setDealForm(userId, form);
+
+      await ctx.editMessageText(
+        templates.dealDescriptionStepMessage(form.currency, form.amount, form.paymentMethod),
+        {
+          parse_mode: 'HTML',
+          reply_markup: dealCancelKeyboard(),
+        }
+      );
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_pay:', err.message);
+    }
+  });
+
+  // ── Listener de texto para los pasos de entrada del formulario en DM ──
   bot.on('message:text', async (ctx, next) => {
     const userId = ctx.from?.id;
     if (!userId || ctx.chat.type !== 'private') return next();
 
     // Solo procesar si el usuario tiene un formulario de trato activo
     const form = await getDealForm(userId);
-    if (!form) return next();
+    if (!form || !form.step) return next();
 
     try {
       const text = ctx.message.text.trim();
 
-      // Paso 2: Recibir Contraparte
+      // Paso 3: Recibir Contraparte
       if (form.step === 'AWAIT_COUNTERPART') {
         if (!text || text.length < 2) {
           return ctx.reply(`${SYM.CROSS} Ingresa un @usuario o ID válido.`, { parse_mode: 'HTML' });
@@ -507,13 +586,13 @@ function register(bot) {
           return ctx.reply(
             `${SYM.CROSS} <b>ALERTA DE ESTAFADOR DETECTADO</b>\n\n` +
             `El usuario <code>${escapeHtml(text)}</code> está registrado en la <b>Lista Negra Oficial de Estafadores</b>.\n\n` +
-            `${SYM.WARNING} <i>Por tu seguridad, no puedes iniciar tratos con esta persona. Solicitud cancelada.</i>`,
+            `${SYM.WARNING} <i>Por tu seguridad, no puedes iniciar tratos con esta persona. Solicitud cancelada de inmediato.</i>`,
             { parse_mode: 'HTML' }
           );
         }
 
         form.counterpart = text;
-        form.step = 'AWAIT_DESCRIPTION';
+        form.step = 'AWAIT_CURRENCY';
         await setDealForm(userId, form);
 
         // Borrar mensaje del usuario para mantener chat limpio
@@ -521,36 +600,81 @@ function register(bot) {
           await ctx.deleteMessage();
         } catch {}
 
-        // Actualizar el mensaje principal
+        const msgContent = templates.dealCurrencyStepMessage(form.role, form.category, form.counterpart);
         if (form.messageId && form.chatId) {
           try {
-            await ctx.api.editMessageText(
-              form.chatId,
-              form.messageId,
-              templates.dealDescriptionStepMessage(form.role, form.counterpart),
-              {
-                parse_mode: 'HTML',
-                reply_markup: dealCancelKeyboard(),
-              }
-            );
+            await ctx.api.editMessageText(form.chatId, form.messageId, msgContent, {
+              parse_mode: 'HTML',
+              reply_markup: dealCurrencyKeyboard(),
+            });
             return;
           } catch {}
         }
 
-        const sent = await ctx.reply(
-          templates.dealDescriptionStepMessage(form.role, form.counterpart),
-          {
-            parse_mode: 'HTML',
-            reply_markup: dealCancelKeyboard(),
-          }
-        );
+        const sent = await ctx.reply(msgContent, {
+          parse_mode: 'HTML',
+          reply_markup: dealCurrencyKeyboard(),
+        });
         form.messageId = sent.message_id;
         form.chatId = sent.chat.id;
         await setDealForm(userId, form);
         return;
       }
 
-      // Paso 3: Recibir Descripción
+      // Paso 5: Recibir Monto
+      if (form.step === 'AWAIT_AMOUNT') {
+        const cleanNumStr = text.replace(',', '.').replace(/[^0-9.]/g, '');
+        const num = parseFloat(cleanNumStr);
+
+        if (isNaN(num) || num <= 0) {
+          return ctx.reply(
+            `${SYM.CROSS} Ingresa un <b>monto numérico válido mayor a 0</b>.\n<i>Ejemplo: <code>80</code> o <code>120.50</code></i>`,
+            { parse_mode: 'HTML' }
+          );
+        }
+
+        if (num > 50000) {
+          return ctx.reply(
+            `${SYM.CROSS} El monto máximo por trato mediante bot es de <b>50,000</b>. Para operaciones de mayor volumen contacta a un Owner.`,
+            { parse_mode: 'HTML' }
+          );
+        }
+
+        const fee = Number((num * 0.10).toFixed(2));
+        const total = Number((num + fee).toFixed(2));
+
+        form.amount = num;
+        form.fee = fee;
+        form.total = total;
+        form.step = 'AWAIT_PAYMENT';
+        await setDealForm(userId, form);
+
+        try {
+          await ctx.deleteMessage();
+        } catch {}
+
+        const msgContent = templates.dealPaymentMethodStepMessage(form.currency, form.amount, form.fee, form.total);
+        if (form.messageId && form.chatId) {
+          try {
+            await ctx.api.editMessageText(form.chatId, form.messageId, msgContent, {
+              parse_mode: 'HTML',
+              reply_markup: dealPaymentMethodKeyboard(),
+            });
+            return;
+          } catch {}
+        }
+
+        const sent = await ctx.reply(msgContent, {
+          parse_mode: 'HTML',
+          reply_markup: dealPaymentMethodKeyboard(),
+        });
+        form.messageId = sent.message_id;
+        form.chatId = sent.chat.id;
+        await setDealForm(userId, form);
+        return;
+      }
+
+      // Paso 7: Recibir Descripción
       if (form.step === 'AWAIT_DESCRIPTION') {
         if (!text || text.length < 5) {
           return ctx.reply(
@@ -559,9 +683,9 @@ function register(bot) {
           );
         }
 
-        if (text.length > 150) {
+        if (text.length > 250) {
           return ctx.reply(
-            `${SYM.CROSS} La descripción es muy larga (máximo <b>150 caracteres</b>). Tu texto tiene ${text.length} caracteres.\n\n` +
+            `${SYM.CROSS} La descripción es muy larga (máximo <b>250 caracteres</b>). Tu texto tiene ${text.length} caracteres.\n\n` +
             `<i>Por favor escribe un resumen más corto:</i>`,
             { parse_mode: 'HTML' }
           );
@@ -576,29 +700,21 @@ function register(bot) {
           await ctx.deleteMessage();
         } catch {}
 
-        // Mostrar resumen de confirmación
+        const msgContent = templates.dealSummaryMessage(form);
         if (form.messageId && form.chatId) {
           try {
-            await ctx.api.editMessageText(
-              form.chatId,
-              form.messageId,
-              templates.dealSummaryMessage(form.role, form.counterpart, form.description),
-              {
-                parse_mode: 'HTML',
-                reply_markup: dealConfirmKeyboard(),
-              }
-            );
+            await ctx.api.editMessageText(form.chatId, form.messageId, msgContent, {
+              parse_mode: 'HTML',
+              reply_markup: dealConfirmKeyboard(),
+            });
             return;
           } catch {}
         }
 
-        const sent = await ctx.reply(
-          templates.dealSummaryMessage(form.role, form.counterpart, form.description),
-          {
-            parse_mode: 'HTML',
-            reply_markup: dealConfirmKeyboard(),
-          }
-        );
+        const sent = await ctx.reply(msgContent, {
+          parse_mode: 'HTML',
+          reply_markup: dealConfirmKeyboard(),
+        });
         form.messageId = sent.message_id;
         form.chatId = sent.chat.id;
         await setDealForm(userId, form);
@@ -635,7 +751,15 @@ function register(bot) {
         form.role,
         form.counterpart,
         form.description,
-        ctx.tenant?.id
+        ctx.tenant?.id,
+        {
+          amount: form.amount,
+          currency: form.currency,
+          fee: form.fee,
+          category: form.category,
+          paymentMethod: form.paymentMethod,
+          phase: 'AGREEMENT',
+        }
       );
 
       // Limpiar formulario temporal
@@ -643,7 +767,7 @@ function register(bot) {
 
       // Actualizar el mensaje del usuario con la confirmación de espera y botón Canal Oficial
       await ctx.editMessageText(
-        templates.dealWaitingMessage(deal.id, form.role, form.counterpart, form.description),
+        templates.dealWaitingMessage(deal.id, form),
         {
           parse_mode: 'HTML',
           reply_markup: dealWaitingKeyboard(deal.id),
@@ -659,9 +783,7 @@ function register(bot) {
               deal.id,
               username,
               userId,
-              form.role,
-              form.counterpart,
-              form.description
+              form
             ),
             {
               parse_mode: 'HTML',
@@ -696,9 +818,7 @@ function register(bot) {
               deal.id,
               username,
               userId,
-              form.role,
-              form.counterpart,
-              form.description
+              form
             ),
             {
               parse_mode: 'HTML',
@@ -844,10 +964,18 @@ function register(bot) {
       const dealDescription = redisState.description || deal.description || 'Sin especificar';
       const dealCreatorUsername = redisState.creatorUsername || deal.creator_username || null;
       const dealData = {
+        id: dealId,
         role: dealRole,
         counterpart: dealCounterpart,
         description: dealDescription,
         creatorUsername: dealCreatorUsername,
+        amount: redisState.amount ?? deal.amount,
+        currency: redisState.currency || deal.currency || 'PEN',
+        fee: redisState.fee ?? deal.fee,
+        total: redisState.total ?? (deal.amount ? Number(deal.amount) * 1.10 : null),
+        category: redisState.category || deal.category || 'General',
+        paymentMethod: redisState.paymentMethod || redisState.payment_method || deal.payment_method || 'A coordinar',
+        phase: 'AGREEMENT',
       };
 
       // 5. Crear el Hilo / Forum Topic en el Supergrupo (con fallback resiliente si el grupo no tiene topics)
@@ -927,7 +1055,7 @@ function register(bot) {
       // Guardar enlaces activos del trato para revocación inmediata
       await redisDb.setCache(`deal_invites:${dealId}`, [creatorJoinLink, counterpartJoinLink], 86400);
 
-      // 7. Enviar banner de bienvenida fijado en el Hilo/Topic
+      // 7. Enviar banner de bienvenida con indicador de fase fijado en el Hilo/Topic
       const creatorMention = dealCreatorUsername
         ? `@${dealCreatorUsername}`
         : `ID: <code>${deal.creator_id}</code>`;
@@ -941,15 +1069,29 @@ function register(bot) {
           creatorMention,
           dealCounterpart,
           adminMention,
-          dealDescription,
-          dealRole
+          dealData,
+          'AGREEMENT'
         ),
         {
           message_thread_id: threadId,
           parse_mode: 'HTML',
-          reply_markup: dealTopicKeyboard(dealId),
+          reply_markup: dealTopicKeyboard(dealId, 'AGREEMENT'),
         }
       );
+
+      // Panel interactivo de conformidad para el comprador en el Topic
+      try {
+        await ctx.api.sendMessage(
+          escrowGroupId,
+          `<b>⟡ PANEL EXCLUSIVO DEL COMPRADOR</b>\n` +
+          `Cuando el vendedor entregue el bien o credenciales y confirmes que todo está 100% conforme, pulsa el botón inferior para autorizar el desembolso:`,
+          {
+            message_thread_id: threadId,
+            parse_mode: 'HTML',
+            reply_markup: dealBuyerTopicKeyboard(dealId),
+          }
+        );
+      } catch {}
 
       // Guardar mapeos de hilos y deals en Redis y BD
       await dealQueue.setDealInProgress(dealId, escrowGroupId, creatorJoinLink, threadId);
@@ -961,11 +1103,14 @@ function register(bot) {
         counterpartId: counterpartTargetId,
       }, 86400 * 7);
 
+      const symb = dealData.currency === 'USD' ? '$' : (dealData.currency === 'USDT' ? 'USDT' : 'S/');
+      const amtStr = dealData.amount ? `${symb} ${Number(dealData.amount).toFixed(2)}` : '';
+
       // 8. Enviar mensaje DM al creador del trato con su enlace único
       try {
         await ctx.api.sendMessage(
           deal.creator_id,
-          templates.dealInviteMessage(dealId, creatorJoinLink, topicLink, dealCounterpart, dealRole, dealDescription),
+          templates.dealInviteMessage(dealId, creatorJoinLink, topicLink, dealCounterpart, dealRole, dealDescription, amtStr),
           { parse_mode: 'HTML' }
         );
       } catch {
@@ -984,7 +1129,8 @@ function register(bot) {
               creatorMention,
               counterpartRole,
               dealRole,
-              dealDescription
+              dealDescription,
+              amtStr
             ),
             { parse_mode: 'HTML' }
           );
@@ -1017,6 +1163,261 @@ function register(bot) {
     }
   });
 
+  // ── Callback: Trato Admin envía sus Cuentas de Cobro al Hilo ──
+  bot.callbackQuery(/^deal_accounts:(\d+)$/, async (ctx) => {
+    try {
+      const dealId = parseInt(ctx.match[1]);
+      const adminId = ctx.from.id;
+      const isAuthorized = await isDealAdmin(adminId, ctx.tenant?.id);
+      if (!isAuthorized) {
+        return ctx.answerCallbackQuery({
+          text: '✗ Solo el Staff autorizado puede enviar cuentas de custodia.',
+          show_alert: true,
+        });
+      }
+
+      const escrowGroupId = await getEscrowGroupId(ctx);
+      const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
+      if (!escrowGroupId || !threadId) {
+        return ctx.answerCallbackQuery({ text: '✗ Sala no identificada.', show_alert: true });
+      }
+
+      await ctx.answerCallbackQuery({ text: '💳 Publicando cuentas oficiales de pago...' });
+
+      // Obtener cuentas personalizadas del admin o plantilla estándar
+      const savedAccounts = await redisDb.getCache(`admin_accounts:${adminId}`);
+      const adminName = ctx.from.first_name || 'Trato Admin';
+      const adminUser = ctx.from.username ? `@${ctx.from.username}` : adminName;
+
+      let accountsMsg =
+        `<b>⟡ CUENTAS OFICIALES DE CUSTODIA ESCROW</b>\n` +
+        `──────\n\n` +
+        `〖⚖️〗 <b>Mediador a Cargo:</b> ${adminUser}\n\n`;
+
+      if (savedAccounts) {
+        accountsMsg +=
+          `<b>Datos de pago autorizados:</b>\n` +
+          `<blockquote>${escapeHtml(savedAccounts)}</blockquote>\n\n`;
+      } else {
+        accountsMsg +=
+          `<b>Datos de pago del Staff:</b>\n` +
+          `• <b>Yape / Plin:</b> Solicitar número de cobro al mediador ${adminUser}\n` +
+          `• <b>BCP / Interbank:</b> Solicitar CCI al mediador ${adminUser}\n` +
+          `• <b>Binance Pay (USDT):</b> Solicitar Pay ID / Wallet al mediador ${adminUser}\n\n`;
+      }
+
+      accountsMsg +=
+        `──────\n` +
+        `⚠️ <b>ATENCIÓN COMPRADOR:</b>\n` +
+        `Envía tu comprobante de pago legible dentro de este hilo.\n` +
+        `<i>El Staff verificará el abono y confirmará la retención para proceder.</i>`;
+
+      await ctx.api.sendMessage(escrowGroupId, accountsMsg, {
+        message_thread_id: Number(threadId),
+        parse_mode: 'HTML',
+      });
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_accounts:', err.message);
+    }
+  });
+
+  // ── Callback: Trato Admin confirma Fondos Recibidos en Custodia ──
+  bot.callbackQuery(/^deal_funds_rcv:(\d+)$/, async (ctx) => {
+    try {
+      const dealId = parseInt(ctx.match[1]);
+      const adminId = ctx.from.id;
+      const isAuthorized = await isDealAdmin(adminId, ctx.tenant?.id);
+      if (!isAuthorized) {
+        return ctx.answerCallbackQuery({
+          text: '✗ Solo el Trato Admin asignado u Owners pueden confirmar la custodia de fondos.',
+          show_alert: true,
+        });
+      }
+
+      const escrowGroupId = await getEscrowGroupId(ctx);
+      const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
+      if (!escrowGroupId || !threadId) {
+        return ctx.answerCallbackQuery({ text: '✗ Sala no identificada.', show_alert: true });
+      }
+
+      await ctx.answerCallbackQuery({ text: '💰 Fondos marcados en custodia.' });
+
+      // Actualizar fase a FUNDS_DEPOSITED
+      await dealQueue.setDealPhase(dealId, 'FUNDS_DEPOSITED');
+      const redisState = (await redisDb.getDealState(dealId)) || (await redisDb.getCache(`deal_full_info:${dealId}`)) || {};
+      const symb = redisState.currency === 'USD' ? '$' : (redisState.currency === 'USDT' ? 'USDT' : 'S/');
+      const totalStr = redisState.total ? `${symb} ${Number(redisState.total).toFixed(2)}` : (redisState.amount ? `${symb} ${Number(redisState.amount).toFixed(2)}` : 'Fondos Confirmados');
+
+      const adminMention = staffMention(adminId, ctx.from.username, ctx.from.first_name);
+
+      await ctx.api.sendMessage(
+        escrowGroupId,
+        templates.dealFundsReceivedBanner(dealId, adminMention, totalStr),
+        {
+          message_thread_id: Number(threadId),
+          parse_mode: 'HTML',
+          reply_markup: dealTopicKeyboard(dealId, 'FUNDS_DEPOSITED'),
+        }
+      );
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_funds_rcv:', err.message);
+    }
+  });
+
+  // ── Callback: Vendedor / Admin notifica Entrega de Producto ──
+  bot.callbackQuery(/^deal_notify_deliv:(\d+)$/, async (ctx) => {
+    try {
+      const dealId = parseInt(ctx.match[1]);
+      const escrowGroupId = await getEscrowGroupId(ctx);
+      const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
+      if (!escrowGroupId || !threadId) {
+        return ctx.answerCallbackQuery({ text: '✗ Sala no identificada.', show_alert: true });
+      }
+
+      await ctx.answerCallbackQuery({ text: '📦 Entrega notificada.' });
+
+      await dealQueue.setDealPhase(dealId, 'DELIVERY');
+      const sellerMention = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Vendedor');
+
+      await ctx.api.sendMessage(
+        escrowGroupId,
+        templates.dealDeliveryNotifiedBanner(dealId, sellerMention),
+        {
+          message_thread_id: Number(threadId),
+          parse_mode: 'HTML',
+          reply_markup: dealTopicKeyboard(dealId, 'DELIVERY'),
+        }
+      );
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_notify_deliv:', err.message);
+    }
+  });
+
+  // ── Callback: Comprador otorga Conformidad formal ──
+  bot.callbackQuery(/^deal_buyer_ok:(\d+)$/, async (ctx) => {
+    try {
+      const dealId = parseInt(ctx.match[1]);
+      const escrowGroupId = await getEscrowGroupId(ctx);
+      const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
+      if (!escrowGroupId || !threadId) {
+        return ctx.answerCallbackQuery({ text: '✗ Sala no identificada.', show_alert: true });
+      }
+
+      await ctx.answerCallbackQuery({ text: '✅ Conformidad registrada.' });
+
+      const buyerMention = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Comprador');
+
+      await ctx.api.sendMessage(
+        escrowGroupId,
+        templates.dealBuyerConfirmedBanner(dealId, buyerMention),
+        {
+          message_thread_id: Number(threadId),
+          parse_mode: 'HTML',
+        }
+      );
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_buyer_ok:', err.message);
+    }
+  });
+
+  // ── Callback: Abrir Disputa / Controversia ──
+  bot.callbackQuery(/^deal_dispute:(\d+)$/, async (ctx) => {
+    try {
+      const dealId = parseInt(ctx.match[1]);
+      const escrowGroupId = await getEscrowGroupId(ctx);
+      const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
+      if (!escrowGroupId || !threadId) {
+        return ctx.answerCallbackQuery({ text: '✗ Sala no identificada.', show_alert: true });
+      }
+
+      await ctx.answerCallbackQuery({ text: '⚠️ Controversia iniciada.' });
+
+      await dealQueue.setDealPhase(dealId, 'DISPUTED');
+      const reporterMention = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Participante');
+      const deal = await db.getDeal(dealId);
+      const adminMention = deal?.admin_id ? `<a href="tg://user?id=${deal.admin_id}">el Mediador</a>` : 'el Staff';
+
+      await ctx.api.sendMessage(
+        escrowGroupId,
+        templates.dealDisputeBanner(dealId, adminMention, reporterMention),
+        {
+          message_thread_id: Number(threadId),
+          parse_mode: 'HTML',
+          reply_markup: dealTopicKeyboard(dealId, 'DISPUTED'),
+        }
+      );
+
+      // Notificar al canal de Staff sobre la disputa
+      if (config.STAFF_CHAT_ID) {
+        try {
+          await ctx.api.sendMessage(
+            config.STAFF_CHAT_ID,
+            `⚠️ <b>ALERTA DE DISPUTA ESCROW</b>\n` +
+            `El trato <b>#${dealId}</b> ha entrado en controversia por reporte de ${reporterMention}.\n` +
+            `Fondos retenidos. Revisar sala de mediación.`,
+            { parse_mode: 'HTML' }
+          );
+        } catch {}
+      }
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_dispute:', err.message);
+    }
+  });
+
+  // ── Callback: Mediador ejecuta Reembolso al Comprador ──
+  bot.callbackQuery(/^deal_refund:(\d+)$/, async (ctx) => {
+    try {
+      const dealId = parseInt(ctx.match[1]);
+      const adminId = ctx.from.id;
+      const isAuthorized = await isDealAdmin(adminId, ctx.tenant?.id);
+      if (!isAuthorized) {
+        return ctx.answerCallbackQuery({
+          text: '✗ Solo el Trato Admin u Owners pueden emitir reembolsos.',
+          show_alert: true,
+        });
+      }
+
+      const escrowGroupId = await getEscrowGroupId(ctx);
+      const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
+      if (!escrowGroupId || !threadId) {
+        return ctx.answerCallbackQuery({ text: '✗ Sala no identificada.', show_alert: true });
+      }
+
+      await ctx.answerCallbackQuery({ text: '🔄 Reembolso confirmado.' });
+
+      await dealQueue.cancelDeal(dealId);
+      await dealQueue.setDealPhase(dealId, 'REFUNDED');
+
+      const redisState = (await redisDb.getDealState(dealId)) || {};
+      const symb = redisState.currency === 'USD' ? '$' : (redisState.currency === 'USDT' ? 'USDT' : 'S/');
+      const refundStr = redisState.amount ? `${symb} ${Number(redisState.amount).toFixed(2)}` : 'Fondos Reembolsados';
+      const adminMention = staffMention(adminId, ctx.from.username, ctx.from.first_name);
+
+      await ctx.api.sendMessage(
+        escrowGroupId,
+        templates.dealRefundBanner(dealId, adminMention, refundStr),
+        {
+          message_thread_id: Number(threadId),
+          parse_mode: 'HTML',
+        }
+      );
+
+      // Cerrar y eliminar sala después de 10 segundos
+      setTimeout(async () => {
+        try {
+          await ctx.api.deleteForumTopic(escrowGroupId, Number(threadId));
+        } catch {
+          try {
+            await ctx.api.closeForumTopic(escrowGroupId, Number(threadId));
+          } catch {}
+        }
+        await expelDealParticipants(ctx.api, escrowGroupId, dealId);
+      }, 10000);
+    } catch (err) {
+      console.error('⟡ Escrow: Error en deal_refund:', err.message);
+    }
+  });
+
   // ── Callback: Finalizar Trato (Copia de Seguridad JSON + Eliminar Hilo) ──
   bot.callbackQuery(/^deal_complete:(\d+)$/, async (ctx) => {
     try {
@@ -1046,8 +1447,31 @@ function register(bot) {
       const adminMember = await db.getStaffMember(deal.admin_id, ctx.tenant?.id);
       const adminUsername = adminMember?.username || ctx.from.username || 'Admin';
 
-      const escrowGroupId = await getEscrowGroupId(ctx);
-      const threadId = await redisDb.getCache(`deal_thread:${dealId}`);
+      // 1.1. PUBLICAR VOUCHER DIGITAL FINAL EN EL HILO
+      if (escrowGroupId && threadId) {
+        try {
+          const voucherPayload = {
+            id: dealId,
+            creator_id: deal.creator_id,
+            counterpart: dealData.counterpart || deal.counterpart,
+            role: dealData.role || deal.role,
+            amount: dealData.amount ?? deal.amount,
+            currency: dealData.currency || deal.currency || 'PEN',
+            fee: dealData.fee ?? deal.fee,
+            category: dealData.category || deal.category,
+          };
+          await ctx.api.sendMessage(
+            escrowGroupId,
+            templates.dealVoucherTicket(voucherPayload, adminUsername),
+            {
+              message_thread_id: Number(threadId),
+              parse_mode: 'HTML',
+            }
+          );
+        } catch (vErr) {
+          console.warn('⟡ Error enviando voucher ticket al topic:', vErr.message);
+        }
+      }
 
       // 2. PUBLICAR SOLICITUD DE CALIFICACIÓN DENTRO DEL HILO / TOPIC (Para que todos lo vean)
       const topicRatingText =
@@ -1310,6 +1734,111 @@ function register(bot) {
         text: '✗ Error al registrar calificación.',
         show_alert: true,
       });
+    }
+  });
+
+  // ── Comando /mistratos & Callback deal_my_deals: Historial de Tratos del Usuario ──
+  const handleMyDeals = async (ctx) => {
+    try {
+      const userId = ctx.from.id;
+      const username = ctx.from.username;
+      const deals = await db.getUserDealsHistory(userId, username, ctx.tenant?.id);
+
+      const msg = templates.dealMyDealsMessage(deals, username);
+      const kb = new InlineKeyboard()
+        .text('🤝 Iniciar Trato', CB.START_DEAL).success()
+        .text('🔙 Volver', 'deal_back_to_main').primary();
+
+      if (ctx.callbackQuery) {
+        await ctx.answerCallbackQuery();
+        await ctx.editMessageText(msg, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        });
+      } else {
+        await ctx.reply(msg, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        });
+      }
+    } catch (err) {
+      console.error('⟡ Escrow: Error en handleMyDeals:', err.message);
+    }
+  };
+
+  bot.command(['mistratos', 'mis_tratos', 'historialtratos'], handleMyDeals);
+  bot.callbackQuery('deal_my_deals', handleMyDeals);
+
+  // ── Comando /calculartrato & Callback deal_calc_menu: Calculadora Rápida de Comisiones ──
+  const handleCalculator = async (ctx) => {
+    try {
+      let rawText = ctx.match || (ctx.message?.text ? ctx.message.text.replace(/^\/\w+\s*/, '') : '');
+      let amount = parseFloat(String(rawText).replace(',', '.').replace(/[^0-9.]/g, ''));
+
+      if (isNaN(amount) || amount <= 0) {
+        amount = 100; // Valor ejemplo por defecto si no se pasa parámetro
+      }
+
+      const msg = templates.dealCalculatorMessage(amount, 'PEN');
+      const kb = new InlineKeyboard()
+        .text('🤝 Iniciar Trato', CB.START_DEAL).success()
+        .text('🔙 Volver', 'deal_back_to_main').primary();
+
+      if (ctx.callbackQuery) {
+        await ctx.answerCallbackQuery();
+        await ctx.editMessageText(msg, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        });
+      } else {
+        await ctx.reply(msg, {
+          parse_mode: 'HTML',
+          reply_markup: kb,
+        });
+      }
+    } catch (err) {
+      console.error('⟡ Escrow: Error en handleCalculator:', err.message);
+    }
+  };
+
+  bot.command(['calculartrato', 'calcular_trato', 'comisiontrato', 'tarifatrato'], handleCalculator);
+  bot.callbackQuery('deal_calc_menu', handleCalculator);
+
+  // ── Comando /set_cuentas_trato: Staff configura sus cuentas de cobro ──
+  bot.command(['set_cuentas_trato', 'setcuentastrato', 'miscuentas_trato'], async (ctx) => {
+    try {
+      const userId = ctx.from.id;
+      const isAuthorized = await isDealAdmin(userId, ctx.tenant?.id);
+      if (!isAuthorized) {
+        return ctx.reply(`${SYM.CROSS} Comando reservado exclusivamente para <b>Trato Admins</b> y <b>Owners</b>.`, {
+          parse_mode: 'HTML',
+        });
+      }
+
+      const text = ctx.message.text.replace(/^\/\w+\s*/, '').trim();
+      if (!text) {
+        const current = await redisDb.getCache(`admin_accounts:${userId}`);
+        return ctx.reply(
+          `<b>⟡ CONFIGURACIÓN DE CUENTAS DE CUSTODIA</b>\n` +
+          `──────\n\n` +
+          `Para registrar tus cuentas oficiales de cobro, escribe:\n` +
+          `<code>/set_cuentas_trato [Tus datos de pago]</code>\n\n` +
+          `<i>Ejemplo:</i>\n` +
+          `<code>/set_cuentas_trato Yape: 987654321 (Juan P.) | BCP: 191-xxxxxx-0-xx | Binance: 12345678</code>\n\n` +
+          (current ? `<b>Tus cuentas actuales configuradas:</b>\n<blockquote>${escapeHtml(current)}</blockquote>` : '<i>No tienes cuentas registradas aún.</i>'),
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      await redisDb.setCache(`admin_accounts:${userId}`, text, 86400 * 365);
+      await ctx.reply(
+        `✓ <b>Cuentas de cobro actualizadas exitosamente.</b>\n\n` +
+        `Cuando tomes un caso y pulses <b>[ 💳 Cuentas de Pago ]</b> dentro del hilo, se enviarán automáticamente estos datos:\n` +
+        `<blockquote>${escapeHtml(text)}</blockquote>`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      console.error('⟡ Escrow: Error en /set_cuentas_trato:', err.message);
     }
   });
 }

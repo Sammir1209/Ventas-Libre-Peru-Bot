@@ -905,6 +905,12 @@ async function createDeal(creatorId, dealInfo = {}) {
   const description = dealInfo.description || null;
   const creatorUsername = dealInfo.creatorUsername || null;
   const tenantId = dealInfo.tenantId || null;
+  const amount = dealInfo.amount ? Number(dealInfo.amount) : null;
+  const currency = dealInfo.currency || 'PEN';
+  const fee = dealInfo.fee ? Number(dealInfo.fee) : (amount ? Number((amount * 0.10).toFixed(2)) : null);
+  const category = dealInfo.category || 'OTRO';
+  const paymentMethod = dealInfo.paymentMethod || dealInfo.payment_method || 'A_COORDINAR';
+  const phase = dealInfo.phase || 'AGREEMENT';
 
   if (useSupabase && supabase) {
     const payload = { creator_id: creatorId };
@@ -913,6 +919,12 @@ async function createDeal(creatorId, dealInfo = {}) {
     if (description) payload.description = description;
     if (creatorUsername) payload.creator_username = creatorUsername;
     if (tenantId) payload.tenant_id = tenantId;
+    if (amount !== null) payload.amount = amount;
+    if (currency) payload.currency = currency;
+    if (fee !== null) payload.fee = fee;
+    if (category) payload.category = category;
+    if (paymentMethod) payload.payment_method = paymentMethod;
+    if (phase) payload.phase = phase;
 
     let { data, error } = await supabase
       .from('deals')
@@ -922,7 +934,12 @@ async function createDeal(creatorId, dealInfo = {}) {
 
     if (error) {
       console.warn('⟡ Supabase createDeal full payload warning:', error.message);
+      // Fallback with base columns if schema doesn't have custom columns yet
       const fbPayload = { creator_id: creatorId };
+      if (role) fbPayload.role = role;
+      if (counterpart) fbPayload.counterpart = counterpart;
+      if (description) fbPayload.description = description;
+      if (creatorUsername) fbPayload.creator_username = creatorUsername;
       if (tenantId) fbPayload.tenant_id = tenantId;
       const fb = await supabase.from('deals').insert(fbPayload).select().maybeSingle();
       data = fb.data || { id: Date.now(), creator_id: creatorId, status: 'PENDING' };
@@ -933,31 +950,74 @@ async function createDeal(creatorId, dealInfo = {}) {
       counterpart: data?.counterpart || counterpart,
       description: data?.description || description,
       creator_username: data?.creator_username || creatorUsername,
+      amount: data?.amount ?? amount,
+      currency: data?.currency || currency,
+      fee: data?.fee ?? fee,
+      category: data?.category || category,
+      payment_method: data?.payment_method || paymentMethod,
+      phase: data?.phase || phase,
     };
   }
   if (pool) {
     try {
       const res = await pool.query(
-        `INSERT INTO deals (creator_id, role, counterpart, description, creator_username, tenant_id)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [creatorId, role, counterpart, description, creatorUsername, tenantId]
+        `INSERT INTO deals (creator_id, role, counterpart, description, creator_username, tenant_id, amount, currency, fee, category, payment_method, phase)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+        [creatorId, role, counterpart, description, creatorUsername, tenantId, amount, currency, fee, category, paymentMethod, phase]
       );
       return res.rows[0];
     } catch {
-      const res = await pool.query(
-        `INSERT INTO deals (creator_id) VALUES ($1) RETURNING *`,
-        [creatorId]
-      );
-      return {
-        ...res.rows[0],
-        role,
-        counterpart,
-        description,
-        creator_username: creatorUsername,
-      };
+      try {
+        const res = await pool.query(
+          `INSERT INTO deals (creator_id, role, counterpart, description, creator_username, tenant_id)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+          [creatorId, role, counterpart, description, creatorUsername, tenantId]
+        );
+        return {
+          ...res.rows[0],
+          amount,
+          currency,
+          fee,
+          category,
+          payment_method: paymentMethod,
+          phase,
+        };
+      } catch {
+        const res = await pool.query(
+          `INSERT INTO deals (creator_id) VALUES ($1) RETURNING *`,
+          [creatorId]
+        );
+        return {
+          ...res.rows[0],
+          role,
+          counterpart,
+          description,
+          creator_username: creatorUsername,
+          amount,
+          currency,
+          fee,
+          category,
+          payment_method: paymentMethod,
+          phase,
+        };
+      }
     }
   }
-  return { id: Date.now(), creator_id: creatorId, role, counterpart, description, creator_username: creatorUsername, status: 'PENDING' };
+  return {
+    id: Date.now(),
+    creator_id: creatorId,
+    role,
+    counterpart,
+    description,
+    creator_username: creatorUsername,
+    amount,
+    currency,
+    fee,
+    category,
+    payment_method: paymentMethod,
+    phase,
+    status: 'PENDING'
+  };
 }
 
 async function getDeal(dealId) {
@@ -1083,6 +1143,87 @@ async function getUserDeals(userId, tenantId = null) {
     }
     return res.rows;
   }
+  return [];
+}
+
+async function updateDealPhase(dealId, phase) {
+  if (useSupabase && supabase) {
+    const { error } = await supabase.from('deals').update({ phase }).eq('id', dealId);
+    if (error) console.warn('⟡ Supabase updateDealPhase warning:', error.message);
+    return;
+  }
+  if (pool) {
+    try {
+      await pool.query(`UPDATE deals SET phase = $1 WHERE id = $2`, [phase, dealId]);
+    } catch (err) {
+      console.warn('⟡ Postgres updateDealPhase fallback:', err.message);
+    }
+  }
+}
+
+async function getUserDealsHistory(userId, username = null, tenantId = null) {
+  const cleanUsername = username ? username.replace(/^@/, '').trim() : null;
+  const userStr = String(userId);
+
+  if (useSupabase && supabase) {
+    try {
+      let q = supabase
+        .from('deals')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (tenantId) q = q.eq('tenant_id', tenantId);
+
+      const { data, error } = await q;
+      if (error) {
+        console.warn('⟡ Supabase getUserDealsHistory fallback to getUserDeals:', error.message);
+        return await getUserDeals(userId, tenantId);
+      }
+
+      if (Array.isArray(data)) {
+        return data.filter(d => {
+          if (String(d.creator_id) === userStr) return true;
+          if (String(d.counterpart) === userStr) return true;
+          if (cleanUsername && d.counterpart) {
+            const cp = String(d.counterpart).replace(/^@/, '').toLowerCase().trim();
+            if (cp === cleanUsername.toLowerCase()) return true;
+          }
+          return false;
+        });
+      }
+    } catch {}
+    return await getUserDeals(userId, tenantId);
+  }
+
+  if (pool) {
+    try {
+      let res;
+      if (cleanUsername) {
+        res = await pool.query(
+          `SELECT * FROM deals 
+           WHERE (creator_id = $1 OR counterpart = $2 OR counterpart ILIKE $3)
+           ${tenantId ? 'AND tenant_id = $4' : ''}
+           ORDER BY created_at DESC LIMIT 30`,
+          tenantId
+            ? [userId, userStr, `%${cleanUsername}%`, tenantId]
+            : [userId, userStr, `%${cleanUsername}%`]
+        );
+      } else {
+        res = await pool.query(
+          `SELECT * FROM deals 
+           WHERE (creator_id = $1 OR counterpart = $2)
+           ${tenantId ? 'AND tenant_id = $3' : ''}
+           ORDER BY created_at DESC LIMIT 30`,
+          tenantId ? [userId, userStr, tenantId] : [userId, userStr]
+        );
+      }
+      return res.rows;
+    } catch {
+      return await getUserDeals(userId, tenantId);
+    }
+  }
+
   return [];
 }
 
@@ -2553,8 +2694,10 @@ module.exports = {
   getDeal,
   assignDeal,
   updateDealStatus,
+  updateDealPhase,
   updateDealGroup,
   getUserDeals,
+  getUserDealsHistory,
   getAllDeals,
   getUserDealsCount,
   // Ratings

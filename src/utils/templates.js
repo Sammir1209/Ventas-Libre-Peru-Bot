@@ -130,88 +130,183 @@ function dealDetailedInfoMessage() {
 function dealRoleStepMessage() {
   const dateFormatted = getSuperscriptDate();
   return (
-    `<b>⟡ [SOLICITUD DE TRATO] PASO 1 DE 3</b>\n` +
+    `<b>⟡ [SOLICITUD DE TRATO] PASO 1 DE 6 ⊱ ROL ⊰</b>\n` +
     `──────\n\n` +
-    `〖⚖️〗 <b>Pregunta:</b> ¿Cuál es tu rol en la transacción?\n\n` +
-    `Selecciona si vas a <b>Vender</b> o <b>Comprar</b>:\n\n` +
+    `〖⚖️〗 <b>¿Cuál es tu rol en esta transacción?</b>\n\n` +
+    `Selecciona si eres el <b>Vendedor</b> (entregas el bien/servicio) o el <b>Comprador</b> (realizas el pago):\n\n` +
     `──────\n` +
     `${dateFormatted}`
   );
 }
 
-function dealCounterpartStepMessage(role) {
+function dealCategoryStepMessage(role) {
+  const dateFormatted = getSuperscriptDate();
+  return (
+    `<b>⟡ [SOLICITUD DE TRATO] PASO 2 DE 6 ⊱ CATEGORÍA ⊰</b>\n` +
+    `──────\n\n` +
+    `〖☾〗 <b>Tu Rol:</b> <code>${role}</code>\n` +
+    `〖📦〗 <b>¿Qué tipo de producto o servicio van a negociar?</b>\n\n` +
+    `<i>Selecciona la categoría correspondiente en los botones inferiores:</i>\n\n` +
+    `──────\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealCounterpartStepMessage(role, category) {
   const counterpartName = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   const dateFormatted = getSuperscriptDate();
   return (
-    `<b>⟡ [SOLICITUD DE TRATO] PASO 2 DE 3</b>\n` +
+    `<b>⟡ [SOLICITUD DE TRATO] PASO 3 DE 6 ⊱ CONTRAPARTE ⊰</b>\n` +
     `──────\n\n` +
-    `〖☾〗 <b>Tu rol:</b> <code>${role}</code>\n` +
-    `〖⚖️〗 <b>Pregunta:</b> ¿Con quién vas a realizar la transacción?\n\n` +
-    `Envía el <b>@usuario</b> o <b>ID numérico</b> del <b>${counterpartName}</b>:\n\n` +
+    `〖☾〗 <b>Tu Rol:</b> <code>${role}</code>\n` +
+    `〖🏷️〗 <b>Categoría:</b> <code>${category || 'General'}</code>\n\n` +
+    `〖👤〗 <b>¿Con quién vas a realizar la transacción?</b>\n` +
+    `Envía por mensaje el <b>@usuario</b> o <b>ID numérico</b> del <b>${counterpartName}</b>:\n\n` +
     `──────\n` +
+    `<i>🛡️ El bot comprobará automáticamente si se encuentra en la Lista Negra Oficial.</i>\n` +
     `${dateFormatted}`
   );
 }
 
-function dealDescriptionStepMessage(role, counterpart) {
+function dealCurrencyStepMessage(role, category, counterpart) {
   const dateFormatted = getSuperscriptDate();
   return (
-    `<b>⟡ [SOLICITUD DE TRATO] PASO 3 DE 3</b>\n` +
+    `<b>⟡ [SOLICITUD DE TRATO] PASO 4 DE 6 ⊱ MONEDA ⊰</b>\n` +
     `──────\n\n` +
-    `〖☾〗 <b>Tu rol:</b> <code>${role}</code>\n` +
+    `〖☾〗 <b>Tu Rol:</b> <code>${role}</code>\n` +
     `〖👤〗 <b>Contraparte:</b> <code>${escapeHtml(counterpart)}</code>\n\n` +
-    `Envía una descripción clara de la operación (producto, monto y método de pago):\n\n` +
+    `〖💱〗 <b>Selecciona la moneda acordada para el trato:</b>\n\n` +
     `──────\n` +
     `${dateFormatted}`
   );
 }
 
-function dealSummaryMessage(role, counterpart, description) {
+function dealAmountStepMessage(role, category, currency) {
+  const dateFormatted = getSuperscriptDate();
+  const symb = currency === 'USD' ? '$' : (currency === 'USDT' ? 'USDT' : 'S/');
+  return (
+    `<b>⟡ [SOLICITUD DE TRATO] PASO 5 DE 6 ⊱ MONTO ⊰</b>\n` +
+    `──────\n\n` +
+    `〖💱〗 <b>Moneda:</b> <code>${currency} (${symb})</code>\n\n` +
+    `〖💰〗 <b>Envía el importe numérico del trato:</b>\n` +
+    `<i>Ejemplo: <code>150</code> o <code>240.50</code></i>\n\n` +
+    `──────\n` +
+    `ℹ️ <i>La comisión del Trato Admin (10%) se calculará automáticamente sobre este monto.</i>\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealPaymentMethodStepMessage(currency, amount, fee, total) {
+  const dateFormatted = getSuperscriptDate();
+  const symb = currency === 'USD' ? '$' : (currency === 'USDT' ? 'USDT' : 'S/');
+  return (
+    `<b>⟡ [SOLICITUD DE TRATO] PASO 6 DE 6 ⊱ MÉTODO DE PAGO ⊰</b>\n` +
+    `──────\n\n` +
+    `〖💰〗 <b>Monto del Trato:</b> <code>${symb} ${Number(amount).toFixed(2)}</code>\n` +
+    `〖⚖️〗 <b>Comisión Admin (10%):</b> <code>${symb} ${Number(fee).toFixed(2)}</code>\n` +
+    `〖🔒〗 <b>Total en Custodia:</b> <code>${symb} ${Number(total).toFixed(2)}</code>\n\n` +
+    `〖💳〗 <b>¿A través de qué medio transferirá el comprador al Trato Admin?</b>\n\n` +
+    `──────\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealDescriptionStepMessage(currency, amount, paymentMethod) {
+  const dateFormatted = getSuperscriptDate();
+  const symb = currency === 'USD' ? '$' : (currency === 'USDT' ? 'USDT' : 'S/');
+  return (
+    `<b>⟡ [SOLICITUD DE TRATO] DETALLES Y CONDICIONES</b>\n` +
+    `──────\n\n` +
+    `〖💰〗 <b>Importe:</b> <code>${symb} ${Number(amount).toFixed(2)}</code> (${paymentMethod})\n\n` +
+    `〖📦〗 <b>Envía una breve descripción del bien o condiciones:</b>\n` +
+    `<i>Ej: "Cuenta de Steam con CS2 Prime + correo original"</i>\n\n` +
+    `──────\n` +
+    `<i>(Mínimo 5 caracteres | Máximo 250 caracteres)</i>\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealSummaryMessage(data) {
+  const role = data.role || 'Solicitante';
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   const counterpartEmoji = role === 'VENDEDOR' ? '〖👤〗' : '〖💼〗';
+  const currency = data.currency || 'PEN';
+  const symb = currency === 'USD' ? '$' : (currency === 'USDT' ? 'USDT' : 'S/');
+  const amount = Number(data.amount || 0).toFixed(2);
+  const fee = Number(data.fee || (amount * 0.10)).toFixed(2);
+  const total = Number(data.total || (Number(amount) + Number(fee))).toFixed(2);
   const dateFormatted = getSuperscriptDate();
+
   return (
-    `<b>⟡ [ESCROW OFICIAL] CONFIRMAR SOLICITUD</b>\n` +
+    `<b>⟡ [VOUCHER DE SOLICITUD] REVISIÓN FINAL ESCROW</b>\n` +
     `──────\n\n` +
     `〖☾〗 <b>Tu Rol:</b> <code>${role}</code>\n` +
-    `${counterpartEmoji} <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart)}</code>\n` +
-    `〖📦〗 <b>Detalles de la operación:</b>\n` +
-    `  ↳ <i>${escapeHtml(description)}</i>\n\n` +
+    `${counterpartEmoji} <b>${counterpartRole}:</b> <code>${escapeHtml(data.counterpart || 'N/A')}</code>\n` +
+    `〖🏷️〗 <b>Categoría:</b> <code>${escapeHtml(data.category || 'General')}</code>\n` +
+    `〖💳〗 <b>Método de Pago:</b> <code>${escapeHtml(data.paymentMethod || 'A coordinar')}</code>\n\n` +
+    `<b>⟡ DESGLOSE FINANCIERO OFICIAL:</b>\n` +
+    `┌─────────────────────────────┐\n` +
+    `│ • Valor del Trato: <b>${symb} ${amount}</b>\n` +
+    `│ • Comisión Admin (10%): <b>${symb} ${fee}</b>\n` +
+    `│ • Total en Custodia: <b>${symb} ${total}</b>\n` +
+    `└─────────────────────────────┘\n\n` +
+    `〖📦〗 <b>Condiciones del Intercambio:</b>\n` +
+    `  ↳ <i>${escapeHtml(data.description || 'Sin especificar')}</i>\n\n` +
     `──────\n` +
-    `¿Deseas enviar la solicitud al equipo de mediadores oficiales?\n` +
+    `¿Deseas enviar formalmente este ticket a la cola del Staff?\n` +
     `${dateFormatted}`
   );
 }
 
-function dealWaitingMessage(dealId, role, counterpart, description) {
+function dealWaitingMessage(dealId, data) {
+  const role = data.role || 'Solicitante';
   const counterpartEmoji = role === 'VENDEDOR' ? '〖👤〗' : '〖💼〗';
+  const currency = data.currency || 'PEN';
+  const symb = currency === 'USD' ? '$' : (currency === 'USDT' ? 'USDT' : 'S/');
+  const amount = Number(data.amount || 0).toFixed(2);
+  const total = Number(data.total || (Number(amount) * 1.10)).toFixed(2);
   const dateFormatted = getSuperscriptDate();
+
   return (
-    `<b>⟡ [TRATO #${dealId}] SOLICITUD EN COLA</b>\n` +
+    `<b>⟡ [CASO #${dealId}] TICKET EN COLA OFICIAL</b>\n` +
     `──────\n\n` +
-    `✓ <b>Solicitud registrada exitosamente en cola de atención.</b>\n\n` +
-    `〖☾〗 <b>Tu Rol:</b> <code>${role}</code>\n` +
-    `${counterpartEmoji} <b>Contraparte:</b> <code>${escapeHtml(counterpart)}</code>\n` +
-    `〖📦〗 <b>Detalles:</b> <i>${escapeHtml(description)}</i>\n\n` +
+    `✓ <b>Tu solicitud ha sido transmitida al equipo de mediadores certificados.</b>\n\n` +
+    `〖☾〗 <b>Rol:</b> <code>${role}</code>\n` +
+    `${counterpartEmoji} <b>Contraparte:</b> <code>${escapeHtml(data.counterpart || 'N/A')}</code>\n` +
+    `〖💰〗 <b>Valor:</b> <code>${symb} ${amount}</code> (Custodia: <code>${symb} ${total}</code>)\n` +
+    `〖📦〗 <b>Detalles:</b> <i>${escapeHtml(data.description || 'Sin especificar')}</i>\n\n` +
     `──────\n` +
-    `<i>El equipo de <b>Trato Admins</b> ha sido notificado. En breve un mediador tomará tu caso.</i>\n` +
+    `<i>Recibirás una notificación inmediata con el enlace a tu sala privada en cuanto un Trato Admin tome tu caso.</i>\n` +
     `${dateFormatted}`
   );
 }
 
-function dealNotifyAdmin(dealId, creatorUsername, creatorId, role, counterpart, description) {
+function dealNotifyAdmin(dealId, creatorUsername, creatorId, data) {
   const userTag = creatorUsername ? `@${creatorUsername}` : `<code>${creatorId}</code>`;
+  const role = data.role || 'Solicitante';
   const counterpartRole = role === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
   const counterpartEmoji = role === 'VENDEDOR' ? '〖👤〗' : '〖💼〗';
+  const currency = data.currency || 'PEN';
+  const symb = currency === 'USD' ? '$' : (currency === 'USDT' ? 'USDT' : 'S/');
+  const amount = Number(data.amount || 0).toFixed(2);
+  const fee = Number(data.fee || (amount * 0.10)).toFixed(2);
+  const total = Number(data.total || (Number(amount) + Number(fee))).toFixed(2);
   const dateFormatted = getSuperscriptDate();
+
   return (
-    `<b>⟡ [CASO #${dealId}] NUEVA SOLICITUD DE TRATO</b>\n` +
+    `<b>⟡ [SOLICITUD #${dealId}] NUEVO CASO ESCROW</b>\n` +
     `──────\n\n` +
-    `〖👤〗 <b>Solicitante:</b> ${userTag} (<code>${role || 'N/A'}</code>)\n` +
-    `${counterpartEmoji} <b>${counterpartRole}:</b> <code>${escapeHtml(counterpart || 'N/A')}</code>\n` +
-    `〖📦〗 <b>Descripción:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `〖👤〗 <b>Solicitante:</b> ${userTag} (<code>${role}</code>)\n` +
+    `${counterpartEmoji} <b>${counterpartRole}:</b> <code>${escapeHtml(data.counterpart || 'N/A')}</code>\n` +
+    `〖🏷️〗 <b>Categoría:</b> <code>${escapeHtml(data.category || 'General')}</code>\n` +
+    `〖💳〗 <b>Pago por:</b> <code>${escapeHtml(data.paymentMethod || 'A coordinar')}</code>\n\n` +
+    `<b>⟡ IMPORTES DECLARADOS:</b>\n` +
+    `  • Valor Trato: <b>${symb} ${amount}</b>\n` +
+    `  • Comisión Staff (10%): <b>${symb} ${fee}</b>\n` +
+    `  • Total a Custodiar: <b>${symb} ${total}</b>\n\n` +
+    `〖📦〗 <b>Detalles:</b> <i>${escapeHtml(data.description || 'Sin especificar')}</i>\n\n` +
     `──────\n` +
-    `<i>Selecciona una acción para tomar o declinar este caso:</i>\n` +
+    `<i>Presiona <b>[ TOMAR MEDIACIÓN ]</b> para abrir el hilo y generar enlaces exclusivos:</i>\n` +
     `${dateFormatted}`
   );
 }
@@ -229,7 +324,7 @@ function dealAcceptedGroup(dealId, adminUsername) {
   );
 }
 
-function dealInviteMessage(dealId, inviteLink, topicLink, counterpart, role, description) {
+function dealInviteMessage(dealId, inviteLink, topicLink, counterpart, role, description, amountStr = '') {
   const cleanRole = (role || '').toUpperCase();
   const myRole = cleanRole === 'VENDEDOR' ? 'Vendedor' : (cleanRole === 'COMPRADOR' ? 'Comprador' : (role || 'Solicitante'));
   const counterpartRole = cleanRole === 'VENDEDOR' ? 'Comprador' : 'Vendedor';
@@ -240,58 +335,256 @@ function dealInviteMessage(dealId, inviteLink, topicLink, counterpart, role, des
   const dateFormatted = getSuperscriptDate();
 
   return (
-    `<b>⟡ [TRATO #${dealId}] SALA DE MEDIACIÓN LISTA</b>\n` +
+    `<b>⟡ [TRATO #${dealId}] SALA DE MEDIACIÓN HABILITADA</b>\n` +
     `──────\n\n` +
     `〖☾〗 <b>Tu Rol:</b> <code>${myRole}</code>\n` +
     `${counterpartEmoji} <b>${counterpartRole}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
+    (amountStr ? `〖💰〗 <b>Monto en Custodia:</b> <code>${escapeHtml(amountStr)}</code>\n` : '') +
     `〖📦〗 <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `〖✦〗 <b>Acceso:</b> <a href="${inviteLink}"><b>[ ENTRAR A LA SALA #${dealId} ]</b></a>\n\n` +
+    `〖✦〗 <b>Acceso Único:</b> <a href="${inviteLink}"><b>[ ENTRAR A LA SALA PRIVADA #${dealId} ]</b></a>\n\n` +
     `──────\n` +
-    `<i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo oficial.</i>\n` +
+    `🛡️ <i>El Trato Admin retendrá los fondos antes de autorizar la entrega en este hilo oficial.</i>\n` +
     `${dateFormatted}`
   );
 }
 
-function dealCounterpartInviteMessage(dealId, inviteLink, creatorMention, myRole, creatorRole, description) {
+function dealCounterpartInviteMessage(dealId, inviteLink, creatorMention, myRole, creatorRole, description, amountStr = '') {
   const dateFormatted = getSuperscriptDate();
   return (
-    `<b>⟡ [TRATO #${dealId}] SALA DE MEDIACIÓN LISTA</b>\n` +
+    `<b>⟡ [TRATO #${dealId}] INVITACIÓN A MEDIACIÓN OFICIAL</b>\n` +
     `──────\n\n` +
     `〖☾〗 <b>Tu Rol:</b> <code>${myRole || 'Participante'}</code>\n` +
     `〖👤〗 <b>${creatorRole || 'Solicitante'}:</b> ${creatorMention}\n` +
+    (amountStr ? `〖💰〗 <b>Monto en Custodia:</b> <code>${escapeHtml(amountStr)}</code>\n` : '') +
     `〖📦〗 <b>Detalles:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
-    `〖✦〗 <b>Acceso:</b> <a href="${inviteLink}"><b>[ ENTRAR A LA SALA #${dealId} ]</b></a>\n\n` +
+    `〖✦〗 <b>Acceso Único:</b> <a href="${inviteLink}"><b>[ ENTRAR A LA SALA PRIVADA #${dealId} ]</b></a>\n\n` +
     `──────\n` +
-    `<i>El Trato Admin retendrá los fondos y supervisará la entrega en este hilo oficial.</i>\n` +
+    `🛡️ <i>El Trato Admin retendrá los fondos antes de autorizar la entrega en este hilo oficial.</i>\n` +
     `${dateFormatted}`
   );
 }
 
-function dealTopicWelcomeBanner(dealId, creatorMention, counterpart, adminMention, description, role) {
-  const cleanRole = (role || '').toUpperCase();
-  const creatorRoleName = cleanRole === 'VENDEDOR' ? 'Vendedor' : (cleanRole === 'COMPRADOR' ? 'Comprador' : (role || 'Solicitante'));
+function getPhaseProgressBar(phase) {
+  switch (phase) {
+    case 'FUNDS_DEPOSITED':
+      return '<code>[ 1. Acuerdo ✓ ] ➔ [ 2. CUSTODIA 💰 ] ➔ [ 3. Entrega ] ➔ [ 4. Liberación ]</code>';
+    case 'DELIVERY':
+      return '<code>[ 1. Acuerdo ✓ ] ➔ [ 2. Custodia ✓ ] ➔ [ 3. ENTREGA 📦 ] ➔ [ 4. Liberación ]</code>';
+    case 'RELEASED':
+    case 'COMPLETED':
+      return '<code>[ 1. Acuerdo ✓ ] ➔ [ 2. Custodia ✓ ] ➔ [ 3. Entrega ✓ ] ➔ [ 4. LIBERADO 💸 ]</code>';
+    case 'DISPUTED':
+      return '<code>[ ⚠️ EN DISPUTA / CONTROVERSIA ABIERTA ]</code>';
+    case 'AGREEMENT':
+    default:
+      return '<code>[ 1. ACUERDO 🤝 ] ➔ [ 2. Custodia ] ➔ [ 3. Entrega ] ➔ [ 4. Liberación ]</code>';
+  }
+}
+
+function dealTopicWelcomeBanner(dealId, creatorMention, counterpart, adminMention, data, phase = 'AGREEMENT') {
+  const role = data?.role || 'Solicitante';
+  const cleanRole = String(role).toUpperCase();
+  const creatorRoleName = cleanRole === 'VENDEDOR' ? 'Vendedor' : (cleanRole === 'COMPRADOR' ? 'Comprador' : role);
   const counterpartRoleName = cleanRole === 'VENDEDOR' ? 'Comprador' : (cleanRole === 'COMPRADOR' ? 'Vendedor' : 'Contraparte');
   const creatorEmoji = cleanRole === 'VENDEDOR' ? '〖💼〗' : '〖👤〗';
   const counterpartEmoji = cleanRole === 'VENDEDOR' ? '〖👤〗' : '〖💼〗';
   const cleanCounterpart = (!counterpart || counterpart === 'N/A' || counterpart === 'Sin especificar')
     ? 'No especificado'
     : (counterpart.startsWith('@') || /^\d+$/.test(counterpart) ? counterpart : `@${counterpart}`);
+  const currency = data?.currency || 'PEN';
+  const symb = currency === 'USD' ? '$' : (currency === 'USDT' ? 'USDT' : 'S/');
+  const amountStr = data?.amount ? `${symb} ${Number(data.amount).toFixed(2)}` : 'Por definir';
+  const feeStr = data?.fee ? `${symb} ${Number(data.fee).toFixed(2)}` : (data?.amount ? `${symb} ${(Number(data.amount)*0.10).toFixed(2)}` : '10%');
+  const totalStr = data?.total ? `${symb} ${Number(data.total).toFixed(2)}` : (data?.amount ? `${symb} ${(Number(data.amount)*1.10).toFixed(2)}` : 'Por definir');
+  const progressBar = getPhaseProgressBar(phase);
   const dateFormatted = getSuperscriptDate();
 
   return (
-    `<b>⟡ [SALA #${dealId}] TRATO ESCROW OFICIAL</b>\n` +
+    `<b>⟡ [SALA PRIVADA #${dealId}] TRATO ESCROW OFICIAL</b>\n` +
     `──────\n\n` +
+    `<b>⟡ ESTADO DEL FLUJO:</b>\n` +
+    `${progressBar}\n\n` +
     `${creatorEmoji} <b>${creatorRoleName}:</b> ${creatorMention}\n` +
     `${counterpartEmoji} <b>${counterpartRoleName}:</b> <code>${escapeHtml(cleanCounterpart)}</code>\n` +
-    `〖⚖️〗 <b>Mediador Asignado:</b> ${adminMention}\n` +
-    `〖📦〗 <b>Detalles del Trato:</b> <i>${escapeHtml(description || 'Sin especificar')}</i>\n\n` +
+    `〖⚖️〗 <b>Mediador Oficial:</b> ${adminMention}\n` +
+    `〖🏷️〗 <b>Categoría:</b> <code>${escapeHtml(data?.category || 'General')}</code>\n` +
+    `〖💳〗 <b>Método Previsto:</b> <code>${escapeHtml(data?.paymentMethod || 'A coordinar')}</code>\n\n` +
+    `<b>⟡ DETALLE FINANCIERO:</b>\n` +
+    `  • Monto Trato: <b>${amountStr}</b>\n` +
+    `  • Comisión Staff (10%): <b>${feeStr}</b>\n` +
+    `  • Total en Custodia: <b>${totalStr}</b>\n\n` +
+    `〖📦〗 <b>Condiciones del Trato:</b>\n` +
+    `  ↳ <i>${escapeHtml(data?.description || 'Sin especificar')}</i>\n\n` +
     `──────\n` +
-    `<b>⟡ PROTOCOLO OFICIAL DE SEGURIDAD:</b>\n` +
-    `〖1〗 Todo comprobante y dato debe enviarse únicamente en este hilo.\n` +
-    `〖2〗 El Comprador paga directamente al Mediador (Trato Admin).\n` +
-    `〖3〗 El Vendedor entrega el producto SOLO cuando el Mediador confirme el dinero retenido.\n` +
-    `〖4〗 Tras conformidad, el Mediador liquida los fondos y cierra el trato.\n\n` +
+    `<b>⟡ PROTOCOLO OBLIGATORIO DE SEGURIDAD:</b>\n` +
+    `〖1〗 <b>NUNCA pagues directamente al vendedor</b>. El pago va 100% al Mediador.\n` +
+    `〖2〗 El Vendedor <b>NO debe entregar</b> hasta que el Mediador pulse <code>[ Fondos en Custodia ]</code>.\n` +
+    `〖3〗 Toda prueba y coordinación debe permanecer dentro de este hilo.\n\n` +
     `──────\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealFundsReceivedBanner(dealId, adminMention, totalStr) {
+  const dateFormatted = getSuperscriptDate();
+  return (
+    `<b>⟡ [TRATO #${dealId}] FONDOS EN CUSTODIA CONFIRMADOS 🟢</b>\n` +
+    `──────\n\n` +
+    `<code>[ 1. Acuerdo ✓ ] ➔ [ 2. CUSTODIA ASEGURADA 💰 ] ➔ [ 3. Entrega ] ➔ [ 4. Liberación ]</code>\n\n` +
+    `✓ <b>El mediador ${adminMention} ha verificado y retenido el pago:</b>\n` +
+    `〖🔒〗 <b>Importe en Custodia:</b> <code>${totalStr}</code>\n\n` +
+    `──────\n` +
+    `📢 <b>ATENCIÓN AL VENDEDOR:</b>\n` +
+    `Los fondos están <b>100% asegurados</b> en la bóveda oficial del bot.\n` +
+    `Ya puedes hacer entrega de las cuentas, credenciales o producto al comprador en este hilo.\n\n` +
+    `──────\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealDeliveryNotifiedBanner(dealId, sellerMention) {
+  const dateFormatted = getSuperscriptDate();
+  return (
+    `<b>⟡ [TRATO #${dealId}] ENTREGA REPORTADA POR EL VENDEDOR 📦</b>\n` +
+    `──────\n\n` +
+    `<code>[ 1. Acuerdo ✓ ] ➔ [ 2. Custodia ✓ ] ➔ [ 3. VALIDACIÓN DE ENTREGA ⏳ ]</code>\n\n` +
+    `✓ <b>${sellerMention}</b> ha indicado que ya entregó el producto o credenciales.\n\n` +
+    `〖👤〗 <b>Al Comprador:</b>\n` +
+    `Revisa y comprueba que todo esté correcto (accesos, saldo, garantías).\n` +
+    `Cuando estés conforme, pulsa el botón oficial <b>[ ✅ Conformidad de Entrega ]</b>.\n\n` +
+    `──────\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealBuyerConfirmedBanner(dealId, buyerMention) {
+  const dateFormatted = getSuperscriptDate();
+  return (
+    `<b>⟡ [TRATO #${dealId}] CONFORMIDAD REGISTRADA POR EL COMPRADOR ✅</b>\n` +
+    `──────\n\n` +
+    `✓ <b>${buyerMention}</b> ha validado la entrega y otorgó su <b>conformidad formal</b>.\n\n` +
+    `〖⚖️〗 <i>El Mediador ya puede proceder a transferir los fondos netos al Vendedor y cerrar la sala.</i>\n\n` +
+    `──────\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealDisputeBanner(dealId, adminMention, reporterMention) {
+  const dateFormatted = getSuperscriptDate();
+  return (
+    `<b>⟡ [TRATO #${dealId}] ⚠️ CONTROVERSIA / DISPUTA ABIERTA</b>\n` +
+    `──────\n\n` +
+    `<code>[ ⚠️ TRATO CONGELADO POR DISPUTA DE PARTES ]</code>\n\n` +
+    `Se ha reportado un inconveniente o discrepancia por parte de ${reporterMention}.\n` +
+    `〖🛡️〗 Los fondos permanecen <b>completamente congelados</b> por ${adminMention}.\n\n` +
+    `〖📸〗 Ambas partes deben enviar capturas y pruebas en este hilo.\n` +
+    `El Staff evaluará las evidencias para liberar los fondos o emitir reembolso.\n\n` +
+    `──────\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealRefundBanner(dealId, adminMention, refundStr) {
+  const dateFormatted = getSuperscriptDate();
+  return (
+    `<b>⟡ [TRATO #${dealId}] REEMBOLSO EMITIDO AL COMPRADOR 🔄</b>\n` +
+    `──────\n\n` +
+    `✓ <b>El mediador ${adminMention} ha ejecutado el reembolso de los fondos:</b>\n` +
+    `〖💸〗 <b>Importe Devuelto:</b> <code>${refundStr}</code>\n\n` +
+    `<i>El trato se concluye como NO COMPLETADO y la sala será cerrada.</i>\n\n` +
+    `──────\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealVoucherTicket(deal, adminName) {
+  const currency = deal.currency || 'PEN';
+  const symb = currency === 'USD' ? '$' : (currency === 'USDT' ? 'USDT' : 'S/');
+  const amount = Number(deal.amount || 0).toFixed(2);
+  const fee = Number(deal.fee || (deal.amount ? deal.amount * 0.10 : 0)).toFixed(2);
+  const dateFormatted = getSuperscriptDate();
+
+  return (
+    `<b>╔══════════════════════════════════════╗</b>\n` +
+    `<b>   ⟡ CERTIFICADO DIGITAL DE TRATO EXITOSO</b>\n` +
+    `<b>╚══════════════════════════════════════╝</b>\n\n` +
+    `〖💎〗 <b>N° DE OPERACIÓN:</b> <code>#ESCROW-${deal.id}</code>\n` +
+    `〖📅〗 <b>FECHA DE CIERRE:</b> ${dateFormatted}\n` +
+    `〖⚖️〗 <b>MEDIADOR ACREDITADO:</b> @${escapeHtml(adminName || 'Admin')}\n` +
+    `〖🏷️〗 <b>CATEGORÍA:</b> <code>${escapeHtml(deal.category || 'General')}</code>\n\n` +
+    `<b>⟡ PARTICIPANTES OFICIALES:</b>\n` +
+    `  • Creador: <code>${deal.creator_id}</code> (${deal.role || 'Solicitante'})\n` +
+    `  • Contraparte: <code>${escapeHtml(deal.counterpart || 'N/A')}</code>\n\n` +
+    `<b>⟡ RESUMEN FINANCIERO:</b>\n` +
+    `  • Monto Liquidado: <b>${symb} ${amount}</b>\n` +
+    `  • Tarifa de Mediación (10%): <b>${symb} ${fee}</b>\n` +
+    `  • Estado Final: ⊱ <code>CERRADO CON ÉXITO ✓</code> ⊰\n\n` +
+    `──────\n` +
+    `<i>Respaldado por el Sistema Anti-Estafas de Ventas Libres Perú.</i>\n` +
+    `<i>Transacción auditada y almacenada en nube de respaldo permanente.</i>`
+  );
+}
+
+function dealMyDealsMessage(deals, username) {
+  const userTag = username ? `@${username}` : 'Tu cuenta';
+  const dateFormatted = getSuperscriptDate();
+
+  if (!deals || deals.length === 0) {
+    return (
+      `<b>⟡ [HISTORIAL ESCROW] MIS TRATOS</b>\n` +
+      `──────\n\n` +
+      `〖👤〗 <b>Usuario:</b> ${userTag}\n\n` +
+      `<i>No registras tratos de intermediación activos ni pasados en esta comunidad.</i>\n\n` +
+      `──────\n` +
+      `<i>Para solicitar tu primer trato seguro utiliza <code>/tratoadm</code>.</i>\n` +
+      `${dateFormatted}`
+    );
+  }
+
+  let listText = '';
+  for (const d of deals.slice(0, 10)) {
+    const symb = d.currency === 'USD' ? '$' : (d.currency === 'USDT' ? 'USDT' : 'S/');
+    const amt = d.amount ? `${symb} ${Number(d.amount).toFixed(2)}` : 'N/A';
+    const statusIcon = d.status === 'COMPLETED' ? '🟢' : (d.status === 'CANCELLED' ? '🔴' : '🟡');
+    const phaseLabel = d.phase || d.status;
+    listText += `${statusIcon} <b>Trato #${d.id}</b> | ${amt} | <code>${phaseLabel}</code>\n`;
+    listText += `  ↳ <i>Contraparte:</i> <code>${escapeHtml(d.counterpart || 'N/A')}</code>\n\n`;
+  }
+
+  return (
+    `<b>⟡ [HISTORIAL ESCROW] MIS TRATOS RECIENTES</b>\n` +
+    `──────\n\n` +
+    `〖👤〗 <b>Usuario:</b> ${userTag}\n` +
+    `〖📊〗 <b>Total Registrados:</b> <b>${deals.length}</b> tratos\n\n` +
+    `${listText}` +
+    `──────\n` +
+    `<i>Ventas Libres Perú — Tu intermediación segura garantizada.</i>\n` +
+    `${dateFormatted}`
+  );
+}
+
+function dealCalculatorMessage(amount, currency = 'PEN') {
+  const num = Number(amount);
+  const symb = currency === 'USD' ? '$' : (currency === 'USDT' ? 'USDT' : 'S/');
+  const fee = Number((num * 0.10).toFixed(2));
+  const total = Number((num + fee).toFixed(2));
+  const netForSeller = Number((num - fee).toFixed(2));
+  const dateFormatted = getSuperscriptDate();
+
+  return (
+    `<b>⟡ [CALCULADORA OFICIAL] TARIFA DE TRATOS ADMIN</b>\n` +
+    `──────\n\n` +
+    `〖💰〗 <b>Valor del Trato:</b> <code>${symb} ${num.toFixed(2)}</code>\n` +
+    `〖⚖️〗 <b>Comisión de Intermediación (10%):</b> <code>${symb} ${fee.toFixed(2)}</code>\n\n` +
+    `<b>⟡ SEGÚN EL ACUERDO DE PAGO:</b>\n` +
+    `〖A〗 <b>Si el Comprador asume la comisión:</b>\n` +
+    `  ↳ Comprador paga: <b>${symb} ${total.toFixed(2)}</b>\n` +
+    `  ↳ Vendedor recibe: <b>${symb} ${num.toFixed(2)}</b>\n\n` +
+    `〖B〗 <b>Si el Vendedor asume la comisión:</b>\n` +
+    `  ↳ Comprador paga: <b>${symb} ${num.toFixed(2)}</b>\n` +
+    `  ↳ Vendedor recibe neto: <b>${symb} ${netForSeller.toFixed(2)}</b>\n\n` +
+    `──────\n` +
+    `<i>Para iniciar tu trato escribe <code>/tratoadm</code> o pulsa el botón inferior:</i>\n` +
     `${dateFormatted}`
   );
 }
@@ -646,7 +939,11 @@ module.exports = {
   dealMainMenuMessage,
   dealDetailedInfoMessage,
   dealRoleStepMessage,
+  dealCategoryStepMessage,
   dealCounterpartStepMessage,
+  dealCurrencyStepMessage,
+  dealAmountStepMessage,
+  dealPaymentMethodStepMessage,
   dealDescriptionStepMessage,
   dealSummaryMessage,
   dealWaitingMessage,
@@ -655,6 +952,14 @@ module.exports = {
   dealInviteMessage,
   dealCounterpartInviteMessage,
   dealTopicWelcomeBanner,
+  dealFundsReceivedBanner,
+  dealDeliveryNotifiedBanner,
+  dealBuyerConfirmedBanner,
+  dealDisputeBanner,
+  dealRefundBanner,
+  dealVoucherTicket,
+  dealMyDealsMessage,
+  dealCalculatorMessage,
   escrowGroupConfigured,
   escrowGroupNotForumError,
   escrowGroupNoPermissionError,
