@@ -4,7 +4,10 @@
 
 const http = require('http');
 const https = require('https');
-const { Bot } = require('grammy');
+const { Bot, InlineKeyboard } = require('grammy');
+if (!InlineKeyboard.prototype.primary) InlineKeyboard.prototype.primary = function() { return this; };
+if (!InlineKeyboard.prototype.danger) InlineKeyboard.prototype.danger = function() { return this; };
+if (!InlineKeyboard.prototype.success) InlineKeyboard.prototype.success = function() { return this; };
 const { autoRetry } = require('@grammyjs/auto-retry');
 const { apiThrottler } = require('@grammyjs/transformer-throttler');
 const config = require('./config/env');

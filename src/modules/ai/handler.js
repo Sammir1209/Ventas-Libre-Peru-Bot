@@ -7,6 +7,7 @@ const redisDb = require('../../database/redis');
 const db = require('../../database/postgres');
 const logger = require('../moderation/logger');
 const { InlineKeyboard } = require('grammy');
+const { escapeHtml } = require('../../utils/formatting');
 
 // ── Mensajes Variados y Dinámicos de Espera ──
 const THINKING_MESSAGES = [
@@ -511,9 +512,34 @@ function register(bot) {
         if (burnState && burnState.step && burnState.step !== 'IDLE') {
           return next();
         }
-        const dealForm = await redisDb.getCache(`deal_form:${userId}`);
-        if (dealForm) {
+
+        let dealForm = null;
+        try {
+          const escrowHandler = require('../escrow/handler');
+          if (escrowHandler && escrowHandler.getDealForm) {
+            dealForm = await escrowHandler.getDealForm(userId);
+          }
+        } catch {}
+
+        if (!dealForm) {
+          dealForm = await redisDb.getCache(`deal_form:${userId}`);
+        }
+
+        if (dealForm && dealForm.step) {
           return next();
+        }
+
+        // Si el usuario envió un número o monto numérico suelto (ej: "20", "150.50", "S/ 50")
+        // NUNCA procesarlo con el chatbot de IA para evitar respuestas fuera de contexto:
+        const cleanTrimmed = text.trim();
+        const isBareAmount = /^[\$S\/\.]?\s*\d+([.,]\d+)?\s*[\$S\/\.]?$/i.test(cleanTrimmed);
+        if (isBareAmount) {
+          return ctx.reply(
+            `💡 <b>¿Deseas iniciar una intermediación por <code>${escapeHtml(cleanTrimmed)}</code>?</b>\n\n` +
+            `Para proteger tu dinero o realizar una compra/venta con un Trato Admin oficial, usa el comando:\n` +
+            `👉 <code>/tratoadm</code>`,
+            { parse_mode: 'HTML' }
+          );
         }
       } catch {}
 

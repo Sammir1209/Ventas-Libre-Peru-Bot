@@ -211,25 +211,24 @@ async function checkRateLimit(userId, windowSeconds, maxCommands) {
 // ══════
 
 async function setCache(key, value, ttlSeconds = 300) {
-  if (isRedisConnected && redis) {
-    try {
-      await redis.set(`cache:${key}`, JSON.stringify(value), 'EX', ttlSeconds);
-      return;
-    } catch {
-      // Fallback
-    }
-  }
   memStore.set(`cache:${key}`, {
     data: value,
     expiresAt: Date.now() + ttlSeconds * 1000,
   });
+  if (isRedisConnected && redis) {
+    try {
+      await redis.set(`cache:${key}`, JSON.stringify(value), 'EX', ttlSeconds);
+    } catch {
+      // Fallback a memStore ya realizado
+    }
+  }
 }
 
 async function getCache(key) {
   if (isRedisConnected && redis) {
     try {
       const data = await redis.get(`cache:${key}`);
-      return data ? JSON.parse(data) : null;
+      if (data) return JSON.parse(data);
     } catch {
       // Fallback
     }
@@ -244,15 +243,14 @@ async function getCache(key) {
 }
 
 async function clearCache(key) {
+  memStore.delete(`cache:${key}`);
   if (isRedisConnected && redis) {
     try {
       await redis.del(`cache:${key}`);
-      return;
     } catch {
       // Fallback
     }
   }
-  memStore.delete(`cache:${key}`);
 }
 
 // ── Inicialización y cierre ──

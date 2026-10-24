@@ -34,16 +34,51 @@ const DEAL_FORM_PREFIX = 'deal_form:';
 const FORM_TTL = 600; // 10 minutos
 const ESCROW_GROUP_KEY = 'escrow_group_id';
 
+// Memoria local de respaldo ultra-rápida (in-memory) por si Redis no está disponible o falla
+const localDealForms = new Map();
+
 async function setDealForm(userId, data) {
-  await redisDb.setCache(`${DEAL_FORM_PREFIX}${userId}`, data, FORM_TTL);
+  if (!userId) return;
+  const uid = String(userId);
+  localDealForms.set(uid, {
+    data,
+    expiresAt: Date.now() + FORM_TTL * 1000,
+  });
+  try {
+    await redisDb.setCache(`${DEAL_FORM_PREFIX}${uid}`, data, FORM_TTL);
+  } catch {}
 }
 
 async function getDealForm(userId) {
-  return await redisDb.getCache(`${DEAL_FORM_PREFIX}${userId}`);
+  if (!userId) return null;
+  const uid = String(userId);
+  const local = localDealForms.get(uid);
+  if (local) {
+    if (Date.now() <= local.expiresAt) {
+      return local.data;
+    }
+    localDealForms.delete(uid);
+  }
+  try {
+    const cached = await redisDb.getCache(`${DEAL_FORM_PREFIX}${uid}`);
+    if (cached) {
+      localDealForms.set(uid, {
+        data: cached,
+        expiresAt: Date.now() + FORM_TTL * 1000,
+      });
+      return cached;
+    }
+  } catch {}
+  return null;
 }
 
 async function clearDealForm(userId) {
-  await redisDb.clearCache(`${DEAL_FORM_PREFIX}${userId}`);
+  if (!userId) return;
+  const uid = String(userId);
+  localDealForms.delete(uid);
+  try {
+    await redisDb.clearCache(`${DEAL_FORM_PREFIX}${uid}`);
+  } catch {}
 }
 
 /**
@@ -512,6 +547,8 @@ function register(bot) {
       const form = (await getDealForm(userId)) || {};
       form.currency = ctx.match[1];
       form.step = 'AWAIT_AMOUNT';
+      form.messageId = ctx.callbackQuery?.message?.message_id || form.messageId;
+      form.chatId = ctx.chat?.id || form.chatId;
       await setDealForm(userId, form);
 
       await ctx.editMessageText(templates.dealAmountStepMessage(form.role, form.category, form.currency), {
@@ -661,17 +698,24 @@ function register(bot) {
               reply_markup: dealPaymentMethodKeyboard(),
             });
             return;
-          } catch {}
+          } catch (editErr) {
+            console.warn('⟡ Error editando mensaje en AWAIT_AMOUNT, enviando nuevo mensaje:', editErr.message);
+          }
         }
 
-        const sent = await ctx.reply(msgContent, {
-          parse_mode: 'HTML',
-          reply_markup: dealPaymentMethodKeyboard(),
-        });
-        form.messageId = sent.message_id;
-        form.chatId = sent.chat.id;
-        await setDealForm(userId, form);
-        return;
+        try {
+          const sent = await ctx.reply(msgContent, {
+            parse_mode: 'HTML',
+            reply_markup: dealPaymentMethodKeyboard(),
+          });
+          form.messageId = sent.message_id;
+          form.chatId = sent.chat.id;
+          await setDealForm(userId, form);
+          return;
+        } catch (replyErr) {
+          console.error('⟡ Error enviando respuesta en AWAIT_AMOUNT:', replyErr.message);
+          return;
+        }
       }
 
       // Paso 7: Recibir Descripción
@@ -722,7 +766,8 @@ function register(bot) {
       }
     } catch (err) {
       console.error('⟡ Escrow: Error procesando formulario de trato:', err.message);
-      return next();
+      // Detener propagación para evitar que el Asistente IA interfiera durante un formulario activo
+      return;
     }
 
     return next();
@@ -1843,4 +1888,9 @@ function register(bot) {
   });
 }
 
-module.exports = { register };
+module.exports = {
+  register,
+  getDealForm,
+  setDealForm,
+  clearDealForm,
+};

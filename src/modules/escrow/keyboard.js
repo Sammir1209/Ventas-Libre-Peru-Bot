@@ -1,4 +1,7 @@
 const { InlineKeyboard } = require('grammy');
+if (!InlineKeyboard.prototype.primary) InlineKeyboard.prototype.primary = function() { return this; };
+if (!InlineKeyboard.prototype.danger) InlineKeyboard.prototype.danger = function() { return this; };
+if (!InlineKeyboard.prototype.success) InlineKeyboard.prototype.success = function() { return this; };
 const { SYM, CB } = require('../../config/constants');
 const { toMathBold } = require('../../utils/aesthetic');
 const config = require('../../config/env');
