@@ -46,18 +46,22 @@ const SMALL_CAPS_MAP = {
 
 /**
  * Convierte un texto a negrita matemática Sans (ej: 𝙑𝙚𝙣𝙩𝙖𝙨 / 𝗔𝗱𝗺𝗶𝗻).
+ * Normaliza diacríticos (tildes/acentos) para garantizar renderizado matemático uniforme.
  */
 function toMathBold(text) {
   if (!text) return '';
-  return String(text).split('').map(ch => MATH_BOLD_MAP[ch] || ch).join('');
+  const clean = String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return clean.split('').map(ch => MATH_BOLD_MAP[ch] || ch).join('');
 }
 
 /**
  * Convierte un texto a negrita matemática Serif (ej: 𝐕𝐄𝐍𝐓𝐀𝐒 𝐋𝐈𝐁𝐑𝐄 𝐏𝐄𝐑𝐔).
+ * Normaliza diacríticos (tildes/acentos) para garantizar renderizado matemático uniforme.
  */
 function toMathSerifBold(text) {
   if (!text) return '';
-  return String(text).split('').map(ch => MATH_SERIF_BOLD_MAP[ch] || ch).join('');
+  const clean = String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return clean.split('').map(ch => MATH_SERIF_BOLD_MAP[ch] || ch).join('');
 }
 
 /**

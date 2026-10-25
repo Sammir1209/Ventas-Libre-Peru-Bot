@@ -97,22 +97,30 @@ function buildHighRiskWarning(user, detectedInfo) {
 
 /**
  * Construye el teclado interactivo con enlaces y botón de descarte.
+ * Estructura en Cuadrícula (Grid):
+ * - Fila 1: Botón principal de llamado a la acción (Largo / Ancho completo)
+ * - Fila 2: Botones secundarios de acción rápida (Cortos / Lado a Lado)
  */
 function buildWarningKeyboard(botUsername) {
   const kb = new InlineKeyboard();
   const username = botUsername || config.BOT_USERNAME || 'VentasLibrePeruBot';
 
+  // Fila 1: Botón largo solo
   kb.url(
-    `✦ ${toMathBold('Solicitar Trato Administrativo')}`,
+    `✦ ${toMathBold('SOLICITAR TRATO ADMINISTRATIVO')}`,
     `https://t.me/${username}?start=tratoadm`
   );
   kb.row();
+
+  // Fila 2: Botones cortos agrupados lado a lado (Izquierda | Derecha)
   kb.url(
-    `❖ ${toMathBold('Guía de Seguridad y Garantía')}`,
+    `❖ ${toMathBold('GUIA SEGURIDAD')}`,
     `https://t.me/${username}?start=guiatrato`
   );
-  kb.row();
-  kb.text(`✕ ${toMathBold('Entendido / Cerrar')}`, 'hr_close');
+  kb.text(
+    `✕ ${toMathBold('CERRAR')}`,
+    'hr_close'
+  );
 
   return kb;
 }
