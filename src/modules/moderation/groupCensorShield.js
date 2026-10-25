@@ -9,11 +9,6 @@ const { escapeHtml, userMention } = require('../../utils/formatting');
 // Diccionario de reglas y ejemplos camuflados (términos de bypass reales sugeridos por la comunidad)
 const CENSOR_RULES = [
   {
-    category: 'G5 / Billetes Falsos',
-    regex: /\b(?:g5|g-5|billetes?\s+falsos?|billetes?\s+g5|plata\s+falsa|clon\s+de\s+billete)\b/i,
-    examples: '<code>B1ll3t3 F4ls0</code>, <code>g-5</code>, <code>f4ls0s</code>, <code>cl0n3s</code>, <code>pap3l</code>',
-  },
-  {
     category: 'BIN / Carding',
     regex: /\b(?:bins?|carding|dumps?)\b/i,
     examples: '<code>b1n</code>, <code>vino</code>, <code>b-i-n</code>, <code>binsit0</code>, <code>v1n0</code>',
@@ -80,7 +75,6 @@ function register(bot) {
       }
 
       const chatId = ctx.chat.id;
-      const messageId = ctx.message.message_id;
       const fromUser = ctx.from;
       const mention = fromUser ? userMention(fromUser.id, fromUser.first_name) : 'Usuario';
 
@@ -89,14 +83,14 @@ function register(bot) {
 
       // 2. Enviar advertencia amigable con ejemplos camuflados
       const warningText =
-        `🛡️ <b>[ESCUDO ANTI-BAN] MENSAJE ELIMINADO</b>\n` +
+        `❖ <b>[ESCUDO ANTI-BAN] ⊱ MENSAJE ELIMINADO ⊰</b>\n` +
         `──────\n\n` +
         `Hola ${mention}, eliminamos tu mensaje para <b>evitar que Telegram baje o sancione el grupo</b>.\n\n` +
-        `⚠️ <b>Término riesgoso detectado:</b> <code>${escapeHtml(detection.matchedWord)}</code>\n` +
-        `💡 <b>Usa variantes como estas para que Telegram no baje el grupo:</b>\n` +
+        `▸ <b>Término riesgoso detectado:</b> <code>${escapeHtml(detection.matchedWord)}</code>\n` +
+        `▸ <b>Usa variantes como estas para que Telegram no baje el grupo:</b>\n` +
         `↳ ${detection.examples}\n\n` +
         `──────\n` +
-        `⏳ <i>Este aviso se autodestruirá en 25 segundos para mantener el grupo limpio.</i>`;
+        `<i>Este aviso se autodestruirá en 25 segundos para mantener el grupo limpio.</i>`;
 
       const alertMsg = await ctx.reply(warningText, {
         parse_mode: 'HTML',

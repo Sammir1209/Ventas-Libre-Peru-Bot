@@ -32,6 +32,7 @@ const aiHandler = require('./modules/ai/handler');
 const searchHandler = require('./modules/moderation/search');
 const securityHandler = require('./modules/security/handler');
 const groupCensorShield = require('./modules/moderation/groupCensorShield');
+const highRiskAutoAdvisor = require('./modules/moderation/highRiskAutoAdvisor');
 
 // ── Middleware ──
 const { antiSpam } = require('./middleware/antiSpam');
@@ -150,6 +151,9 @@ async function main() {
 
   // ── Escudo Anti-Ban de Grupos (Censor de Palabras Prohibidas por Telegram) ──
   groupCensorShield.register(bot);
+
+  // ── Asesor Automático Preventivo para Servicios de Alto Riesgo (G5 & Call Box al 50%) ──
+  highRiskAutoAdvisor.register(bot);
 
   // ── Registrar módulos ──
   verificationHandler.register(bot);
