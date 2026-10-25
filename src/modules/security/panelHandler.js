@@ -10,6 +10,7 @@ const { toMathBold } = require('../../utils/aesthetic');
 
 // ══════════════════════════════════════════════════════════
 // ⟡ Módulo: Suite de Moderación & Panel de Control Group Help
+//   Estándar Obsidian: Simbología Unicode Pura (Sin Emojis)
 // ══════════════════════════════════════════════════════════
 
 /**
@@ -76,14 +77,14 @@ async function validatePanelSession(tokenOrUserId, password = null, tenantId = n
 }
 
 // ══════════════════════════════════════════════════════════
-// ⟡ Catálogo de Comandos de Referencia
+// ⟡ Catálogo de Comandos de Referencia (Simbología Unicode)
 // ══════════════════════════════════════════════════════════
 
 const PANEL_CATEGORIES = {
   mod: {
-    title: '🛡️ [PANEL - MODERACIÓN & SANCIONES]',
+    title: '❖ [PANEL - MODERACIÓN & SANCIONES]',
     text:
-      `🛡️ <b>[PANEL - MODERACIÓN & SANCIONES]</b>\n` +
+      `❖ <b>[PANEL - MODERACIÓN & SANCIONES]</b>\n` +
       `══════\n` +
       `• <code>/data [@user | ID | responder]</code>\n` +
       `  ↳ Panel rápido del usuario con perfil, antecedentes, mute, ban y blacklist.\n\n` +
@@ -105,9 +106,9 @@ const PANEL_CATEGORIES = {
       `  ↳ Consulta el historial y conteo de advertencias activas.`,
   },
   sec: {
-    title: '🚨 [PANEL - SEGURIDAD & DEFCON]',
+    title: '✦ [PANEL - SEGURIDAD & DEFCON]',
     text:
-      `🚨 <b>[PANEL - SEGURIDAD & DEFCON]</b>\n` +
+      `✦ <b>[PANEL - SEGURIDAD & DEFCON]</b>\n` +
       `══════\n` +
       `• <code>/panico</code> o <code>/defcon</code>\n` +
       `  ↳ Activa el cierre perimetral de emergencia (silencia el chat para todos).\n\n` +
@@ -127,9 +128,9 @@ const PANEL_CATEGORIES = {
       `  ↳ Borra en masa los últimos N mensajes del chat.`,
   },
   blacklist: {
-    title: '🔥 [PANEL - LISTA NEGRA & GBAN]',
+    title: '❖ [PANEL - LISTA NEGRA & GBAN]',
     text:
-      `🔥 <b>[PANEL - LISTA NEGRA & GBAN]</b>\n` +
+      `❖ <b>[PANEL - LISTA NEGRA & GBAN]</b>\n` +
       `══════\n` +
       `• <code>/quemar</code>\n` +
       `  ↳ Inicia el asistente interactivo para registrar a un estafador con pruebas.\n\n` +
@@ -141,9 +142,9 @@ const PANEL_CATEGORIES = {
       `  ↳ Radar interactivo de estafadores con paginación, filtros y búsqueda de fichas.`,
   },
   escrow: {
-    title: '🤝 [PANEL - TRATOS & ESCROW P2P]',
+    title: '✦ [PANEL - TRATOS & ESCROW P2P]',
     text:
-      `🤝 <b>[PANEL - TRATOS & ESCROW P2P]</b>\n` +
+      `✦ <b>[PANEL - TRATOS & ESCROW P2P]</b>\n` +
       `══════\n` +
       `• <code>/tratoadm</code>\n` +
       `  ↳ Inicia el flujo guiado de intermediación segura para transacciones P2P.\n\n` +
@@ -153,9 +154,9 @@ const PANEL_CATEGORIES = {
       `  ↳ Registra la reputación y valoración de las partes tras finalizar un trato.`,
   },
   profiles: {
-    title: '👤 [PANEL - PERFILES & RADAR]',
+    title: '❖ [PANEL - PERFILES & RADAR]',
     text:
-      `👤 <b>[PANEL - PERFILES & RADAR]</b>\n` +
+      `❖ <b>[PANEL - PERFILES & RADAR]</b>\n` +
       `══════\n` +
       `• <code>/info [@user | ID | código | responder]</code>\n` +
       `  ↳ Ficha de reputación completa con insignias y antecedentes.\n\n` +
@@ -171,9 +172,9 @@ const PANEL_CATEGORIES = {
       `  ↳ Analiza posibles suplantadores de identidad de administradores.`,
   },
   ai: {
-    title: '🤖 [PANEL - ASISTENTE IA]',
+    title: '✧ [PANEL - ASISTENTE IA]',
     text:
-      `🤖 <b>[PANEL - ASISTENTE IA]</b>\n` +
+      `✧ <b>[PANEL - ASISTENTE IA]</b>\n` +
       `══════\n` +
       `• <code>/ia on</code>\n` +
       `  ↳ Enciende el asistente de Inteligencia Artificial en el grupo.\n\n` +
@@ -185,9 +186,9 @@ const PANEL_CATEGORIES = {
       `  ↳ Limpia el contexto y memoria de conversación de la IA en este chat.`,
   },
   config: {
-    title: '⚙️ [PANEL - CONFIGURACIÓN & STAFF]',
+    title: '❖ [PANEL - CONFIGURACIÓN & STAFF]',
     text:
-      `⚙️ <b>[PANEL - CONFIGURACIÓN & STAFF]</b>\n` +
+      `❖ <b>[PANEL - CONFIGURACIÓN & STAFF]</b>\n` +
       `══════\n` +
       `• <code>/setup</code>\n` +
       `  ↳ Asistente guiado de configuración inicial del bot para la comunidad.\n\n` +
@@ -207,7 +208,7 @@ const PANEL_CATEGORIES = {
 };
 
 // ══════════════════════════════════════════════════════════
-// ⟡ Renderers & Keyboards Group Help (Obsidian Aesthetic)
+// ⟡ Renderers & Keyboards Group Help (Simbología Unicode Pura)
 // ══════════════════════════════════════════════════════════
 
 function renderGroupHelpMainMenu(groupTitle, chatId, firstName, isPrivate = false) {
@@ -216,14 +217,14 @@ function renderGroupHelpMainMenu(groupTitle, chatId, firstName, isPrivate = fals
   const dateFormatted = getSuperscriptDate();
 
   return (
-    `🎛 <b>[PANEL GROUP HELP]</b> ⊱ <code>AJUSTES & CONTROL</code> ⊰\n` +
+    `⟡ <b>[PANEL DE CONTROL CENTRAL]</b> ⊱ <code>AJUSTES & SEGURIDAD</code> ⊰\n` +
     `══════\n` +
-    `📍 <b>Grupo:</b> <b>${gTitle}</b>\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
-    `👤 <b>Operador:</b> <b>${user}</b>\n` +
-    `🛡️ <b>Defcon / Estado:</b> <code>[ ACTIVO ]</code>\n` +
+    `▸ <b>Grupo:</b> <b>${gTitle}</b>\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `▸ <b>Operador:</b> <b>${user}</b>\n` +
+    `▸ <b>Estado del Sistema:</b> <code>[ ACTIVO ]</code>\n` +
     `══════\n\n` +
-    `Selecciona un apartado para configurar las herramientas de moderación y seguridad en tiempo real:\n\n` +
+    `Selecciona un apartado para configurar las herramientas en tiempo real:\n\n` +
     `• <b>Bloqueos:</b> Links, reenvíos, stickers, audios, videos y bots.\n` +
     `• <b>Anti-Flood:</b> Ráfagas de spam, límites y tiempos de silencio.\n` +
     `• <b>Bienvenida:</b> Mensaje automático, captcha y auto-borrado.\n` +
@@ -238,30 +239,30 @@ function renderGroupHelpMainMenu(groupTitle, chatId, firstName, isPrivate = fals
 
 function getGroupHelpMainKeyboard(chatId, isPrivate = false, botUsername = 'ventas_libres_peru_Bot') {
   const kb = new InlineKeyboard()
-    .text(`🛡️ ${toMathBold('Bloqueos / Locks')}`, `gh_sub:${chatId}:locks`).primary()
-    .text(`🌊 ${toMathBold('Anti-Flood')}`, `gh_sub:${chatId}:flood`).primary()
+    .text(`❖ ${toMathBold('Bloqueos / Locks')}`, `gh_sub:${chatId}:locks`).primary()
+    .text(`⚡ ${toMathBold('Anti-Flood')}`, `gh_sub:${chatId}:flood`).primary()
     .row()
-    .text(`🚪 ${toMathBold('Bienvenida & Captcha')}`, `gh_sub:${chatId}:welcome`).primary()
-    .text(`⏳ ${toMathBold('Modo Noche')}`, `gh_sub:${chatId}:night`).primary()
+    .text(`❖ ${toMathBold('Bienvenida & Captcha')}`, `gh_sub:${chatId}:welcome`).primary()
+    .text(`✧ ${toMathBold('Modo Noche')}`, `gh_sub:${chatId}:night`).primary()
     .row()
-    .text(`⚠️ ${toMathBold('Sanciones & Warns')}`, `gh_sub:${chatId}:warns`).primary()
-    .text(`🧹 ${toMathBold('Clean Service')}`, `gh_sub:${chatId}:clean`).primary()
+    .text(`❖ ${toMathBold('Sanciones & Warns')}`, `gh_sub:${chatId}:warns`).primary()
+    .text(`✧ ${toMathBold('Clean Service')}`, `gh_sub:${chatId}:clean`).primary()
     .row()
-    .text(`📝 ${toMathBold('Filtro Palabras')}`, `gh_sub:${chatId}:censor`).primary()
-    .text(`📌 ${toMathBold('Notas & #Tags')}`, `gh_sub:${chatId}:notes`).primary()
+    .text(`❖ ${toMathBold('Filtro Palabras')}`, `gh_sub:${chatId}:censor`).primary()
+    .text(`✦ ${toMathBold('Notas & #Tags')}`, `gh_sub:${chatId}:notes`).primary()
     .row()
-    .text(`🔗 ${toMathBold('Whitelist URLs')}`, `gh_sub:${chatId}:whitelist`).primary()
-    .text(`📋 ${toMathBold('Diagnóstico / Estado')}`, `gh_sub:${chatId}:status`).success()
+    .text(`❖ ${toMathBold('Whitelist URLs')}`, `gh_sub:${chatId}:whitelist`).primary()
+    .text(`⟡ ${toMathBold('Diagnóstico / Estado')}`, `gh_sub:${chatId}:status`).success()
     .row()
-    .text(`📖 ${toMathBold('Catálogo de Comandos')}`, `gh_sub:${chatId}:commands`).primary();
+    .text(`❖ ${toMathBold('Catálogo de Comandos')}`, `gh_sub:${chatId}:commands`).primary();
 
   if (!isPrivate) {
-    kb.url(`📩 ${toMathBold('Abrir en Privado')}`, `https://t.me/${botUsername}?start=panel_${chatId}`);
+    kb.url(`▸ ${toMathBold('Abrir en Privado')}`, `https://t.me/${botUsername}?start=panel_${chatId}`);
   } else {
-    kb.text(`🏢 ${toMathBold('Cambiar de Grupo')}`, 'gh_group_picker');
+    kb.text(`❖ ${toMathBold('Cambiar de Grupo')}`, 'gh_group_picker');
   }
 
-  kb.row().text(`✖ ${toMathBold('Cerrar Panel')}`, 'panel_close').danger();
+  kb.row().text(`✕ ${toMathBold('Cerrar Panel')}`, 'panel_close').danger();
   return kb;
 }
 
@@ -269,19 +270,19 @@ function getGroupHelpMainKeyboard(chatId, isPrivate = false, botUsername = 'vent
 function renderLocksMenu(chatId, locks) {
   const dateFormatted = getSuperscriptDate();
   return (
-    `🛡️ <b>[CONTROL DE BLOQUEOS SELECTIVOS (LOCKS)]</b>\n` +
+    `❖ <b>[CONTROL DE BLOQUEOS SELECTIVOS (LOCKS)]</b>\n` +
     `══════\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
-    `Toca cualquier botón para activar o desactivar el filtro de contenido en tiempo real.\n\n` +
-    `• ✅ = <b>PERMITIDO</b> (Los miembros pueden enviar este contenido)\n` +
-    `• ❌ = <b>BLOQUEADO</b> (El bot borra inmediatamente el mensaje)\n\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `Toca cualquier botón para conmutar el estado del filtro en tiempo real:\n\n` +
+    `• [ ✓ ] = <b>PERMITIDO</b> (Los miembros pueden enviar este contenido)\n` +
+    `• [ ✗ ] = <b>BLOQUEADO</b> (El bot borra inmediatamente el mensaje)\n\n` +
     `──────\n` +
     `${dateFormatted}`
   );
 }
 
 function getLocksKeyboard(chatId, locks) {
-  const t = (k) => (locks[k] ? '❌' : '✅');
+  const t = (k) => (locks[k] ? '✗' : '✓');
   return new InlineKeyboard()
     .text(`${t('links')} Enlaces`, `gh_tog_lock:${chatId}:links`)
     .text(`${t('invites')} Invites`, `gh_tog_lock:${chatId}:invites`)
@@ -304,21 +305,21 @@ function getLocksKeyboard(chatId, locks) {
     .text(`${t('games')} Juegos`, `gh_tog_lock:${chatId}:games`)
     .text(`${t('service')} Limp. Serv.`, `gh_tog_lock:${chatId}:service`)
     .row()
-    .text(`🔓 ${toMathBold('Desbloquear Todo')}`, `gh_lock_all:${chatId}:unlock`).success()
-    .text(`🔒 ${toMathBold('Bloquear Todo')}`, `gh_lock_all:${chatId}:lock`).danger()
+    .text(`✓ ${toMathBold('Permitir Todo')}`, `gh_lock_all:${chatId}:unlock`).success()
+    .text(`✗ ${toMathBold('Bloquear Todo')}`, `gh_lock_all:${chatId}:lock`).danger()
     .row()
-    .text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
 // ── Sub-Panel 2: Anti-Flood ──
 function renderFloodMenu(chatId, sec) {
   const dateFormatted = getSuperscriptDate();
-  const estado = sec.anti_flood_enabled ? '✅ ACTIVO' : '❌ APAGADO';
+  const estado = sec.anti_flood_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
   return (
-    `🌊 <b>[PROTECCIÓN ANTI-FLOOD & ANTI-SPAM]</b>\n` +
+    `✦ <b>[PROTECCIÓN ANTI-FLOOD & ANTI-SPAM]</b>\n` +
     `══════\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
     `Configura la sensibilidad y sanciones ante ráfagas rápidas de mensajes:\n\n` +
     `▸ <b>Estado:</b> <b>${estado}</b>\n` +
     `▸ <b>Límite de Mensajes:</b> <code>${sec.anti_flood_msg_limit} mensajes</code>\n` +
@@ -331,37 +332,37 @@ function renderFloodMenu(chatId, sec) {
 }
 
 function getFloodKeyboard(chatId, sec) {
-  const stText = sec.anti_flood_enabled ? '✅ ACTIVO' : '❌ APAGADO';
+  const stText = sec.anti_flood_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
   return new InlineKeyboard()
-    .text(`🌊 Estado: ${stText}`, `gh_flood_tog:${chatId}`).primary()
+    .text(`⚡ Estado: ${stText}`, `gh_flood_tog:${chatId}`).primary()
     .row()
-    .text(`➖ Mensajes`, `gh_flood_mlim:${chatId}:dec`)
+    .text(`[ − ] Mensajes`, `gh_flood_mlim:${chatId}:dec`)
     .text(`[ ${sec.anti_flood_msg_limit} msg ]`, 'noop')
-    .text(`➕ Mensajes`, `gh_flood_mlim:${chatId}:inc`)
+    .text(`[ + ] Mensajes`, `gh_flood_mlim:${chatId}:inc`)
     .row()
-    .text(`➖ Tiempo`, `gh_flood_wsec:${chatId}:dec`)
+    .text(`[ − ] Tiempo`, `gh_flood_wsec:${chatId}:dec`)
     .text(`[ ${sec.anti_flood_window_seconds}s ]`, 'noop')
-    .text(`➕ Tiempo`, `gh_flood_wsec:${chatId}:inc`)
+    .text(`[ + ] Tiempo`, `gh_flood_wsec:${chatId}:inc`)
     .row()
-    .text(`⚖️ Sanción: ${sec.anti_flood_action} 🔁`, `gh_flood_act:${chatId}`).primary()
-    .text(`⏱️ Mute: ${sec.anti_flood_mute_time || '1h'} 🔁`, `gh_flood_dur:${chatId}`).primary()
+    .text(`❖ Sanción: ${sec.anti_flood_action} ↺`, `gh_flood_act:${chatId}`).primary()
+    .text(`✧ Silencio: ${sec.anti_flood_mute_time || '1h'} ↺`, `gh_flood_dur:${chatId}`).primary()
     .row()
-    .text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
 // ── Sub-Panel 3: Bienvenida & Captcha ──
 function renderWelcomeMenu(chatId, sec) {
   const dateFormatted = getSuperscriptDate();
-  const welState = sec.welcome_enabled ? '✅ ACTIVA' : '❌ APAGADA';
+  const welState = sec.welcome_enabled ? '[ ✓ ACTIVA ]' : '[ ✗ APAGADA ]';
   const autoDelText = !sec.welcome_autodelete ? 'DESACTIVADO' : `${sec.welcome_autodelete} segundos`;
-  const verState = sec.verify_enabled ? '✅ ACTIVO' : '❌ APAGADO';
-  const folState = sec.verify_folder_enabled ? '✅ ACTIVA' : '❌ APAGADA';
+  const verState = sec.verify_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
+  const folState = sec.verify_folder_enabled ? '[ ✓ ACTIVA ]' : '[ ✗ APAGADA ]';
 
   return (
-    `🚪 <b>[SISTEMA DE BIENVENIDA & CAPTCHA]</b>\n` +
+    `❖ <b>[SISTEMA DE BIENVENIDA & CAPTCHA]</b>\n` +
     `══════\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
     `Gestiona el ingreso y verificación de nuevos miembros:\n\n` +
     `▸ <b>Mensaje de Bienvenida:</b> <b>${welState}</b>\n` +
     `▸ <b>Auto-Borrado de Bienvenida:</b> <code>${autoDelText}</code>\n` +
@@ -373,64 +374,64 @@ function renderWelcomeMenu(chatId, sec) {
 }
 
 function getWelcomeKeyboard(chatId, sec) {
-  const welText = sec.welcome_enabled ? '✅ ACTIVA' : '❌ APAGADA';
+  const welText = sec.welcome_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]';
   const delText = !sec.welcome_autodelete ? 'OFF' : `${sec.welcome_autodelete}s`;
-  const verText = sec.verify_enabled ? '✅ ON' : '❌ OFF';
-  const folText = sec.verify_folder_enabled ? '✅ ON' : '❌ OFF';
+  const verText = sec.verify_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]';
+  const folText = sec.verify_folder_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]';
 
   return new InlineKeyboard()
-    .text(`🚪 Bienvenida: ${welText}`, `gh_wel_tog:${chatId}`).primary()
+    .text(`❖ Bienvenida: ${welText}`, `gh_wel_tog:${chatId}`).primary()
     .row()
-    .text(`⏱️ Auto-Borrado: [ ${delText} ] 🔁`, `gh_wel_del:${chatId}`).primary()
+    .text(`✧ Auto-Borrado: [ ${delText} ] ↺`, `gh_wel_del:${chatId}`).primary()
     .row()
-    .text(`🧩 Captcha: ${verText}`, `gh_wel_ver:${chatId}`).primary()
-    .text(`📁 Carpeta Canales: ${folText}`, `gh_wel_fol:${chatId}`).primary()
+    .text(`✦ Captcha: ${verText}`, `gh_wel_ver:${chatId}`).primary()
+    .text(`❖ Carpeta Canales: ${folText}`, `gh_wel_fol:${chatId}`).primary()
     .row()
-    .text(`👁️ Previsualizar Bienvenida`, `gh_wel_prev:${chatId}`).primary()
+    .text(`▸ Previsualizar Bienvenida`, `gh_wel_prev:${chatId}`).primary()
     .row()
-    .text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
 // ── Sub-Panel 4: Modo Noche (Night Mode) ──
 function renderNightMenu(chatId, sec) {
   const dateFormatted = getSuperscriptDate();
-  const estado = sec.night_mode_enabled ? '✅ ACTIVO' : '❌ APAGADO';
+  const estado = sec.night_mode_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
   return (
-    `⏳ <b>[MODO NOCHE / HORARIO DE SILENCIO]</b>\n` +
+    `✧ <b>[MODO NOCHE / HORARIO DE SILENCIO]</b>\n` +
     `══════\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
-    `Silencia automáticamente el grupo durante la madrugada y devuélvele la palabra a los miembros al amanecer:\n\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `Silencia automáticamente el grupo durante la madrugada y restablece los permisos al amanecer:\n\n` +
     `▸ <b>Estado:</b> <b>${estado}</b>\n` +
     `▸ <b>Horario de Silencio:</b> <code>${sec.night_mode_start || '00:00'} - ${sec.night_mode_end || '07:00'}</code> (Hora Perú / Lima)\n` +
-    `▸ <b>Acción:</b> El bot revoca temporalmente los permisos de envío de texto de miembros no-admin durante la noche.\n\n` +
+    `▸ <b>Acción:</b> El bot revoca los permisos de envío de texto de miembros no-admin durante la noche.\n\n` +
     `──────\n` +
     `${dateFormatted}`
   );
 }
 
 function getNightKeyboard(chatId, sec) {
-  const stText = sec.night_mode_enabled ? '✅ ACTIVO' : '❌ APAGADO';
+  const stText = sec.night_mode_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
   return new InlineKeyboard()
-    .text(`🌙 Modo Noche: ${stText}`, `gh_night_tog:${chatId}`).primary()
+    .text(`✧ Modo Noche: ${stText}`, `gh_night_tog:${chatId}`).primary()
     .row()
-    .text(`🕒 Preset: 00:00 - 07:00`, `gh_night_pre:${chatId}:00-07`)
-    .text(`🕒 Preset: 23:00 - 06:00`, `gh_night_pre:${chatId}:23-06`)
+    .text(`▸ Preset: 00:00 - 07:00`, `gh_night_pre:${chatId}:00-07`)
+    .text(`▸ Preset: 23:00 - 06:00`, `gh_night_pre:${chatId}:23-06`)
     .row()
-    .text(`🕒 Preset: 01:00 - 08:00`, `gh_night_pre:${chatId}:01-08`)
+    .text(`▸ Preset: 01:00 - 08:00`, `gh_night_pre:${chatId}:01-08`)
     .row()
-    .text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
 // ── Sub-Panel 5: Sanciones & Warns ──
 function renderWarnsMenu(chatId, sec) {
   const dateFormatted = getSuperscriptDate();
   return (
-    `⚠️ <b>[SISTEMA DE WARNS & SANCIONES ACUMULATIVAS]</b>\n` +
+    `❖ <b>[SISTEMA DE WARNS & SANCIONES ACUMULATIVAS]</b>\n` +
     `══════\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
-    `Ajusta el umbral de advertencias disciplinarias antes de que el bot castigue al infractor automáticamente:\n\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `Ajusta el umbral de advertencias antes de que el bot aplique sanción automática:\n\n` +
     `▸ <b>Límite de Advertencias:</b> <code>${sec.warn_limit} advertencias</code>\n` +
     `▸ <b>Sanción Automática:</b> <b>${sec.warn_action}</b>\n` +
     `▸ <b>Duración de Sanción:</b> <code>${sec.warn_duration || '1d'}</code>\n\n` +
@@ -441,30 +442,30 @@ function renderWarnsMenu(chatId, sec) {
 
 function getWarnsKeyboard(chatId, sec) {
   return new InlineKeyboard()
-    .text(`➖ Límite`, `gh_warn_lim:${chatId}:dec`)
+    .text(`[ − ] Límite`, `gh_warn_lim:${chatId}:dec`)
     .text(`[ ${sec.warn_limit} Warns ]`, 'noop')
-    .text(`➕ Límite`, `gh_warn_lim:${chatId}:inc`)
+    .text(`[ + ] Límite`, `gh_warn_lim:${chatId}:inc`)
     .row()
-    .text(`⚖️ Sanción: ${sec.warn_action} 🔁`, `gh_warn_act:${chatId}`).primary()
-    .text(`⌛ Duración: ${sec.warn_duration || '1d'} 🔁`, `gh_warn_dur:${chatId}`).primary()
+    .text(`❖ Sanción: ${sec.warn_action} ↺`, `gh_warn_act:${chatId}`).primary()
+    .text(`✧ Duración: ${sec.warn_duration || '1d'} ↺`, `gh_warn_dur:${chatId}`).primary()
     .row()
-    .text(`🔄 ${toMathBold('Resetear Warns del Grupo')}`, `gh_warn_reset:${chatId}`).danger()
+    .text(`✗ ${toMathBold('Resetear Warns del Grupo')}`, `gh_warn_reset:${chatId}`).danger()
     .row()
-    .text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
 // ── Sub-Panel 6: Clean Service ──
 function renderCleanMenu(chatId, sec) {
   const dateFormatted = getSuperscriptDate();
-  const servState = sec.clean_service_enabled ? '✅ ACTIVO' : '❌ APAGADO';
-  const cmdState = sec.clean_commands_enabled ? '✅ ACTIVO (5s)' : '❌ APAGADO';
+  const servState = sec.clean_service_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
+  const cmdState = sec.clean_commands_enabled ? '[ ✓ ACTIVO (5s) ]' : '[ ✗ APAGADO ]';
 
   return (
-    `🧹 <b>[SERVICIO DE LIMPIEZA & CLEAN SERVICE]</b>\n` +
+    `✧ <b>[SERVICIO DE LIMPIEZA & CLEAN SERVICE]</b>\n` +
     `══════\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
-    `Mantenimiento de estética visual eliminando mensajes innecesarios del chat:\n\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `Mantenimiento estético eliminando mensajes innecesarios del chat:\n\n` +
     `▸ <b>Borrar Mensajes de Servicio:</b> <b>${servState}</b>\n` +
     `  ↳ Elimina notificaciones de "X se unió al grupo" o "X salió del grupo".\n\n` +
     `▸ <b>Auto-Borrar Comandos de Usuarios:</b> <b>${cmdState}</b>\n` +
@@ -475,30 +476,30 @@ function renderCleanMenu(chatId, sec) {
 }
 
 function getCleanKeyboard(chatId, sec) {
-  const servText = sec.clean_service_enabled ? '✅ ON' : '❌ OFF';
-  const cmdText = sec.clean_commands_enabled ? '✅ ON' : '❌ OFF';
+  const servText = sec.clean_service_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]';
+  const cmdText = sec.clean_commands_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]';
 
   return new InlineKeyboard()
-    .text(`🚪 Limpiar Servicio: ${servText}`, `gh_clean_serv:${chatId}`).primary()
+    .text(`✧ Limpiar Servicio: ${servText}`, `gh_clean_serv:${chatId}`).primary()
     .row()
     .text(`⚡ Auto-Borrar Comandos: ${cmdText}`, `gh_clean_cmd:${chatId}`).primary()
     .row()
-    .text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
 // ── Sub-Panel 7: Censor & Filtro de Palabras ──
 function renderCensorMenu(chatId, sec, filters = []) {
   const dateFormatted = getSuperscriptDate();
-  const estado = sec.censor_enabled ? '✅ ACTIVO' : '❌ APAGADO';
+  const estado = sec.censor_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
   const filterList = filters.length > 0
     ? filters.map((f) => `• <code>${escapeHtml(f.keyword)}</code> (${f.action})`).join('\n')
     : '<i>No hay palabras personalizadas añadidas. Usa /addfilter [palabra]</i>';
 
   return (
-    `📝 <b>[FILTRO DE PALABRAS PROHIBIDAS & CENSOR]</b>\n` +
+    `❖ <b>[FILTRO DE PALABRAS PROHIBIDAS & CENSOR]</b>\n` +
     `══════\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
     `Escudo protector contra términos que ponen en riesgo la comunidad (carding, billetes falsos, doxeo):\n\n` +
     `▸ <b>Escudo Anti-Riesgo Telegram:</b> <b>${estado}</b>\n` +
     `▸ <b>Acción por Defecto:</b> <b>${sec.censor_action || 'WARN'}</b>\n\n` +
@@ -510,14 +511,14 @@ function renderCensorMenu(chatId, sec, filters = []) {
 }
 
 function getCensorKeyboard(chatId, sec) {
-  const stText = sec.censor_enabled ? '✅ ACTIVO' : '❌ APAGADO';
+  const stText = sec.censor_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
   return new InlineKeyboard()
-    .text(`🛡️ Escudo: ${stText}`, `gh_censor_tog:${chatId}`).primary()
+    .text(`❖ Escudo: ${stText}`, `gh_censor_tog:${chatId}`).primary()
     .row()
-    .text(`⚖️ Acción: ${sec.censor_action || 'WARN'} 🔁`, `gh_censor_act:${chatId}`).primary()
+    .text(`✦ Acción: ${sec.censor_action || 'WARN'} ↺`, `gh_censor_act:${chatId}`).primary()
     .row()
-    .text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
 // ── Sub-Panel 8: Notas & #Tags ──
@@ -528,14 +529,14 @@ function renderNotesMenu(chatId, notes = []) {
     : '<i>No hay notas registradas. Crea una respondiendo a un mensaje con /setnote #nombre</i>';
 
   return (
-    `📌 <b>[NOTAS & AUTO-RESPUESTAS #TAGS]</b>\n` +
+    `✦ <b>[NOTAS & AUTO-RESPUESTAS #TAGS]</b>\n` +
     `══════\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
-    `Permite que el bot responda al instante cuando cualquier miembro envíe una etiqueta (ej: <code>#reglas</code>, <code>#soporte</code>, <code>#precios</code>):\n\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `El bot responde al instante cuando cualquier miembro envíe una etiqueta (ej: <code>#reglas</code>, <code>#soporte</code>, <code>#precios</code>):\n\n` +
     `▸ <b>Notas Activas en este Grupo:</b>\n` +
     `${notesList}\n\n` +
-    `💡 <i>Para añadir una nota: envía <code>/setnote #nombre [texto]</code></i>\n` +
-    `💡 <i>Para eliminar una nota: envía <code>/delnote #nombre</code></i>\n\n` +
+    `▸ <i>Para añadir una nota: envía <code>/setnote #nombre [texto]</code></i>\n` +
+    `▸ <i>Para eliminar una nota: envía <code>/delnote #nombre</code></i>\n\n` +
     `──────\n` +
     `${dateFormatted}`
   );
@@ -548,16 +549,16 @@ function getNotesKeyboard(chatId, notes = []) {
       const n1 = notes[i];
       const n2 = notes[i + 1];
       if (n2) {
-        kb.text(`🗑 #${n1.name}`, `gh_note_del:${chatId}:${n1.name}`)
-          .text(`🗑 #${n2.name}`, `gh_note_del:${chatId}:${n2.name}`)
+        kb.text(`✕ #${n1.name}`, `gh_note_del:${chatId}:${n1.name}`)
+          .text(`✕ #${n2.name}`, `gh_note_del:${chatId}:${n2.name}`)
           .row();
       } else {
-        kb.text(`🗑 Eliminar #${n1.name}`, `gh_note_del:${chatId}:${n1.name}`).row();
+        kb.text(`✕ Eliminar #${n1.name}`, `gh_note_del:${chatId}:${n1.name}`).row();
       }
     }
   }
-  kb.text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+  kb.text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
   return kb;
 }
 
@@ -569,13 +570,13 @@ function renderWhitelistMenu(chatId, list = []) {
     : '<i>No hay dominios autorizados en la lista blanca.</i>';
 
   return (
-    `🔗 <b>[WHITELIST DE ENLACES & DOMINIOS]</b>\n` +
+    `❖ <b>[WHITELIST DE ENLACES & DOMINIOS]</b>\n` +
     `══════\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
     `Dominios permitidos aunque el Bloqueo de Enlaces (Lock Links) esté activo:\n\n` +
     `${domList}\n\n` +
-    `💡 <i>Para agregar un dominio: envía <code>/addwhitelist dominio.com</code></i>\n` +
-    `💡 <i>Para remover un dominio: envía <code>/delwhitelist dominio.com</code></i>\n\n` +
+    `▸ <i>Para agregar un dominio: envía <code>/addwhitelist dominio.com</code></i>\n` +
+    `▸ <i>Para remover un dominio: envía <code>/delwhitelist dominio.com</code></i>\n\n` +
     `──────\n` +
     `${dateFormatted}`
   );
@@ -583,33 +584,33 @@ function renderWhitelistMenu(chatId, list = []) {
 
 function getWhitelistKeyboard(chatId) {
   return new InlineKeyboard()
-    .text(`➕ Añadir t.me/VentasLibresPeru`, `gh_wl_add:${chatId}:t.me/VentasLibresPeru`).primary()
+    .text(`+ Añadir t.me/VentasLibresPeru`, `gh_wl_add:${chatId}:t.me/VentasLibresPeru`).primary()
     .row()
-    .text(`➕ Añadir youtube.com`, `gh_wl_add:${chatId}:youtube.com`).primary()
+    .text(`+ Añadir youtube.com`, `gh_wl_add:${chatId}:youtube.com`).primary()
     .row()
-    .text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-    .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
 // ── Sub-Panel 10: Diagnóstico / Auditoría en 1 Clic ──
 function renderStatusAudit(chatId, groupTitle, sec, locks) {
   const dateFormatted = getSuperscriptDate();
-  const l = (k) => (locks[k] ? '❌ BLOQ' : '✅ PERMIT');
+  const l = (k) => (locks[k] ? '[ ✗ BLOQ ]' : '[ ✓ PERMIT ]');
   return (
-    `📋 <b>[DIAGNÓSTICO INTEGRAL DE SEGURIDAD]</b>\n` +
+    `⟡ <b>[DIAGNÓSTICO INTEGRAL DE SEGURIDAD]</b>\n` +
     `══════\n` +
-    `📍 <b>Grupo:</b> <b>${escapeHtml(groupTitle || 'Comunidad Oficial')}</b>\n` +
-    `🆔 <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `▸ <b>Grupo:</b> <b>${escapeHtml(groupTitle || 'Comunidad Oficial')}</b>\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
     `══════\n\n` +
-    `🛡️ <b>ESCUDOS ACTIVOS:</b>\n` +
-    `• Anti-Flood: <b>${sec.anti_flood_enabled ? '✅ ACTIVO' : '❌ APAGADO'}</b> (${sec.anti_flood_msg_limit}msg/${sec.anti_flood_window_seconds}s ➔ ${sec.anti_flood_action})\n` +
-    `• Anti-Raid: <b>${sec.anti_raid_enabled ? '✅ ACTIVO' : '❌ APAGADO'}</b>\n` +
-    `• Bienvenida: <b>${sec.welcome_enabled ? '✅ ACTIVA' : '❌ APAGADA'}</b>\n` +
-    `• Captcha / Verif: <b>${sec.verify_enabled ? '✅ ACTIVO' : '❌ APAGADO'}</b>\n` +
-    `• Modo Noche: <b>${sec.night_mode_enabled ? '✅ ACTIVO' : '❌ APAGADO'}</b> (${sec.night_mode_start || '00:00'} - ${sec.night_mode_end || '07:00'})\n` +
+    `❖ <b>ESCUDOS ACTIVOS:</b>\n` +
+    `• Anti-Flood: <b>${sec.anti_flood_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]'}</b> (${sec.anti_flood_msg_limit}msg/${sec.anti_flood_window_seconds}s ➔ ${sec.anti_flood_action})\n` +
+    `• Anti-Raid: <b>${sec.anti_raid_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]'}</b>\n` +
+    `• Bienvenida: <b>${sec.welcome_enabled ? '[ ✓ ACTIVA ]' : '[ ✗ APAGADA ]'}</b>\n` +
+    `• Captcha / Verif: <b>${sec.verify_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]'}</b>\n` +
+    `• Modo Noche: <b>${sec.night_mode_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]'}</b> (${sec.night_mode_start || '00:00'} - ${sec.night_mode_end || '07:00'})\n` +
     `• Sistema Warns: <b>${sec.warn_limit} máx</b> ➔ Sanción: <b>${sec.warn_action}</b>\n` +
-    `• Clean Service: <b>${sec.clean_service_enabled ? '✅ ACTIVO' : '❌ APAGADO'}</b>\n\n` +
-    `🔒 <b>MATRIZ DE BLOQUEOS (LOCKS):</b>\n` +
+    `• Clean Service: <b>${sec.clean_service_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]'}</b>\n\n` +
+    `❖ <b>MATRIZ DE BLOQUEOS (LOCKS):</b>\n` +
     `• Enlaces: ${l('links')} | Invites: ${l('invites')}\n` +
     `• Canales: ${l('channels')} | Reenvíos: ${l('forwards')}\n` +
     `• Stickers: ${l('stickers')} | GIFs: ${l('gifs')}\n` +
@@ -707,17 +708,17 @@ function register(bot) {
 
       // Selector de múltiples grupos
       let selectorText =
-        `🎛 <b>[PANEL DE CONTROL CENTRAL]</b> ⊱ <code>SELECCIÓN DE GRUPO</code> ⊰\n` +
+        `⟡ <b>[PANEL DE CONTROL CENTRAL]</b> ⊱ <code>SELECCIÓN DE GRUPO</code> ⊰\n` +
         `══════\n` +
         `Hola, <b>${escapeHtml(firstName)}</b>. Selecciona la comunidad que deseas administrar remotamente:\n\n`;
 
       const kb = new InlineKeyboard();
       for (const g of groups.slice(0, 8)) {
         selectorText += `• <b>${escapeHtml(g.chat_title || 'Grupo')}</b> (<code>${g.chat_id}</code>)\n`;
-        kb.text(`🏢 ${g.chat_title || 'Grupo'}`, `gh_main:${g.chat_id}`).row();
+        kb.text(`❖ ${g.chat_title || 'Grupo'}`, `gh_main:${g.chat_id}`).row();
       }
-      kb.text(`📖 Catálogo de Comandos`, `gh_sub:${groups[0].chat_id}:commands`).primary().row();
-      kb.text(`✖ Cerrar`, 'panel_close').danger();
+      kb.text(`❖ Catálogo de Comandos`, `gh_sub:${groups[0].chat_id}:commands`).primary().row();
+      kb.text(`✕ Cerrar`, 'panel_close').danger();
 
       selectorText += `\n──────\n${getSuperscriptDate()}`;
       await ctx.reply(selectorText, { parse_mode: 'HTML', reply_markup: kb });
@@ -767,16 +768,16 @@ function register(bot) {
       const groups = await db.getAllGroups(tenantId);
 
       let selectorText =
-        `🎛 <b>[PANEL DE CONTROL CENTRAL]</b> ⊱ <code>SELECCIÓN DE GRUPO</code> ⊰\n` +
+        `⟡ <b>[PANEL DE CONTROL CENTRAL]</b> ⊱ <code>SELECCIÓN DE GRUPO</code> ⊰\n` +
         `══════\n` +
         `Selecciona la comunidad que deseas administrar remotamente:\n\n`;
 
       const kb = new InlineKeyboard();
       for (const g of (groups || []).slice(0, 8)) {
         selectorText += `• <b>${escapeHtml(g.chat_title || 'Grupo')}</b> (<code>${g.chat_id}</code>)\n`;
-        kb.text(`🏢 ${g.chat_title || 'Grupo'}`, `gh_main:${g.chat_id}`).row();
+        kb.text(`❖ ${g.chat_title || 'Grupo'}`, `gh_main:${g.chat_id}`).row();
       }
-      kb.text(`✖ Cerrar`, 'panel_close').danger();
+      kb.text(`✕ Cerrar`, 'panel_close').danger();
 
       selectorText += `\n──────\n${getSuperscriptDate()}`;
       await ctx.editMessageText(selectorText, { parse_mode: 'HTML', reply_markup: kb });
@@ -879,8 +880,8 @@ function register(bot) {
           if (chat?.title) groupTitle = chat.title;
         } catch {}
         const kb = new InlineKeyboard()
-          .text(`◀ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
-          .text(`✖ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+          .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+          .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
         return await ctx.editMessageText(renderStatusAudit(chatId, groupTitle, sec, locks), {
           parse_mode: 'HTML',
           reply_markup: kb,
@@ -891,31 +892,31 @@ function register(bot) {
         const communityName = ctx.tenant?.community_name || DEFAULT_COMMUNITY_NAME;
         const dateFormatted = getSuperscriptDate();
         const cmdText =
-          `🎛 <b>[GUÍA DE COMANDOS - ${escapeHtml(communityName.toUpperCase())}]</b>\n` +
+          `⟡ <b>[GUÍA DE COMANDOS - ${escapeHtml(communityName.toUpperCase())}]</b>\n` +
           `══════\n` +
           `Explora los comandos organizados por categorías operativas:\n\n` +
-          `🛡️ <b>Moderación:</b> Mutes, bans, warns y /data.\n` +
-          `🚨 <b>Seguridad:</b> Pánico, Anti-Raid y Locks.\n` +
-          `🔥 <b>Lista Negra:</b> GBan y fichaje /quemar.\n` +
-          `🤝 <b>Tratos & Escrow:</b> Intermediación P2P.\n` +
-          `👤 <b>Perfiles & Radar:</b> /info, /perfil, multis y clones.\n` +
-          `🤖 <b>Asistente IA:</b> Encendido y consultas.\n` +
-          `⚙️ <b>Configuración:</b> Setup y Staff.\n\n` +
+          `• <b>Moderación:</b> Mutes, bans, warns y /data.\n` +
+          `• <b>Seguridad:</b> Pánico, Anti-Raid y Locks.\n` +
+          `• <b>Lista Negra:</b> GBan y fichaje /quemar.\n` +
+          `• <b>Tratos & Escrow:</b> Intermediación P2P.\n` +
+          `• <b>Perfiles & Radar:</b> /info, /perfil, multis y clones.\n` +
+          `• <b>Asistente IA:</b> Encendido y consultas.\n` +
+          `• <b>Configuración:</b> Setup y Staff.\n\n` +
           `──────\n${dateFormatted}`;
 
         const kb = new InlineKeyboard()
-          .text(`🛡️ Moderación`, `panel_cat:mod:${chatId}`).primary()
-          .text(`🚨 Seguridad`, `panel_cat:sec:${chatId}`).danger()
+          .text(`❖ Moderación`, `panel_cat:mod:${chatId}`).primary()
+          .text(`✦ Seguridad`, `panel_cat:sec:${chatId}`).danger()
           .row()
-          .text(`🔥 Lista Negra`, `panel_cat:blacklist:${chatId}`).danger()
-          .text(`🤝 Tratos & Escrow`, `panel_cat:escrow:${chatId}`).success()
+          .text(`❖ Lista Negra`, `panel_cat:blacklist:${chatId}`).danger()
+          .text(`✦ Tratos & Escrow`, `panel_cat:escrow:${chatId}`).success()
           .row()
-          .text(`👤 Perfiles`, `panel_cat:profiles:${chatId}`).primary()
-          .text(`🤖 Asistente IA`, `panel_cat:ai:${chatId}`).primary()
+          .text(`❖ Perfiles`, `panel_cat:profiles:${chatId}`).primary()
+          .text(`✧ Asistente IA`, `panel_cat:ai:${chatId}`).primary()
           .row()
-          .text(`⚙️ Configuración`, `panel_cat:config:${chatId}`).primary()
+          .text(`❖ Configuración`, `panel_cat:config:${chatId}`).primary()
           .row()
-          .text(`◀ ${toMathBold('Volver al Panel')}`, `gh_main:${chatId}`).primary();
+          .text(`◄ ${toMathBold('Volver al Panel')}`, `gh_main:${chatId}`).primary();
 
         return await ctx.editMessageText(cmdText, { parse_mode: 'HTML', reply_markup: kb });
       }
@@ -936,7 +937,7 @@ function register(bot) {
       locks[lockKey] = !locks[lockKey];
       await db.updateGroupLocksSettings(chatId, locks);
 
-      const statusName = locks[lockKey] ? 'BLOQUEADO ❌' : 'PERMITIDO ✅';
+      const statusName = locks[lockKey] ? '[ ✗ BLOQUEADO ]' : '[ ✓ PERMITIDO ]';
       await ctx.answerCallbackQuery({ text: `${lockKey.toUpperCase()}: ${statusName}` });
 
       await ctx.editMessageReplyMarkup({
@@ -963,7 +964,7 @@ function register(bot) {
       await db.updateGroupLocksSettings(chatId, locks);
 
       await ctx.answerCallbackQuery({
-        text: isLocking ? 'Todos los contenidos han sido BLOQUEADOS.' : 'Todos los contenidos han sido PERMITIDOS.',
+        text: isLocking ? 'Todos los contenidos han sido BLOQUEADOS [ ✗ ].' : 'Todos los contenidos han sido PERMITIDOS [ ✓ ].',
       });
 
       await ctx.editMessageReplyMarkup({
@@ -985,7 +986,7 @@ function register(bot) {
       sec.anti_flood_enabled = !sec.anti_flood_enabled;
       await db.updateGroupSecuritySettings(chatId, sec);
 
-      await ctx.answerCallbackQuery({ text: `Anti-Flood: ${sec.anti_flood_enabled ? 'ACTIVADO' : 'DESACTIVADO'}` });
+      await ctx.answerCallbackQuery({ text: `Anti-Flood: ${sec.anti_flood_enabled ? 'ACTIVADO [ ✓ ]' : 'DESACTIVADO [ ✗ ]'}` });
       await ctx.editMessageText(renderFloodMenu(chatId, sec), {
         parse_mode: 'HTML',
         reply_markup: getFloodKeyboard(chatId, sec),
@@ -1070,7 +1071,7 @@ function register(bot) {
       const sec = await db.getGroupSecuritySettings(chatId);
       sec.welcome_enabled = !sec.welcome_enabled;
       await db.updateGroupSecuritySettings(chatId, sec);
-      await ctx.answerCallbackQuery({ text: `Bienvenida: ${sec.welcome_enabled ? 'ACTIVADA' : 'APAGADA'}` });
+      await ctx.answerCallbackQuery({ text: `Bienvenida: ${sec.welcome_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]'}` });
       await ctx.editMessageText(renderWelcomeMenu(chatId, sec), {
         parse_mode: 'HTML',
         reply_markup: getWelcomeKeyboard(chatId, sec),
@@ -1102,7 +1103,7 @@ function register(bot) {
       const sec = await db.getGroupSecuritySettings(chatId);
       sec.verify_enabled = !sec.verify_enabled;
       await db.updateGroupSecuritySettings(chatId, sec);
-      await ctx.answerCallbackQuery({ text: `Captcha / Verif: ${sec.verify_enabled ? 'ACTIVADO' : 'APAGADO'}` });
+      await ctx.answerCallbackQuery({ text: `Captcha / Verif: ${sec.verify_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]'}` });
       await ctx.editMessageText(renderWelcomeMenu(chatId, sec), {
         parse_mode: 'HTML',
         reply_markup: getWelcomeKeyboard(chatId, sec),
@@ -1117,7 +1118,7 @@ function register(bot) {
       sec.verify_folder_enabled = !sec.verify_folder_enabled;
       await db.updateGroupSecuritySettings(chatId, sec);
       await ctx.answerCallbackQuery({
-        text: `Carpeta de Canales: ${sec.verify_folder_enabled ? 'ACTIVADA' : 'APAGADA'}`,
+        text: `Carpeta de Canales: ${sec.verify_folder_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]'}`,
       });
       await ctx.editMessageText(renderWelcomeMenu(chatId, sec), {
         parse_mode: 'HTML',
@@ -1130,9 +1131,9 @@ function register(bot) {
     try {
       const chatId = Number(ctx.match[1]);
       const customWelcome = await db.getSetting(`welcome_message_${chatId}`) || await db.getSetting('welcome_message');
-      const text = customWelcome || '👋 ¡Bienvenido/a a la comunidad oficial de Ventas Libres Perú! Cumple las normas y mantente seguro.';
+      const text = customWelcome || '⟡ ¡Bienvenido/a a la comunidad oficial de Ventas Libres Perú! Cumple las normas y mantente seguro.';
       await ctx.answerCallbackQuery();
-      await ctx.reply(`👁️ <b>[VISTA PREVIA DE BIENVENIDA]</b>\n──────\n${text}`, { parse_mode: 'HTML' });
+      await ctx.reply(`⟡ <b>[VISTA PREVIA DE BIENVENIDA]</b>\n──────\n${text}`, { parse_mode: 'HTML' });
     } catch (err) {}
   });
 
@@ -1143,7 +1144,7 @@ function register(bot) {
       const sec = await db.getGroupSecuritySettings(chatId);
       sec.night_mode_enabled = !sec.night_mode_enabled;
       await db.updateGroupSecuritySettings(chatId, sec);
-      await ctx.answerCallbackQuery({ text: `Modo Noche: ${sec.night_mode_enabled ? 'ACTIVADO' : 'APAGADO'}` });
+      await ctx.answerCallbackQuery({ text: `Modo Noche: ${sec.night_mode_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]'}` });
       await ctx.editMessageText(renderNightMenu(chatId, sec), {
         parse_mode: 'HTML',
         reply_markup: getNightKeyboard(chatId, sec),
@@ -1237,7 +1238,7 @@ function register(bot) {
       locks.service = sec.clean_service_enabled;
       await db.updateGroupLocksSettings(chatId, locks);
 
-      await ctx.answerCallbackQuery({ text: `Limpiar Servicio: ${sec.clean_service_enabled ? 'ON' : 'OFF'}` });
+      await ctx.answerCallbackQuery({ text: `Limpiar Servicio: ${sec.clean_service_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]'}` });
       await ctx.editMessageText(renderCleanMenu(chatId, sec), {
         parse_mode: 'HTML',
         reply_markup: getCleanKeyboard(chatId, sec),
@@ -1251,7 +1252,7 @@ function register(bot) {
       const sec = await db.getGroupSecuritySettings(chatId);
       sec.clean_commands_enabled = !sec.clean_commands_enabled;
       await db.updateGroupSecuritySettings(chatId, sec);
-      await ctx.answerCallbackQuery({ text: `Auto-Borrar Comandos: ${sec.clean_commands_enabled ? 'ON' : 'OFF'}` });
+      await ctx.answerCallbackQuery({ text: `Auto-Borrar Comandos: ${sec.clean_commands_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]'}` });
       await ctx.editMessageText(renderCleanMenu(chatId, sec), {
         parse_mode: 'HTML',
         reply_markup: getCleanKeyboard(chatId, sec),
@@ -1267,7 +1268,7 @@ function register(bot) {
       sec.censor_enabled = !sec.censor_enabled;
       await db.updateGroupSecuritySettings(chatId, sec);
       const filters = await db.getGroupFilters(chatId);
-      await ctx.answerCallbackQuery({ text: `Escudo Censor: ${sec.censor_enabled ? 'ACTIVADO' : 'APAGADO'}` });
+      await ctx.answerCallbackQuery({ text: `Escudo Censor: ${sec.censor_enabled ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]'}` });
       await ctx.editMessageText(renderCensorMenu(chatId, sec, filters), {
         parse_mode: 'HTML',
         reply_markup: getCensorKeyboard(chatId, sec),
@@ -1333,8 +1334,8 @@ function register(bot) {
       await ctx.answerCallbackQuery();
       const catText = `${category.text}\n\n──────\n${getSuperscriptDate()}`;
       const kb = new InlineKeyboard()
-        .text(`◀ ${toMathBold('Volver a Comandos')}`, `gh_sub:${chatId}:commands`).primary()
-        .text(`🎛 ${toMathBold('Ir al Panel')}`, `gh_main:${chatId}`).primary();
+        .text(`◄ ${toMathBold('Volver a Comandos')}`, `gh_sub:${chatId}:commands`).primary()
+        .text(`❖ ${toMathBold('Ir al Panel')}`, `gh_main:${chatId}`).primary();
 
       await ctx.editMessageText(catText, { parse_mode: 'HTML', reply_markup: kb });
     } catch (err) {
@@ -1398,9 +1399,9 @@ function register(bot) {
         `▸ <b>ID de Usuario:</b> <code>${userId}</code>\n` +
         `▸ <b>Rango Autorizado:</b> <b>${escapeHtml(roleName)}</b>\n` +
         `▸ <b>Clave Temporal:</b> <code>${tempPassword}</code>\n\n` +
-        `⏱️ <b>Vigencia de Sesión:</b> <code>24 Horas</code>`;
+        `▸ <b>Vigencia de Sesión:</b> <code>24 Horas</code>`;
 
-      const kb = new InlineKeyboard().url('🚀 ABRIR CONSOLA CENTRAL VLP', masterPanelUrl);
+      const kb = new InlineKeyboard().url('▸ ABRIR CONSOLA CENTRAL VLP', masterPanelUrl);
       await ctx.api.sendMessage(userId, dmText, {
         parse_mode: 'HTML',
         reply_markup: kb,

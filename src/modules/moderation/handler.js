@@ -366,16 +366,16 @@ function register(bot) {
       let text =
         `<b>⟡ [${escapeHtml(botLabel.toUpperCase())} BOT] ADVERTENCIA APLICADA</b>\n` +
         `──────\n\n` +
-        `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
-        `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
-        `〖⚠️〗 <b>Acumulado:</b> <b>${warnCount} / ${warnLimit} advertencias</b>\n` +
-        `〖⚖️〗 <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
-        `〖🛡️〗 <b>Moderador:</b> ${adminMention}\n\n`;
+        `▸ <b>Usuario:</b> ${targetMention}\n` +
+        `▸ <b>ID:</b> <code>${target.userId}</code>\n` +
+        `▸ <b>Acumulado:</b> <b>${warnCount} / ${warnLimit} advertencias</b>\n` +
+        `▸ <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
+        `▸ <b>Moderador:</b> ${adminMention}\n\n`;
 
       if (warnCount >= warnLimit && (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group')) {
         text +=
           `──────\n` +
-          `🚨 <b>LÍMITE ALCANZADO (${warnLimit}/${warnLimit}):</b> Sanción aplicada: <b>${warnAction}</b> (${warnDuration}).\n\n`;
+          `❖ <b>LÍMITE ALCANZADO (${warnLimit}/${warnLimit}):</b> Sanción aplicada: <b>${warnAction}</b> (${warnDuration}).\n\n`;
         try {
           if (warnAction === 'BAN') {
             await ctx.api.banChatMember(ctx.chat.id, target.userId);
@@ -407,7 +407,7 @@ function register(bot) {
       }
 
       text += `──────\n` +
-              `⚠️ <i>Al acumular ${warnLimit} advertencias oficiales se aplica sanción automática (${warnAction}).</i>\n` +
+              `▸ <i>Al acumular ${warnLimit} advertencias oficiales se aplica sanción automática (${warnAction}).</i>\n` +
               `${dateFormatted}`;
 
       await ctx.reply(text, { parse_mode: 'HTML' });
@@ -860,7 +860,7 @@ function register(bot) {
   bot.command(['setnote', 'addnote', 'guardarnota'], requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
-        return ctx.reply('⚠️ Este comando debe usarse dentro del grupo donde deseas registrar la nota.', { parse_mode: 'HTML' });
+        return ctx.reply('⟡ Este comando debe usarse dentro del grupo donde deseas registrar la nota.', { parse_mode: 'HTML' });
       }
       const parts = (ctx.message.text || '').trim().split(/\s+/);
       const rawName = parts[1];
@@ -888,7 +888,7 @@ function register(bot) {
       }
 
       if (!content && !fileId) {
-        return ctx.reply('⚠️ Debes especificar el texto de la nota o responder a un mensaje.', { parse_mode: 'HTML' });
+        return ctx.reply('⟡ Debes especificar el texto de la nota o responder a un mensaje.', { parse_mode: 'HTML' });
       }
 
       await db.saveGroupNote(ctx.chat.id, noteName, content, fileId, mediaType, [], ctx.from.id);
@@ -915,7 +915,7 @@ function register(bot) {
       if (!notes || notes.length === 0) {
         return ctx.reply('<i>No hay notas registradas en este grupo. Los administradores pueden añadir notas con /setnote #nombre [texto]</i>', { parse_mode: 'HTML' });
       }
-      let text = `📌 <b>[NOTAS DISPONIBLES EN EL GRUPO]</b>\n══════\n`;
+      let text = `✦ <b>[NOTAS DISPONIBLES EN EL GRUPO]</b>\n══════\n`;
       for (const n of notes) {
         text += `• <code>#${escapeHtml(n.name)}</code>\n`;
       }
@@ -948,7 +948,7 @@ function register(bot) {
   bot.command(['whitelists', 'whitelist'], requireStaff(), async (ctx) => {
     try {
       const list = await db.getGroupWhitelist(ctx.chat.id);
-      let text = `🔗 <b>[DOMINIOS EN WHITELIST DEL GRUPO]</b>\n══════\n`;
+      let text = `❖ <b>[DOMINIOS EN WHITELIST DEL GRUPO]</b>\n══════\n`;
       for (const d of list) {
         text += `• <code>${escapeHtml(d)}</code>\n`;
       }

@@ -183,13 +183,13 @@ function startPeriodicNoticeScheduler(bot) {
               });
               await bot.api.sendMessage(
                 chatId,
-                `🌙 <b>[MODO NOCHE ACTIVADO]</b>\n` +
+                `⟡ <b>[MODO NOCHE ACTIVADO]</b> ⊱ <code>HORARIO DE SILENCIO</code> ⊰\n` +
                 `══════\n` +
                 `El grupo entra en horario de silencio programado hasta las <b>${sec.night_mode_end || '07:00'} AM</b> (Hora Perú).\n` +
                 `<i>Los miembros no podrán enviar mensajes hasta la reapertura matutina.</i>`,
                 { parse_mode: 'HTML' }
               );
-              console.log(`🌙 Modo Noche activado en ${chatId}`);
+              console.log(`⟡ Modo Noche activado en ${chatId}`);
             } catch (permErr) {
               console.warn(`⟡ Error activando permisos noche en ${chatId}:`, permErr.message);
             }
@@ -211,12 +211,12 @@ function startPeriodicNoticeScheduler(bot) {
               });
               await bot.api.sendMessage(
                 chatId,
-                `🌅 <b>[MODO NOCHE FINALIZADO]</b>\n` +
+                `⟡ <b>[MODO NOCHE FINALIZADO]</b> ⊱ <code>REAPERTURA DE COMUNIDAD</code> ⊰\n` +
                 `══════\n` +
-                `¡Buenos días! El chat ha sido reabierto para toda la comunidad. Recuerda cumplir las normas de seguridad.`,
+                `El chat ha sido reabierto para toda la comunidad. Recuerda cumplir las normas de seguridad.`,
                 { parse_mode: 'HTML' }
               );
-              console.log(`🌅 Modo Noche desactivado en ${chatId}`);
+              console.log(`⟡ Modo Noche desactivado en ${chatId}`);
             } catch (permErr) {
               console.warn(`⟡ Error restaurando permisos noche en ${chatId}:`, permErr.message);
             }
