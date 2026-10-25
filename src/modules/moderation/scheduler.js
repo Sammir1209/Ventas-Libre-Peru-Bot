@@ -120,12 +120,121 @@ function startPeriodicNoticeScheduler(bot) {
     }
   }
 
-  // Programación fija cada 20 minutos
+  // Programación fija cada 20 minutos para avisos periódicos
   setInterval(() => {
     broadcastNotice().catch(() => {});
   }, NOTICE_INTERVAL_MS);
 
+  // ── Evaluador Automático de Modo Noche (Cada 60 segundos) ──
+  async function evaluateNightMode() {
+    try {
+      const groups = await db.getAllGroups();
+      if (!Array.isArray(groups)) return;
+
+      const now = new Date();
+      const limaTimeStr = now.toLocaleTimeString('es-PE', {
+        timeZone: 'America/Lima',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }); // "00:30"
+      const [nowH, nowM] = limaTimeStr.split(':').map(Number);
+      const nowTotalMin = nowH * 60 + nowM;
+
+      for (const grp of groups) {
+        const chatId = Number(grp.chat_id);
+        if (!chatId || grp.type === 'channel') continue;
+
+        try {
+          const sec = await db.getGroupSecuritySettings(chatId);
+          if (!sec || !sec.night_mode_enabled) continue;
+
+          const [startH, startM] = (sec.night_mode_start || '00:00').split(':').map(Number);
+          const [endH, endM] = (sec.night_mode_end || '07:00').split(':').map(Number);
+          const startTotalMin = startH * 60 + (startM || 0);
+          const endTotalMin = endH * 60 + (endM || 0);
+
+          let isNightTime = false;
+          if (startTotalMin <= endTotalMin) {
+            isNightTime = nowTotalMin >= startTotalMin && nowTotalMin < endTotalMin;
+          } else {
+            // Cruza la medianoche (ej: 23:00 a 07:00)
+            isNightTime = nowTotalMin >= startTotalMin || nowTotalMin < endTotalMin;
+          }
+
+          const lockKey = `night_locked:${chatId}`;
+          const isCurrentlyNightLocked = await redisDb.getCache(lockKey);
+
+          if (isNightTime && !isCurrentlyNightLocked) {
+            // Entrar en Modo Noche: restringir chat
+            await redisDb.setCache(lockKey, true, 86400);
+            try {
+              await bot.api.setChatPermissions(chatId, {
+                can_send_messages: false,
+                can_send_audios: false,
+                can_send_documents: false,
+                can_send_photos: false,
+                can_send_videos: false,
+                can_send_video_notes: false,
+                can_send_voice_notes: false,
+                can_send_polls: false,
+                can_send_other_messages: false,
+                can_add_web_page_previews: false,
+              });
+              await bot.api.sendMessage(
+                chatId,
+                `🌙 <b>[MODO NOCHE ACTIVADO]</b>\n` +
+                `══════\n` +
+                `El grupo entra en horario de silencio programado hasta las <b>${sec.night_mode_end || '07:00'} AM</b> (Hora Perú).\n` +
+                `<i>Los miembros no podrán enviar mensajes hasta la reapertura matutina.</i>`,
+                { parse_mode: 'HTML' }
+              );
+              console.log(`🌙 Modo Noche activado en ${chatId}`);
+            } catch (permErr) {
+              console.warn(`⟡ Error activando permisos noche en ${chatId}:`, permErr.message);
+            }
+          } else if (!isNightTime && isCurrentlyNightLocked) {
+            // Salir de Modo Noche: restaurar permisos
+            await redisDb.delCache(lockKey);
+            try {
+              await bot.api.setChatPermissions(chatId, {
+                can_send_messages: true,
+                can_send_audios: true,
+                can_send_documents: true,
+                can_send_photos: true,
+                can_send_videos: true,
+                can_send_video_notes: true,
+                can_send_voice_notes: true,
+                can_send_polls: true,
+                can_send_other_messages: true,
+                can_add_web_page_previews: true,
+              });
+              await bot.api.sendMessage(
+                chatId,
+                `🌅 <b>[MODO NOCHE FINALIZADO]</b>\n` +
+                `══════\n` +
+                `¡Buenos días! El chat ha sido reabierto para toda la comunidad. Recuerda cumplir las normas de seguridad.`,
+                { parse_mode: 'HTML' }
+              );
+              console.log(`🌅 Modo Noche desactivado en ${chatId}`);
+            } catch (permErr) {
+              console.warn(`⟡ Error restaurando permisos noche en ${chatId}:`, permErr.message);
+            }
+          }
+        } catch {}
+      }
+    } catch (nightErr) {
+      console.warn('⟡ Error en evaluateNightMode:', nightErr.message);
+    }
+  }
+
+  // Comprobar modo noche cada 60 segundos
+  setInterval(() => {
+    evaluateNightMode().catch(() => {});
+  }, 60 * 1000);
+
   console.log('✓ Aviso Periódico de Seguridad: Programado cada 20 min con filtro anti-spam (requiere >= 10 mensajes activos).');
+  console.log('✓ Modo Noche Programado: Evaluador continuo cada 60s activo.');
 }
 
 module.exports = {

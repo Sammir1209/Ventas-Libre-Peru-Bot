@@ -20,12 +20,16 @@ const SUPPORTED_LOCKS = [
   'docs',      // Archivos / documentos adjuntos
   'bots',      // Nuevos bots agregados al grupo
   'arab',      // Nombres o mensajes en árabe / scripts RTL
+  'games',     // Juegos de Telegram
 ];
 
 /**
  * Obtiene los locks activos de un grupo.
  */
 async function getGroupLocks(chatId) {
+  if (db.getGroupLocksSettings) {
+    return await db.getGroupLocksSettings(chatId);
+  }
   try {
     const raw = await db.getSetting(`locks_${chatId}`);
     if (raw) return JSON.parse(raw);
@@ -44,6 +48,7 @@ async function getGroupLocks(chatId) {
     docs: false,
     bots: true,       // Bloqueo de bots intrusos activo por defecto
     arab: true,       // Anti-scripts árabes / raid activo por defecto
+    games: false,
   };
 }
 
@@ -51,6 +56,9 @@ async function getGroupLocks(chatId) {
  * Actualiza los locks de un grupo.
  */
 async function setGroupLocks(chatId, locksObj) {
+  if (db.updateGroupLocksSettings) {
+    return await db.updateGroupLocksSettings(chatId, locksObj);
+  }
   await db.setSetting(`locks_${chatId}`, JSON.stringify(locksObj));
 }
 
@@ -159,17 +167,33 @@ async function evaluateMessageLocks(ctx) {
     }
   }
 
-  // 11. Lock General Links
+  // 11. Lock General Links (respeta Whitelist)
   if (locks.links) {
     const hasUrlEntity = entities.some((e) => e.type === 'url' || e.type === 'text_link');
     const hasRawLink = /(https?:\/\/|t\.me\/|telegram\.me\/|wa\.me\/)/i.test(text);
 
     if (hasUrlEntity || hasRawLink) {
-      return { shouldDelete: true, reason: 'Enlaces externos bloqueados en este grupo.' };
+      // Verificar si está en la whitelist del grupo
+      let isWhitelisted = false;
+      try {
+        const whitelist = db.getGroupWhitelist ? await db.getGroupWhitelist(chatId) : [];
+        if (whitelist.some((dom) => text.toLowerCase().includes(dom.toLowerCase()))) {
+          isWhitelisted = true;
+        }
+      } catch {}
+
+      if (!isWhitelisted) {
+        return { shouldDelete: true, reason: 'Enlaces externos bloqueados en este grupo.' };
+      }
     }
   }
 
-  // 12. Lock Arab / RTL Scripts
+  // 12. Lock Games & Mini-Apps
+  if (locks.games && (ctx.message?.game || ctx.message?.via_bot)) {
+    return { shouldDelete: true, reason: 'Juegos y mini-apps bloqueados en este grupo.' };
+  }
+
+  // 13. Lock Arab / RTL Scripts
   if (locks.arab) {
     const senderName = [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(' ');
     if (containsArabicOrRtl(text) || containsArabicOrRtl(senderName)) {

@@ -68,6 +68,36 @@ function register(bot) {
           } catch (impErr) {
             console.error('⟡ Error en checkImpersonation en mensaje:', impErr.message);
           }
+
+          // 3. Notas & Auto-Respuestas (#tag)
+          const text = ctx.message?.text || '';
+          const matchTag = text.trim().match(/^#([a-zA-Z0-9_\-]+)$/);
+          if (matchTag && db.getGroupNote) {
+            const noteName = matchTag[1];
+            const note = await db.getGroupNote(ctx.chat.id, noteName);
+            if (note && note.content) {
+              const threadId = ctx.message?.message_thread_id;
+              await ctx.reply(note.content, {
+                message_thread_id: threadId,
+                parse_mode: 'HTML',
+                reply_to_message_id: ctx.message.message_id,
+                link_preview_options: { is_disabled: true },
+              });
+              return;
+            }
+          }
+
+          // 4. Auto-limpieza de Comandos (Clean Service)
+          if (text.startsWith('/') && (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group')) {
+            try {
+              const sec = await db.getGroupSecuritySettings(ctx.chat.id);
+              if (sec && sec.clean_commands_enabled) {
+                setTimeout(async () => {
+                  try { await ctx.deleteMessage(); } catch {}
+                }, 5000);
+              }
+            } catch {}
+          }
         }
       }
     } catch {}
@@ -317,6 +347,20 @@ function register(bot) {
       const adminMention = staffMention(ctx.from.id, ctx.from.username, ctx.from.first_name);
       const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
       const botLabel = communityName.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || 'Ventas Libres';
+      let warnLimit = 3;
+      let warnAction = 'MUTE';
+      let warnDuration = '1d';
+      try {
+        if (db.getGroupSecuritySettings) {
+          const sec = await db.getGroupSecuritySettings(ctx.chat.id);
+          if (sec) {
+            warnLimit = Number(sec.warn_limit) || 3;
+            warnAction = sec.warn_action || 'MUTE';
+            warnDuration = sec.warn_duration || '1d';
+          }
+        }
+      } catch {}
+
       const dateFormatted = getSuperscriptDate();
 
       let text =
@@ -324,38 +368,46 @@ function register(bot) {
         `──────\n\n` +
         `〖☁〗 <b>Usuario:</b> ${targetMention}\n` +
         `〖ϟ〗 <b>ID:</b> <code>${target.userId}</code>\n` +
-        `〖⚠️〗 <b>Acumulado:</b> <b>${warnCount} / 3 advertencias</b>\n` +
+        `〖⚠️〗 <b>Acumulado:</b> <b>${warnCount} / ${warnLimit} advertencias</b>\n` +
         `〖⚖️〗 <b>Motivo:</b> <i>${escapeHtml(reason)}</i>\n` +
         `〖🛡️〗 <b>Moderador:</b> ${adminMention}\n\n`;
 
-      if (warnCount >= 3 && (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group')) {
+      if (warnCount >= warnLimit && (ctx.chat.type === 'supergroup' || ctx.chat.type === 'group')) {
         text +=
           `──────\n` +
-          `🚨 <b>LÍMITE ALCANZADO (3/3):</b> El usuario ha sido silenciado automáticamente por 24 horas.\n\n`;
+          `🚨 <b>LÍMITE ALCANZADO (${warnLimit}/${warnLimit}):</b> Sanción aplicada: <b>${warnAction}</b> (${warnDuration}).\n\n`;
         try {
-          const muteDuration = parseDuration('1d');
-          await ctx.api.restrictChatMember(
-            ctx.chat.id,
-            target.userId,
-            {
-              can_send_messages: false,
-              can_send_audios: false,
-              can_send_documents: false,
-              can_send_photos: false,
-              can_send_videos: false,
-              can_send_video_notes: false,
-              can_send_voice_notes: false,
-              can_send_polls: false,
-              can_send_other_messages: false,
-              can_add_web_page_previews: false,
-            },
-            { until_date: muteDuration.untilDate, use_independent_chat_permissions: true }
-          );
+          if (warnAction === 'BAN') {
+            await ctx.api.banChatMember(ctx.chat.id, target.userId);
+          } else if (warnAction === 'KICK') {
+            await ctx.api.banChatMember(ctx.chat.id, target.userId);
+            await ctx.api.unbanChatMember(ctx.chat.id, target.userId, { only_if_banned: true });
+          } else {
+            // MUTE
+            const muteDuration = parseDuration(warnDuration);
+            await ctx.api.restrictChatMember(
+              ctx.chat.id,
+              target.userId,
+              {
+                can_send_messages: false,
+                can_send_audios: false,
+                can_send_documents: false,
+                can_send_photos: false,
+                can_send_videos: false,
+                can_send_video_notes: false,
+                can_send_voice_notes: false,
+                can_send_polls: false,
+                can_send_other_messages: false,
+                can_add_web_page_previews: false,
+              },
+              { until_date: muteDuration.untilDate, use_independent_chat_permissions: true }
+            );
+          }
         } catch {}
       }
 
       text += `──────\n` +
-              `⚠️ <i>Al acumular 3 advertencias oficiales se aplican sanciones automáticas.</i>\n` +
+              `⚠️ <i>Al acumular ${warnLimit} advertencias oficiales se aplica sanción automática (${warnAction}).</i>\n` +
               `${dateFormatted}`;
 
       await ctx.reply(text, { parse_mode: 'HTML' });
@@ -802,6 +854,107 @@ function register(bot) {
     } catch (err) {
       console.error('⟡ Error en log_info callback:', err.message);
     }
+  });
+
+  // ── Comandos de Notas (#Tags) ──
+  bot.command(['setnote', 'addnote', 'guardarnota'], requireStaff(), async (ctx) => {
+    try {
+      if (ctx.chat.type === 'private') {
+        return ctx.reply('⚠️ Este comando debe usarse dentro del grupo donde deseas registrar la nota.', { parse_mode: 'HTML' });
+      }
+      const parts = (ctx.message.text || '').trim().split(/\s+/);
+      const rawName = parts[1];
+      if (!rawName) {
+        return ctx.reply('〖❖〗 <b>Uso:</b> <code>/setnote #nombre [contenido o responder a un mensaje]</code>', { parse_mode: 'HTML' });
+      }
+      const noteName = rawName.replace(/^#/, '');
+      let content = parts.slice(2).join(' ');
+      let fileId = null;
+      let mediaType = null;
+
+      if (ctx.message.reply_to_message) {
+        const rep = ctx.message.reply_to_message;
+        if (!content) content = rep.text || rep.caption || '';
+        if (rep.photo) {
+          fileId = rep.photo[rep.photo.length - 1].file_id;
+          mediaType = 'photo';
+        } else if (rep.document) {
+          fileId = rep.document.file_id;
+          mediaType = 'document';
+        } else if (rep.video) {
+          fileId = rep.video.file_id;
+          mediaType = 'video';
+        }
+      }
+
+      if (!content && !fileId) {
+        return ctx.reply('⚠️ Debes especificar el texto de la nota o responder a un mensaje.', { parse_mode: 'HTML' });
+      }
+
+      await db.saveGroupNote(ctx.chat.id, noteName, content, fileId, mediaType, [], ctx.from.id);
+      await ctx.reply(`✓ <b>Nota guardada:</b> <code>#${escapeHtml(noteName)}</code>\nCualquier miembro puede escribir <code>#${escapeHtml(noteName)}</code> para invocarla.`, { parse_mode: 'HTML' });
+    } catch (err) {
+      console.error('⟡ Error en /setnote:', err.message);
+    }
+  });
+
+  bot.command(['delnote', 'removenote'], requireStaff(), async (ctx) => {
+    try {
+      const parts = (ctx.message.text || '').trim().split(/\s+/);
+      const rawName = parts[1];
+      if (!rawName) return ctx.reply('〖❖〗 <b>Uso:</b> <code>/delnote #nombre</code>', { parse_mode: 'HTML' });
+      const noteName = rawName.replace(/^#/, '');
+      await db.deleteGroupNote(ctx.chat.id, noteName);
+      await ctx.reply(`✓ Nota <code>#${escapeHtml(noteName)}</code> eliminada con éxito.`, { parse_mode: 'HTML' });
+    } catch (err) {}
+  });
+
+  bot.command(['notes', 'notas'], async (ctx) => {
+    try {
+      const notes = await db.getGroupNotes(ctx.chat.id);
+      if (!notes || notes.length === 0) {
+        return ctx.reply('<i>No hay notas registradas en este grupo. Los administradores pueden añadir notas con /setnote #nombre [texto]</i>', { parse_mode: 'HTML' });
+      }
+      let text = `📌 <b>[NOTAS DISPONIBLES EN EL GRUPO]</b>\n══════\n`;
+      for (const n of notes) {
+        text += `• <code>#${escapeHtml(n.name)}</code>\n`;
+      }
+      text += `\n<i>Escribe cualquiera de estas etiquetas para ver su contenido.</i>\n──────\n${getSuperscriptDate()}`;
+      await ctx.reply(text, { parse_mode: 'HTML' });
+    } catch (err) {}
+  });
+
+  // ── Comandos de Whitelist de Enlaces ──
+  bot.command('addwhitelist', requireStaff(), async (ctx) => {
+    try {
+      const parts = (ctx.message.text || '').trim().split(/\s+/);
+      const domain = parts[1];
+      if (!domain) return ctx.reply('〖❖〗 <b>Uso:</b> <code>/addwhitelist [dominio.com o t.me/canal]</code>', { parse_mode: 'HTML' });
+      await db.addGroupWhitelist(ctx.chat.id, domain);
+      await ctx.reply(`✓ Dominio añadido a la lista blanca: <code>${escapeHtml(domain)}</code>`, { parse_mode: 'HTML' });
+    } catch (err) {}
+  });
+
+  bot.command('delwhitelist', requireStaff(), async (ctx) => {
+    try {
+      const parts = (ctx.message.text || '').trim().split(/\s+/);
+      const domain = parts[1];
+      if (!domain) return ctx.reply('〖❖〗 <b>Uso:</b> <code>/delwhitelist [dominio.com]</code>', { parse_mode: 'HTML' });
+      await db.deleteGroupWhitelist(ctx.chat.id, domain);
+      await ctx.reply(`✓ Dominio removido de la lista blanca: <code>${escapeHtml(domain)}</code>`, { parse_mode: 'HTML' });
+    } catch (err) {}
+  });
+
+  bot.command(['whitelists', 'whitelist'], requireStaff(), async (ctx) => {
+    try {
+      const list = await db.getGroupWhitelist(ctx.chat.id);
+      let text = `🔗 <b>[DOMINIOS EN WHITELIST DEL GRUPO]</b>\n══════\n`;
+      for (const d of list) {
+        text += `• <code>${escapeHtml(d)}</code>\n`;
+      }
+      text += `\n──────\n${getSuperscriptDate()}`;
+      await ctx.reply(text, { parse_mode: 'HTML' });
+    } catch (err) {}
   });
 }
 

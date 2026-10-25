@@ -23,6 +23,21 @@ const DEFAULT_FLOOD = {
  * Obtiene la configuración de Anti-Flood para un chat.
  */
 async function getAntiFloodConfig(chatId) {
+  if (db.getGroupSecuritySettings) {
+    try {
+      const sec = await db.getGroupSecuritySettings(chatId);
+      if (sec) {
+        return {
+          enabled: sec.anti_flood_enabled !== false,
+          msgLimit: Number(sec.anti_flood_msg_limit) || DEFAULT_FLOOD.MSG_LIMIT,
+          windowMs: (Number(sec.anti_flood_window_seconds) || 4) * 1000,
+          repeatLimit: Number(sec.anti_flood_repeat_limit) || DEFAULT_FLOOD.REPEAT_LIMIT,
+          action: sec.anti_flood_action || DEFAULT_FLOOD.ACTION,
+          muteTime: sec.anti_flood_mute_time || DEFAULT_FLOOD.MUTE_TIME,
+        };
+      }
+    } catch {}
+  }
   try {
     const raw = await db.getSetting(`antiflood_conf_${chatId}`);
     if (raw) return JSON.parse(raw);
@@ -41,6 +56,16 @@ async function getAntiFloodConfig(chatId) {
  * Guarda la configuración de Anti-Flood.
  */
 async function setAntiFloodConfig(chatId, conf) {
+  if (db.updateGroupSecuritySettings) {
+    await db.updateGroupSecuritySettings(chatId, {
+      anti_flood_enabled: conf.enabled,
+      anti_flood_msg_limit: conf.msgLimit,
+      anti_flood_window_seconds: Math.round((conf.windowMs || 4000) / 1000),
+      anti_flood_action: conf.action,
+      anti_flood_mute_time: conf.muteTime,
+      anti_flood_repeat_limit: conf.repeatLimit,
+    });
+  }
   await db.setSetting(`antiflood_conf_${chatId}`, JSON.stringify(conf));
 }
 

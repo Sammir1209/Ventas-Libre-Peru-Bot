@@ -1510,6 +1510,211 @@ async function getSetting(key, tenantId = null) {
 }
 
 // ══════
+// ⟡ Group Help: Configuración de Seguridad, Locks, Notas y Filtros
+// ══════
+
+const DEFAULT_GROUP_SECURITY = {
+  anti_raid_enabled: true,
+  anti_raid_threshold: 6,
+  anti_raid_window_seconds: 10,
+  anti_raid_action: 'MUTE',
+  lockdown_active: false,
+  anti_flood_enabled: true,
+  anti_flood_msg_limit: 5,
+  anti_flood_window_seconds: 4,
+  anti_flood_action: 'MUTE',
+  anti_flood_mute_time: '1h',
+  anti_flood_repeat_limit: 3,
+  anti_arab_enabled: true,
+  anti_bot_enabled: true,
+  warn_limit: 3,
+  warn_action: 'MUTE',
+  warn_duration: '1d',
+  welcome_enabled: true,
+  welcome_autodelete: 0,
+  verify_enabled: false,
+  verify_folder_enabled: true,
+  night_mode_enabled: false,
+  night_mode_start: '00:00',
+  night_mode_end: '07:00',
+  clean_service_enabled: true,
+  clean_commands_enabled: false,
+  censor_enabled: true,
+  censor_action: 'WARN',
+};
+
+const DEFAULT_GROUP_LOCKS = {
+  links: false,
+  invites: true,
+  channels: false,
+  service: true,
+  forwards: false,
+  stickers: false,
+  gifs: false,
+  audio: false,
+  voice: false,
+  video: false,
+  docs: false,
+  bots: true,
+  arab: true,
+  games: false,
+};
+
+async function getGroupSecuritySettings(chatId) {
+  try {
+    const raw = await getSetting(`group_sec_${chatId}`);
+    if (raw) {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return { ...DEFAULT_GROUP_SECURITY, ...parsed };
+    }
+  } catch {}
+  return { ...DEFAULT_GROUP_SECURITY };
+}
+
+async function updateGroupSecuritySettings(chatId, updates = {}) {
+  const current = await getGroupSecuritySettings(chatId);
+  const merged = { ...current, ...updates, updated_at: new Date().toISOString() };
+  await setSetting(`group_sec_${chatId}`, JSON.stringify(merged));
+  return merged;
+}
+
+async function getGroupLocksSettings(chatId) {
+  try {
+    const raw = await getSetting(`locks_${chatId}`);
+    if (raw) {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return { ...DEFAULT_GROUP_LOCKS, ...parsed };
+    }
+  } catch {}
+  return { ...DEFAULT_GROUP_LOCKS };
+}
+
+async function updateGroupLocksSettings(chatId, updates = {}) {
+  const current = await getGroupLocksSettings(chatId);
+  const merged = { ...current, ...updates };
+  await setSetting(`locks_${chatId}`, JSON.stringify(merged));
+  return merged;
+}
+
+// ── Notas y Hashtags (#tag) ──
+async function getGroupNotes(chatId) {
+  try {
+    const raw = await getSetting(`notes_${chatId}`);
+    if (raw) {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch {}
+  return [];
+}
+
+async function getGroupNote(chatId, name) {
+  const notes = await getGroupNotes(chatId);
+  const cleanName = String(name || '').toLowerCase().replace(/^#/, '').trim();
+  return notes.find((n) => n.name.toLowerCase() === cleanName) || null;
+}
+
+async function saveGroupNote(chatId, name, content, fileId = null, mediaType = null, buttons = [], createdBy = null) {
+  const notes = await getGroupNotes(chatId);
+  const cleanName = String(name || '').toLowerCase().replace(/^#/, '').trim();
+  const existingIdx = notes.findIndex((n) => n.name.toLowerCase() === cleanName);
+  const noteData = {
+    name: cleanName,
+    content,
+    file_id: fileId,
+    media_type: mediaType,
+    buttons: Array.isArray(buttons) ? buttons : [],
+    created_by: createdBy,
+    updated_at: new Date().toISOString(),
+  };
+  if (existingIdx >= 0) {
+    notes[existingIdx] = noteData;
+  } else {
+    notes.push(noteData);
+  }
+  await setSetting(`notes_${chatId}`, JSON.stringify(notes));
+  return noteData;
+}
+
+async function deleteGroupNote(chatId, name) {
+  const notes = await getGroupNotes(chatId);
+  const cleanName = String(name || '').toLowerCase().replace(/^#/, '').trim();
+  const filtered = notes.filter((n) => n.name.toLowerCase() !== cleanName);
+  await setSetting(`notes_${chatId}`, JSON.stringify(filtered));
+  return filtered.length !== notes.length;
+}
+
+// ── Filtros y Palabras Prohibidas ──
+async function getGroupFilters(chatId) {
+  try {
+    const raw = await getSetting(`filters_${chatId}`);
+    if (raw) {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch {}
+  return [];
+}
+
+async function addGroupFilter(chatId, keyword, responseText = null, action = 'DELETE', createdBy = null) {
+  const filters = await getGroupFilters(chatId);
+  const cleanKw = String(keyword || '').toLowerCase().trim();
+  const existingIdx = filters.findIndex((f) => f.keyword.toLowerCase() === cleanKw);
+  const filterData = {
+    keyword: cleanKw,
+    response_text: responseText,
+    action: action || 'DELETE',
+    created_by: createdBy,
+    created_at: new Date().toISOString(),
+  };
+  if (existingIdx >= 0) {
+    filters[existingIdx] = filterData;
+  } else {
+    filters.push(filterData);
+  }
+  await setSetting(`filters_${chatId}`, JSON.stringify(filters));
+  return filterData;
+}
+
+async function deleteGroupFilter(chatId, keyword) {
+  const filters = await getGroupFilters(chatId);
+  const cleanKw = String(keyword || '').toLowerCase().trim();
+  const filtered = filters.filter((f) => f.keyword.toLowerCase() !== cleanKw);
+  await setSetting(`filters_${chatId}`, JSON.stringify(filtered));
+  return filtered.length !== filters.length;
+}
+
+// ── Whitelist de Enlaces y Dominios ──
+async function getGroupWhitelist(chatId) {
+  try {
+    const raw = await getSetting(`whitelist_${chatId}`);
+    if (raw) {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed : [];
+    }
+  } catch {}
+  return ['t.me/VentasLibresPeru', 't.me/c/'];
+}
+
+async function addGroupWhitelist(chatId, domain) {
+  const list = await getGroupWhitelist(chatId);
+  const cleanDom = String(domain || '').toLowerCase().trim();
+  if (!list.includes(cleanDom)) {
+    list.push(cleanDom);
+    await setSetting(`whitelist_${chatId}`, JSON.stringify(list));
+  }
+  return list;
+}
+
+async function deleteGroupWhitelist(chatId, domain) {
+  const list = await getGroupWhitelist(chatId);
+  const cleanDom = String(domain || '').toLowerCase().trim();
+  const filtered = list.filter((d) => d.toLowerCase() !== cleanDom);
+  await setSetting(`whitelist_${chatId}`, JSON.stringify(filtered));
+  return filtered;
+}
+
+// ══════
 // ⟡ CRUD — Estafadores & Reportes
 // ══════
 
@@ -2748,4 +2953,21 @@ module.exports = {
   createPanelSession,
   validatePanelSession,
   revokePanelSession,
+  // Group Help Suite & Moderación
+  DEFAULT_GROUP_SECURITY,
+  DEFAULT_GROUP_LOCKS,
+  getGroupSecuritySettings,
+  updateGroupSecuritySettings,
+  getGroupLocksSettings,
+  updateGroupLocksSettings,
+  getGroupNotes,
+  getGroupNote,
+  saveGroupNote,
+  deleteGroupNote,
+  getGroupFilters,
+  addGroupFilter,
+  deleteGroupFilter,
+  getGroupWhitelist,
+  addGroupWhitelist,
+  deleteGroupWhitelist,
 };
