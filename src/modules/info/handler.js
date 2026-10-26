@@ -124,40 +124,37 @@ async function buildUserProfile(ctx, targetUser) {
   const dateFormatted = getSuperscriptDate();
 
   const isPremium = !!(targetUser.is_premium || targetUser.isPremium || targetUser.rawUser?.is_premium);
-  const premiumLine = isPremium
-    ? `〖⭐️〗 <b>Telegram Premium:</b> ⊱ <code>ACTIVO ✨</code> ⊰\n`
-    : '';
+  const premiumTag = isPremium ? ' ⊱ <code>PREMIUM ✨</code> ⊰' : '';
 
   const originLine = targetUser.isGlobal
-    ? `〖❖〗 <b>Origen:</b> <i>Usuario Global (Fuera de la comunidad)</i>\n`
-    : `〖❖〗 <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n`;
+    ? `▸ <b>Origen:</b> <i>Global</i>\n`
+    : `▸ <b>Comunidad:</b> <code>${escapeHtml(communityName)}</code>\n`;
 
   const bodyText =
-    `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
-    `──────\n\n` +
-    `〖☁〗 <b>Username:</b> ${nameDisplay}\n` +
-    `〖ϟ〗 <b>ID:</b> <code>${userId}</code>\n` +
-    `〖♝〗 <b>@User:</b> ${userDisplay}\n` +
-    `〖☾〗 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
-    premiumLine +
+    `⟡ <b>PERFIL DE USUARIO</b> ⊱ <code>${escapeHtml(botLabel.toUpperCase())}</code> ⊰\n` +
+    `──────\n` +
+    `▸ <b>Nombre:</b> <b>${nameDisplay}</b>${premiumTag}\n` +
+    `▸ <b>ID:</b> <code>${userId}</code> • <b>Alias:</b> ${userDisplay}\n` +
+    `▸ <b>Rol:</b> <code>${escapeHtml(roleName)}</code>\n` +
     originLine +
-    `〖✦〗 <b>Link de perfil:</b> <a href="tg://user?id=${userId}">Presiona aquí</a>`;
+    `▸ <b>Enlace:</b> <a href="tg://user?id=${userId}">Abrir Chat Directo</a>`;
 
-  const text = `${bodyText}\n\n──────\n${dateFormatted}`;
+  const text = `${bodyText}\n──────\n${dateFormatted}`;
 
+  const { toMathBold } = require('../../utils/aesthetic');
   const keyboard = new InlineKeyboard();
   if (userId) {
-    keyboard.text('Perfil', `info_view_card:${userId}`).primary();
-    keyboard.text('Verificar', `info_check_burn:${userId}`).success();
+    keyboard.text(toMathBold('TARJETA'), `info_view_card:${userId}`).primary();
+    keyboard.text(toMathBold('VERIFICAR'), `info_check_burn:${userId}`).success();
   } else if (username) {
-    keyboard.text('Perfil', `info_view_card_user:${username}`).primary();
-    keyboard.text('Verificar', `info_check_burn_user:${username}`).success();
+    keyboard.text(toMathBold('TARJETA'), `info_view_card_user:${username}`).primary();
+    keyboard.text(toMathBold('VERIFICAR'), `info_check_burn_user:${username}`).success();
   }
 
   // Si se buscó por término y no es una consulta directa de reply/ID, agregar botón de búsqueda global
   if (targetUser.searchQuery && !targetUser.isGlobal) {
     const safeQ = encodeURIComponent(targetUser.searchQuery).slice(0, 40);
-    keyboard.row().text('🌐 ¿No es él? Buscar en Telegram', `info_global:${safeQ}`);
+    keyboard.row().text(`🌐 ${toMathBold('BUSCAR EN TELEGRAM')}`, `info_global:${safeQ}`);
   }
 
   return { text, keyboard, bodyText, dateFormatted };
@@ -210,19 +207,19 @@ async function buildUserProfileByUsername(ctx, username) {
   if (burn) roleName = 'Estafador [ LISTA NEGRA ]';
 
   const bodyText =
-    `<b>⟡ [${escapeHtml(botLabel)} BOT] PERFIL DE USUARIO</b>\n` +
-    `──────\n\n` +
-    `〖☁〗 <b>Username:</b> ${nameDisplay}\n` +
-    `〖ϟ〗 <b>ID:</b> <i>No detectado</i>\n` +
-    `〖♝〗 <b>@User:</b> ${userDisplay}\n` +
-    `〖☾〗 <b>Rol:</b> ${escapeHtml(roleName)}\n` +
-    `〖✦〗 <b>Link de perfil:</b> <a href="https://t.me/${cleanUser}">Presiona aquí</a>`;
+    `⟡ <b>PERFIL DE USUARIO</b> ⊱ <code>${escapeHtml(botLabel.toUpperCase())}</code> ⊰\n` +
+    `──────\n` +
+    `▸ <b>Nombre:</b> <b>${nameDisplay}</b>\n` +
+    `▸ <b>ID:</b> <i>No detectado</i> • <b>Alias:</b> ${userDisplay}\n` +
+    `▸ <b>Rol:</b> <code>${escapeHtml(roleName)}</code>\n` +
+    `▸ <b>Enlace:</b> <a href="https://t.me/${cleanUser}">Abrir Perfil</a>`;
 
-  const text = `${bodyText}\n\n──────\n${dateFormatted}`;
+  const text = `${bodyText}\n──────\n${dateFormatted}`;
 
+  const { toMathBold } = require('../../utils/aesthetic');
   const keyboard = new InlineKeyboard()
-    .text('Perfil', `info_view_card_user:${cleanUser}`).primary()
-    .text('Verificar', `info_check_burn_user:${cleanUser}`).success();
+    .text(toMathBold('TARJETA'), `info_view_card_user:${cleanUser}`).primary()
+    .text(toMathBold('VERIFICAR'), `info_check_burn_user:${cleanUser}`).success();
 
   return { text, keyboard, bodyText, dateFormatted };
 }
