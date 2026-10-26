@@ -12,32 +12,29 @@ const { isGlobalOwner, isEffectiveOwner, resolveCommunityName } = require('../..
 // ⟡ Módulo 3: Staff — Sistema de Roles Múltiples y Tags Dinámicos
 // ══════
 
-const AVAILABLE_ROLES = ['OWNER', 'CO-OWNER', 'ADMIN', 'TRATO ADMIN'];
+const AVAILABLE_ROLES = ['ADMIN', 'TRATO ADMIN'];
 
 function getRolePresetTag(role) {
   const upper = (role || '').toUpperCase();
-  if (upper === 'OWNER') return 'Owner';
-  if (upper === 'CO-OWNER' || upper === 'COOWNER') return 'Co-Owner';
-  if (upper === 'ADMIN') return 'Admin';
-  if (upper === 'TRATO ADMIN' || upper === 'TRATOADMIN') return 'Trato Admin';
+  if (upper === 'ADMIN' || upper === 'ADMINISTRADOR') return 'Admin';
+  if (upper === 'TRATO ADMIN' || upper === 'TRATOADMIN' || upper.includes('TRATO')) return 'Trato Admin';
   return 'Staff';
 }
 
 function buildRolesKeyboard(targetId, selectedRoles) {
   const kb = new InlineKeyboard();
 
-  AVAILABLE_ROLES.forEach((r, idx) => {
+  AVAILABLE_ROLES.forEach((r) => {
     const isSelected = selectedRoles.includes(r);
-    const label = isSelected ? `${r} [SELECCIONADO]` : r;
+    const label = isSelected ? `[ ✓ ${r} ]` : `[ ${r} ]`;
     if (isSelected) {
       kb.text(label, `staff_toggle:${targetId}:${r}`).success();
     } else {
       kb.text(label, `staff_toggle:${targetId}:${r}`).primary();
     }
-    if (idx % 2 === 1) kb.row();
   });
 
-  if (AVAILABLE_ROLES.length % 2 !== 0) kb.row();
+  kb.row();
 
   if (selectedRoles.length > 0) {
     kb.text('CONTINUAR', `staff_roles_continue:${targetId}`).success();
@@ -162,25 +159,25 @@ function register(bot) {
 
       if (!target) {
         return ctx.reply(
-          `${SYM.DIVIDER}\n` +
-          `👑 <b>ASIGNACIÓN Y GESTIÓN DE STAFF</b>\n` +
-          `${SYM.DIVIDER}\n\n` +
-          `• <b>Uso:</b> <code>/promote [ID, @username o responder a mensaje]</code>\n\n` +
-          `<i>Permite asignar uno o múltiples roles simultáneos (ej: CO-OWNER + TRATO ADMIN) y definir el tag oficial en grupos.</i>`,
+          `⟡ <b>ASIGNACIÓN Y GESTIÓN DE STAFF</b> ⊱ <code>ADMINS & TRATO ADMINS</code> ⊰\n` +
+          `══════\n\n` +
+          `• <b>Uso interactivo:</b> <code>/promote [ID, @username o reply]</code>\n` +
+          `• <b>Asignación directa:</b> <code>/promote [@user|ID] [admin|trato admin] ["tag"]</code>\n\n` +
+          `<i>Permite designar a miembros como Administradores o Mediadores oficiales (Trato Admin).</i>`,
           { parse_mode: 'HTML' }
         );
       }
 
       if (target.unresolved) {
         return ctx.reply(
-          `${SYM.CROSS} No se pudo obtener el ID de <b>@${target.username}</b> automáticamente.\n\n` +
+          `✗ No se pudo obtener el ID de <b>@${target.username}</b> automáticamente.\n\n` +
           `• El usuario debe haber iniciado el bot al menos una vez.\n` +
           `• O usa directamente su <b>ID numérico</b>: <code>/promote [ID]</code>`,
           { parse_mode: 'HTML' }
         );
       }
 
-      // ── MODO DIRECTO: Si el owner escribió /promote @user admin o /promote @user trato admin [custom tag] ──
+      // ── MODO DIRECTO: Si se escribió /promote @user admin o /promote @user trato admin [custom tag] ──
       const rawText = (ctx.message?.text || '').trim();
       const tokens = rawText.split(/\s+/);
       const isReply = Boolean(ctx.message?.reply_to_message);
@@ -190,21 +187,14 @@ function register(bot) {
 
       if (roleArgs.length > 0) {
         const potentialRoleInput = roleArgs.join(' ').trim();
-        // Verificar si coincide con algún rol disponible
         let matchedRoles = [];
         let customTagCandidate = null;
 
         const upperCandidate = potentialRoleInput.toUpperCase();
-        if (upperCandidate.includes('CO-OWNER') || upperCandidate.includes('COOWNER')) {
-          matchedRoles.push('CO-OWNER');
-        }
-        if (upperCandidate.includes('TRATO ADMIN') || upperCandidate.includes('TRATOADMIN')) {
+        if (upperCandidate.includes('TRATO ADMIN') || upperCandidate.includes('TRATOADMIN') || upperCandidate.includes('MEDIADOR')) {
           matchedRoles.push('TRATO ADMIN');
         }
-        if (upperCandidate.includes('OWNER') && !matchedRoles.includes('CO-OWNER')) {
-          matchedRoles.push('OWNER');
-        }
-        if (upperCandidate.includes('ADMIN') && !matchedRoles.includes('TRATO ADMIN')) {
+        if ((upperCandidate.includes('ADMIN') || upperCandidate.includes('ADMINISTRADOR') || upperCandidate.includes('ADMINS')) && !matchedRoles.includes('TRATO ADMIN')) {
           matchedRoles.push('ADMIN');
         }
 
@@ -245,10 +235,10 @@ function register(bot) {
         }
       } catch { }
 
-      // Si no tiene roles y es owner en este bot/sub-bot
+      // Si no tiene roles y es administrador del bot/sub-bot
       const effectiveOwners = ctx.tenant?.owner_ids || config.OWNER_IDS || [];
       if (currentRoles.length === 0 && effectiveOwners.some((id) => Number(id) === Number(target.userId))) {
-        currentRoles = ['OWNER'];
+        currentRoles = ['ADMIN'];
       }
 
       const initialSelected = currentRoles.length > 0 ? [...currentRoles] : [];
@@ -342,7 +332,8 @@ function register(bot) {
         }
 
         return await ctx.reply(
-          `🛡️ <b>STAFF REMOVIDO CON ÉXITO</b>\n\n` +
+          `⟡ <b>STAFF REMOVIDO CON ÉXITO</b> ⊱ <code>REVOCACIÓN OFICIAL</code> ⊰\n` +
+          `══════\n\n` +
           `• <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
           `• <b>ID:</b> <code>${target.userId}</code>\n` +
           `• <b>Estado:</b> Rango y permisos revocados inmediatamente (-y)${auditText}\n` +
@@ -402,11 +393,12 @@ function register(bot) {
       const rolesDisplay = selected.length > 0 ? selected.join(', ') : 'Ninguno (Usuario)';
 
       const cardText =
-        `👑 <b>PANEL DE ASIGNACIÓN DE STAFF</b>\n\n` +
+        `⟡ <b>PANEL DE ASIGNACIÓN DE STAFF</b> ⊱ <code>ADMINS & TRATO ADMINS</code> ⊰\n` +
+        `══════\n\n` +
         `• <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
-        `• <b>ID:</b> <code>${targetId}</code>\n` +
+        `• <b>ID Numérico:</b> <code>${targetId}</code>\n` +
         `• <b>Roles Seleccionados:</b> <b>${rolesDisplay}</b>\n\n` +
-        `${SYM.THIN_LINE}\n` +
+        `──────\n` +
         `<i>Toca los roles que deseas activar o desactivar:</i>`;
 
       const kb = buildRolesKeyboard(targetId, selected);
@@ -441,7 +433,7 @@ function register(bot) {
         `⟡ <b>DISTINTIVO OFICIAL</b> ⊱ <code>TAG EN GRUPOS</code> ⊰\n` +
         `══════\n\n` +
         `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
-        `▸ <b>Jerarquía:</b> <b>${rolesDisplay}</b>\n\n` +
+        `▸ <b>Roles Asignados:</b> <b>${rolesDisplay}</b>\n\n` +
         `──────\n` +
         `<i>Selecciona el título oficial que se mostrará en los grupos o escribe uno personalizado:</i>`;
 
@@ -934,11 +926,11 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
     `══════\n\n` +
     `▸ <b>Usuario:</b> ${userTag} (<b>${nameFormatted}</b>)\n` +
     `▸ <b>ID Numérico:</b> <code>${targetId}</code>\n` +
-    `▸ <b>Jerarquía Asignada:</b> <b>${rolesStr}</b>\n` +
+    `▸ <b>Roles Asignados:</b> <b>${rolesStr}</b>\n` +
     `▸ <b>Distintivo Oficial:</b> <code>${escapeHtml(customTag)}</code>` +
     `${groupsAuditText}\n` +
     `──────\n` +
-    `🛡️ <i>Promovido por: ${adminMention}</i>`;
+    `<i>Promovido por: ${adminMention}</i>`;
 
   // 3. Determinar enlace del grupo de Staff y nombre de la comunidad
   const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
@@ -974,7 +966,7 @@ async function finishStaffAssignment(ctx, targetId, username, firstName, selecte
       `⟡ <b>EQUIPO OFICIAL</b> ⊱ <code>BIENVENIDA AL STAFF</code> ⊰\n` +
       `══════\n\n` +
       `Hola <b>${nameFormatted}</b>, has sido designado oficialmente como parte del equipo de administración de <b>${escapeHtml(communityName)}</b>.\n\n` +
-      `▸ <b>Jerarquía / Roles:</b> <code>${rolesStr}</code>\n` +
+      `▸ <b>Roles Asignados:</b> <code>${rolesStr}</code>\n` +
       `▸ <b>Distintivo Oficial:</b> <code>${escapeHtml(customTag)}</code>\n` +
       `▸ <b>Asignado por:</b> ${adminMention}\n\n` +
       `──────\n`;

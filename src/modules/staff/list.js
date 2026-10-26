@@ -1,39 +1,47 @@
+// ══════
+// ⟡ Comando /staff — Directorio Oficial Sin Jerarquías (Admins & Trato Admins)
+// ══════
+
 const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { ROLES } = require('../../config/constants');
 const templates = require('../../utils/templates');
 const helpers = require('../../utils/helpers');
 const { getReputation } = require('../escrow/rating');
-
-// ══════
-// ⟡ Comando /staff — Listar Equipo con Jerarquía
-// ══════
+const { InlineKeyboard } = require('grammy');
+const { toMathBold } = require('../../utils/aesthetic');
 
 function register(bot) {
   bot.command('staff', async (ctx) => {
     try {
+      const isSubBot = !!ctx.tenant;
+      const effectiveOwnerIds = isSubBot ? (ctx.tenant.owner_ids || []) : config.OWNER_IDS;
+      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
+      const tenantId = ctx.tenant?.id || null;
+
       const grouped = {
-        owners: [],
-        coowners: [],
         admins: [],
         dealAdmins: [],
       };
 
-      const isSubBot = !!ctx.tenant;
-      const effectiveOwnerIds = isSubBot ? (ctx.tenant.owner_ids || []) : config.OWNER_IDS;
-      const ownerIdSet = new Set(effectiveOwnerIds);
-      const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
-      const tenantId = ctx.tenant?.id || null;
+      const adminIdSet = new Set();
+      const dealAdminIdSet = new Set();
 
-      // 1. Cargar Owners garantizados (de la comunidad correspondiente)
+      // 1. Cargar Administradores garantizados del sistema (sin distinción de owner/co-owner)
       for (const ownerId of effectiveOwnerIds) {
+        const numId = Number(ownerId);
+        if (adminIdSet.has(numId)) continue;
         const ownerDetails = await helpers.resolveStaffUserDetails(ownerId, tenantId, ctx);
         if (ownerDetails) {
-          grouped.owners.push(ownerDetails);
+          grouped.admins.push({
+            ...ownerDetails,
+            custom_title: ownerDetails.custom_title || 'Admin',
+          });
+          adminIdSet.add(numId);
         }
       }
 
-      // 2. Cargar Staff de Supabase / BD (Aislado por tenant_id)
+      // 2. Cargar Staff registrado en Base de Datos (Aislado por tenant_id)
       let staffMembers = [];
       try {
         staffMembers = await db.getAllStaff(tenantId);
@@ -57,25 +65,31 @@ function register(bot) {
 
         const roleStr = String(member.role || '').toUpperCase();
         const roles = roleStr.split(/[,/|]+/).map((r) => r.trim());
+        const numUserId = Number(member.user_id);
 
-        if (roles.includes('OWNER') || roles.includes('DUENO') || roles.includes('DUEÑO')) {
-          if (!ownerIdSet.has(member.user_id)) {
-            grouped.owners.push(enrichedMember);
-          }
-        }
-        if (roles.includes('CO-OWNER') || roles.includes('COOWNER') || roles.includes('CO OWNER')) {
-          grouped.coowners.push(enrichedMember);
-        }
-        if (roles.includes('ADMIN') || roles.includes('ADMINISTRADOR') || roles.includes('ADMINS')) {
+        // Clasificación 1: ADMINISTRADORES
+        const isAdmin =
+          roles.includes('ADMIN') ||
+          roles.includes('ADMINISTRADOR') ||
+          roles.includes('ADMINS') ||
+          roles.includes('OWNER') ||
+          roles.includes('CO-OWNER') ||
+          roles.includes('COOWNER');
+
+        if (isAdmin && !adminIdSet.has(numUserId)) {
           grouped.admins.push(enrichedMember);
+          adminIdSet.add(numUserId);
         }
-        if (
+
+        // Clasificación 2: TRATO ADMINS (Mediadores Certificados)
+        const isDealAdmin =
           roles.includes('TRATO ADMIN') ||
           roles.includes('TRATOADMIN') ||
           roles.includes('TRATO_ADMIN') ||
           roles.includes(ROLES.DEAL_ADMIN) ||
-          roleStr.includes('TRATO')
-        ) {
+          roleStr.includes('TRATO');
+
+        if (isDealAdmin && !dealAdminIdSet.has(numUserId)) {
           let avgRating = '5.0';
           try {
             const rep = await getReputation(member.user_id);
@@ -83,26 +97,40 @@ function register(bot) {
               avgRating = rep.avgRating;
             }
           } catch {}
+
           grouped.dealAdmins.push({
             ...enrichedMember,
             avgRating,
           });
+          dealAdminIdSet.add(numUserId);
         }
       }
 
       const message = templates.renderStaffList(grouped, communityName);
-      const { InlineKeyboard } = require('grammy');
-      const { toMathBold } = require('../../utils/aesthetic');
+
       let botUsername = 'ventas_libres_peru_Bot';
       try {
         const botInfo = await ctx.api.getMe();
         botUsername = botInfo.username;
       } catch {}
 
-      const kb = new InlineKeyboard().url(
-        toMathBold('INICIAR TRATO ADMIN'),
-        `https://t.me/${botUsername}?start=tratoadm`
-      ).primary();
+      // Teclado en cuadrícula (Grid Layout):
+      // Fila 1: Botón largo solo
+      // Fila 2: Botones cortos agrupados lado a lado
+      const kb = new InlineKeyboard()
+        .url(
+          `✦ ${toMathBold('SOLICITAR TRATO ADMINISTRATIVO')}`,
+          `https://t.me/${botUsername}?start=tratoadm`
+        )
+        .row()
+        .url(
+          `❖ ${toMathBold('GUIA SEGURIDAD')}`,
+          `https://t.me/${botUsername}?start=guiatrato`
+        )
+        .text(
+          `✕ ${toMathBold('CERRAR')}`,
+          'staff_close'
+        );
 
       await ctx.reply(message, {
         parse_mode: 'HTML',
@@ -113,6 +141,14 @@ function register(bot) {
       console.error('⟡ Staff: Error en /staff:', err.message);
       await ctx.reply('⟡ ✗ Error al cargar la lista del Staff.', { parse_mode: 'HTML' });
     }
+  });
+
+  // Callback para cerrar la lista de staff
+  bot.callbackQuery('staff_close', async (ctx) => {
+    try {
+      await ctx.answerCallbackQuery();
+      await ctx.deleteMessage().catch(() => {});
+    } catch {}
   });
 }
 

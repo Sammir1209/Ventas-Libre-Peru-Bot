@@ -808,13 +808,14 @@ function burnAlertBroadcast(targetId, context = null, targetUsername = null, tar
   return text;
 }
 
-function formatStaffUser(username, userId, defaultEmoji = '〖👤〗') {
+function formatStaffUser(username, userId, bullet = '•', customTitle = null) {
   const cleanUser = username ? String(username).replace(/^@/, '').trim() : null;
   const userTag = cleanUser
     ? `<a href="https://t.me/${cleanUser}">@${escapeHtml(cleanUser)}</a>`
     : '<i>Sin @alias</i>';
   const idTag = userId ? `<code>${userId}</code>` : '';
-  return `${defaultEmoji} ${userTag}${idTag ? ` | 〖ϟ〗 ${idTag}` : ''}`;
+  const titleTag = customTitle ? ` [<i>${escapeHtml(customTitle)}</i>]` : '';
+  return `${bullet} ${userTag}${idTag ? ` (ID: ${idTag})` : ''}${titleTag}`;
 }
 
 function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
@@ -822,45 +823,36 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   const cleanCommunity = (communityName || 'Ventas Libres Perú').trim();
   const botLabel = cleanCommunity.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || cleanCommunity;
 
+  const admins = groupedStaff.admins || [];
+  const dealAdmins = groupedStaff.dealAdmins || [];
+  const totalCount = admins.length + dealAdmins.length;
+
   let output =
-    `<b>⟡ [${escapeHtml(botLabel.toUpperCase())} BOT] STAFF OFICIAL</b>\n` +
-    `──────\n\n`;
+    `⟡ <b>[${escapeHtml(botLabel.toUpperCase())} BOT] ⊱ EQUIPO OFICIAL ⊰</b>\n` +
+    `══════\n` +
+    `▸ <b>Comunidad:</b> <b>${escapeHtml(cleanCommunity)}</b>\n` +
+    `▸ <b>Personal Registrado:</b> <code>${totalCount} miembros</code>\n` +
+    `▸ <b>Seguridad:</b> <code>OPERACIONES 100% AUDITADAS</code>\n` +
+    `══════\n\n`;
 
-  output += `<b>〖👑〗 OWNERS (Propietarios)</b>\n`;
-  if (groupedStaff.owners && groupedStaff.owners.length > 0) {
-    for (const m of groupedStaff.owners) {
-      output += `${formatStaffUser(m.username, m.user_id, '〖👑〗')}\n`;
+  // 1. ADMINISTRADORES
+  output += `❖ <b>ADMINISTRADORES</b>\n`;
+  if (admins.length > 0) {
+    for (const m of admins) {
+      output += `${formatStaffUser(m.username, m.user_id, '•', m.custom_title)}\n`;
     }
   } else {
     output += `<i>• No registrados</i>\n`;
   }
   output += `\n`;
 
-  output += `<b>〖◈〗 CO-OWNERS</b>\n`;
-  if (groupedStaff.coowners && groupedStaff.coowners.length > 0) {
-    for (const m of groupedStaff.coowners) {
-      output += `${formatStaffUser(m.username, m.user_id, '〖◈〗')}\n`;
-    }
-  } else {
-    output += `<i>• No registrados</i>\n`;
-  }
-  output += `\n`;
-
-  output += `<b>〖🛡️〗 ADMINISTRADORES</b>\n`;
-  if (groupedStaff.admins && groupedStaff.admins.length > 0) {
-    for (const m of groupedStaff.admins) {
-      output += `${formatStaffUser(m.username, m.user_id, '〖🛡️〗')}\n`;
-    }
-  } else {
-    output += `<i>• No registrados</i>\n`;
-  }
-  output += `\n`;
-
-  output += `<b>〖⚖️〗 TRATO ADMINS (Mediadores Certificados)</b>\n`;
-  if (groupedStaff.dealAdmins && groupedStaff.dealAdmins.length > 0) {
-    for (const m of groupedStaff.dealAdmins) {
+  // 2. TRATO ADMINS (MEDIADORES CERTIFICADOS)
+  output += `✦ <b>TRATO ADMINS (MEDIADORES CERTIFICADOS)</b>\n`;
+  if (dealAdmins.length > 0) {
+    for (const m of dealAdmins) {
       const score = m.avgRating ? `${m.avgRating}/5.0 ★` : `5.0/5.0 ★`;
-      output += `${formatStaffUser(m.username, m.user_id, '〖⚖️〗')} ⊱ ${score} ⊰\n`;
+      const base = formatStaffUser(m.username, m.user_id, '•', m.custom_title);
+      output += `${base} ⊱ <b>${score}</b> ⊰\n`;
     }
   } else {
     output += `<i>• No registrados</i>\n`;
@@ -868,7 +860,7 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
 
   output +=
     `\n──────\n` +
-    `<i>Para compras y ventas 100% seguras usa <code>/tratoadm</code>.</i>\n` +
+    `<i>Para compras y ventas 100% seguras exige siempre <code>/tratoadm</code>.</i>\n` +
     `${dateFormatted}`;
   return output;
 }

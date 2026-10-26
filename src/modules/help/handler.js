@@ -260,19 +260,30 @@ function register(bot) {
       const communityName = ctx.tenant?.community_name || 'Ventas Libres Perú';
       const tenantId = ctx.tenant?.id || null;
 
-      const grouped = { owners: [], coowners: [], admins: [], dealAdmins: [] };
+      const grouped = { admins: [], dealAdmins: [] };
+      const adminIdSet = new Set();
+      const dealAdminIdSet = new Set();
+
       for (const ownerId of effectiveOwnerIds) {
+        const numId = Number(ownerId);
+        if (adminIdSet.has(numId)) continue;
         const ownerDetails = await helpers.resolveStaffUserDetails(ownerId, tenantId, ctx);
         if (ownerDetails) {
-          grouped.owners.push(ownerDetails);
+          grouped.admins.push({
+            ...ownerDetails,
+            custom_title: ownerDetails.custom_title || 'Admin',
+          });
+          adminIdSet.add(numId);
         }
       }
       try {
         const staffMembers = await db.getAllStaff(tenantId);
-        const ownerIdSet = new Set(effectiveOwnerIds);
 
         for (const member of staffMembers) {
-          const roles = (member.role || '').split(',').map((r) => r.trim().toUpperCase());
+          const roleStr = String(member.role || '').toUpperCase();
+          const roles = roleStr.split(/[,/|]+/).map((r) => r.trim());
+          const numUserId = Number(member.user_id);
+
           let enriched = member;
           if (!member.first_name || !member.username) {
             const extra = await helpers.resolveStaffUserDetails(member.user_id, tenantId, ctx);
@@ -286,22 +297,58 @@ function register(bot) {
             }
           }
 
-          if (roles.includes('OWNER') && !ownerIdSet.has(member.user_id)) {
-            grouped.owners.push(enriched);
-          }
-          if (roles.includes('CO-OWNER') || roles.includes('COOWNER')) {
-            grouped.coowners.push(enriched);
-          }
-          if (roles.includes('ADMIN') || roles.includes('ADMINISTRADOR')) {
+          const isAdmin =
+            roles.includes('ADMIN') ||
+            roles.includes('ADMINISTRADOR') ||
+            roles.includes('ADMINS') ||
+            roles.includes('OWNER') ||
+            roles.includes('CO-OWNER') ||
+            roles.includes('COOWNER');
+
+          if (isAdmin && !adminIdSet.has(numUserId)) {
             grouped.admins.push(enriched);
+            adminIdSet.add(numUserId);
           }
-          if (roles.includes('TRATO ADMIN') || roles.includes('TRATOADMIN')) {
+
+          const isDealAdmin =
+            roles.includes('TRATO ADMIN') ||
+            roles.includes('TRATOADMIN') ||
+            roles.includes('TRATO_ADMIN') ||
+            roleStr.includes('TRATO');
+
+          if (isDealAdmin && !dealAdminIdSet.has(numUserId)) {
             grouped.dealAdmins.push({ ...enriched, avgRating: '5.0' });
+            dealAdminIdSet.add(numUserId);
           }
         }
       } catch {}
+
+      const { InlineKeyboard } = require('grammy');
+      const { toMathBold } = require('../../utils/aesthetic');
+      let botUsername = 'ventas_libres_peru_Bot';
+      try {
+        const botInfo = await ctx.api.getMe();
+        botUsername = botInfo.username;
+      } catch {}
+
+      const kb = new InlineKeyboard()
+        .url(
+          `✦ ${toMathBold('SOLICITAR TRATO ADMINISTRATIVO')}`,
+          `https://t.me/${botUsername}?start=tratoadm`
+        )
+        .row()
+        .url(
+          `❖ ${toMathBold('GUIA SEGURIDAD')}`,
+          `https://t.me/${botUsername}?start=guiatrato`
+        )
+        .text(
+          `✕ ${toMathBold('CERRAR')}`,
+          'staff_close'
+        );
+
       await ctx.reply(templates.renderStaffList(grouped, communityName), {
         parse_mode: 'HTML',
+        reply_markup: kb,
         link_preview_options: { is_disabled: true },
       });
     } catch {}
