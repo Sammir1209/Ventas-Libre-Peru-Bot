@@ -73,48 +73,37 @@ function detectHighRiskCategory(text) {
 }
 
 /**
- * Construye el mensaje de alerta preventiva estético (Zero Emojis).
+ * Construye el mensaje de alerta preventiva ultra-compacto para celulares.
  */
 function buildHighRiskWarning(user, detectedInfo) {
   const mention = userMention(user);
-  const nowFormatted = formatDate(new Date());
 
   return (
-    `⟡ <b>[ALERTA PREVENTIVA DE SEGURIDAD]</b> ⊱ <code>SERVICIO DE ALTO RIESGO</code> ⊰\n` +
-    `══════\n` +
-    `▸ <b>Usuario:</b> ${mention}\n` +
-    `▸ <b>Servicio Detectado:</b> <b>${escapeHtml(detectedInfo.categoryTitle)}</b>\n` +
-    `══════\n\n` +
-    `<b>Advertencia Oficial de la Comunidad:</b>\n` +
-    `• En operaciones de <b>${escapeHtml(detectedInfo.categoryShort)}</b> se registra un índice crítico de estafas por vendedores fraudulentos.\n` +
-    `• <b>NUNCA transfieras dinero directamente</b> (Yape, Plin, Transferencia o Cripto) por chat privado sin respaldo oficial.\n` +
-    `• <b>EXIGE SIEMPRE Trato Administrativo Oficial (/tratoadm)</b> antes de enviar cualquier importe.\n\n` +
-    `<i>El Staff custodiará el dinero en garantía neutral hasta que recibas y verifiques tu pedido. Si el vendedor se niega a usar Trato Admin, es 100% un estafador.</i>\n` +
+    `⟡ <b>[ALERTA DE SEGURIDAD]</b> ⊱ <code>${escapeHtml(detectedInfo.categoryShort.toUpperCase())}</code> ⊰\n` +
     `──────\n` +
-    `⟡ <i>Registro: ${nowFormatted}</i>`
+    `▸ ${mention} • <b>Riesgo crítico de estafa</b>\n` +
+    `▸ <b>Regla:</b> Exige <b>Trato Admin (/tratoadm)</b> antes de transferir dinero.\n` +
+    `<i>El Staff custodia los fondos en garantía neutral hasta tu conformidad.</i>`
   );
 }
 
 /**
- * Construye el teclado interactivo con enlaces y botón de descarte.
- * Estructura en Cuadrícula (Grid):
- * - Fila 1: Botón principal de llamado a la acción (Largo / Ancho completo)
- * - Fila 2: Botones secundarios de acción rápida (Cortos / Lado a Lado)
+ * Construye el teclado interactivo en cuadrícula compacta optimizada para pantallas táctiles.
  */
 function buildWarningKeyboard(botUsername) {
   const kb = new InlineKeyboard();
   const username = botUsername || config.BOT_USERNAME || 'VentasLibrePeruBot';
 
-  // Fila 1: Botón largo solo
+  // Fila 1: Botón de llamado principal (Ancho completo)
   kb.url(
-    `✦ ${toMathBold('SOLICITAR TRATO ADMINISTRATIVO')}`,
+    `✦ ${toMathBold('SOLICITAR TRATO ADMIN')}`,
     `https://t.me/${username}?start=tratoadm`
   );
   kb.row();
 
-  // Fila 2: Botones cortos agrupados lado a lado (Izquierda | Derecha)
+  // Fila 2: Botones secundarios cortos lado a lado
   kb.url(
-    `❖ ${toMathBold('GUIA SEGURIDAD')}`,
+    `❖ ${toMathBold('GUIA')}`,
     `https://t.me/${username}?start=guiatrato`
   );
   kb.text(

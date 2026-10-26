@@ -333,12 +333,12 @@ function register(bot) {
 
       const kb = new InlineKeyboard()
         .url(
-          `✦ ${toMathBold('SOLICITAR TRATO ADMINISTRATIVO')}`,
+          `✦ ${toMathBold('SOLICITAR TRATO ADMIN')}`,
           `https://t.me/${botUsername}?start=tratoadm`
         )
         .row()
         .url(
-          `❖ ${toMathBold('GUIA SEGURIDAD')}`,
+          `❖ ${toMathBold('GUIA')}`,
           `https://t.me/${botUsername}?start=guiatrato`
         )
         .text(

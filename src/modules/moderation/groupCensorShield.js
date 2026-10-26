@@ -81,16 +81,13 @@ function register(bot) {
       // 1. Borrar inmediatamente el mensaje riesgoso para proteger el grupo de Telegram
       await ctx.deleteMessage().catch(() => {});
 
-      // 2. Enviar advertencia amigable con ejemplos camuflados
+      // 2. Enviar advertencia amigable con ejemplos camuflados (Ultra-compacto para móviles)
       const warningText =
-        `❖ <b>[ESCUDO ANTI-BAN] ⊱ MENSAJE ELIMINADO ⊰</b>\n` +
-        `──────\n\n` +
-        `Hola ${mention}, eliminamos tu mensaje para <b>evitar que Telegram baje o sancione el grupo</b>.\n\n` +
-        `▸ <b>Término riesgoso detectado:</b> <code>${escapeHtml(detection.matchedWord)}</code>\n` +
-        `▸ <b>Usa variantes como estas para que Telegram no baje el grupo:</b>\n` +
-        `↳ ${detection.examples}\n\n` +
+        `❖ <b>ESCUDO ANTI-BAN</b> ⊱ <code>MENSAJE BORRADO</code> ⊰\n` +
         `──────\n` +
-        `<i>Este aviso se autodestruirá en 25 segundos para mantener el grupo limpio.</i>`;
+        `▸ ${mention} • <b>Término bloqueado:</b> <code>${escapeHtml(detection.matchedWord)}</code>\n` +
+        `▸ <b>Alternativas seguras:</b> ${detection.examples}\n` +
+        `<i>Auto-borrado en 25s para mantener el grupo limpio.</i>`;
 
       const alertMsg = await ctx.reply(warningText, {
         parse_mode: 'HTML',

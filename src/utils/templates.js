@@ -812,31 +812,23 @@ function formatStaffUser(username, userId, bullet = '•', customTitle = null) {
   const cleanUser = username ? String(username).replace(/^@/, '').trim() : null;
   const userTag = cleanUser
     ? `<a href="https://t.me/${cleanUser}">@${escapeHtml(cleanUser)}</a>`
-    : '<i>Sin @alias</i>';
-  const idTag = userId ? `<code>${userId}</code>` : '';
+    : (userId ? `<code>${userId}</code>` : '<i>Sin @alias</i>');
   const titleTag = customTitle ? ` [<i>${escapeHtml(customTitle)}</i>]` : '';
-  return `${bullet} ${userTag}${idTag ? ` (ID: ${idTag})` : ''}${titleTag}`;
+  return `${bullet} ${userTag}${titleTag}`;
 }
 
 function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
-  const dateFormatted = getSuperscriptDate();
   const cleanCommunity = (communityName || 'Ventas Libres Perú').trim();
   const botLabel = cleanCommunity.replace(/\s*perú|\s*peru|\s*bot/gi, '').trim() || cleanCommunity;
 
   const admins = groupedStaff.admins || [];
   const dealAdmins = groupedStaff.dealAdmins || [];
-  const totalCount = admins.length + dealAdmins.length;
 
   let output =
-    `⟡ <b>[${escapeHtml(botLabel.toUpperCase())} BOT] ⊱ EQUIPO OFICIAL ⊰</b>\n` +
-    `══════\n` +
-    `▸ <b>Comunidad:</b> <b>${escapeHtml(cleanCommunity)}</b>\n` +
-    `▸ <b>Personal Registrado:</b> <code>${totalCount} miembros</code>\n` +
-    `▸ <b>Seguridad:</b> <code>OPERACIONES 100% AUDITADAS</code>\n` +
-    `══════\n\n`;
+    `⟡ <b>STAFF OFICIAL</b> ⊱ <code>${escapeHtml(botLabel.toUpperCase())}</code> ⊰\n` +
+    `──────\n` +
+    `❖ <b>ADMINISTRADORES:</b>\n`;
 
-  // 1. ADMINISTRADORES
-  output += `❖ <b>ADMINISTRADORES</b>\n`;
   if (admins.length > 0) {
     for (const m of admins) {
       output += `${formatStaffUser(m.username, m.user_id, '•', m.custom_title)}\n`;
@@ -844,13 +836,11 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   } else {
     output += `<i>• No registrados</i>\n`;
   }
-  output += `\n`;
 
-  // 2. TRATO ADMINS (MEDIADORES CERTIFICADOS)
-  output += `✦ <b>TRATO ADMINS (MEDIADORES CERTIFICADOS)</b>\n`;
+  output += `\n✦ <b>TRATO ADMINS (MEDIADORES):</b>\n`;
   if (dealAdmins.length > 0) {
     for (const m of dealAdmins) {
-      const score = m.avgRating ? `${m.avgRating}/5.0 ★` : `5.0/5.0 ★`;
+      const score = m.avgRating ? `${m.avgRating} ★` : `5.0 ★`;
       const base = formatStaffUser(m.username, m.user_id, '•', m.custom_title);
       output += `${base} ⊱ <b>${score}</b> ⊰\n`;
     }
@@ -859,9 +849,8 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
   }
 
   output +=
-    `\n──────\n` +
-    `<i>Para compras y ventas 100% seguras exige siempre <code>/tratoadm</code>.</i>\n` +
-    `${dateFormatted}`;
+    `──────\n` +
+    `<i>Para compras 100% seguras exige <code>/tratoadm</code>.</i>`;
   return output;
 }
 
@@ -881,17 +870,14 @@ function modLogEntry(action, moderatorMention, targetId, chatTitle, reason) {
 }
 
 function periodicSecurityNotice() {
-  const dateFormatted = getSuperscriptDate();
   return (
-    `<b>⟡ [VENTAS LIBRES PERÚ] AVISO DE SEGURIDAD</b>\n` +
-    `──────\n\n` +
-    `⟡ <b>Recomendaciones para un comercio 100% seguro:</b>\n\n` +
-    `〖1〗 Verifica siempre al equipo oficial con <code>/staff</code>.\n` +
-    `〖2〗 Usa <code>/tratoadm</code> para retener y proteger tu dinero.\n` +
-    `〖3〗 No confíes en tratos por mensajes privados con desconocidos.\n\n` +
+    `⟡ <b>AVISO DE SEGURIDAD</b> ⊱ <code>VENTAS LIBRES</code> ⊰\n` +
     `──────\n` +
-    `<i>Staff Oficial — Ventas Libres Perú</i>\n` +
-    `${dateFormatted}`
+    `• Verifica siempre al Staff oficial con <code>/staff</code>.\n` +
+    `• Exige <b>Trato Admin (/tratoadm)</b> para retener y proteger tu dinero.\n` +
+    `• Nunca compres por privado sin garantía oficial.\n` +
+    `──────\n` +
+    `<i>Garantía neutral anti-estafas 24/7.</i>`
   );
 }
 
@@ -905,18 +891,15 @@ function periodicNoticeKeyboard(botUsername = 'ventas_libres_peru_Bot') {
 }
 
 function scamKeywordReply(firstName, username) {
-  const userTag = username ? `@${username}` : (firstName ? `<b>${escapeHtml(firstName)}</b>` : 'Estimado usuario');
-  const dateFormatted = getSuperscriptDate();
+  const userTag = username ? `@${username}` : (firstName ? `<b>${escapeHtml(firstName)}</b>` : 'Usuario');
   return (
-    `<b>⟡ [CENTRAL DE SEGURIDAD] ALERTA DE ESTAFA</b>\n` +
-    `──────\n\n` +
-    `${userTag}, si fuiste víctima de estafa:\n\n` +
-    `〖1〗 Guarda todas las capturas de chat y vouchers de pago.\n` +
-    `〖2〗 Escribe <code>/quemar</code> al bot por privado.\n` +
-    `〖3〗 El Staff investigará y emitirá Baneo Global.\n\n` +
+    `⟡ <b>CENTRAL DE SEGURIDAD</b> ⊱ <code>REPORTE DE ESTAFA</code> ⊰\n` +
     `──────\n` +
-    `<i>Ventas Libres Perú — Tu seguridad es nuestra prioridad.</i>\n` +
-    `${dateFormatted}`
+    `▸ ${userTag} • ¿Fuiste víctima de fraude?\n` +
+    `• Guarda capturas completas del chat y vouchers de pago.\n` +
+    `• Escribe <code>/quemar</code> al bot por privado para Baneo Global.\n` +
+    `──────\n` +
+    `<i>El Staff investigará y emitirá sanción en toda la red.</i>`
   );
 }
 
