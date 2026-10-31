@@ -9,7 +9,7 @@ const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { requireStaff } = require('../../middleware/auth');
 const { escapeHtml, getSuperscriptDate } = require('../../utils/formatting');
-const { toMathBold } = require('../../utils/aesthetic');
+const { toMathBold, btn } = require('../../utils/aesthetic');
 
 // Enlaces oficiales obligatorios de la comunidad
 const GROUP_LINK = 'https://t.me/+hbIoqDOFBFFkMTM1';
@@ -38,8 +38,8 @@ setInterval(() => {
  */
 function buildBroadcastKeyboard() {
   return new InlineKeyboard()
-    .url(`❖ ${toMathBold('GROUP')}`, GROUP_LINK)
-    .url(`✦ ${toMathBold('CHANNEL')}`, CHANNEL_LINK);
+    .url(`〔 ${toMathBold('GROUP')} 〕`, GROUP_LINK)
+    .url(`〔 ${toMathBold('CHANNEL')} 〕`, CHANNEL_LINK);
 }
 
 /**
@@ -62,26 +62,26 @@ function renderConfirmationCard(draft, recipients) {
   const usersCount = recipients.privateUsers.length;
 
   let activeTargetsCount = 0;
-  let modeLabel = '🌐 Todo el Ecosistema';
+  let modeLabel = '◈ Todo el Ecosistema';
 
   if (mode === 'ALL') {
     activeTargetsCount = groupsCount + channelsCount + usersCount;
-    modeLabel = '🌐 Todo el Ecosistema (Grupos + Canales + DMs)';
+    modeLabel = '◈ Todo el Ecosistema (Grupos + Canales + DMs)';
   } else if (mode === 'GROUPS') {
     activeTargetsCount = groupsCount;
-    modeLabel = '📢 Solo Grupos Oficiales';
+    modeLabel = '◈ Solo Grupos Oficiales';
   } else if (mode === 'CHANNELS') {
     activeTargetsCount = channelsCount;
-    modeLabel = '📡 Solo Canales Vinculados';
+    modeLabel = '◈ Solo Canales Vinculados';
   } else if (mode === 'USERS') {
     activeTargetsCount = usersCount;
-    modeLabel = '👥 Solo Usuarios Privados (DMs)';
+    modeLabel = '◈ Solo Usuarios Privados (DMs)';
   } else if (mode === 'CUSTOM') {
     activeTargetsCount =
       (custom.groups ? groupsCount : 0) +
       (custom.channels ? channelsCount : 0) +
       (custom.users ? usersCount : 0);
-    modeLabel = '🎯 Selección Personalizada';
+    modeLabel = '◈ Selección Personalizada';
   }
 
   const text =
@@ -104,39 +104,39 @@ function renderConfirmationCard(draft, recipients) {
   const kb = new InlineKeyboard();
 
   // Fila 1: Todo el ecosistema
-  const allIcon = mode === 'ALL' ? '✓ ' : '';
-  kb.text(`${allIcon}🌐 TODO (${groupsCount + channelsCount + usersCount})`, `anun_mode:${draft.id}:ALL`);
+  const allIcon = mode === 'ALL' ? '▣ ' : '▢ ';
+  kb.text(`${allIcon}${btn(`TODO EL ECOSISTEMA (${groupsCount + channelsCount + usersCount})`, '', '')}`, `anun_mode:${draft.id}:ALL`);
   kb.row();
 
   // Fila 2: Segmentos individuales
-  const grpIcon = mode === 'GROUPS' ? '✓ ' : '';
-  const chIcon = mode === 'CHANNELS' ? '✓ ' : '';
-  kb.text(`${grpIcon}📢 Grupos (${groupsCount})`, `anun_mode:${draft.id}:GROUPS`)
-    .text(`${chIcon}📡 Canales (${channelsCount})`, `anun_mode:${draft.id}:CHANNELS`);
+  const grpIcon = mode === 'GROUPS' ? '▣ ' : '▢ ';
+  const chIcon = mode === 'CHANNELS' ? '▣ ' : '▢ ';
+  kb.text(`${grpIcon}${btn(`GRUPOS (${groupsCount})`, '', '')}`, `anun_mode:${draft.id}:GROUPS`)
+    .text(`${chIcon}${btn(`CANALES (${channelsCount})`, '', '')}`, `anun_mode:${draft.id}:CHANNELS`);
   kb.row();
 
   // Fila 3: Solo DMs Privados
-  const usrIcon = mode === 'USERS' ? '✓ ' : '';
-  kb.text(`${usrIcon}👥 Solo Usuarios Privados DMs (${usersCount})`, `anun_mode:${draft.id}:USERS`);
+  const usrIcon = mode === 'USERS' ? '▣ ' : '▢ ';
+  kb.text(`${usrIcon}${btn(`USUARIOS PRIVADOS DMs (${usersCount})`, '', '')}`, `anun_mode:${draft.id}:USERS`);
   kb.row();
 
   // Fila 4: Interruptores personalizados
   if (mode === 'CUSTOM') {
-    const gCheck = custom.groups ? '▣ Grupos ON' : '▢ Grupos OFF';
-    const cCheck = custom.channels ? '▣ Canales ON' : '▢ Canales OFF';
+    const gCheck = custom.groups ? '▣ GRUPOS ON' : '▢ GRUPOS OFF';
+    const cCheck = custom.channels ? '▣ CANALES ON' : '▢ CANALES OFF';
     const uCheck = custom.users ? '▣ DMs ON' : '▢ DMs OFF';
-    kb.text(gCheck, `anun_toggle:${draft.id}:groups`)
-      .text(cCheck, `anun_toggle:${draft.id}:channels`)
-      .text(uCheck, `anun_toggle:${draft.id}:users`);
+    kb.text(btn(gCheck, '', ''), `anun_toggle:${draft.id}:groups`)
+      .text(btn(cCheck, '', ''), `anun_toggle:${draft.id}:channels`)
+      .text(btn(uCheck, '', ''), `anun_toggle:${draft.id}:users`);
     kb.row();
   } else {
-    kb.text(`🎯 Personalizar Filtros`, `anun_mode:${draft.id}:CUSTOM`);
+    kb.text(btn('Personalizar Filtros', '⌥', '⌥'), `anun_mode:${draft.id}:CUSTOM`);
     kb.row();
   }
 
   // Fila 5: Confirmar / Cancelar
-  kb.text(`✦ ${toMathBold('ENVIAR AHORA')}`, `anun_send:${draft.id}`)
-    .text(`✕ ${toMathBold('CANCELAR')}`, `anun_cancel:${draft.id}`);
+  kb.text(btn('Enviar Ahora', '✦', '✦'), `anun_send:${draft.id}`)
+    .text(btn('Cancelar', '✕', '✕'), `anun_cancel:${draft.id}`);
 
   return { text, keyboard: kb };
 }
@@ -385,7 +385,7 @@ function register(bot) {
       }
 
       const broadcastKeyboard = buildBroadcastKeyboard();
-      const stopKb = new InlineKeyboard().text(`🛑 ${toMathBold('DETENER DIFUSIÓN')}`, `anun_stop:${draftId}`);
+      const stopKb = new InlineKeyboard().text(btn('Detener Difusion', '✕', '✕'), `anun_stop:${draftId}`);
 
       // Notificar progreso inicial
       await ctx.editMessageText(

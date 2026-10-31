@@ -7,6 +7,7 @@ const { mentionFromData, escapeHtml } = require('../../utils/formatting');
 const userbot = require('../../userbot/client');
 const muteUI = require('./muteUI');
 const antiImpersonator = require('./antiImpersonator');
+const { btn } = require('../../utils/aesthetic');
 
 // ── Cache en Memoria de Membresía Activa en Grupos Oficiales (TTL: 10 minutos) ──
 const groupMembershipCache = new Map(); // `${chatId}:${userId}` -> { isMember: boolean, groupTitle: string, expires: number }
@@ -346,7 +347,7 @@ async function executeCloneRadar(ctx, targetQuery = null) {
     `──────\n` +
     `💡 <i>Compara siempre los IDs numéricos antes de comerciar para evitar suplantaciones.</i>`;
 
-  const kb = new InlineKeyboard().text('✖ Cerrar', 'info_close');
+  const kb = new InlineKeyboard().text(btn('CERRAR', '✕', '✕'), 'info_close');
 
   return await ctx.reply(text, {
     parse_mode: 'HTML',
@@ -549,24 +550,24 @@ function buildSearchCard(ctx, user, requesterName, communityName, totalCount = 1
     `${dateFormatted}`;
 
   const kb = new InlineKeyboard()
-    .url('Perfil', profileUrl)
-    .text('Verificar', `info_check_burn:${user.user_id}`)
-    .text('🔇 Silenciar', `mod_mute_direct:${user.user_id}:1d`);
+    .url(btn('PERFIL', '◈', '◈'), profileUrl)
+    .text(btn('VERIFICAR', '✦', '✦'), `info_check_burn:${user.user_id}`)
+    .text(btn('SILENCIAR', '!', '!'), `mod_mute_direct:${user.user_id}:1d`);
 
   // Botones de selección para las otras coincidencias
   if (otherMatches.length > 0) {
     kb.row();
     for (const other of otherMatches.slice(0, 4)) {
-      const oLabel = `👤 ${(other.first_name || 'Usuario').slice(0, 15)}`;
+      const oLabel = btn((other.first_name || 'Usuario').slice(0, 15), '◈', '◈');
       kb.text(oLabel, `search_select:${other.user_id}`);
     }
   }
 
   if (query) {
     const safeQ = encodeURIComponent(query).slice(0, 40);
-    kb.row().text('🌐 Buscar en Telegram Global', `info_global:${safeQ}`);
+    kb.row().text(btn('BUSCAR EN TELEGRAM GLOBAL', '⌥', '⌥'), `info_global:${safeQ}`);
   }
-  kb.row().text('✖ Cerrar', 'info_close');
+  kb.row().text(btn('CERRAR', '✕', '✕'), 'info_close');
 
   return { text, keyboard: kb };
 }
@@ -700,8 +701,8 @@ function register(bot) {
       const userMention = mentionFromData(targetId, user.username, user.first_name);
 
       const kb = new InlineKeyboard()
-        .text('✓ Sí, Quemar y GBan', `search_gban_confirm:${targetId}`).danger()
-        .text('✗ Cancelar', 'info_close').primary();
+        .text(btn('SI, QUEMAR Y GBAN', '✦', '✦'), `search_gban_confirm:${targetId}`).danger()
+        .text(btn('CANCELAR', '✕', '✕'), 'info_close').primary();
 
       await ctx.reply(
         `${SYM.DIVIDER}\n` +

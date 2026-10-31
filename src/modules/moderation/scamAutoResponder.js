@@ -3,6 +3,7 @@ const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { mentionFromData, escapeHtml, formatDate } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
+const { btn } = require('../../utils/aesthetic');
 
 // ══════
 // ⟡ Módulo: Auto-Respuestas Preventivas de Estafadores (Anti-Scam Auto-Alert)
@@ -156,9 +157,9 @@ function register(bot) {
           const burnChannelId = config.PUBLIC_BURN_CHANNEL_ID;
           if (burnChannelId) {
             const cleanChannel = String(burnChannelId).replace('-100', '');
-            kb.url('🚨 Ver Canal de Quemados', `https://t.me/c/${cleanChannel}/1`).row();
+            kb.url(btn('CANAL DE QUEMADOS', '✦', '✦'), `https://t.me/c/${cleanChannel}/1`).row();
           }
-          kb.text('✖ Entendido / Cerrar', 'info_close');
+          kb.text(btn('ENTENDIDO / CERRAR', '✕', '✕'), 'info_close');
 
           await ctx.reply(alertText, {
             parse_mode: 'HTML',

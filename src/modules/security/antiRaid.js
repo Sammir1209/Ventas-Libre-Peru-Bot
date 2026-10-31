@@ -4,6 +4,7 @@ const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { escapeHtml } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
+const { btn } = require('../../utils/aesthetic');
 
 // ══════
 // ⟡ ESCUDO ANTI-RAID & LOCKDOWN EN TIEMPO REAL (DEFCON 1)
@@ -94,9 +95,9 @@ async function triggerLockdown(api, chatId, chatTitle, reason = 'Ataque coordina
     const staffChatId = config.STAFF_CHAT_ID;
     if (staffChatId) {
       const kb = new InlineKeyboard()
-        .text('DESACTIVAR LOCKDOWN', `antiraid_unlock:${chatId}`).success()
+        .text(btn('DESACTIVAR LOCKDOWN', '✦', '✦'), `antiraid_unlock:${chatId}`).success()
         .row()
-        .text('EXPULSAR ATACANTES', `antiraid_purge:${chatId}`).danger();
+        .text(btn('EXPULSAR ATACANTES', '✕', '✕'), `antiraid_purge:${chatId}`).danger();
 
       const text =
         `${SYM.DIVIDER}\n` +

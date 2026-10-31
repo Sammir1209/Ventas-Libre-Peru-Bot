@@ -7,6 +7,7 @@ const { mentionFromData, staffMention, formatId, escapeHtml, getSuperscriptDate 
 const { searchCandidatesInCommunity, resolveTarget } = require('../../utils/helpers');
 const sentinel = require('./sentinel');
 const logger = require('./logger');
+const { btn } = require('../../utils/aesthetic');
 
 const { parseDuration } = sentinel;
 
@@ -362,9 +363,9 @@ async function handleNaturalMute(ctx, rawText) {
     for (const u of communityCandidates.slice(0, 6)) {
       const uLabel = `${u.firstName || 'Usuario'}${u.username ? ` (@${u.username})` : ` [${u.userId || u.user_id}]`}`;
       const uid = u.userId || u.user_id;
-      kb.text(`👤 ${uLabel.slice(0, 30)}`, `mod_mute_direct:${uid}:${durToApply}`).row();
+      kb.text(btn(uLabel.slice(0, 26), '◈', '◈'), `mod_mute_direct:${uid}:${durToApply}`).row();
     }
-    kb.text('✖ Cancelar', 'info_close');
+    kb.text(btn('CANCELAR', '✕', '✕'), 'info_close');
 
     await ctx.reply(
       `👥 <b>SELECCIÓN DE USUARIO A SILENCIAR</b>\n` +

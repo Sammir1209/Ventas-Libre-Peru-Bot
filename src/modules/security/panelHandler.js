@@ -254,7 +254,7 @@ function getGroupHelpMainKeyboard(chatId, isPrivate = false, botUsername = 'vent
     .text(`❖ ${toMathBold('Whitelist URLs')}`, `gh_sub:${chatId}:whitelist`).primary()
     .text(`⚡ ${toMathBold('Asistente IA')}`, `gh_sub:${chatId}:ai`).primary()
     .row()
-    .text(`🎮 ${toMathBold('Juegos & Quizz')}`, `gh_sub:${chatId}:quizz`).primary()
+    .text(`◈ ${toMathBold('Juegos & Quizz')}`, `gh_sub:${chatId}:quizz`).primary()
     .text(`⟡ ${toMathBold('Diagnóstico / Estado')}`, `gh_sub:${chatId}:status`).success()
     .text(`❖ ${toMathBold('Catálogo de Comandos')}`, `gh_sub:${chatId}:commands`).primary();
 
@@ -614,7 +614,7 @@ function renderAiMenu(chatId, sec) {
     `• <b>Parche a Faltosos:</b> <b>${faltosoStatus}</b> (Autoridad ante faltas de respeto)\n` +
     `• <b>Estilo de Respuesta:</b> <code>${personality}</code>\n\n` +
     `──────\n` +
-    `💡 <i>Comandos rápidos: <code>/iaon</code> y <code>/iaoff</code></i>\n` +
+    `⟡ <i>Comandos rápidos: <code>/iaon</code> y <code>/iaoff</code></i>\n` +
     `${dateFormatted}`
   );
 }
@@ -636,7 +636,7 @@ function getAiKeyboard(chatId, sec) {
     .row()
     .text(`Estilo: ${isFormal ? 'Formal' : 'Barrio Criollo'}`, `gh_ai_pers:${chatId}`)
     .row()
-    .text(`🔄 Limpiar Memoria Grupo`, `gh_ai_clear:${chatId}`)
+    .text(`« Limpiar Memoria Grupo »`, `gh_ai_clear:${chatId}`)
     .row()
     .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
     .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
@@ -650,14 +650,14 @@ function renderQuizMenu(chatId, settings, stock) {
   const interval = settings.interval_minutes || 5;
 
   return (
-    `🎮 <b>[CONFIGURACIÓN DE JUEGOS & QUIZZ]</b>\n` +
+    `◈ <b>[CONFIGURACIÓN DE JUEGOS & QUIZZ]</b>\n` +
     `──────\n\n` +
     `• <b>Estado:</b> <b>${statusBadge}</b>\n` +
     `• <b>Intervalo:</b> <code>Cada ${interval} min</code>\n` +
     `• <b>Stock disponible:</b> <code>${stock.total} cuentas</code>\n` +
     `  ↳ Prime: <code>${stock.primeVideo}</code> | YouTube: <code>${stock.youtube}</code>\n\n` +
     `──────\n` +
-    `💡 <i>Comandos: <code>/quizzon</code>, <code>/quizzoff</code>, <code>/quizz</code>, <code>/stock</code></i>\n` +
+    `⟡ <i>Comandos: <code>/quizzon</code>, <code>/quizzoff</code>, <code>/quizz</code>, <code>/stock</code></i>\n` +
     `${dateFormatted}`
   );
 }
@@ -677,7 +677,7 @@ function getQuizKeyboard(chatId, settings) {
     .text(interval === 15 ? '• 15m •' : '15m', `gh_qz_int:${chatId}:15`)
     .text(interval === 30 ? '• 30m •' : '30m', `gh_qz_int:${chatId}:30`)
     .row()
-    .text(`📦 Ver Stock Detallado`, `gh_qz_stock:${chatId}`)
+    .text(`◈ Ver Stock Detallado ◈`, `gh_qz_stock:${chatId}`)
     .row()
     .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
     .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();

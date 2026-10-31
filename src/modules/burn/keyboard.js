@@ -1,23 +1,23 @@
 const { InlineKeyboard } = require('grammy');
 const { CB, SYM } = require('../../config/constants');
-const { toMathBold } = require('../../utils/aesthetic');
+const { toMathBold, btn } = require('../../utils/aesthetic');
 
 /**
  * Teclado inicial para elegir método de identificación del acusado.
  */
 function burnTargetTypeKeyboard() {
   return new InlineKeyboard()
-    .text(toMathBold('POR ID NUMÉRICO'), 'burn_type:id').primary()
-    .text(toMathBold('POR USERNAME'), 'burn_type:username').primary()
+    .text(btn('POR ID NUMERICO', '◈', '◈'), 'burn_type:id').primary()
+    .text(btn('POR USERNAME', '◇', '◇'), 'burn_type:username').primary()
     .row()
-    .text(toMathBold('CANCELAR'), 'burn_cancel').danger();
+    .text(btn('CANCELAR', '✕', '✕'), 'burn_cancel').danger();
 }
 
 /**
  * Teclado durante la espera de ID o Username o Contexto.
  */
 function burnCancelOnlyKeyboard() {
-  return new InlineKeyboard().text(toMathBold('CANCELAR'), 'burn_cancel').danger();
+  return new InlineKeyboard().text(btn('CANCELAR', '✕', '✕'), 'burn_cancel').danger();
 }
 
 /**
@@ -26,9 +26,9 @@ function burnCancelOnlyKeyboard() {
 function burnProofUploadKeyboard(hasProofs = false) {
   const kb = new InlineKeyboard();
   if (hasProofs) {
-    kb.text(toMathBold('CONTINUAR'), 'burn_review').success();
+    kb.text(btn('CONTINUAR', '✦', '✦'), 'burn_review').success();
   }
-  kb.text(toMathBold('CANCELAR'), 'burn_cancel').danger();
+  kb.text(btn('CANCELAR', '✕', '✕'), 'burn_cancel').danger();
   return kb;
 }
 
@@ -37,10 +37,10 @@ function burnProofUploadKeyboard(hasProofs = false) {
  */
 function burnSummaryKeyboard() {
   return new InlineKeyboard()
-    .text(toMathBold('QUEMAR'), 'burn_confirm_send').danger()
-    .text(toMathBold('EDITAR'), 'burn_edit_menu').primary()
+    .text(btn('QUEMAR', '✦', '✦'), 'burn_confirm_send').danger()
+    .text(btn('EDITAR', '⌥', '⌥'), 'burn_edit_menu').primary()
     .row()
-    .text(toMathBold('CANCELAR'), 'burn_cancel').danger();
+    .text(btn('CANCELAR', '✕', '✕'), 'burn_cancel').danger();
 }
 
 /**
@@ -48,13 +48,13 @@ function burnSummaryKeyboard() {
  */
 function burnEditMenuKeyboard() {
   return new InlineKeyboard()
-    .text(toMathBold('ACUSADO'), 'burn_edit:target').primary()
-    .text(toMathBold('DESCRIPCIÓN'), 'burn_edit:context').primary()
+    .text(btn('ACUSADO', '▸', '▸'), 'burn_edit:target').primary()
+    .text(btn('DESCRIPCION', '▸', '▸'), 'burn_edit:context').primary()
     .row()
-    .text(toMathBold('PRUEBAS'), 'burn_edit:proofs').primary()
-    .text(toMathBold('RESUMEN'), 'burn_edit:back').primary()
+    .text(btn('PRUEBAS', '▸', '▸'), 'burn_edit:proofs').primary()
+    .text(btn('RESUMEN', '▸', '▸'), 'burn_edit:back').primary()
     .row()
-    .text(toMathBold('CANCELAR'), 'burn_cancel').danger();
+    .text(btn('CANCELAR', '✕', '✕'), 'burn_cancel').danger();
 }
 
 /**
@@ -62,10 +62,10 @@ function burnEditMenuKeyboard() {
  */
 function burnStaffKeyboard(reportId) {
   return new InlineKeyboard()
-    .text(toMathBold('APROBAR GBAN'), `${CB.BURN_APPROVE}${reportId}`).danger()
-    .text(toMathBold('RECHAZAR'), `${CB.BURN_REJECT}${reportId}`).primary()
+    .text(btn('APROBAR GBAN', '✦', '✦'), `${CB.BURN_APPROVE}${reportId}`).danger()
+    .text(btn('RECHAZAR', '✕', '✕'), `${CB.BURN_REJECT}${reportId}`).primary()
     .row()
-    .text(toMathBold('BAN REPORTANTE'), `${CB.BURN_BAN_REPORTER}${reportId}`).danger();
+    .text(btn('BAN REPORTANTE', '!', '!'), `${CB.BURN_BAN_REPORTER}${reportId}`).danger();
 }
 
 module.exports = {

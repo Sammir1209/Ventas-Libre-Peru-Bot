@@ -8,7 +8,7 @@ const { SYM, ROLES } = require('../../config/constants');
 // ⟡ Módulo: Guía de Ayuda y Protocolos de Actuación por Rol
 // ══════
 
-const { toMathBold, toMathSerifBold, toSmallCaps, AESTHETIC_DIVIDERS } = require('../../utils/aesthetic');
+const { toMathBold, toMathSerifBold, toSmallCaps, AESTHETIC_DIVIDERS, btn } = require('../../utils/aesthetic');
 
 /**
  * Genera la vista de ayuda para el rol de OWNER / CO-OWNER.

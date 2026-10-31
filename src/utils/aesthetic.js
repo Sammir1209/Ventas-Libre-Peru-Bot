@@ -118,11 +118,22 @@ function createFaltosoWarningCard({ username, userId, firstName } = {}) {
   );
 }
 
+/**
+ * Genera texto para botones con tipografía Mathematical Sans Bold y símbolos estéticos orientales.
+ * Cero emojis: Formato ◈ 𝗧𝗘𝗫𝗧𝗢 ◈ o con símbolos asiáticos personalizados.
+ */
+function btn(label, l = '◈', r = '◈') {
+  if (!label) return '';
+  const boldText = toMathBold(String(label).trim().toUpperCase());
+  return l ? `${l} ${boldText} ${r || l}` : boldText;
+}
+
 module.exports = {
   escapeHtml,
   toMathBold,
   toMathSerifBold,
   toSmallCaps,
+  btn,
   AESTHETIC_DIVIDERS,
   createCachineroWarningCard,
   createFaltosoWarningCard,

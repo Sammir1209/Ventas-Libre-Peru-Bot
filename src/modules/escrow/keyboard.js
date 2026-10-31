@@ -3,11 +3,11 @@ if (!InlineKeyboard.prototype.primary) InlineKeyboard.prototype.primary = functi
 if (!InlineKeyboard.prototype.danger) InlineKeyboard.prototype.danger = function() { return this; };
 if (!InlineKeyboard.prototype.success) InlineKeyboard.prototype.success = function() { return this; };
 const { SYM, CB } = require('../../config/constants');
-const { toMathBold } = require('../../utils/aesthetic');
+const { toMathBold, btn } = require('../../utils/aesthetic');
 const config = require('../../config/env');
 
 // ══════
-// ⟡ Teclados del Sistema Escrow (Tratos Admin 2.0)
+// ⟡ Teclados del Sistema Escrow (Tratos Admin 2.0) — Estética Oriental y Cero Emojis
 // ══════
 
 /**
@@ -15,13 +15,13 @@ const config = require('../../config/env');
  */
 function dealMainKeyboard() {
   return new InlineKeyboard()
-    .text(toMathBold('🤝 INICIAR TRATO'), CB.START_DEAL).success()
-    .text(toMathBold('ℹ️ INFORMACIÓN'), CB.DEAL_INFO).primary()
+    .text(btn('INICIAR TRATO', '⚖', '⚖'), CB.START_DEAL).success()
+    .text(btn('INFORMACION', '⌥', '⌥'), CB.DEAL_INFO).primary()
     .row()
-    .text(toMathBold('📋 MIS TRATOS'), 'deal_my_deals').primary()
-    .text(toMathBold('🧮 CALCULAR TARIFA'), 'deal_calc_menu').primary()
+    .text(btn('MIS TRATOS', '◈', '◈'), 'deal_my_deals').primary()
+    .text(btn('CALCULAR TARIFA', '⟡', '⟡'), 'deal_calc_menu').primary()
     .row()
-    .text(toMathBold('❌ SALIR'), CB.DEAL_CANCEL).danger();
+    .text(btn('SALIR', '✕', '✕'), CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -29,9 +29,9 @@ function dealMainKeyboard() {
  */
 function dealInfoKeyboard() {
   return new InlineKeyboard()
-    .text(toMathBold('🤝 INICIAR TRATO AHORA'), CB.START_DEAL).success()
+    .text(btn('INICIAR TRATO AHORA', '⚖', '⚖'), CB.START_DEAL).success()
     .row()
-    .text(toMathBold('🔙 VOLVER AL MENÚ'), 'deal_back_to_main').primary();
+    .text(btn('VOLVER AL MENU', '«', '»'), 'deal_back_to_main').primary();
 }
 
 /**
@@ -39,10 +39,10 @@ function dealInfoKeyboard() {
  */
 function dealRoleKeyboard() {
   return new InlineKeyboard()
-    .text(toMathBold('💼 VOY A VENDER'), 'deal_role:VENDEDOR').primary()
-    .text(toMathBold('🛒 VOY A COMPRAR'), 'deal_role:COMPRADOR').primary()
+    .text(btn('VOY A VENDER', '◈', '◈'), 'deal_role:VENDEDOR').primary()
+    .text(btn('VOY A COMPRAR', '◇', '◇'), 'deal_role:COMPRADOR').primary()
     .row()
-    .text(toMathBold('❌ CANCELAR SOLICITUD'), CB.DEAL_CANCEL).danger();
+    .text(btn('CANCELAR SOLICITUD', '✕', '✕'), CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -50,16 +50,16 @@ function dealRoleKeyboard() {
  */
 function dealCategoryKeyboard() {
   return new InlineKeyboard()
-    .text('🎮 Cuentas / Juegos', 'deal_cat:CUENTAS').primary()
-    .text('📺 Streaming', 'deal_cat:STREAMING').primary()
+    .text(btn('Cuentas / Juegos', '◆', '◆'), 'deal_cat:CUENTAS').primary()
+    .text(btn('Streaming', '◆', '◆'), 'deal_cat:STREAMING').primary()
     .row()
-    .text('💎 Cripto / Saldo', 'deal_cat:CRIPTO').primary()
-    .text('📱 Redes / Canales', 'deal_cat:REDES').primary()
+    .text(btn('Cripto / Saldo', '◆', '◆'), 'deal_cat:CRIPTO').primary()
+    .text(btn('Redes / Canales', '◆', '◆'), 'deal_cat:REDES').primary()
     .row()
-    .text('📦 Producto Físico', 'deal_cat:FISICO').primary()
-    .text('⚡ Otro Trato', 'deal_cat:OTRO').primary()
+    .text(btn('Producto Fisico', '◆', '◆'), 'deal_cat:FISICO').primary()
+    .text(btn('Otro Trato', '◆', '◆'), 'deal_cat:OTRO').primary()
     .row()
-    .text(toMathBold('❌ CANCELAR'), CB.DEAL_CANCEL).danger();
+    .text(btn('CANCELAR', '✕', '✕'), CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -67,11 +67,11 @@ function dealCategoryKeyboard() {
  */
 function dealCurrencyKeyboard() {
   return new InlineKeyboard()
-    .text('🇵🇪 Soles (PEN)', 'deal_curr:PEN').primary()
-    .text('🇺🇸 Dólares (USD)', 'deal_curr:USD').primary()
-    .text('🟡 USDT (Binance)', 'deal_curr:USDT').primary()
+    .text(btn('Soles (PEN)', '§', '§'), 'deal_curr:PEN').primary()
+    .text(btn('Dolares (USD)', '§', '§'), 'deal_curr:USD').primary()
+    .text(btn('USDT (Binance)', '§', '§'), 'deal_curr:USDT').primary()
     .row()
-    .text(toMathBold('❌ CANCELAR'), CB.DEAL_CANCEL).danger();
+    .text(btn('CANCELAR', '✕', '✕'), CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -79,13 +79,13 @@ function dealCurrencyKeyboard() {
  */
 function dealPaymentMethodKeyboard() {
   return new InlineKeyboard()
-    .text('🇵🇪 Yape / Plin', 'deal_pay:YAPE_PLIN').primary()
-    .text('🏦 Banco BCP/BBVA', 'deal_pay:BANCO').primary()
+    .text(btn('Yape / Plin', '▸', '▸'), 'deal_pay:YAPE_PLIN').primary()
+    .text(btn('Banco BCP / BBVA', '▸', '▸'), 'deal_pay:BANCO').primary()
     .row()
-    .text('🟡 Binance Pay', 'deal_pay:BINANCE').primary()
-    .text('💬 En Sala (Coordinar)', 'deal_pay:EN_SALA').primary()
+    .text(btn('Binance Pay', '▸', '▸'), 'deal_pay:BINANCE').primary()
+    .text(btn('En Sala (Coordinar)', '▸', '▸'), 'deal_pay:EN_SALA').primary()
     .row()
-    .text(toMathBold('❌ CANCELAR'), CB.DEAL_CANCEL).danger();
+    .text(btn('CANCELAR', '✕', '✕'), CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -93,7 +93,7 @@ function dealPaymentMethodKeyboard() {
  */
 function dealCancelKeyboard() {
   return new InlineKeyboard()
-    .text(toMathBold('❌ CANCELAR SOLICITUD'), CB.DEAL_CANCEL).danger();
+    .text(btn('CANCELAR SOLICITUD', '✕', '✕'), CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -101,9 +101,9 @@ function dealCancelKeyboard() {
  */
 function dealConfirmKeyboard() {
   return new InlineKeyboard()
-    .text(toMathBold('✅ ENVIAR AL STAFF'), 'deal_confirm').success()
+    .text(btn('ENVIAR AL STAFF', '✦', '✦'), 'deal_confirm').success()
     .row()
-    .text(toMathBold('❌ CANCELAR'), CB.DEAL_CANCEL).danger();
+    .text(btn('CANCELAR', '✕', '✕'), CB.DEAL_CANCEL).danger();
 }
 
 /**
@@ -113,8 +113,8 @@ function dealWaitingKeyboard(dealId) {
   const kb = new InlineKeyboard();
 
   const channelUrl = config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/PodUrc_gHJs2ZjNh';
-  kb.url(toMathBold('📢 CANALES OFICIALES'), channelUrl);
-  kb.text(toMathBold('❌ CANCELAR SOLICITUD'), `deal_cancel_pending:${dealId}`).danger();
+  kb.url(btn('CANALES OFICIALES', '〔', '〕'), channelUrl);
+  kb.text(btn('CANCELAR SOLICITUD', '✕', '✕'), `deal_cancel_pending:${dealId}`).danger();
 
   return kb;
 }
@@ -124,8 +124,8 @@ function dealWaitingKeyboard(dealId) {
  */
 function dealAcceptKeyboard(dealId) {
   return new InlineKeyboard()
-    .text(toMathBold('🤝 TOMAR MEDIACIÓN'), `${CB.DEAL_ACCEPT}${dealId}`).success()
-    .text(toMathBold('❌ RECHAZAR'), `deal_reject:${dealId}`).danger();
+    .text(btn('TOMAR MEDIACION', '⚖', '⚖'), `${CB.DEAL_ACCEPT}${dealId}`).success()
+    .text(btn('RECHAZAR', '✕', '✕'), `deal_reject:${dealId}`).danger();
 }
 
 /**
@@ -133,8 +133,8 @@ function dealAcceptKeyboard(dealId) {
  */
 function dealCompleteKeyboard(dealId) {
   return new InlineKeyboard()
-    .text(toMathBold('💸 LIBERAR Y FINALIZAR'), `${CB.DEAL_COMPLETE}${dealId}`).success()
-    .text(toMathBold('❌ CANCELAR'), `deal_force_cancel:${dealId}`).danger();
+    .text(btn('LIBERAR Y FINALIZAR', '✦', '✦'), `${CB.DEAL_COMPLETE}${dealId}`).success()
+    .text(btn('CANCELAR', '✕', '✕'), `deal_force_cancel:${dealId}`).danger();
 }
 
 /**
@@ -144,51 +144,51 @@ function dealTopicKeyboard(dealId, phase = 'AGREEMENT') {
   const kb = new InlineKeyboard();
 
   if (phase === 'AGREEMENT') {
-    kb.text('💳 Cuentas de Pago', `deal_accounts:${dealId}`).primary()
-      .text('💰 Fondos en Custodia', `deal_funds_rcv:${dealId}`).success()
+    kb.text(btn('Cuentas de Pago', '◈', '◈'), `deal_accounts:${dealId}`).primary()
+      .text(btn('Fondos en Custodia', '✦', '✦'), `deal_funds_rcv:${dealId}`).success()
       .row()
-      .text('⚠️ Disputa', `deal_dispute:${dealId}`).danger()
-      .text('❌ Cancelar', `deal_force_cancel:${dealId}`).danger();
+      .text(btn('Disputa', '!', '!'), `deal_dispute:${dealId}`).danger()
+      .text(btn('Cancelar', '✕', '✕'), `deal_force_cancel:${dealId}`).danger();
   } else if (phase === 'ACCOUNTS') {
-    kb.text('📋 Ver Resumen Trato', `deal_view_summary:${dealId}`).primary()
-      .text('💰 Fondos en Custodia', `deal_funds_rcv:${dealId}`).success()
+    kb.text(btn('Ver Resumen Trato', '⌥', '⌥'), `deal_view_summary:${dealId}`).primary()
+      .text(btn('Fondos en Custodia', '✦', '✦'), `deal_funds_rcv:${dealId}`).success()
       .row()
-      .text('⚠️ Disputa', `deal_dispute:${dealId}`).danger()
-      .text('❌ Cancelar', `deal_force_cancel:${dealId}`).danger();
+      .text(btn('Disputa', '!', '!'), `deal_dispute:${dealId}`).danger()
+      .text(btn('Cancelar', '✕', '✕'), `deal_force_cancel:${dealId}`).danger();
   } else if (phase === 'FUNDS_DEPOSITED') {
-    kb.text('📦 Notificar Entrega (Vendedor)', `deal_notify_deliv:${dealId}`).primary()
+    kb.text(btn('Notificar Entrega (Vendedor)', '◈', '◈'), `deal_notify_deliv:${dealId}`).primary()
       .row()
-      .text('💸 Liberar Fondos al Vendedor', `${CB.DEAL_COMPLETE}${dealId}`).success()
+      .text(btn('Liberar Fondos al Vendedor', '✦', '✦'), `${CB.DEAL_COMPLETE}${dealId}`).success()
       .row()
-      .text('🔄 Reembolsar', `deal_refund:${dealId}`).danger()
-      .text('⚠️ Disputa', `deal_dispute:${dealId}`).danger();
+      .text(btn('Reembolsar', '«', '»'), `deal_refund:${dealId}`).danger()
+      .text(btn('Disputa', '!', '!'), `deal_dispute:${dealId}`).danger();
   } else if (phase === 'DELIVERY') {
-    kb.text('✅ Conformidad de Entrega (Comprador)', `deal_buyer_ok:${dealId}`).success()
+    kb.text(btn('Conformidad de Entrega (Comprador)', '✓', '✓'), `deal_buyer_ok:${dealId}`).success()
       .row()
-      .text('💸 Liberar Fondos al Vendedor', `${CB.DEAL_COMPLETE}${dealId}`).success()
+      .text(btn('Liberar Fondos al Vendedor', '✦', '✦'), `${CB.DEAL_COMPLETE}${dealId}`).success()
       .row()
-      .text('🔄 Reembolsar Comprador', `deal_refund:${dealId}`).danger()
-      .text('⚠️ Disputa', `deal_dispute:${dealId}`).danger();
+      .text(btn('Reembolsar Comprador', '«', '»'), `deal_refund:${dealId}`).danger()
+      .text(btn('Disputa', '!', '!'), `deal_dispute:${dealId}`).danger();
   } else if (phase === 'BUYER_CONFIRMED') {
-    kb.text('💸 Liberar Fondos al Vendedor', `${CB.DEAL_COMPLETE}${dealId}`).success()
+    kb.text(btn('Liberar Fondos al Vendedor', '✦', '✦'), `${CB.DEAL_COMPLETE}${dealId}`).success()
       .row()
-      .text('🔄 Reembolsar Comprador', `deal_refund:${dealId}`).danger()
-      .text('⚠️ Disputa', `deal_dispute:${dealId}`).danger();
+      .text(btn('Reembolsar Comprador', '«', '»'), `deal_refund:${dealId}`).danger()
+      .text(btn('Disputa', '!', '!'), `deal_dispute:${dealId}`).danger();
   } else if (phase === 'DISPUTED') {
-    kb.text('💸 Liberar al Vendedor', `${CB.DEAL_COMPLETE}${dealId}`).success()
-      .text('🔄 Reembolsar Comprador', `deal_refund:${dealId}`).danger()
+    kb.text(btn('Liberar al Vendedor', '✦', '✦'), `${CB.DEAL_COMPLETE}${dealId}`).success()
+      .text(btn('Reembolsar Comprador', '«', '»'), `deal_refund:${dealId}`).danger()
       .row()
-      .text('❌ Cerrar Trato', `deal_force_cancel:${dealId}`).danger();
+      .text(btn('Cerrar Trato', '✕', '✕'), `deal_force_cancel:${dealId}`).danger();
   } else if (phase === 'COMPLETED') {
-    kb.text('⭐ 1', `${CB.DEAL_RATE}${dealId}:1`).primary()
-      .text('⭐⭐ 2', `${CB.DEAL_RATE}${dealId}:2`).primary()
-      .text('⭐⭐⭐ 3', `${CB.DEAL_RATE}${dealId}:3`).primary()
+    kb.text(btn('1', '★', '★'), `${CB.DEAL_RATE}${dealId}:1`).primary()
+      .text(btn('2', '★', '★'), `${CB.DEAL_RATE}${dealId}:2`).primary()
+      .text(btn('3', '★', '★'), `${CB.DEAL_RATE}${dealId}:3`).primary()
       .row()
-      .text('⭐⭐⭐⭐ 4', `${CB.DEAL_RATE}${dealId}:4`).success()
-      .text('⭐⭐⭐⭐⭐ 5', `${CB.DEAL_RATE}${dealId}:5`).success();
+      .text(btn('4', '★', '★'), `${CB.DEAL_RATE}${dealId}:4`).success()
+      .text(btn('5', '★', '★'), `${CB.DEAL_RATE}${dealId}:5`).success();
   } else {
-    kb.text('💸 Liberar Fondos', `${CB.DEAL_COMPLETE}${dealId}`).success()
-      .text('❌ Cancelar', `deal_force_cancel:${dealId}`).danger();
+    kb.text(btn('Liberar Fondos', '✦', '✦'), `${CB.DEAL_COMPLETE}${dealId}`).success()
+      .text(btn('Cancelar', '✕', '✕'), `deal_force_cancel:${dealId}`).danger();
   }
 
   return kb;
@@ -199,9 +199,9 @@ function dealTopicKeyboard(dealId, phase = 'AGREEMENT') {
  */
 function dealBuyerTopicKeyboard(dealId) {
   return new InlineKeyboard()
-    .text('✅ Conformidad de Entrega (OK)', `deal_buyer_ok:${dealId}`).success()
+    .text(btn('Conformidad de Entrega (OK)', '✓', '✓'), `deal_buyer_ok:${dealId}`).success()
     .row()
-    .text('⚠️ Solicitar Asistencia / Disputa', `deal_dispute:${dealId}`).danger();
+    .text(btn('Solicitar Asistencia / Disputa', '!', '!'), `deal_dispute:${dealId}`).danger();
 }
 
 /**
@@ -209,12 +209,12 @@ function dealBuyerTopicKeyboard(dealId) {
  */
 function dealRatingKeyboard(dealId) {
   return new InlineKeyboard()
-    .text('⭐ 1', `${CB.DEAL_RATE}${dealId}:1`).primary()
-    .text('⭐⭐ 2', `${CB.DEAL_RATE}${dealId}:2`).primary()
-    .text('⭐⭐⭐ 3', `${CB.DEAL_RATE}${dealId}:3`).primary()
+    .text(btn('1', '★', '★'), `${CB.DEAL_RATE}${dealId}:1`).primary()
+    .text(btn('2', '★', '★'), `${CB.DEAL_RATE}${dealId}:2`).primary()
+    .text(btn('3', '★', '★'), `${CB.DEAL_RATE}${dealId}:3`).primary()
     .row()
-    .text('⭐⭐⭐⭐ 4', `${CB.DEAL_RATE}${dealId}:4`).success()
-    .text('⭐⭐⭐⭐⭐ 5', `${CB.DEAL_RATE}${dealId}:5`).success();
+    .text(btn('4', '★', '★'), `${CB.DEAL_RATE}${dealId}:4`).success()
+    .text(btn('5', '★', '★'), `${CB.DEAL_RATE}${dealId}:5`).success();
 }
 
 module.exports = {

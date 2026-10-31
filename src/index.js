@@ -32,6 +32,7 @@ const aiHandler = require('./modules/ai/handler');
 const searchHandler = require('./modules/moderation/search');
 const securityHandler = require('./modules/security/handler');
 const quizHandler = require('./modules/games/quizHandler');
+const cookieConverter = require('./modules/games/cookieConverter');
 const groupCensorShield = require('./modules/moderation/groupCensorShield');
 const highRiskAutoAdvisor = require('./modules/moderation/highRiskAutoAdvisor');
 
@@ -203,6 +204,7 @@ async function main() {
   helpHandler.register(bot);
   infoHandler.register(bot);
   quizHandler.register(bot);
+  cookieConverter.register(bot);
   aiHandler.register(bot);
   searchHandler.register(bot);
   setupHandler.register(bot);

@@ -10,6 +10,7 @@ const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { requireStaff } = require('../../middleware/auth');
 const { escapeHtml, getSuperscriptDate } = require('../../utils/formatting');
+const { btn, toMathBold } = require('../../utils/aesthetic');
 const { getRandomQuiz, normalizeAnswer } = require('./quizBank');
 
 // Mapa de temporizadores activos por chat_id: chatId -> NodeJS.Timeout
@@ -20,19 +21,34 @@ const activeSessionsMem = new Map();
 /**
  * Formatea la plantilla estética de entrega privada de una recompensa.
  */
+function buildRewardKeyboard(rewardId, category = '', title = '') {
+  const { getPlatformUrl } = require('./cookieConverter');
+  const platformUrl = getPlatformUrl(category, title);
+  return new InlineKeyboard()
+    .text(btn('Convertidor Cookie', '◈', '◈'), `cookie_hub:${rewardId}`)
+    .row()
+    .text(btn('Tutorial Movil', '⌥', '⌥'), `cookie_tut_mobile:${rewardId}`)
+    .text(btn('Tutorial PC', '⌘', '⌘'), `cookie_tut_pc:${rewardId}`)
+    .row()
+    .url(btn('Entrar a Plataforma', '❖', '❖'), platformUrl);
+}
+
 function renderPrivateRewardCard(user, reward) {
   const dateFormatted = getSuperscriptDate();
   const userName = escapeHtml(user.first_name || 'Ganador');
   const title = escapeHtml(reward.account_title || reward.category || 'Cuenta Premium');
+  const cat = escapeHtml(reward.category || 'STREAMING');
 
   return (
-    `<b>⟡ [VENTAS LIBRES PERÚ] PREMIO OFICIAL</b>\n` +
-    `──────\n\n` +
-    `• <b>Ganador:</b> <b>${userName}</b>\n` +
-    `• <b>Premio:</b> <code>${title}</code>\n` +
-    `• <b>Estado:</b> <code>[ ENTREGADO ]</code>\n\n` +
-    `↳ <i>Tu archivo de cookies .txt está adjunto para importar en Cookie-Editor.</i>\n\n` +
-    `──────\n` +
+    `<b>【 𝗩𝗘𝗡𝗧𝗔𝗦 𝗟𝗜𝗕𝗥𝗘𝗦 𝗣𝗘𝗥𝗨 】 ⟡ 『 𝗣𝗥𝗘𝗠𝗜𝗢 𝗢𝗙𝗜𝗖𝗜𝗔𝗟 』</b>\n` +
+    `────── // ───\n\n` +
+    `▸ <b>Ganador:</b> <b>${userName}</b>\n` +
+    `▸ <b>Premio:</b> <code>${title}</code>\n` +
+    `▸ <b>Categoría:</b> <code>〔 ${cat} 〕</code>\n` +
+    `▸ <b>Estado:</b> <code>〔 𝗘𝗡𝗧𝗥𝗘𝗚𝗔𝗗𝗢 〕</code>\n\n` +
+    `↳ <i>Tu archivo de cookies original .txt está adjunto abajo.</i>\n` +
+    `◈ <i>¿Deseas formato JSON para Cookie-Editor o no sabes cómo usarlo? Presiona el botón <b>CONVERTIDOR COOKIE</b>.</i>\n\n` +
+    `────── // ───\n` +
     `${dateFormatted}`
   );
 }
@@ -111,12 +127,12 @@ async function triggerQuiz(bot, chatId, force = false) {
 
     const dateFormatted = getSuperscriptDate();
     const quizText =
-      `<b>⟡ [QUIZZ VLP] TRIVIA EN VIVO</b>\n` +
+      `<b>【 𝗤𝗨𝗜𝗭𝗭 𝗩𝗟𝗣 】 ⟡ 「 𝗧𝗥𝗜𝗩𝗜𝗔 𝗘𝗡 𝗩𝗜𝗩𝗢 」</b>\n` +
       `──────\n\n` +
       `• <b>Categoría:</b> <code>${quiz.category}</code>\n` +
       `• <b>Premio:</b> <code>Cuenta Streaming (Prime / YouTube)</code>\n\n` +
       `<b>${escapeHtml(quiz.question)}</b>\n\n` +
-      `💡 <i>Pista: ${escapeHtml(quiz.hint)}</i>\n\n` +
+      `⟡ <i>Pista: ${escapeHtml(quiz.hint)}</i>\n\n` +
       `↳ <b>Responde (Reply) a este mensaje para ganar.</b>\n` +
       `──────\n` +
       `${dateFormatted}`;
@@ -206,10 +222,12 @@ async function deliverRewardToWinner(bot, user, reward, quizId) {
     const fileName = `cuenta_${reward.category.toLowerCase()}_vlp.txt`;
     const buffer = Buffer.from(reward.account_data || '# Sin contenido', 'utf8');
 
-    await bot.api.sendMessage(user.id, text, { parse_mode: 'HTML' });
+    const kb = buildRewardKeyboard(reward.id, reward.category, reward.account_title);
+    await bot.api.sendMessage(user.id, text, { parse_mode: 'HTML', reply_markup: kb });
     await bot.api.sendDocument(user.id, new InputFile(buffer, fileName), {
-      caption: `⟡ Cookies para <b>${escapeHtml(reward.account_title)}</b>.` ,
-      parse_mode: 'HTML'
+      caption: `【 𝗖𝗢𝗢𝗞𝗜𝗘𝗦 】 ⟡ <b>${escapeHtml(reward.account_title)}</b>.`,
+      parse_mode: 'HTML',
+      reply_markup: kb
     });
     return { deliveredDirectly: true };
   } catch (dmErr) {
@@ -384,10 +402,12 @@ function register(bot) {
       const fileName = `cuenta_${reward.category.toLowerCase()}_vlp.txt`;
       const buffer = Buffer.from(reward.account_data, 'utf8');
 
-      await ctx.reply(text, { parse_mode: 'HTML' });
+      const kb = buildRewardKeyboard(reward.id, reward.category, reward.account_title);
+      await ctx.reply(text, { parse_mode: 'HTML', reply_markup: kb });
       await ctx.replyWithDocument(new InputFile(buffer, fileName), {
-        caption: `⟡ Cookies para <b>${escapeHtml(reward.account_title)}</b>.`,
-        parse_mode: 'HTML'
+        caption: `【 𝗖𝗢𝗢𝗞𝗜𝗘𝗦 】 ⟡ <b>${escapeHtml(reward.account_title)}</b>.`,
+        parse_mode: 'HTML',
+        reply_markup: kb
       });
 
       await db.clearPendingClaim(ctx.from.id);
@@ -486,15 +506,15 @@ function register(bot) {
       const dateFormatted = getSuperscriptDate();
 
       const winMessage =
-        `<b>⟡ [QUIZZ] ¡GANADOR DETECTADO!</b>\n` +
-        `──────\n\n` +
-        `• <b>Ganador:</b> <b>${winnerName}</b> (${winnerUser})\n` +
-        `• <b>Respuesta:</b> <b>${escapeHtml(ctx.message.text.toUpperCase())}</b>\n` +
-        `• <b>Premio:</b> <code>${escapeHtml(reward ? reward.account_title : 'Cuenta Streaming')}</code>\n\n` +
+        `<b>【 𝗤𝗨𝗜𝗭𝗭 】 ⟡ 「 𝗚𝗔𝗡𝗔𝗗𝗢𝗥 𝗗𝗘𝗧𝗘𝗖𝗧𝗔𝗗𝗢 」</b>\n` +
+        `────── // ───\n\n` +
+        `▸ <b>Ganador:</b> <b>${winnerName}</b> (${winnerUser})\n` +
+        `▸ <b>Respuesta:</b> <b>${escapeHtml(ctx.message.text.toUpperCase())}</b>\n` +
+        `▸ <b>Premio:</b> <code>${escapeHtml(reward ? reward.account_title : 'Cuenta Streaming')}</code>\n\n` +
         (deliveryStatus
-          ? `✓ <i>Premio enviado a tu chat privado con el bot.</i>\n`
-          : `⚠️ <i>Abre chat con @${botUsername} y envía <code>/claim</code> para retirar tu cuenta.</i>\n`) +
-        `──────\n` +
+          ? `✓ <i>Premio y convertidor de cookies enviados a tu chat privado.</i>\n`
+          : `◈ <i>Abre chat privado con @${botUsername} y envía <code>/claim</code> para retirar tu cuenta.</i>\n`) +
+        `────── // ───\n` +
         `${dateFormatted}`;
 
       await ctx.reply(winMessage, {
@@ -524,6 +544,8 @@ function register(bot) {
 
 module.exports = {
   register,
+  buildRewardKeyboard,
+  renderPrivateRewardCard,
   triggerQuiz,
   startQuizTimer,
   stopQuizTimer

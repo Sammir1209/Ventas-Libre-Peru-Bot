@@ -6,6 +6,7 @@ const { SYM } = require('../../config/constants');
 const { mentionFromData, formatId, escapeHtml } = require('../../utils/formatting');
 const logger = require('./logger');
 const { InlineKeyboard } = require('grammy');
+const { btn } = require('../../utils/aesthetic');
 
 // ── Homóglifos comunes (Cirílico, Griego, Símbolos) a caracteres latinos ──
 const HOMOGLYPHS = {
@@ -408,8 +409,8 @@ function buildClonesReport(result, communityName = 'Ventas Libres Perú') {
 
     // Botones interactivos para los primeros 3
     if (i < 3) {
-      kb.text(`👤 Ver #${i + 1}`, `perfil_card:${m.user_id}`);
-      kb.text(`🚫 Banear`, `mod_ban_direct:${m.user_id}`).row();
+      kb.text(btn(`VER #${i + 1}`, '◈', '◈'), `perfil_card:${m.user_id}`);
+      kb.text(btn('BANEAR', '✕', '✕'), `mod_ban_direct:${m.user_id}`).row();
     }
   }
 
@@ -417,7 +418,7 @@ function buildClonesReport(result, communityName = 'Ventas Libres Perú') {
     `\n──────\n` +
     `💡 <i>Compara siempre los IDs numéricos antes de pactar acuerdos para evitar estafas.</i>`;
 
-  kb.text('✖ Cerrar Radar', 'info_close');
+  kb.text(btn('CERRAR RADAR', '✕', '✕'), 'info_close');
 
   return { text, keyboard: kb };
 }

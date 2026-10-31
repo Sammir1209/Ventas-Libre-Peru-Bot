@@ -5,6 +5,7 @@ const { requireStaff } = require('../../middleware/auth');
 const { formatId, escapeHtml, mentionFromData } = require('../../utils/formatting');
 const { InlineKeyboard } = require('grammy');
 const userbot = require('../../userbot/client');
+const { btn } = require('../../utils/aesthetic');
 
 // ══════
 // ⟡ MOTOR CENTINELA VLP (VLP Sentinel Engine)
@@ -511,8 +512,8 @@ function register(bot) {
         `💡 <i>Usa <code>/analizar [ID/@user/reply]</code> para realizar un escaneo forense de cualquier usuario.</i>`;
 
       const kb = new InlineKeyboard()
-        .text('LISTA NEGRA', 'blacklist_page:1').danger()
-        .text('CERRAR', 'info_close').primary();
+        .text(btn('LISTA NEGRA', '✦', '✦'), 'blacklist_page:1').danger()
+        .text(btn('CERRAR', '✕', '✕'), 'info_close').primary();
 
       await ctx.reply(text, {
         parse_mode: 'HTML',
@@ -579,8 +580,8 @@ function register(bot) {
       text += `──────\n🛡️ <i>Centinela Engine — Sistema de Protección Oficial</i>`;
 
       const kb = new InlineKeyboard()
-        .text('VER PERFIL COMPLETO', `info_profile:${target.userId}`).primary()
-        .text('CERRAR', 'info_close').danger();
+        .text(btn('VER PERFIL COMPLETO', '◈', '◈'), `info_profile:${target.userId}`).primary()
+        .text(btn('CERRAR', '✕', '✕'), 'info_close').danger();
 
       await ctx.reply(text, {
         parse_mode: 'HTML',
