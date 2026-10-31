@@ -3535,6 +3535,108 @@ async function getRewardById(rewardId) {
   return memQuizRewards.find(r => r.id === rId) || null;
 }
 
+/**
+ * Obtiene todos los destinatarios categorizados para difusión masiva (/anun):
+ * - Grupos oficiales (BD + config)
+ * - Canales oficiales y de avisos (BD + config)
+ * - Usuarios registrados que han interactuado con el bot
+ */
+async function getBroadcastRecipients(tenantId = null) {
+  const groups = new Map();
+  const channels = new Map();
+
+  // 1. Grupos y canales de base de datos
+  try {
+    const dbChats = await getAllGroups(tenantId);
+    for (const c of dbChats) {
+      const cId = Number(c.chat_id);
+      const isChannel = c.type === 'channel';
+      const item = {
+        id: cId,
+        title: c.title || (isChannel ? 'Canal Oficial' : 'Grupo Oficial'),
+        type: isChannel ? 'channel' : 'group'
+      };
+      if (isChannel) channels.set(cId, item);
+      else groups.set(cId, item);
+    }
+  } catch (err) {
+    console.warn('⟡ Error obteniendo chats de BD para difusión:', err.message);
+  }
+
+  // 2. Canales y grupos estáticos de configuración oficial si es el bot principal
+  if (!tenantId) {
+    const staticGroups = [
+      { id: config.MAIN_GROUP_ID, title: 'Grupo Principal (Ventas Libre 🇵🇪)' },
+      { id: config.ESCROW_GROUP_ID, title: 'Grupo Oficial de Tratos' },
+      { id: config.STAFF_CHAT_ID, title: 'Grupo de Staff' },
+    ];
+    for (const sg of staticGroups) {
+      if (sg.id && !groups.has(Number(sg.id))) {
+        groups.set(Number(sg.id), { id: Number(sg.id), title: sg.title, type: 'group' });
+      }
+    }
+
+    const staticChannels = [
+      { id: config.PUBLIC_BURN_CHANNEL_ID, title: 'Canal Público de Quemados' },
+      { id: config.LOG_CHANNEL_ID, title: 'Canal de Logs y Auditoría' },
+    ];
+    for (const sc of staticChannels) {
+      if (sc.id && !channels.has(Number(sc.id))) {
+        channels.set(Number(sc.id), { id: Number(sc.id), title: sc.title, type: 'channel' });
+      }
+    }
+  }
+
+  // 3. Usuarios registrados que han interactuado con el bot
+  const privateUsers = [];
+  try {
+    if (useSupabase && supabase) {
+      let page = 0;
+      const pageSize = 1000;
+      let more = true;
+      while (more) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('user_id, username, first_name')
+          .order('user_id', { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        if (error || !data || data.length === 0) {
+          more = false;
+        } else {
+          for (const u of data) {
+            privateUsers.push({
+              id: Number(u.user_id),
+              username: u.username || null,
+              name: u.first_name || 'Usuario',
+              type: 'private'
+            });
+          }
+          if (data.length < pageSize) more = false;
+          page++;
+        }
+      }
+    } else if (pool) {
+      const res = await pool.query('SELECT user_id, username, first_name FROM users ORDER BY created_at DESC');
+      for (const u of res.rows) {
+        privateUsers.push({
+          id: Number(u.user_id),
+          username: u.username || null,
+          name: u.first_name || 'Usuario',
+          type: 'private'
+        });
+      }
+    }
+  } catch (userErr) {
+    console.warn('⟡ Error obteniendo usuarios privados para difusión:', userErr.message);
+  }
+
+  return {
+    groups: Array.from(groups.values()),
+    channels: Array.from(channels.values()),
+    privateUsers
+  };
+}
+
 async function close() {
   if (pool) {
     await pool.end();
@@ -3652,4 +3754,5 @@ module.exports = {
   getPendingClaim,
   clearPendingClaim,
   getRewardById,
+  getBroadcastRecipients,
 };
