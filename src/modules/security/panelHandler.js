@@ -650,18 +650,14 @@ function renderQuizMenu(chatId, settings, stock) {
   const interval = settings.interval_minutes || 5;
 
   return (
-    `🎮 <b>[CONFIGURACIÓN DE JUEGOS & QUIZZ AUTOMÁTICO]</b>\n` +
-    `══════\n` +
-    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
-    `Personaliza la emisión periódica de trivias interactivas y entrega de premios:\n\n` +
-    `• <b>Estado General:</b> <b>${statusBadge}</b>\n` +
-    `• <b>Intervalo Actual:</b> <code>Cada ${interval} minutos</code>\n` +
-    `• <b>Stock de Cuentas:</b> <code>[ ${stock.total} Cuentas ]</code>\n` +
-    `  ↳ <b>Prime Video:</b> <code>${stock.primeVideo} disponibles</code>\n` +
-    `  ↳ <b>YouTube Premium:</b> <code>${stock.youtube} disponibles</code>\n\n` +
-    `💡 <i>Las cuentas se descuentan automáticamente al acertar para evitar duplicaciones.</i>\n` +
+    `🎮 <b>[CONFIGURACIÓN DE JUEGOS & QUIZZ]</b>\n` +
+    `──────\n\n` +
+    `• <b>Estado:</b> <b>${statusBadge}</b>\n` +
+    `• <b>Intervalo:</b> <code>Cada ${interval} min</code>\n` +
+    `• <b>Stock disponible:</b> <code>${stock.total} cuentas</code>\n` +
+    `  ↳ Prime: <code>${stock.primeVideo}</code> | YouTube: <code>${stock.youtube}</code>\n\n` +
     `──────\n` +
-    `⚡ <i>Comandos rápidos: <code>/quizzon</code>, <code>/quizzoff</code>, <code>/quizz</code>, <code>/stock</code></i>\n` +
+    `💡 <i>Comandos: <code>/quizzon</code>, <code>/quizzoff</code>, <code>/quizz</code>, <code>/stock</code></i>\n` +
     `${dateFormatted}`
   );
 }

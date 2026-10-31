@@ -1,6 +1,7 @@
 // ══════════════════════════════════════════════════════════
 // ⟡ Módulo de Juegos & Quizz Interactivo con Premios Reales
-//   Control: /quizzon, /quizzoff, /quizz, /claim, /stock, /addstock
+//   Control: /quizzon, /quizzoff, /quizz, /claim, /stock
+//   Plantillas Concisas Adaptadas a Móvil (Estándar VLP)
 // ══════════════════════════════════════════════════════════
 
 const crypto = require('crypto');
@@ -9,7 +10,6 @@ const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { requireStaff } = require('../../middleware/auth');
 const { escapeHtml, getSuperscriptDate } = require('../../utils/formatting');
-const { toMathBold } = require('../../utils/aesthetic');
 const { getRandomQuiz, normalizeAnswer } = require('./quizBank');
 
 // Mapa de temporizadores activos por chat_id: chatId -> NodeJS.Timeout
@@ -23,22 +23,15 @@ const activeSessionsMem = new Map();
 function renderPrivateRewardCard(user, reward) {
   const dateFormatted = getSuperscriptDate();
   const userName = escapeHtml(user.first_name || 'Ganador');
-  const userTag = user.username ? `@${escapeHtml(user.username)}` : `ID: ${user.id}`;
   const title = escapeHtml(reward.account_title || reward.category || 'Cuenta Premium');
 
   return (
-    `╔══════════════════════════════════════╗\n` +
-    `   ❖ <b>VENTAS LIBRES PERÚ - PREMIO OFICIAL</b> ❖\n` +
-    `╚══════════════════════════════════════╝\n\n` +
-    `⟡ <b>Ganador:</b> <b>${userName}</b> (${userTag})\n` +
-    `⟡ <b>Premio:</b> <code>${title}</code>\n` +
-    `⟡ <b>Estado:</b> <code>[ ENTREGADO Y VÁLIDO ]</code>\n` +
-    `══════\n` +
-    `↳ <b>GUÍA DE ACCESO Y USO:</b>\n` +
-    `• Te hemos adjuntado el archivo de cookies <code>.txt</code> descargable abajo.\n` +
-    `• Puedes importarlo en tu navegador usando la extensión <b>Cookie-Editor</b> o <b>J2TEAM Cookies</b>.\n` +
-    `• Esta cuenta ha sido asignada exclusivamente a ti y retirada del pool para evitar duplicaciones.\n\n` +
-    `<i>¡Felicidades por ganar el Quizz de la comunidad!</i>\n` +
+    `<b>⟡ [VENTAS LIBRES PERÚ] PREMIO OFICIAL</b>\n` +
+    `──────\n\n` +
+    `• <b>Ganador:</b> <b>${userName}</b>\n` +
+    `• <b>Premio:</b> <code>${title}</code>\n` +
+    `• <b>Estado:</b> <code>[ ENTREGADO ]</code>\n\n` +
+    `↳ <i>Tu archivo de cookies .txt está adjunto para importar en Cookie-Editor.</i>\n\n` +
     `──────\n` +
     `${dateFormatted}`
   );
@@ -60,12 +53,15 @@ async function triggerQuiz(bot, chatId) {
     // 2. Validar que existan recompensas en stock
     const stock = await db.getAvailableRewardsCount();
     if (stock.total <= 0) {
-      // Auto-apagar quizz en este chat por falta de stock
       await db.updateQuizSettings(cId, { enabled: false });
       stopQuizTimer(cId);
       await bot.api.sendMessage(
         cId,
-        `⟡ ⚠️ <b>[QUIZZ PAUSADO]:</b> <i>El sistema de trivias automáticas se ha detenido porque el stock de cuentas se encuentra agotado (0 cuentas disponibles). El staff reanudará el servicio pronto.</i>`,
+        `<b>⟡ [QUIZZ PAUSADO] STOCK AGOTADO</b>\n` +
+        `──────\n\n` +
+        `<i>El quizz se ha detenido porque no quedan cuentas disponibles en stock.</i>\n\n` +
+        `──────\n` +
+        `${getSuperscriptDate()}`,
         { parse_mode: 'HTML' }
       ).catch(() => {});
       return { success: false, reason: 'NO_STOCK' };
@@ -78,21 +74,13 @@ async function triggerQuiz(bot, chatId) {
 
     const dateFormatted = getSuperscriptDate();
     const quizText =
-      `╔══════════════════════════════════════╗\n` +
-      `     ❖ <b>QUIZZ INTERACTIVO VLP</b> ❖\n` +
-      `╚══════════════════════════════════════╝\n\n` +
-      `⟡ <b>Categoría:</b> <code>${quiz.category}</code>\n` +
-      `⟡ <b>Premio:</b> <code>Cuenta Premium (Prime Video / YouTube)</code>\n` +
-      `⟡ <b>Stock Disponible:</b> <code>[ ${stock.total} Cuentas ]</code>\n` +
-      `══════\n` +
-      `▸ <b>PREGUNTA:</b>\n` +
+      `<b>⟡ [QUIZZ VLP] TRIVIA</b>\n` +
+      `──────\n\n` +
+      `• <b>Categoría:</b> <code>${quiz.category}</code>\n` +
+      `• <b>Premio:</b> <code>Cuenta Streaming (Prime / YouTube)</code>\n\n` +
       `<b>${escapeHtml(quiz.question)}</b>\n\n` +
-      `💡 <i>Pista: ${escapeHtml(quiz.hint)}</i>\n` +
-      `══════\n` +
-      `⟡ <b>¿Cómo ganar?</b>\n` +
-      `↳ <b>Responde directamente (Reply)</b> a este mensaje con la respuesta correcta.\n` +
-      `↳ El primero en acertar se lleva la cuenta al instante.\n` +
-      `⏱️ <b>Tiempo límite:</b> <code>60 segundos</code>\n` +
+      `💡 <i>Pista: ${escapeHtml(quiz.hint)}</i>\n\n` +
+      `↳ <b>Responde a este mensaje para ganar.</b> (60s)\n` +
       `──────\n` +
       `${dateFormatted}`;
 
@@ -129,10 +117,11 @@ async function triggerQuiz(bot, chatId) {
         await db.expireQuizSession(sessionId);
 
         const expText =
-          `⟡ ⌛ <b>[QUIZZ FINALIZADO - TIEMPO AGOTADO]</b>\n` +
-          `══════\n` +
-          `Nadie logró responder a tiempo. La respuesta correcta era: <b>${escapeHtml(quiz.rawAnswers[0].toUpperCase())}</b>.\n` +
-          `<i>¡Prepárense para la siguiente trivia!</i>`;
+          `<b>⟡ [QUIZZ] TIEMPO AGOTADO</b>\n` +
+          `──────\n\n` +
+          `La respuesta correcta era: <b>${escapeHtml(quiz.rawAnswers[0].toUpperCase())}</b>.\n\n` +
+          `──────\n` +
+          `${getSuperscriptDate()}`;
 
         await bot.api.sendMessage(cId, expText, {
           parse_mode: 'HTML',
@@ -195,15 +184,13 @@ async function deliverRewardToWinner(bot, user, reward, quizId) {
     const fileName = `cuenta_${reward.category.toLowerCase()}_vlp.txt`;
     const buffer = Buffer.from(reward.account_data || '# Sin contenido', 'utf8');
 
-    // Intentar envío por DM
     await bot.api.sendMessage(user.id, text, { parse_mode: 'HTML' });
     await bot.api.sendDocument(user.id, new InputFile(buffer, fileName), {
-      caption: `⟡ Archivo de sesión/cookies para <b>${escapeHtml(reward.account_title)}</b>.` ,
+      caption: `⟡ Cookies para <b>${escapeHtml(reward.account_title)}</b>.` ,
       parse_mode: 'HTML'
     });
     return { deliveredDirectly: true };
   } catch (dmErr) {
-    // Si el usuario no tiene chat iniciado o bloqueó al bot, guardar en pending_claims
     console.log(`⟡ No se pudo enviar DM a ${user.id} (${dmErr.message}). Registrando en pending_claims.`);
     await db.setPendingClaim(user.id, reward.id, quizId, reward.category);
     return { deliveredDirectly: false };
@@ -224,11 +211,12 @@ function register(bot) {
       const stock = await db.getAvailableRewardsCount();
       if (stock.total <= 0) {
         return ctx.reply(
-          `⟡ ✗ <b>NO SE PUEDE ACTIVAR EL QUIZZ AUTOMÁTICO</b>\n` +
-          `══════\n` +
-          `▸ <b>Stock disponible:</b> <code>[ 0 Cuentas ]</code>\n` +
-          `▸ <b>Causa:</b> No hay cuentas activas en la base de datos para entregar a los ganadores.\n\n` +
-          `<i>Carga nuevas cuentas con el comando <code>/addstock</code> o ejecuta el script de ingesta para continuar.</i>`,
+          `<b>⟡ [QUIZZ] NO SE PUEDE ACTIVAR</b>\n` +
+          `──────\n\n` +
+          `• <b>Stock disponible:</b> <code>[ 0 Cuentas ]</code>\n` +
+          `• <b>Causa:</b> No hay cuentas activas en la base de datos.\n\n` +
+          `──────\n` +
+          `${getSuperscriptDate()}`,
           { parse_mode: 'HTML' }
         );
       }
@@ -241,14 +229,11 @@ function register(bot) {
 
       const dateFormatted = getSuperscriptDate();
       await ctx.reply(
-        `╔══════════════════════════════════════╗\n` +
-        `     ❖ <b>SISTEMA DE QUIZZ ACTIVADO [✓]</b> ❖\n` +
-        `╚══════════════════════════════════════╝\n\n` +
-        `▸ <b>Estado:</b> <code>[ EN EJECUCIÓN ]</code>\n` +
-        `▸ <b>Frecuencia:</b> <code>Cada ${interval} minutos</code>\n` +
-        `▸ <b>Stock Disponible:</b> <code>${stock.total} Cuentas (${stock.primeVideo} Prime, ${stock.youtube} YouTube)</code>\n` +
-        `══════\n` +
-        `<i>El primer Quizz se lanzará en el próximo ciclo programado. También puedes forzar uno de inmediato con <code>/quizz</code>.</i>\n` +
+        `<b>⟡ [QUIZZ] SISTEMA ACTIVADO</b>\n` +
+        `──────\n\n` +
+        `• <b>Estado:</b> <code>[ EN EJECUCIÓN ]</code>\n` +
+        `• <b>Frecuencia:</b> <code>Cada ${interval} min</code>\n` +
+        `• <b>Stock:</b> <code>${stock.total} cuentas (${stock.primeVideo} Prime, ${stock.youtube} YouTube)</code>\n\n` +
         `──────\n` +
         `${dateFormatted}`,
         { parse_mode: 'HTML' }
@@ -271,11 +256,10 @@ function register(bot) {
 
       const dateFormatted = getSuperscriptDate();
       await ctx.reply(
-        `⟡ 🛑 <b>[QUIZZ AUTOMÁTICO APAGADO]</b>\n` +
-        `══════\n` +
-        `▸ <b>Estado:</b> <code>[ DETENIDO ]</code>\n` +
-        `▸ <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Oficial')}</b>\n` +
-        `<i>No se enviarán más trivias automáticas hasta que vuelvas a usar <code>/quizzon</code>.</i>\n` +
+        `<b>⟡ [QUIZZ] SISTEMA DETENIDO</b>\n` +
+        `──────\n\n` +
+        `• <b>Estado:</b> <code>[ APAGADO ]</code>\n` +
+        `• <b>Grupo:</b> <b>${escapeHtml(ctx.chat.title || 'Oficial')}</b>\n\n` +
         `──────\n` +
         `${dateFormatted}`,
         { parse_mode: 'HTML' }
@@ -296,12 +280,12 @@ function register(bot) {
       const res = await triggerQuiz(bot, ctx.chat.id);
       if (!res.success) {
         if (res.reason === 'ALREADY_ACTIVE') {
-          return ctx.reply('⟡ ⚠️ <i>Ya hay un Quizz activo en este momento. Espera a que termine o expire.</i>', { parse_mode: 'HTML' });
+          return ctx.reply('⟡ ⚠️ <i>Ya hay un Quizz activo en este momento.</i>', { parse_mode: 'HTML' });
         }
         if (res.reason === 'NO_STOCK') {
-          return ctx.reply('⟡ ✗ <i>No hay stock de cuentas disponibles en la base de datos para lanzar el Quizz.</i>', { parse_mode: 'HTML' });
+          return ctx.reply('⟡ ✗ <i>No hay cuentas en stock para lanzar el Quizz.</i>', { parse_mode: 'HTML' });
         }
-        return ctx.reply(`⟡ ✗ No se pudo iniciar el Quizz: ${res.reason}`, { parse_mode: 'HTML' });
+        return ctx.reply(`⟡ ✗ Error: ${res.reason}`, { parse_mode: 'HTML' });
       }
     } catch (err) {
       console.error('⟡ Error en /quizz:', err.message);
@@ -313,21 +297,22 @@ function register(bot) {
   bot.command('claim', async (ctx) => {
     try {
       if (ctx.chat.type !== 'private') {
-        return ctx.reply('⟡ ✗ <i>Por seguridad, el comando <code>/claim</code> solo funciona en chat privado con el bot.</i>', { parse_mode: 'HTML' });
+        return ctx.reply('⟡ ✗ <i>El comando <code>/claim</code> solo funciona en chat privado con el bot.</i>', { parse_mode: 'HTML' });
       }
 
       const pending = await db.getPendingClaim(ctx.from.id);
       if (!pending) {
         return ctx.reply(
-          `⟡ ℹ️ <b>[SIN RECOMPENSAS PENDIENTES]</b>\n` +
-          `══════\n` +
-          `No tienes ninguna cuenta pendiente por retirar en este momento.\n` +
-          `<i>¡Participa y sé el más rápido en responder los quizzes en el grupo para ganar cuentas de streaming!</i>`,
+          `<b>⟡ [RECOMPENSAS] SIN PREMIOS PENDIENTES</b>\n` +
+          `──────\n\n` +
+          `No tienes ninguna cuenta pendiente por retirar.\n` +
+          `<i>¡Responde los quizzes en el grupo para ganar!</i>\n\n` +
+          `──────\n` +
+          `${getSuperscriptDate()}`,
           { parse_mode: 'HTML' }
         );
       }
 
-      // Preparar entrega
       const reward = {
         id: pending.reward_id,
         category: pending.reward_category || pending.category || 'CUENTA',
@@ -341,11 +326,10 @@ function register(bot) {
 
       await ctx.reply(text, { parse_mode: 'HTML' });
       await ctx.replyWithDocument(new InputFile(buffer, fileName), {
-        caption: `⟡ Archivo de sesión/cookies para <b>${escapeHtml(reward.account_title)}</b>.`,
+        caption: `⟡ Cookies para <b>${escapeHtml(reward.account_title)}</b>.`,
         parse_mode: 'HTML'
       });
 
-      // Limpiar de pending_claims para que no reclame doble
       await db.clearPendingClaim(ctx.from.id);
     } catch (err) {
       console.error('⟡ Error en /claim:', err.message);
@@ -360,15 +344,11 @@ function register(bot) {
       const dateFormatted = getSuperscriptDate();
 
       const text =
-        `╔══════════════════════════════════════╗\n` +
-        `    ❖ <b>INVENTARIO DE RECOMPENSAS VLP</b> ❖\n` +
-        `╚══════════════════════════════════════╝\n\n` +
-        `▸ <b>Stock Total Disponible:</b> <code>[ ${stock.total} Cuentas ]</code>\n` +
-        `══════\n` +
-        `• <b>Amazon Prime Video:</b> <code>${stock.primeVideo} disponibles</code>\n` +
-        `• <b>YouTube Premium:</b> <code>${stock.youtube} disponibles</code>\n` +
-        `══════\n` +
-        `↳ <i>Cada cuenta entregada se retira automáticamente para evitar duplicaciones.</i>\n` +
+        `<b>⟡ [INVENTARIO] STOCK DISPONIBLE</b>\n` +
+        `──────\n\n` +
+        `• <b>Total:</b> <code>${stock.total} cuentas</code>\n` +
+        `• <b>Prime Video:</b> <code>${stock.primeVideo}</code>\n` +
+        `• <b>YouTube Premium:</b> <code>${stock.youtube}</code>\n\n` +
         `──────\n` +
         `${dateFormatted}`;
 
@@ -387,31 +367,26 @@ function register(bot) {
       const chatId = ctx.chat.id;
       const session = activeSessionsMem.get(chatId) || await db.getActiveQuizSession(chatId);
 
-      // Si no hay sesión activa o no responde al mensaje del Quizz, continuar
       if (!session || session.status !== 'ACTIVE' || session.message_id !== replyTo.message_id) {
         return next();
       }
 
-      // Validar si el tiempo expiró
       if (new Date(session.expires_at).getTime() <= Date.now()) {
         session.status = 'EXPIRED';
         activeSessionsMem.delete(chatId);
         return next();
       }
 
-      // Normalizar texto enviado
       const normalizedUserText = normalizeAnswer(ctx.message.text);
       const isCorrect = (session.normalized_answers || []).some(ans => {
         return normalizedUserText === ans || (ans.length > 3 && normalizedUserText.includes(ans));
       });
 
       if (!isCorrect) {
-        // Respuesta incorrecta -> dejamos que sigan intentando
         return next();
       }
 
-      // ── ¡RESPUESTA CORRECTA! ──
-      // 1. Bloqueo inmediato para evitar condiciones de carrera
+      // Respuesta correcta
       session.status = 'SOLVED';
       activeSessionsMem.delete(chatId);
 
@@ -419,7 +394,6 @@ function register(bot) {
       const winnerName = escapeHtml(winner.first_name || 'Ganador');
       const winnerUser = winner.username ? `@${escapeHtml(winner.username)}` : `ID: ${winner.id}`;
 
-      // 2. Extraer y bloquear atómicamente una cuenta del stock
       const reward = await db.acquireRewardAtomic(winner.id, winner.username, session.id);
 
       let deliveryStatus = false;
@@ -433,16 +407,14 @@ function register(bot) {
       const dateFormatted = getSuperscriptDate();
 
       const winMessage =
-        `╔══════════════════════════════════════╗\n` +
-        `    ❖ <b>¡TENEMOS UN GANADOR DEL QUIZZ!</b> ❖\n` +
-        `╚══════════════════════════════════════╝\n\n` +
-        `⟡ <b>Ganador:</b> <b>${winnerName}</b> (${winnerUser})\n` +
-        `⟡ <b>Respuesta Correcta:</b> <b>${escapeHtml(ctx.message.text.toUpperCase())}</b>\n` +
-        `⟡ <b>Premio:</b> <code>${escapeHtml(reward ? reward.account_title : 'Cuenta Premium Oficial')}</code>\n` +
-        `══════\n` +
+        `<b>⟡ [QUIZZ] ¡GANADOR DETECTADO!</b>\n` +
+        `──────\n\n` +
+        `• <b>Ganador:</b> <b>${winnerName}</b> (${winnerUser})\n` +
+        `• <b>Respuesta:</b> <b>${escapeHtml(ctx.message.text.toUpperCase())}</b>\n` +
+        `• <b>Premio:</b> <code>${escapeHtml(reward ? reward.account_title : 'Cuenta Streaming')}</code>\n\n` +
         (deliveryStatus
-          ? `✓ <i>¡Tus datos de acceso y archivo de cookies ya han sido enviados a tu <b>chat privado con el bot</b>!</i>\n`
-          : `⚠️ <i>No pudimos enviarte mensaje privado directo. Entra a @${botUsername} y escribe el comando <code>/claim</code> para retirar tu cuenta ganada.</i>\n`) +
+          ? `✓ <i>Premio enviado a tu chat privado con el bot.</i>\n`
+          : `⚠️ <i>Abre chat con @${botUsername} y envía <code>/claim</code> para retirar tu cuenta.</i>\n`) +
         `──────\n` +
         `${dateFormatted}`;
 
@@ -451,14 +423,14 @@ function register(bot) {
         reply_parameters: { message_id: ctx.message.message_id }
       });
 
-      return; // Detener flujo, ya se atendió el Quizz
+      return;
     } catch (err) {
       console.error('⟡ Error en evaluador de respuestas de quizz:', err.message);
     }
     return next();
   });
 
-  // 7. Auto-inicialización al arranque de chats que tenían el quizz habilitado
+  // 7. Auto-inicialización al arranque de chats con quizz habilitado
   setTimeout(async () => {
     try {
       const activeChats = await db.getAllActiveQuizChats();
