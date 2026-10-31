@@ -254,6 +254,7 @@ function getGroupHelpMainKeyboard(chatId, isPrivate = false, botUsername = 'vent
     .text(`❖ ${toMathBold('Whitelist URLs')}`, `gh_sub:${chatId}:whitelist`).primary()
     .text(`⚡ ${toMathBold('Asistente IA')}`, `gh_sub:${chatId}:ai`).primary()
     .row()
+    .text(`🎮 ${toMathBold('Juegos & Quizz')}`, `gh_sub:${chatId}:quizz`).primary()
     .text(`⟡ ${toMathBold('Diagnóstico / Estado')}`, `gh_sub:${chatId}:status`).success()
     .text(`❖ ${toMathBold('Catálogo de Comandos')}`, `gh_sub:${chatId}:commands`).primary();
 
@@ -641,6 +642,53 @@ function getAiKeyboard(chatId, sec) {
     .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
+// ── Sub-Panel 9.6: Juegos & Quizz Automático con Recompensas ──
+function renderQuizMenu(chatId, settings, stock) {
+  const dateFormatted = getSuperscriptDate();
+  const qOn = settings.enabled === true;
+  const statusBadge = qOn ? '[ ✓ ACTIVADO ]' : '[ ✗ APAGADO ]';
+  const interval = settings.interval_minutes || 5;
+
+  return (
+    `🎮 <b>[CONFIGURACIÓN DE JUEGOS & QUIZZ AUTOMÁTICO]</b>\n` +
+    `══════\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `Personaliza la emisión periódica de trivias interactivas y entrega de premios:\n\n` +
+    `• <b>Estado General:</b> <b>${statusBadge}</b>\n` +
+    `• <b>Intervalo Actual:</b> <code>Cada ${interval} minutos</code>\n` +
+    `• <b>Stock de Cuentas:</b> <code>[ ${stock.total} Cuentas ]</code>\n` +
+    `  ↳ <b>Prime Video:</b> <code>${stock.primeVideo} disponibles</code>\n` +
+    `  ↳ <b>YouTube Premium:</b> <code>${stock.youtube} disponibles</code>\n\n` +
+    `💡 <i>Las cuentas se descuentan automáticamente al acertar para evitar duplicaciones.</i>\n` +
+    `──────\n` +
+    `⚡ <i>Comandos rápidos: <code>/quizzon</code>, <code>/quizzoff</code>, <code>/quizz</code>, <code>/stock</code></i>\n` +
+    `${dateFormatted}`
+  );
+}
+
+function getQuizKeyboard(chatId, settings) {
+  const qOn = settings.enabled === true;
+  const interval = settings.interval_minutes || 5;
+
+  const kb = new InlineKeyboard()
+    .text(`${qOn ? '✗ Detener Quizz' : '✓ Iniciar Quizz'}`, `gh_qz_tog:${chatId}`)
+    .text(`⚡ Lanzar Ahora`, `gh_qz_now:${chatId}`)
+    .row()
+    .text(`⏱️ Intervalo:`, 'gh_qz_noop')
+    .text(interval === 2 ? '• 2m •' : '2m', `gh_qz_int:${chatId}:2`)
+    .text(interval === 5 ? '• 5m •' : '5m', `gh_qz_int:${chatId}:5`)
+    .text(interval === 10 ? '• 10m •' : '10m', `gh_qz_int:${chatId}:10`)
+    .text(interval === 15 ? '• 15m •' : '15m', `gh_qz_int:${chatId}:15`)
+    .text(interval === 30 ? '• 30m •' : '30m', `gh_qz_int:${chatId}:30`)
+    .row()
+    .text(`📦 Ver Stock Detallado`, `gh_qz_stock:${chatId}`)
+    .row()
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+
+  return kb;
+}
+
 // ── Sub-Panel 10: Diagnóstico / Auditoría en 1 Clic ──
 function renderStatusAudit(chatId, groupTitle, sec, locks) {
   const dateFormatted = getSuperscriptDate();
@@ -925,6 +973,15 @@ function register(bot) {
         return await ctx.editMessageText(renderAiMenu(chatId, sec), {
           parse_mode: 'HTML',
           reply_markup: getAiKeyboard(chatId, sec),
+        });
+      }
+
+      if (section === 'quizz') {
+        const settings = await db.getQuizSettings(chatId);
+        const stock = await db.getAvailableRewardsCount();
+        return await ctx.editMessageText(renderQuizMenu(chatId, settings, stock), {
+          parse_mode: 'HTML',
+          reply_markup: getQuizKeyboard(chatId, settings),
         });
       }
 
@@ -1477,6 +1534,100 @@ function register(bot) {
     } catch (err) {
       await ctx.answerCallbackQuery({ text: 'Error limpiando memoria.' });
     }
+  });
+
+  // ── Callbacks de Quizz en /panel ──
+  bot.callbackQuery(/^gh_qz_tog:(-?\d+)$/, async (ctx) => {
+    try {
+      const chatId = Number(ctx.match[1]);
+      const settings = await db.getQuizSettings(chatId);
+      const stock = await db.getAvailableRewardsCount();
+      const { startQuizTimer, stopQuizTimer } = require('../games/quizHandler');
+
+      if (!settings.enabled) {
+        if (stock.total <= 0) {
+          return ctx.answerCallbackQuery({
+            text: 'No se puede activar el Quizz: Stock en 0. Agrega más cuentas primero.',
+            show_alert: true
+          });
+        }
+        await db.updateQuizSettings(chatId, { enabled: true });
+        startQuizTimer(bot, chatId, settings.interval_minutes || 5);
+        await ctx.answerCallbackQuery({ text: 'Quizz Automático ACTIVADO.' });
+      } else {
+        await db.updateQuizSettings(chatId, { enabled: false });
+        stopQuizTimer(chatId);
+        await ctx.answerCallbackQuery({ text: 'Quizz Automático DETENIDO.' });
+      }
+
+      const updatedSettings = await db.getQuizSettings(chatId);
+      const updatedStock = await db.getAvailableRewardsCount();
+      await ctx.editMessageText(renderQuizMenu(chatId, updatedSettings, updatedStock), {
+        parse_mode: 'HTML',
+        reply_markup: getQuizKeyboard(chatId, updatedSettings),
+      });
+    } catch (err) {
+      console.warn('⟡ Error en gh_qz_tog:', err.message);
+    }
+  });
+
+  bot.callbackQuery(/^gh_qz_now:(-?\d+)$/, async (ctx) => {
+    try {
+      const chatId = Number(ctx.match[1]);
+      const { triggerQuiz } = require('../games/quizHandler');
+      const res = await triggerQuiz(bot, chatId);
+      if (!res.success) {
+        if (res.reason === 'ALREADY_ACTIVE') {
+          return ctx.answerCallbackQuery({ text: 'Ya hay un Quizz activo en este momento.', show_alert: true });
+        }
+        if (res.reason === 'NO_STOCK') {
+          return ctx.answerCallbackQuery({ text: 'No hay stock de cuentas disponibles.', show_alert: true });
+        }
+        return ctx.answerCallbackQuery({ text: `Error: ${res.reason}`, show_alert: true });
+      }
+      await ctx.answerCallbackQuery({ text: '¡Quizz lanzado inmediatamente en el grupo!' });
+    } catch (err) {
+      console.warn('⟡ Error en gh_qz_now:', err.message);
+    }
+  });
+
+  bot.callbackQuery(/^gh_qz_int:(-?\d+):(\d+)$/, async (ctx) => {
+    try {
+      const chatId = Number(ctx.match[1]);
+      const interval = Number(ctx.match[2]);
+      const { startQuizTimer } = require('../games/quizHandler');
+
+      await db.updateQuizSettings(chatId, { interval_minutes: interval });
+      const updatedSettings = await db.getQuizSettings(chatId);
+      if (updatedSettings.enabled) {
+        startQuizTimer(bot, chatId, interval);
+      }
+
+      await ctx.answerCallbackQuery({ text: `Intervalo ajustado a cada ${interval} minutos.` });
+      const updatedStock = await db.getAvailableRewardsCount();
+      await ctx.editMessageText(renderQuizMenu(chatId, updatedSettings, updatedStock), {
+        parse_mode: 'HTML',
+        reply_markup: getQuizKeyboard(chatId, updatedSettings),
+      });
+    } catch (err) {
+      console.warn('⟡ Error en gh_qz_int:', err.message);
+    }
+  });
+
+  bot.callbackQuery(/^gh_qz_stock:(-?\d+)$/, async (ctx) => {
+    try {
+      const stock = await db.getAvailableRewardsCount();
+      await ctx.answerCallbackQuery({
+        text: `Stock Total: ${stock.total} | Prime: ${stock.primeVideo} | YouTube: ${stock.youtube}`,
+        show_alert: true
+      });
+    } catch (err) {
+      ctx.answerCallbackQuery({ text: 'Error consultando stock.' });
+    }
+  });
+
+  bot.callbackQuery('gh_qz_noop', async (ctx) => {
+    await ctx.answerCallbackQuery();
   });
 
   // ── Categorías de la Guía de Comandos ──

@@ -249,12 +249,64 @@ function register(bot) {
 
       // 4. Datos del usuario
       const isOwner = config.OWNER_IDS.includes(userId);
+      const isStaff = await isUserStaff(userId);
+      const isDev = (config.DEV_USER_ID && userId === config.DEV_USER_ID) ||
+        (config.DEV_USERNAME && ctx.from.username && ctx.from.username.toLowerCase() === config.DEV_USERNAME.toLowerCase());
+
+      const targets = [];
+      if (ctx.message?.reply_to_message?.from && !ctx.message.reply_to_message.from.is_bot) {
+        const rFrom = ctx.message.reply_to_message.from;
+        const rIsStaff = await isUserStaff(rFrom.id);
+        const rIsOwner = config.OWNER_IDS.includes(rFrom.id);
+        const rIsDev = (config.DEV_USER_ID && rFrom.id === config.DEV_USER_ID) ||
+          (config.DEV_USERNAME && rFrom.username && rFrom.username.toLowerCase() === config.DEV_USERNAME.toLowerCase());
+        let badge = 'MIEMBRO REGULAR';
+        if (rIsDev) badge = 'DESARROLLADOR';
+        else if (rIsOwner) badge = 'OWNER';
+        else if (rIsStaff) badge = 'STAFF OFICIAL';
+
+        targets.push({
+          userId: rFrom.id,
+          username: rFrom.username || null,
+          name: rFrom.first_name || 'Usuario',
+          roleBadge: badge
+        });
+      }
+
+      const mentionMatches = cleanPrompt.match(/@([a-zA-Z0-9_]{4,32})/g) || [];
+      for (const m of mentionMatches) {
+        const uClean = m.replace(/^@/, '');
+        if (ctx.me?.username && uClean.toLowerCase() === ctx.me.username.toLowerCase()) continue;
+        if (!targets.some(t => t.username && t.username.toLowerCase() === uClean.toLowerCase())) {
+          let badge = 'MIEMBRO REGULAR';
+          try {
+            const dbU = await db.getUserByUsername(uClean);
+            if (dbU) {
+              const uIsStaff = await isUserStaff(dbU.user_id);
+              const uIsOwner = config.OWNER_IDS.includes(dbU.user_id);
+              const uIsDev = (config.DEV_USER_ID && dbU.user_id === config.DEV_USER_ID) ||
+                (config.DEV_USERNAME && uClean.toLowerCase() === config.DEV_USERNAME.toLowerCase());
+              if (uIsDev) badge = 'DESARROLLADOR';
+              else if (uIsOwner) badge = 'OWNER';
+              else if (uIsStaff) badge = 'STAFF OFICIAL';
+            }
+          } catch {}
+          targets.push({
+            username: uClean,
+            name: `@${uClean}`,
+            roleBadge: badge
+          });
+        }
+      }
       const userInfo = {
         userId,
         username: ctx.from.username || null,
         firstName: ctx.from.first_name || '',
         lastName: ctx.from.last_name || '',
         isOwner,
+        isStaff,
+        isDev,
+        targets,
       };
 
       // 5. Generar respuesta con la IA Multi-Proveedor

@@ -22,6 +22,7 @@ const aiHandler = require('../modules/ai/handler');
 const searchHandler = require('../modules/moderation/search');
 const setupHandler = require('../modules/setup/handler');
 const securityHandler = require('../modules/security/handler');
+const quizHandler = require('../modules/games/quizHandler');
 
 // ══════
 // ⟡ Motor Multi-Instancia de Sub-Bots (Plataforma SaaS)
@@ -123,6 +124,7 @@ class BotManager {
     infoHandler.register(bot);
     helpHandler.register(bot);
     securityHandler.register(bot);
+    quizHandler.register(bot);
     setupHandler.register(bot);
 
     // ── Módulos OPICIONALES (Configurables por tenant o activos por defecto) ──

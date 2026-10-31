@@ -1,5 +1,12 @@
-const { createClient } = require('@supabase/supabase-js');
-const { Pool } = require('pg');
+// fs and path imported at top
+let createClient = null;
+try {
+  createClient = require('@supabase/supabase-js').createClient;
+} catch {}
+let Pool = null;
+try {
+  Pool = require('pg').Pool;
+} catch {}
 const config = require('../config/env');
 
 // ══════
@@ -11,7 +18,7 @@ let pool = null;
 let useSupabase = false;
 
 // Inicializar cliente Supabase si las credenciales están presentes
-if (config.SUPABASE_URL && config.SUPABASE_SERVICE_KEY) {
+if (createClient && config.SUPABASE_URL && config.SUPABASE_SERVICE_KEY) {
   supabase = createClient(config.SUPABASE_URL, config.SUPABASE_SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -19,7 +26,7 @@ if (config.SUPABASE_URL && config.SUPABASE_SERVICE_KEY) {
 }
 
 // Inicializar pool Postgres como fallback si POSTGRES_URL es válido
-if (config.POSTGRES_URL && !config.POSTGRES_URL.includes('localhost')) {
+if (Pool && config.POSTGRES_URL && !config.POSTGRES_URL.includes('localhost')) {
   pool = new Pool({
     connectionString: config.POSTGRES_URL,
     ssl: { rejectUnauthorized: false },
@@ -2847,6 +2854,50 @@ async function initPanelSessionsTable() {
         );
         CREATE INDEX IF NOT EXISTS idx_panel_sessions_token ON panel_sessions(token_hash);
         CREATE INDEX IF NOT EXISTS idx_panel_sessions_key ON panel_sessions(access_key, user_id);
+
+        CREATE TABLE IF NOT EXISTS quiz_settings (
+          chat_id BIGINT PRIMARY KEY,
+          enabled BOOLEAN DEFAULT FALSE,
+          interval_minutes INTEGER DEFAULT 5,
+          last_quiz_at TIMESTAMP WITH TIME ZONE,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS quiz_rewards (
+          id SERIAL PRIMARY KEY,
+          category VARCHAR(64) NOT NULL,
+          account_title VARCHAR(255) NOT NULL,
+          account_data TEXT NOT NULL,
+          status VARCHAR(32) DEFAULT 'AVAILABLE',
+          claimed_by BIGINT,
+          claimed_username VARCHAR(128),
+          claimed_at TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_quiz_rewards_status ON quiz_rewards(status, category);
+
+        CREATE TABLE IF NOT EXISTS quiz_sessions (
+          id VARCHAR(64) PRIMARY KEY,
+          chat_id BIGINT NOT NULL,
+          message_id BIGINT NOT NULL,
+          category VARCHAR(64) NOT NULL,
+          question TEXT NOT NULL,
+          normalized_answers TEXT[] NOT NULL,
+          status VARCHAR(32) DEFAULT 'ACTIVE',
+          winner_id BIGINT,
+          winner_username VARCHAR(128),
+          reward_id INTEGER,
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS pending_claims (
+          user_id BIGINT PRIMARY KEY,
+          reward_id INTEGER,
+          quiz_id VARCHAR(64),
+          category VARCHAR(64),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
       `);
     }
   } catch (err) {
@@ -2854,6 +2905,27 @@ async function initPanelSessionsTable() {
   }
 }
 setTimeout(initPanelSessionsTable, 2000);
+
+async function autoSeedRewards() {
+  try {
+    const counts = await getAvailableRewardsCount();
+    if (counts.total === 0) {
+      const seedPath = path.join(__dirname, '..', 'data', 'rewards_seed.json');
+      if (fs.existsSync(seedPath)) {
+        const raw = fs.readFileSync(seedPath, 'utf8');
+        const items = JSON.parse(raw);
+        console.log(`⟡ Auto-sembrando ${items.length} cuentas de stock inicial...`);
+        for (const it of items) {
+          await insertReward(it);
+        }
+        console.log('✓ Stock de recompensas auto-sembrado con éxito.');
+      }
+    }
+  } catch (err) {
+    console.warn('⟡ Error en autoSeedRewards:', err.message);
+  }
+}
+setTimeout(autoSeedRewards, 4000);
 
 async function createPanelSession(userId, tenantId = null, role = 'STAFF', accessKey, tokenHash, ttlHours = 24) {
   const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000).toISOString();
@@ -2961,6 +3033,508 @@ async function revokePanelSession(tokenOrKey) {
   }
 }
 
+// ══════════════════════════════════════════════════════════
+// ⟡ Sistema de Juegos, Quizz & Stock de Recompensas
+// ══════════════════════════════════════════════════════════
+
+const memQuizSettings = new Map();
+let memQuizRewards = [];
+const memQuizSessions = new Map();
+const memPendingClaims = new Map();
+let memRewardIdCounter = 1;
+
+async function getQuizSettings(chatId) {
+  const cId = Number(chatId);
+  if (pool) {
+    try {
+      const res = await pool.query(`SELECT * FROM quiz_settings WHERE chat_id = $1`, [cId]);
+      if (res.rows[0]) return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool getQuizSettings error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data } = await supabase.from('quiz_settings').select('*').eq('chat_id', cId).maybeSingle();
+      if (data) return data;
+    } catch {}
+  }
+  return memQuizSettings.get(cId) || { chat_id: cId, enabled: false, interval_minutes: 5, last_quiz_at: null };
+}
+
+async function updateQuizSettings(chatId, { enabled, interval_minutes, last_quiz_at }) {
+  const cId = Number(chatId);
+  const current = await getQuizSettings(cId);
+  const newEnabled = enabled !== undefined ? enabled : current.enabled;
+  const newInterval = interval_minutes !== undefined ? Number(interval_minutes) : (current.interval_minutes || 5);
+  const newLastQuiz = last_quiz_at !== undefined ? last_quiz_at : current.last_quiz_at;
+
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        INSERT INTO quiz_settings (chat_id, enabled, interval_minutes, last_quiz_at, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (chat_id) DO UPDATE SET
+          enabled = EXCLUDED.enabled,
+          interval_minutes = EXCLUDED.interval_minutes,
+          last_quiz_at = COALESCE(EXCLUDED.last_quiz_at, quiz_settings.last_quiz_at),
+          updated_at = NOW()
+        RETURNING *
+      `, [cId, newEnabled, newInterval, newLastQuiz]);
+      return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool updateQuizSettings error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data } = await supabase.from('quiz_settings').upsert({
+        chat_id: cId,
+        enabled: newEnabled,
+        interval_minutes: newInterval,
+        last_quiz_at: newLastQuiz,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'chat_id' }).select().maybeSingle();
+      if (data) return data;
+    } catch {}
+  }
+
+  const updated = {
+    chat_id: cId,
+    enabled: newEnabled,
+    interval_minutes: newInterval,
+    last_quiz_at: newLastQuiz,
+    updated_at: new Date().toISOString()
+  };
+  memQuizSettings.set(cId, updated);
+  return updated;
+}
+
+async function getAllActiveQuizChats() {
+  if (pool) {
+    try {
+      const res = await pool.query(`SELECT * FROM quiz_settings WHERE enabled = TRUE`);
+      return res.rows;
+    } catch (err) {
+      console.warn('⟡ pool getAllActiveQuizChats error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data } = await supabase.from('quiz_settings').select('*').eq('enabled', true);
+      if (data) return data;
+    } catch {}
+  }
+  return Array.from(memQuizSettings.values()).filter(s => s.enabled === true);
+}
+
+async function getAvailableRewardsCount(category = null) {
+  if (pool) {
+    try {
+      let query = `
+        SELECT 
+          COUNT(*) FILTER (WHERE status = 'AVAILABLE') AS total,
+          COUNT(*) FILTER (WHERE status = 'AVAILABLE' AND category = 'PRIME_VIDEO') AS prime_video,
+          COUNT(*) FILTER (WHERE status = 'AVAILABLE' AND category = 'YOUTUBE_PREMIUM') AS youtube_premium
+        FROM quiz_rewards
+      `;
+      const res = await pool.query(query);
+      if (res.rows[0]) {
+        return {
+          total: parseInt(res.rows[0].total || 0, 10),
+          primeVideo: parseInt(res.rows[0].prime_video || 0, 10),
+          youtube: parseInt(res.rows[0].youtube_premium || 0, 10),
+        };
+      }
+    } catch (err) {
+      console.warn('⟡ pool getAvailableRewardsCount error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { count: total } = await supabase.from('quiz_rewards').select('*', { count: 'exact', head: true }).eq('status', 'AVAILABLE');
+      const { count: pv } = await supabase.from('quiz_rewards').select('*', { count: 'exact', head: true }).eq('status', 'AVAILABLE').eq('category', 'PRIME_VIDEO');
+      const { count: yt } = await supabase.from('quiz_rewards').select('*', { count: 'exact', head: true }).eq('status', 'AVAILABLE').eq('category', 'YOUTUBE_PREMIUM');
+      return {
+        total: total || 0,
+        primeVideo: pv || 0,
+        youtube: yt || 0
+      };
+    } catch {}
+  }
+
+  const available = memQuizRewards.filter(r => r.status === 'AVAILABLE');
+  return {
+    total: available.length,
+    primeVideo: available.filter(r => r.category === 'PRIME_VIDEO').length,
+    youtube: available.filter(r => r.category === 'YOUTUBE_PREMIUM').length
+  };
+}
+
+async function insertReward({ category, accountTitle, accountData }) {
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        INSERT INTO quiz_rewards (category, account_title, account_data, status)
+        VALUES ($1, $2, $3, 'AVAILABLE')
+        RETURNING *
+      `, [category, accountTitle, accountData]);
+      return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool insertReward error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data } = await supabase.from('quiz_rewards').insert([{
+        category,
+        account_title: accountTitle,
+        account_data: accountData,
+        status: 'AVAILABLE'
+      }]).select().maybeSingle();
+      if (data) return data;
+    } catch {}
+  }
+
+  const item = {
+    id: memRewardIdCounter++,
+    category,
+    account_title: accountTitle,
+    account_data: accountData,
+    status: 'AVAILABLE',
+    created_at: new Date().toISOString()
+  };
+  memQuizRewards.push(item);
+  return item;
+}
+
+async function acquireRewardAtomic(winnerId, winnerUsername, quizId) {
+  const wId = Number(winnerId);
+  if (pool) {
+    try {
+      // Bloqueo a nivel de fila y despacho atómico
+      const res = await pool.query(`
+        UPDATE quiz_rewards
+        SET status = 'CLAIMED',
+            claimed_by = $1,
+            claimed_username = $2,
+            claimed_at = NOW()
+        WHERE id = (
+          SELECT id FROM quiz_rewards
+          WHERE status = 'AVAILABLE'
+          ORDER BY id ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING *
+      `, [wId, winnerUsername || null]);
+      if (res.rows[0]) return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool acquireRewardAtomic error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data: available } = await supabase
+        .from('quiz_rewards')
+        .select('*')
+        .eq('status', 'AVAILABLE')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (available) {
+        const { data: updated } = await supabase
+          .from('quiz_rewards')
+          .update({
+            status: 'CLAIMED',
+            claimed_by: wId,
+            claimed_username: winnerUsername || null,
+            claimed_at: new Date().toISOString()
+          })
+          .eq('id', available.id)
+          .eq('status', 'AVAILABLE')
+          .select()
+          .maybeSingle();
+        if (updated) return updated;
+      }
+    } catch {}
+  }
+
+  const reward = memQuizRewards.find(r => r.status === 'AVAILABLE');
+  if (reward) {
+    reward.status = 'CLAIMED';
+    reward.claimed_by = wId;
+    reward.claimed_username = winnerUsername || null;
+    reward.claimed_at = new Date().toISOString();
+    return reward;
+  }
+  return null;
+}
+
+async function createQuizSession({ id, chatId, messageId, category, question, normalizedAnswers, expiresAt }) {
+  const cId = Number(chatId);
+  const mId = Number(messageId);
+  const exp = expiresAt instanceof Date ? expiresAt.toISOString() : expiresAt;
+
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        INSERT INTO quiz_sessions (id, chat_id, message_id, category, question, normalized_answers, status, expires_at)
+        VALUES ($1, $2, $3, $4, $5, $6, 'ACTIVE', $7)
+        RETURNING *
+      `, [id, cId, mId, category, question, normalizedAnswers, exp]);
+      return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool createQuizSession error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data } = await supabase.from('quiz_sessions').insert([{
+        id,
+        chat_id: cId,
+        message_id: mId,
+        category,
+        question,
+        normalized_answers: normalizedAnswers,
+        status: 'ACTIVE',
+        expires_at: exp
+      }]).select().maybeSingle();
+      if (data) return data;
+    } catch {}
+  }
+
+  const session = {
+    id,
+    chat_id: cId,
+    message_id: mId,
+    category,
+    question,
+    normalized_answers: normalizedAnswers,
+    status: 'ACTIVE',
+    expires_at: exp,
+    created_at: new Date().toISOString()
+  };
+  memQuizSessions.set(id, session);
+  return session;
+}
+
+async function getActiveQuizSession(chatId) {
+  const cId = Number(chatId);
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        SELECT * FROM quiz_sessions
+        WHERE chat_id = $1 AND status = 'ACTIVE' AND expires_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 1
+      `, [cId]);
+      if (res.rows[0]) return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool getActiveQuizSession error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data } = await supabase
+        .from('quiz_sessions')
+        .select('*')
+        .eq('chat_id', cId)
+        .eq('status', 'ACTIVE')
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data) return data;
+    } catch {}
+  }
+
+  const now = Date.now();
+  for (const s of memQuizSessions.values()) {
+    if (s.chat_id === cId && s.status === 'ACTIVE' && new Date(s.expires_at).getTime() > now) {
+      return s;
+    }
+  }
+  return null;
+}
+
+async function solveQuizSession(quizId, winnerId, winnerUsername, rewardId) {
+  const wId = Number(winnerId);
+  const rId = rewardId ? Number(rewardId) : null;
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        UPDATE quiz_sessions
+        SET status = 'SOLVED',
+            winner_id = $1,
+            winner_username = $2,
+            reward_id = $3
+        WHERE id = $4
+        RETURNING *
+      `, [wId, winnerUsername || null, rId, quizId]);
+      if (res.rows[0]) return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool solveQuizSession error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data } = await supabase
+        .from('quiz_sessions')
+        .update({
+          status: 'SOLVED',
+          winner_id: wId,
+          winner_username: winnerUsername || null,
+          reward_id: rId
+        })
+        .eq('id', quizId)
+        .select()
+        .maybeSingle();
+      if (data) return data;
+    } catch {}
+  }
+
+  const s = memQuizSessions.get(quizId);
+  if (s) {
+    s.status = 'SOLVED';
+    s.winner_id = wId;
+    s.winner_username = winnerUsername || null;
+    s.reward_id = rId;
+    return s;
+  }
+  return null;
+}
+
+async function expireQuizSession(quizId) {
+  if (pool) {
+    try {
+      await pool.query(`UPDATE quiz_sessions SET status = 'EXPIRED' WHERE id = $1 AND status = 'ACTIVE'`, [quizId]);
+    } catch {}
+  }
+  if (useSupabase && supabase) {
+    try {
+      await supabase.from('quiz_sessions').update({ status: 'EXPIRED' }).eq('id', quizId).eq('status', 'ACTIVE');
+    } catch {}
+  }
+  const s = memQuizSessions.get(quizId);
+  if (s && s.status === 'ACTIVE') s.status = 'EXPIRED';
+}
+
+async function setPendingClaim(userId, rewardId, quizId, category) {
+  const uId = Number(userId);
+  const rId = Number(rewardId);
+  if (pool) {
+    try {
+      await pool.query(`
+        INSERT INTO pending_claims (user_id, reward_id, quiz_id, category, created_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (user_id) DO UPDATE SET
+          reward_id = EXCLUDED.reward_id,
+          quiz_id = EXCLUDED.quiz_id,
+          category = EXCLUDED.category,
+          created_at = NOW()
+      `, [uId, rId, quizId, category]);
+      return true;
+    } catch (err) {
+      console.warn('⟡ pool setPendingClaim error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      await supabase.from('pending_claims').upsert({
+        user_id: uId,
+        reward_id: rId,
+        quiz_id: quizId,
+        category,
+        created_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+      return true;
+    } catch {}
+  }
+  memPendingClaims.set(uId, { user_id: uId, reward_id: rId, quiz_id: quizId, category });
+  return true;
+}
+
+async function getPendingClaim(userId) {
+  const uId = Number(userId);
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        SELECT p.*, r.category as reward_category, r.account_title, r.account_data
+        FROM pending_claims p
+        JOIN quiz_rewards r ON p.reward_id = r.id
+        WHERE p.user_id = $1
+      `, [uId]);
+      if (res.rows[0]) return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool getPendingClaim error:', err.message);
+    }
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data: p } = await supabase.from('pending_claims').select('*').eq('user_id', uId).maybeSingle();
+      if (p) {
+        const { data: r } = await supabase.from('quiz_rewards').select('*').eq('id', p.reward_id).maybeSingle();
+        if (r) {
+          return {
+            ...p,
+            reward_category: r.category,
+            account_title: r.account_title,
+            account_data: r.account_data
+          };
+        }
+      }
+    } catch {}
+  }
+
+  const p = memPendingClaims.get(uId);
+  if (p) {
+    const r = memQuizRewards.find(item => item.id === p.reward_id);
+    if (r) {
+      return {
+        ...p,
+        reward_category: r.category,
+        account_title: r.account_title,
+        account_data: r.account_data
+      };
+    }
+  }
+  return null;
+}
+
+async function clearPendingClaim(userId) {
+  const uId = Number(userId);
+  if (pool) {
+    try {
+      await pool.query(`DELETE FROM pending_claims WHERE user_id = $1`, [uId]);
+    } catch {}
+  }
+  if (useSupabase && supabase) {
+    try {
+      await supabase.from('pending_claims').delete().eq('user_id', uId);
+    } catch {}
+  }
+  memPendingClaims.delete(uId);
+}
+
+async function getRewardById(rewardId) {
+  const rId = Number(rewardId);
+  if (pool) {
+    try {
+      const res = await pool.query(`SELECT * FROM quiz_rewards WHERE id = $1`, [rId]);
+      if (res.rows[0]) return res.rows[0];
+    } catch {}
+  }
+  if (useSupabase && supabase) {
+    try {
+      const { data } = await supabase.from('quiz_rewards').select('*').eq('id', rId).maybeSingle();
+      if (data) return data;
+    } catch {}
+  }
+  return memQuizRewards.find(r => r.id === rId) || null;
+}
+
 async function close() {
   if (pool) {
     await pool.end();
@@ -3063,4 +3637,19 @@ module.exports = {
   getGroupWhitelist,
   addGroupWhitelist,
   deleteGroupWhitelist,
+  // Juegos, Quizz & Recompensas
+  getQuizSettings,
+  updateQuizSettings,
+  getAllActiveQuizChats,
+  getAvailableRewardsCount,
+  insertReward,
+  acquireRewardAtomic,
+  createQuizSession,
+  getActiveQuizSession,
+  solveQuizSession,
+  expireQuizSession,
+  setPendingClaim,
+  getPendingClaim,
+  clearPendingClaim,
+  getRewardById,
 };

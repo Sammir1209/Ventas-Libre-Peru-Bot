@@ -31,6 +31,7 @@ const helpHandler = require('./modules/help/handler');
 const aiHandler = require('./modules/ai/handler');
 const searchHandler = require('./modules/moderation/search');
 const securityHandler = require('./modules/security/handler');
+const quizHandler = require('./modules/games/quizHandler');
 const groupCensorShield = require('./modules/moderation/groupCensorShield');
 const highRiskAutoAdvisor = require('./modules/moderation/highRiskAutoAdvisor');
 
@@ -181,6 +182,7 @@ async function main() {
   searchHandler.register(bot);
   setupHandler.register(bot);
   securityHandler.register(bot);
+  quizHandler.register(bot);
 
   // ── Temporizador Periódico: Avisos de Seguridad cada 20 min ──
   const { startPeriodicNoticeScheduler } = require('./modules/moderation/scheduler');
