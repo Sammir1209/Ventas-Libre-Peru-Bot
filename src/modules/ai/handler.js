@@ -663,6 +663,10 @@ function register(bot) {
         const replyMsg = ctx.message.reply_to_message;
         const replyText = (replyMsg.text || replyMsg.caption || '').toUpperCase();
 
+        if (/(?:QUIZZ|TRIVIA)/i.test(replyText)) {
+          return next();
+        }
+
         // Si el mensaje del bot al que se respondió es una tarjeta/comando de sistema (/rules, /perfil, /info, alertas, etc.)
         const isSystemCard =
           /(?:REGLAS|NORMAS|PERFIL DE USUARIO|RADAR|ESTAFADOR|LISTA NEGRA|ESCUDO ANTI-BAN|ANTI-RAID|VERIFICACI[OÓ]N|BIENVENID|VENTAS LIBRES.*BOT|TARJETA|SANCIONADO|ANTECEDENTES|QUEMADO)/i.test(replyText) ||

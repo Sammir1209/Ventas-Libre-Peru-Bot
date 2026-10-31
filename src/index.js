@@ -178,11 +178,11 @@ async function main() {
   broadcastHandler.register(bot);
   helpHandler.register(bot);
   infoHandler.register(bot);
+  quizHandler.register(bot);
   aiHandler.register(bot);
   searchHandler.register(bot);
   setupHandler.register(bot);
   securityHandler.register(bot);
-  quizHandler.register(bot);
 
   // ── Temporizador Periódico: Avisos de Seguridad cada 20 min ──
   const { startPeriodicNoticeScheduler } = require('./modules/moderation/scheduler');

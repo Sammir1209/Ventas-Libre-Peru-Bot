@@ -1,4 +1,4 @@
-// ══════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════
 // ⟡ Módulo de Juegos & Quizz Interactivo con Premios Reales
 //   Control: /quizzon, /quizzoff, /quizz, /claim, /stock
 //   Plantillas Concisas Adaptadas a Móvil (Estándar VLP)
@@ -360,20 +360,40 @@ function register(bot) {
       const replyTo = ctx.message.reply_to_message;
       if (!replyTo) return next();
 
-      const chatId = ctx.chat.id;
-      const session = activeSessionsMem.get(chatId) || await db.getActiveQuizSession(chatId);
+      const replyText = (replyTo.text || replyTo.caption || '').toUpperCase();
+      const isQuizCard = replyText.includes('QUIZZ') || replyText.includes('TRIVIA');
 
-      if (!session || session.status !== 'ACTIVE' || session.message_id !== replyTo.message_id) {
+      const chatId = ctx.chat.id;
+      let session = activeSessionsMem.get(chatId) || await db.getActiveQuizSession(chatId);
+
+      const matchesSession = session && Number(session.message_id) === Number(replyTo.message_id);
+
+      if (!matchesSession && !isQuizCard) {
         return next();
       }
 
+      // Si responde a un Quizz pero ya fue resuelto o no hay sesión activa:
+      if (!session || session.status !== 'ACTIVE') {
+        return; // Detener flujo para evitar que la IA intervenga
+      }
+
+      // Normalizar respuestas posibles (soporta array JS o formato array de Postgres)
+      let validAnswers = session.normalized_answers || [];
+      if (typeof validAnswers === 'string') {
+        validAnswers = validAnswers.replace(/^\{|\}$/g, '').split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+      }
+
       const normalizedUserText = normalizeAnswer(ctx.message.text);
-      const isCorrect = (session.normalized_answers || []).some(ans => {
-        return normalizedUserText === ans || (ans.length > 3 && normalizedUserText.includes(ans));
+      const isCorrect = validAnswers.some(ans => {
+        const normAns = normalizeAnswer(ans);
+        return normalizedUserText === normAns ||
+               normalizedUserText.includes(normAns) ||
+               (normAns.length > 3 && normAns.includes(normalizedUserText));
       });
 
       if (!isCorrect) {
-        return next();
+        // Respuesta errónea: detener flujo para que la IA NO responda a este mensaje
+        return;
       }
 
       // Respuesta correcta
