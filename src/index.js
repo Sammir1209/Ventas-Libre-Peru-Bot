@@ -155,6 +155,7 @@ async function main() {
   });
 
   const setupHandler = require('./modules/setup/handler');
+  const broadcastHandler = require('./modules/moderation/broadcast');
   const botManager = require('./core/botManager');
   const { createWebApp } = require('./web/server');
 
@@ -173,6 +174,7 @@ async function main() {
   burnReview.register(bot);
   moderationHandler.register(bot);
   groupsHandler.register(bot);
+  broadcastHandler.register(bot);
   helpHandler.register(bot);
   infoHandler.register(bot);
   aiHandler.register(bot);

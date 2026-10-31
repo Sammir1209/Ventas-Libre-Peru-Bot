@@ -1628,6 +1628,11 @@ const DEFAULT_GROUP_SECURITY = {
   clean_commands_enabled: false,
   censor_enabled: true,
   censor_action: 'WARN',
+  ai_enabled: true,
+  ai_only_mentions: true,
+  ai_cachineo_shield: true,
+  ai_faltoso_shield: true,
+  ai_personality: 'barrio',
 };
 
 const DEFAULT_GROUP_LOCKS = {

@@ -416,6 +416,48 @@ function register(bot) {
     }
   });
 
+  // ── Comandos Rápidos Directos: /iaon y /iaoff (con soporte multi-prefijo) ──
+  bot.command(['iaon', 'aion', 'activaria'], async (ctx) => {
+    const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
+    if (!isGroup) {
+      return ctx.reply('💡 <i>En chat privado la IA siempre está disponible.</i>', { parse_mode: 'HTML' });
+    }
+    if (!(await canManageAi(ctx))) {
+      return ctx.reply('⚠️ <i>Solo administradores o staff pueden activar la IA en este grupo.</i>', { parse_mode: 'HTML' });
+    }
+    try {
+      if (redisDb.clearCache) await redisDb.clearCache(`ai_disabled:${ctx.chat.id}`);
+      else if (redisDb.deleteCache) await redisDb.deleteCache(`ai_disabled:${ctx.chat.id}`);
+      await db.updateGroupSecuritySettings(ctx.chat.id, { ai_enabled: true });
+    } catch (errCache) {
+      console.warn('⟡ Error activando IA:', errCache.message);
+    }
+    return ctx.reply(
+      `⚡ <b>ASISTENTE IA ACTIVADO</b>\n──────\n<i>La Inteligencia Artificial ahora responderá dudas y menciones en este grupo.</i>`,
+      { parse_mode: 'HTML' }
+    );
+  });
+
+  bot.command(['iaoff', 'aioff', 'desactivaria', 'apagaria'], async (ctx) => {
+    const isGroup = ctx.chat.type === 'group' || ctx.chat.type === 'supergroup';
+    if (!isGroup) {
+      return ctx.reply('💡 <i>En chat privado la IA siempre está disponible.</i>', { parse_mode: 'HTML' });
+    }
+    if (!(await canManageAi(ctx))) {
+      return ctx.reply('⚠️ <i>Solo administradores o staff pueden desactivar la IA en este grupo.</i>', { parse_mode: 'HTML' });
+    }
+    try {
+      await redisDb.setCache(`ai_disabled:${ctx.chat.id}`, '1', 60 * 60 * 24 * 30);
+      await db.updateGroupSecuritySettings(ctx.chat.id, { ai_enabled: false });
+    } catch (errCache) {
+      console.warn('⟡ Error desactivando IA:', errCache.message);
+    }
+    return ctx.reply(
+      `🔒 <b>ASISTENTE IA DESACTIVADO</b>\n──────\n<i>La Inteligencia Artificial ha sido apagada en este grupo para evitar spam.</i>`,
+      { parse_mode: 'HTML' }
+    );
+  });
+
   // ── Comando /ask /ia /ai [on|off|pregunta] ──
   bot.command(['ask', 'ia', 'ai'], async (ctx) => {
     const text = ctx.message.text || '';
@@ -434,6 +476,7 @@ function register(bot) {
       try {
         if (redisDb.clearCache) await redisDb.clearCache(`ai_disabled:${ctx.chat.id}`);
         else if (redisDb.deleteCache) await redisDb.deleteCache(`ai_disabled:${ctx.chat.id}`);
+        await db.updateGroupSecuritySettings(ctx.chat.id, { ai_enabled: true });
       } catch (errCache) {
         console.warn('⟡ Error limpiando caché ai_disabled:', errCache.message);
       }
@@ -452,6 +495,7 @@ function register(bot) {
         return ctx.reply('⚠️ <i>Solo administradores o staff pueden desactivar la IA en este grupo.</i>', { parse_mode: 'HTML' });
       }
       await redisDb.setCache(`ai_disabled:${ctx.chat.id}`, '1', 60 * 60 * 24 * 30);
+      await db.updateGroupSecuritySettings(ctx.chat.id, { ai_enabled: false });
       return ctx.reply(
         `🔒 <b>ASISTENTE IA DESACTIVADO</b>\n──────\n<i>La Inteligencia Artificial ha sido apagada en este grupo para evitar spam.</i>`,
         { parse_mode: 'HTML' }

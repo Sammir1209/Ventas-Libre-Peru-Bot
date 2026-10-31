@@ -15,6 +15,7 @@ const burnHandler = require('../modules/burn/handler');
 const burnReview = require('../modules/burn/review');
 const moderationHandler = require('../modules/moderation/handler');
 const groupsHandler = require('../modules/moderation/groups');
+const broadcastHandler = require('../modules/moderation/broadcast');
 const infoHandler = require('../modules/info/handler');
 const helpHandler = require('../modules/help/handler');
 const aiHandler = require('../modules/ai/handler');
@@ -116,6 +117,7 @@ class BotManager {
     verificationHandler.register(bot);
     moderationHandler.register(bot);
     groupsHandler.register(bot);
+    broadcastHandler.register(bot);
     staffHandler.register(bot);
     staffList.register(bot);
     infoHandler.register(bot);

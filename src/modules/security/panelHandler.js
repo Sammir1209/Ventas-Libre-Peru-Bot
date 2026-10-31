@@ -252,8 +252,9 @@ function getGroupHelpMainKeyboard(chatId, isPrivate = false, botUsername = 'vent
     .text(`✦ ${toMathBold('Notas & #Tags')}`, `gh_sub:${chatId}:notes`).primary()
     .row()
     .text(`❖ ${toMathBold('Whitelist URLs')}`, `gh_sub:${chatId}:whitelist`).primary()
-    .text(`⟡ ${toMathBold('Diagnóstico / Estado')}`, `gh_sub:${chatId}:status`).success()
+    .text(`⚡ ${toMathBold('Asistente IA')}`, `gh_sub:${chatId}:ai`).primary()
     .row()
+    .text(`⟡ ${toMathBold('Diagnóstico / Estado')}`, `gh_sub:${chatId}:status`).success()
     .text(`❖ ${toMathBold('Catálogo de Comandos')}`, `gh_sub:${chatId}:commands`).primary();
 
   if (!isPrivate) {
@@ -592,6 +593,54 @@ function getWhitelistKeyboard(chatId) {
     .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
 }
 
+// ── Sub-Panel 9.5: Control & Configuración de Asistente IA ──
+function renderAiMenu(chatId, sec) {
+  const dateFormatted = getSuperscriptDate();
+  const aiStatus = sec.ai_enabled !== false ? '[ ✓ ACTIVADO ]' : '[ ✗ APAGADO ]';
+  const aiMode = sec.ai_only_mentions !== false ? 'Solo Menciones (@Bot)' : 'Todo el Chat (General)';
+  const cachineoStatus = sec.ai_cachineo_shield !== false ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
+  const faltosoStatus = sec.ai_faltoso_shield !== false ? '[ ✓ ACTIVO ]' : '[ ✗ APAGADO ]';
+  const personality = sec.ai_personality === 'formal' ? 'Formal / Cordura' : 'Barrio Criollo (Calle)';
+
+  return (
+    `⚡ <b>[CONFIGURACIÓN DEL ASISTENTE INTELIGENTE IA]</b>\n` +
+    `══════\n` +
+    `▸ <b>Chat ID:</b> <code>${chatId}</code>\n` +
+    `Personaliza el comportamiento y los filtros de la IA en este grupo:\n\n` +
+    `• <b>Estado General:</b> <b>${aiStatus}</b>\n` +
+    `• <b>Modo de Respuesta:</b> <code>${aiMode}</code>\n` +
+    `• <b>Filtro Cachineros:</b> <b>${cachineoStatus}</b> (Parche a regateo excesivo)\n` +
+    `• <b>Parche a Faltosos:</b> <b>${faltosoStatus}</b> (Autoridad ante faltas de respeto)\n` +
+    `• <b>Estilo de Respuesta:</b> <code>${personality}</code>\n\n` +
+    `──────\n` +
+    `💡 <i>Comandos rápidos: <code>/iaon</code> y <code>/iaoff</code></i>\n` +
+    `${dateFormatted}`
+  );
+}
+
+function getAiKeyboard(chatId, sec) {
+  const aiOn = sec.ai_enabled !== false;
+  const onlyMentions = sec.ai_only_mentions !== false;
+  const cachOn = sec.ai_cachineo_shield !== false;
+  const faltOn = sec.ai_faltoso_shield !== false;
+  const isFormal = sec.ai_personality === 'formal';
+
+  return new InlineKeyboard()
+    .text(`${aiOn ? '✗ Apagar IA' : '✓ Activar IA'}`, `gh_ai_tog:${chatId}`)
+    .row()
+    .text(`Modo: ${onlyMentions ? 'Solo Menciones' : 'Todo el Chat'}`, `gh_ai_mode:${chatId}`)
+    .row()
+    .text(`Cachineros: ${cachOn ? '[ ✓ ]' : '[ ✗ ]'}`, `gh_ai_cach:${chatId}`)
+    .text(`Faltosos: ${faltOn ? '[ ✓ ]' : '[ ✗ ]'}`, `gh_ai_falt:${chatId}`)
+    .row()
+    .text(`Estilo: ${isFormal ? 'Formal' : 'Barrio Criollo'}`, `gh_ai_pers:${chatId}`)
+    .row()
+    .text(`🔄 Limpiar Memoria Grupo`, `gh_ai_clear:${chatId}`)
+    .row()
+    .text(`◄ ${toMathBold('Volver')}`, `gh_main:${chatId}`).primary()
+    .text(`✕ ${toMathBold('Cerrar')}`, 'panel_close').danger();
+}
+
 // ── Sub-Panel 10: Diagnóstico / Auditoría en 1 Clic ──
 function renderStatusAudit(chatId, groupTitle, sec, locks) {
   const dateFormatted = getSuperscriptDate();
@@ -868,6 +917,14 @@ function register(bot) {
         return await ctx.editMessageText(renderWhitelistMenu(chatId, list), {
           parse_mode: 'HTML',
           reply_markup: getWhitelistKeyboard(chatId),
+        });
+      }
+
+      if (section === 'ai') {
+        const sec = await db.getGroupSecuritySettings(chatId);
+        return await ctx.editMessageText(renderAiMenu(chatId, sec), {
+          parse_mode: 'HTML',
+          reply_markup: getAiKeyboard(chatId, sec),
         });
       }
 
@@ -1321,6 +1378,105 @@ function register(bot) {
         reply_markup: getWhitelistKeyboard(chatId),
       });
     } catch (err) {}
+  });
+
+  // ── Acciones de Configuración de IA ──
+  bot.callbackQuery(/^gh_ai_tog:(-?\d+)$/, async (ctx) => {
+    try {
+      const chatId = Number(ctx.match[1]);
+      const sec = await db.getGroupSecuritySettings(chatId);
+      sec.ai_enabled = sec.ai_enabled === false ? true : false;
+      await db.updateGroupSecuritySettings(chatId, sec);
+
+      // Sincronizar con Redis
+      if (sec.ai_enabled) {
+        if (redisDb.clearCache) await redisDb.clearCache(`ai_disabled:${chatId}`);
+        else if (redisDb.deleteCache) await redisDb.deleteCache(`ai_disabled:${chatId}`);
+      } else {
+        await redisDb.setCache(`ai_disabled:${chatId}`, '1', 60 * 60 * 24 * 30);
+      }
+
+      await ctx.answerCallbackQuery({ text: `IA: ${sec.ai_enabled ? '[ ✓ ON ]' : '[ ✗ OFF ]'}` });
+      await ctx.editMessageText(renderAiMenu(chatId, sec), {
+        parse_mode: 'HTML',
+        reply_markup: getAiKeyboard(chatId, sec),
+      });
+    } catch (err) {}
+  });
+
+  bot.callbackQuery(/^gh_ai_mode:(-?\d+)$/, async (ctx) => {
+    try {
+      const chatId = Number(ctx.match[1]);
+      const sec = await db.getGroupSecuritySettings(chatId);
+      sec.ai_only_mentions = sec.ai_only_mentions === false ? true : false;
+      await db.updateGroupSecuritySettings(chatId, sec);
+      await ctx.answerCallbackQuery({
+        text: `Modo: ${sec.ai_only_mentions ? 'Solo Menciones (@Bot)' : 'Todo el Chat'}`,
+      });
+      await ctx.editMessageText(renderAiMenu(chatId, sec), {
+        parse_mode: 'HTML',
+        reply_markup: getAiKeyboard(chatId, sec),
+      });
+    } catch (err) {}
+  });
+
+  bot.callbackQuery(/^gh_ai_cach:(-?\d+)$/, async (ctx) => {
+    try {
+      const chatId = Number(ctx.match[1]);
+      const sec = await db.getGroupSecuritySettings(chatId);
+      sec.ai_cachineo_shield = sec.ai_cachineo_shield === false ? true : false;
+      await db.updateGroupSecuritySettings(chatId, sec);
+      await ctx.answerCallbackQuery({
+        text: `Filtro Cachineros: ${sec.ai_cachineo_shield ? '[ ✓ ON ]' : '[ ✗ OFF ]'}`,
+      });
+      await ctx.editMessageText(renderAiMenu(chatId, sec), {
+        parse_mode: 'HTML',
+        reply_markup: getAiKeyboard(chatId, sec),
+      });
+    } catch (err) {}
+  });
+
+  bot.callbackQuery(/^gh_ai_falt:(-?\d+)$/, async (ctx) => {
+    try {
+      const chatId = Number(ctx.match[1]);
+      const sec = await db.getGroupSecuritySettings(chatId);
+      sec.ai_faltoso_shield = sec.ai_faltoso_shield === false ? true : false;
+      await db.updateGroupSecuritySettings(chatId, sec);
+      await ctx.answerCallbackQuery({
+        text: `Filtro Faltosos: ${sec.ai_faltoso_shield ? '[ ✓ ON ]' : '[ ✗ OFF ]'}`,
+      });
+      await ctx.editMessageText(renderAiMenu(chatId, sec), {
+        parse_mode: 'HTML',
+        reply_markup: getAiKeyboard(chatId, sec),
+      });
+    } catch (err) {}
+  });
+
+  bot.callbackQuery(/^gh_ai_pers:(-?\d+)$/, async (ctx) => {
+    try {
+      const chatId = Number(ctx.match[1]);
+      const sec = await db.getGroupSecuritySettings(chatId);
+      sec.ai_personality = sec.ai_personality === 'formal' ? 'barrio' : 'formal';
+      await db.updateGroupSecuritySettings(chatId, sec);
+      await ctx.answerCallbackQuery({
+        text: `Estilo: ${sec.ai_personality === 'formal' ? 'Formal / Cordura' : 'Barrio Criollo'}`,
+      });
+      await ctx.editMessageText(renderAiMenu(chatId, sec), {
+        parse_mode: 'HTML',
+        reply_markup: getAiKeyboard(chatId, sec),
+      });
+    } catch (err) {}
+  });
+
+  bot.callbackQuery(/^gh_ai_clear:(-?\d+)$/, async (ctx) => {
+    try {
+      const chatId = Number(ctx.match[1]);
+      const { clearSession } = require('../ai/memory');
+      await clearSession(chatId);
+      await ctx.answerCallbackQuery({ text: 'Memoria IA de este grupo reiniciada.', show_alert: true });
+    } catch (err) {
+      await ctx.answerCallbackQuery({ text: 'Error limpiando memoria.' });
+    }
   });
 
   // ── Categorías de la Guía de Comandos ──
