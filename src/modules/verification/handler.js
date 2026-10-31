@@ -7,6 +7,13 @@ const { welcomeKeyboard } = require('./keyboard');
 const { escapeHtml, mentionFromData, getSuperscriptDate } = require('../../utils/formatting');
 const { toMathBold } = require('../../utils/aesthetic');
 
+// ── Sub-Agentes Especializados de Verificación ──
+const SentinelAgent = require('./agents/sentinelAgent');
+const MembershipVerifierAgent = require('./agents/membershipVerifierAgent');
+const UIAgent = require('./agents/uiAgent');
+const UnmuteExecutorAgent = require('./agents/unmuteExecutorAgent');
+const AntiBypassGatekeeperAgent = require('./agents/antiBypassGatekeeperAgent');
+
 // ══════
 // ⟡ Módulo 1: Verificación de Membresía (Estilo Group Help Profesional)
 // ══════
@@ -388,17 +395,18 @@ function register(bot) {
       return;
     }
 
-    // Comprobar si el usuario ya está verificado previamente
-    const tenantKey = ctx?.tenant?.id || 'global';
-    const cachedVerified = await redisDb.getCache(`verified_user:${tenantKey}:${userId}`) || (tenantKey === 'global' && await redisDb.getCache(`verified_user:${userId}`));
-    if (cachedVerified) return;
-    try {
-      const u = await db.getUser(userId);
-      if (u && (u.verified || u.is_verified)) {
-        await redisDb.setCache(`verified_user:${tenantKey}:${userId}`, true, 86400 * 30);
-        return;
-      }
-    } catch {}
+    // Comprobar con SentinelAgent si el usuario ya está verificado previamente
+    const tenantId = ctx?.tenant?.id || null;
+    const isVerified = await SentinelAgent.isUserVerified(userId, tenantId);
+    if (isVerified) return;
+
+    // Comprobar si el usuario es un estafador fichado en Lista Negra
+    const burnedScammer = await SentinelAgent.checkBlacklist(userId, username);
+    if (burnedScammer) {
+      console.log(`🚨 [SentinelAgent] Estafador detectado intentando ingresar: ${userId} (@${username}). Expulsando...`);
+      await SentinelAgent.banScammer(ctx.api, chatId, userId);
+      return;
+    }
 
     console.log(`⟡ Verificación: Nuevo miembro por verificar en ${chat.title || chatId} -> @${username || userId}`);
 
@@ -412,35 +420,8 @@ function register(bot) {
     // Lock de 25 segundos para asegurar que no se disparen múltiples bienvenidas en paralelo
     await redisDb.setCache(joinLockKey, true, 25);
 
-    // 1. Mute preventivo inmediato estilo Group Help
-    try {
-      await ctx.api.restrictChatMember(
-        chatId,
-        userId,
-        {
-          can_send_messages: false,
-          can_send_audios: false,
-          can_send_documents: false,
-          can_send_photos: false,
-          can_send_videos: false,
-          can_send_video_notes: false,
-          can_send_voice_notes: false,
-          can_send_polls: false,
-          can_send_other_messages: false,
-          can_add_web_page_previews: false,
-          can_invite_users: false,
-          can_change_info: false,
-          can_pin_messages: false,
-          can_manage_topics: false,
-        },
-        {
-          use_independent_chat_permissions: true,
-        }
-      );
-      console.log(`✓ Mute preventivo aplicado a ${userId} en ${chatId}`);
-    } catch (muteErr) {
-      console.warn('⟡ Verificación: Advertencia al mutear preventivamente:', muteErr.message);
-    }
+    // 1. Mute preventivo inmediato vía SentinelAgent
+    await SentinelAgent.applyPreventiveMute(ctx.api, chatId, userId);
 
     // 2. Registrar usuario en BD
     try {
@@ -457,13 +438,16 @@ function register(bot) {
       }
     } catch {}
 
-    // 4. Enviar mensaje de bienvenida con teclado interactivo y registrar en pending_verifications
+    // 4. Enviar mensaje de bienvenida HUD ultra-compacto vía UIAgent
     try {
       const folderLink = ctx.tenant?.groups_folder_link || config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/PodUrc_gHJs2ZjNh';
       const communityName = await resolveCommunityName(ctx);
-      const welcomeMsg = await ctx.api.sendMessage(chatId, templates.welcomeMessage(username, firstName, communityName), {
+      const welcomeText = UIAgent.renderWelcomeMessage(user, communityName);
+      const welcomeKb = UIAgent.renderWelcomeKeyboard(userId, folderLink);
+
+      const welcomeMsg = await ctx.api.sendMessage(chatId, welcomeText, {
         parse_mode: 'HTML',
-        reply_markup: welcomeKeyboard(userId, folderLink),
+        reply_markup: welcomeKb,
       });
       await db.addPendingVerification(chatId, userId, username, firstName, welcomeMsg?.message_id);
     } catch (sendErr) {
@@ -576,48 +560,37 @@ function register(bot) {
         return;
       }
 
-      // 3. Verificar membresía en cada uno de los canales/grupos
-      const missingChannels = [];
+      // 3. Verificar membresía en paralelo mediante MembershipVerifierAgent
+      const result = await MembershipVerifierAgent.verifyChannels(ctx.api, channels, userId);
 
-      for (const channel of channels) {
-        let targetChatId = channel;
-        // Si es el link de invitación conocido de Madre de las Ventas TV2, normalizar al chat_id real
-        if (typeof channel === 'string' && (channel.includes('3My6QWWVjMw2Mzc8') || channel.includes('MADRE'))) {
-          targetChatId = -1002561445231;
-        }
-
-        try {
-          const member = await ctx.api.getChatMember(targetChatId, userId);
-          const validStatuses = ['creator', 'administrator', 'member'];
-          if (validStatuses.includes(member.status)) {
-            // Es miembro activo
-            continue;
-          }
-          if (member.status === 'restricted' && member.is_member !== false) {
-            // Es miembro pero se encuentra temporalmente restringido/muteado en ese chat
-            continue;
-          }
-          missingChannels.push(channel);
-        } catch (chkErr) {
-          console.warn(`⟡ Verificación: No se pudo chequear al usuario ${userId} en canal ${channel}: ${chkErr.message}`);
-          if (isChannelInaccessibleError(chkErr)) {
-            console.warn(`⚠️ Verificación: Canal ${channel} inaccesible por el bot (${chkErr.message}). Omitiendo requisito.`);
-            continue;
-          }
-          missingChannels.push(channel);
-        }
-      }
-
-      if (missingChannels.length > 0) {
-        const missingCount = missingChannels.length;
+      if (!result.isVerified && result.missingChannels.length > 0) {
+        const missingCount = result.missingChannels.length;
         return safeAnswerCallback(ctx, {
-          text: `⚠️ ACCESO DENEGADO\n\nAún no estás unido a los canales obligatorios (${missingCount} faltante${missingCount > 1 ? 's' : ''}).\n\nPresiona [ UNIRME ] o abre los enlaces para completar tu verificación.`,
+          text: `⚠️ ACCESO DENEGADO\n\nAún no estás unido a los canales obligatorios (${missingCount} faltante${missingCount > 1 ? 's' : ''}).\n\nPresiona [ UNIRME ] para completar tu verificación.`,
           show_alert: true,
         });
       }
 
-      // 4. Todos los canales verificados -> Proceder al desmuteo
-      const unmuted = await unmuteMember(ctx, userId);
+      // 4. Todos los canales verificados -> Desmuteo y persistencia con UnmuteExecutorAgent
+      const chatId = ctx.chat?.id || ctx.callbackQuery?.message?.chat?.id;
+      const unmuted = await UnmuteExecutorAgent.executeUnmute(ctx.api, chatId, userId);
+      const tenantId = ctx.tenant?.id || null;
+      await UnmuteExecutorAgent.persistVerification(userId, tenantId);
+
+      // Eliminar mensaje de bienvenida previo
+      try {
+        await ctx.deleteMessage();
+      } catch {}
+
+      // Eliminar posible aviso de anti-bypass previo
+      if (chatId) {
+        const antibypassMsgId = await redisDb.getCache(`antibypass_msg:${chatId}:${userId}`);
+        if (antibypassMsgId) {
+          await ctx.api.deleteMessage(chatId, Number(antibypassMsgId)).catch(() => {});
+          await redisDb.clearCache(`antibypass_msg:${chatId}:${userId}`);
+        }
+      }
+
       await safeAnswerCallback(ctx, {
         text: unmuted ? '✓ ¡Verificación exitosa! Restricciones removidas.' : '✓ Verificado exitosamente.',
         show_alert: false,
@@ -854,126 +827,17 @@ bot.callbackQuery(['reverify_channels', /^reverify_channels(?::(\d+))?$/], async
     }
   });
 
-  // ── Interceptor de Mensajes: Solo filtra a quienes NO estén verificados ni unidos ──
+  // ── Interceptor de Mensajes & Escudo Anti-Bypass Permanente (AntiBypassGatekeeperAgent) ──
   bot.on('message', async (ctx, next) => {
     try {
       if (!ctx.chat || (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup')) {
         return next();
       }
 
-      // Eximir canales de staff y escrow
-      if (ctx.chat.id === config.ESCROW_GROUP_ID || ctx.chat.id === config.STAFF_CHAT_ID) {
-        return next();
-      }
-
-      const chatId = ctx.chat.id;
-      const userId = ctx.from?.id;
-      if (!userId || ctx.from.is_bot) return next();
-
-      // Comprobar si la re-verificación está activa para este chat
-      const reverifyKey = `reverify_active:${chatId}`;
-      let isReverifyActive = await redisDb.getCache(reverifyKey);
-      if (isReverifyActive === null || isReverifyActive === undefined) {
-        const saved = await db.getSetting(`reverify_active_${chatId}`);
-        isReverifyActive = saved === 'true';
-        if (isReverifyActive) await redisDb.setCache(reverifyKey, true, 86400 * 365);
-      }
-
-      // Si la re-verificación no está activa en este grupo, continuar normalmente
-      if (!isReverifyActive) {
-        return next();
-      }
-
-      // Comprobar si el usuario es elegible (Admin, Staff, o YA verificado/unido a los canales)
-      const isAllowed = await isUserEligibleToSpeak(ctx, userId);
-      if (isAllowed) {
-        // Puede hablar con total libertad sin que se le pida nada
-        return next();
-      }
-
-      // ── El usuario NO está verificado Y NO está unido a los canales obligatorios ──
-      // 1. Eliminar su mensaje para que no quede en el chat
-      await ctx.deleteMessage().catch(() => {});
-
-      // 2. Silenciarlo preventivamente
-      await ctx.api.restrictChatMember(
-        chatId,
-        userId,
-        { can_send_messages: false },
-        { use_independent_chat_permissions: true }
-      ).catch(() => {});
-
-      // 3. Debounce para no repetir aviso en el grupo si el usuario insiste
-      const debounceKey = `reverify_warned:${chatId}:${userId}`;
-      const alreadyWarned = await redisDb.getCache(debounceKey);
-      if (!alreadyWarned) {
-        await redisDb.setCache(debounceKey, true, 25);
-
-        // Notificar por mensaje privado (DM)
-        const folderLink = ctx.tenant?.groups_folder_link || config.GROUPS_FOLDER_LINK || 'https://t.me/addlist/PodUrc_gHJs2ZjNh';
-
-        const { InlineKeyboard } = require('grammy');
-        const privateKb = new InlineKeyboard()
-          .text('✅ Verificar Mi Cuenta', 'reverify_check')
-          .row()
-          .text('📢 Ver Canales Requeridos', 'reverify_channels')
-          .url('📁 Unirme a Canales', folderLink);
-
-        const dmText =
-          `⚠️ <b>VERIFICACIÓN OBLIGATORIA</b>\n` +
-          `══════════════════════════════\n\n` +
-          `Tu mensaje en <b>${escapeHtml(ctx.chat.title || 'el grupo')}</b> no pudo publicarse porque aún no estás verificado ni unido a los canales oficiales.\n\n` +
-          `▪ Únete a los canales requeridos y presiona el botón abajo para activar tu permiso de escritura:`;
-
-        ctx.api.sendMessage(userId, dmText, {
-          parse_mode: 'HTML',
-          reply_markup: privateKb,
-        }).catch(() => {});
-
-        // Si ya tenía un aviso previo en el grupo, borrarlo para no saturar el chat
-        try {
-          const prevWarnId = await redisDb.getCache(`reverify_warn_msg:${chatId}:${userId}`);
-          if (prevWarnId) {
-            await ctx.api.deleteMessage(chatId, Number(prevWarnId)).catch(() => {});
-          }
-        } catch {}
-
-        let botUsername = ctx.me?.username || ctx.tenant?.bot_username;
-        if (!botUsername) {
-          try {
-            const me = await ctx.api.getMe();
-            if (me && me.username) botUsername = me.username;
-          } catch {}
-        }
-        if (!botUsername) botUsername = 'ventas_libres_peru_Bot';
-
-        // Enviar aviso en el grupo (permanece visible para que los usuarios inactivos lo vean cuando entren)
-        const groupKb = new InlineKeyboard()
-          .text('🛡️ Verificar Mi Cuenta', 'reverify_check')
-          .row()
-          .url('📢 Ver Canales Requeridos', `https://t.me/${botUsername}?start=canales`)
-          .url('🌐 Portal Web', verifyUrl);
-
-        try {
-          const warnMsg = await ctx.reply(
-            `⚠️ ${mentionFromData(userId, ctx.from.first_name)}, para poder hablar en este grupo debes unirte a nuestros canales oficiales y verificar tu cuenta.\n\n` +
-            `▪ <i>Presiona el botón de abajo para verificar tu membresía y desbloquear tu permiso:</i>`,
-            {
-              parse_mode: 'HTML',
-              reply_markup: groupKb,
-            }
-          );
-
-          if (warnMsg) {
-            // Guardar ID del mensaje para reemplazarlo si vuelve a escribir o borrarlo al verificar
-            await redisDb.setCache(`reverify_warn_msg:${chatId}:${userId}`, warnMsg.message_id, 86400 * 7);
-          }
-        } catch {}
-      }
-
-      return;
+      // Evaluar con el sub-agente AntiBypassGatekeeperAgent
+      return await AntiBypassGatekeeperAgent.handleIncomingMessage(ctx, next);
     } catch (err) {
-      console.error('⟡ Error en interceptor de re-verificación:', err.message);
+      console.error('⟡ Error en interceptor de mensajes anti-bypass:', err.message);
       return next();
     }
   });
