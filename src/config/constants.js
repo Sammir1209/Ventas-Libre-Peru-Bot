@@ -49,8 +49,19 @@ const SYM = {
 const ROLES = {
   OWNER:       'OWNER',
   CO_OWNER:    'CO-OWNER',
+  ADMIN:       'ADMIN',
   DEAL_ADMIN:  'TRATO ADMIN',
 };
+
+// ── Nómina Oficial Autorizada de Staff (Ventas Libres Perú) ──
+const AUTHORIZED_STAFF_ROSTER = [
+  { username: 'AgarMaker', roles: ['ADMIN', 'TRATO ADMIN'], defaultId: 7849224682 },
+  { username: 'S_14xx', roles: ['ADMIN', 'TRATO ADMIN'], defaultId: 7794982496 },
+  { username: 'Cinefastperu', roles: ['ADMIN'], defaultId: null },
+  { username: 'Cvttzz', roles: ['ADMIN'], defaultId: null },
+  { username: 'Maatrixx420', roles: ['ADMIN'], defaultId: null },
+  { username: 'FuxkLexter', roles: ['ADMIN'], defaultId: null },
+];
 
 // ── Estados de Tratos (Escrow) ──
 const DEAL_STATUS = {
@@ -98,6 +109,7 @@ const RATE_LIMIT = {
 module.exports = {
   SYM,
   ROLES,
+  AUTHORIZED_STAFF_ROSTER,
   DEAL_STATUS,
   BURN_STEPS,
   CB,

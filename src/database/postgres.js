@@ -895,6 +895,93 @@ async function getStaffByRole(role, tenantId = null) {
   return [];
 }
 
+/**
+ * Sincroniza y purga el Staff en la base de datos para Ventas Libres Perú.
+ * Garantiza que ÚNICAMENTE existan los 6 miembros autorizados:
+ * @AgarMaker, @S_14xx, @Cinefastperu, @Cvttzz, @Maatrixx420, @FuxkLexter.
+ * Trato Admins autorizados: @AgarMaker y @S_14xx.
+ */
+async function syncAuthorizedStaff(api = null) {
+  const { AUTHORIZED_STAFF_ROSTER } = require('../config/constants');
+  if (!AUTHORIZED_STAFF_ROSTER || !Array.isArray(AUTHORIZED_STAFF_ROSTER)) return;
+
+  const validUsernames = AUTHORIZED_STAFF_ROSTER.map((s) => s.username.toLowerCase());
+  const validIds = AUTHORIZED_STAFF_ROSTER.map((s) => s.defaultId).filter(Boolean);
+
+  try {
+    // 1. Purgar usuarios que no pertenezcan a la lista oficial (tenant_id IS NULL)
+    if (useSupabase && supabase) {
+      const { data: allRows } = await supabase
+        .from('staff')
+        .select('user_id, username')
+        .is('tenant_id', null);
+
+      if (allRows && allRows.length > 0) {
+        for (const row of allRows) {
+          const uLower = (row.username || '').toLowerCase().replace(/^@/, '');
+          const isAllowedUser = validUsernames.includes(uLower);
+          const isAllowedId = validIds.includes(Number(row.user_id));
+          if (!isAllowedUser && !isAllowedId) {
+            await supabase.from('staff').delete().eq('user_id', row.user_id).is('tenant_id', null);
+            console.log(`⟡ [Purga Staff] Eliminado de la BD: @${row.username || 'sin_alias'} (${row.user_id})`);
+          }
+        }
+      }
+    } else if (pool) {
+      const placeholders = validUsernames.map((_, i) => `$${i + 1}`).join(',');
+      const idPlaceholders = validIds.map((_, i) => `$${validUsernames.length + i + 1}`).join(',');
+      await pool.query(
+        `DELETE FROM staff 
+         WHERE (tenant_id IS NULL OR tenant_id = '')
+           AND LOWER(username) NOT IN (${placeholders})
+           AND user_id NOT IN (${idPlaceholders})`,
+        [...validUsernames, ...validIds]
+      );
+    }
+
+    // 2. Insertar o actualizar la información de cada uno de los 6 miembros autorizados
+    for (const member of AUTHORIZED_STAFF_ROSTER) {
+      let userId = member.defaultId;
+      let firstName = member.username;
+
+      // Buscar si ya tiene ID registrado en la tabla users
+      const dbUser = await getUserByUsername(member.username);
+      if (dbUser && dbUser.user_id) {
+        userId = Number(dbUser.user_id);
+        firstName = dbUser.first_name || firstName;
+      }
+
+      // Si no tenemos ID en DB pero tenemos API de Telegram, intentar resolver
+      if (!userId && api) {
+        try {
+          const chat = await api.getChat(`@${member.username}`);
+          if (chat && chat.id) {
+            userId = chat.id;
+            firstName = chat.first_name || firstName;
+          }
+        } catch {}
+      }
+
+      const roleStr = member.roles.join(', ');
+
+      if (userId) {
+        await setStaffRole(
+          userId,
+          member.username,
+          firstName,
+          roleStr,
+          7794982496, // Asignado por el Desarrollador del Sistema
+          member.roles.includes('TRATO ADMIN') ? 'Trato Admin' : 'Admin',
+          null
+        );
+      }
+    }
+    console.log('⟡ [Staff Sync] Sincronización oficial de Staff completada con 6 miembros.');
+  } catch (err) {
+    console.warn('⟡ [Staff Sync] Error en sincronización de Staff:', err.message);
+  }
+}
+
 // ══════
 // ⟡ CRUD — Tratos (Deals)
 // ══════
@@ -2900,6 +2987,7 @@ module.exports = {
   getStaffMember,
   getAllStaff,
   getStaffByRole,
+  syncAuthorizedStaff,
   // Deals
   createDeal,
   getDeal,

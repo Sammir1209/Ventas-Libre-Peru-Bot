@@ -50,6 +50,13 @@ async function main() {
   try {
     await db.initialize();
 
+    // Sincronización oficial del Staff (Purga y asegura los 6 miembros oficiales)
+    try {
+      await db.syncAuthorizedStaff();
+    } catch (syncErr) {
+      console.warn('⟡ Error en sincronización inicial de Staff:', syncErr.message);
+    }
+
     // Cargar configuraciones guardadas de grupos e hilos (Topics)
     try {
       const savedEscrow = await db.getSetting('escrow_group_id');

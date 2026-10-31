@@ -261,67 +261,107 @@ function register(bot) {
       const tenantId = ctx.tenant?.id || null;
 
       const grouped = { admins: [], dealAdmins: [] };
-      const adminIdSet = new Set();
-      const dealAdminIdSet = new Set();
+      const { AUTHORIZED_STAFF_ROSTER } = require('../../config/constants');
 
-      for (const ownerId of effectiveOwnerIds) {
-        const numId = Number(ownerId);
-        if (adminIdSet.has(numId)) continue;
-        const ownerDetails = await helpers.resolveStaffUserDetails(ownerId, tenantId, ctx);
-        if (ownerDetails) {
-          grouped.admins.push({
-            ...ownerDetails,
-            custom_title: ownerDetails.custom_title || 'Admin',
-          });
-          adminIdSet.add(numId);
+      if (!isSubBot) {
+        let staffMembers = [];
+        try {
+          staffMembers = await db.getAllStaff(null);
+        } catch {}
+
+        const staffMap = new Map();
+        for (const s of staffMembers) {
+          if (s.username) staffMap.set(s.username.toLowerCase().replace(/^@/, ''), s);
+          if (s.user_id) staffMap.set(String(s.user_id), s);
         }
-      }
-      try {
-        const staffMembers = await db.getAllStaff(tenantId);
 
-        for (const member of staffMembers) {
-          const roleStr = String(member.role || '').toUpperCase();
-          const roles = roleStr.split(/[,/|]+/).map((r) => r.trim());
-          const numUserId = Number(member.user_id);
+        const adminUsernames = new Set();
+        const dealAdminUsernames = new Set();
 
-          let enriched = member;
-          if (!member.first_name || !member.username) {
-            const extra = await helpers.resolveStaffUserDetails(member.user_id, tenantId, ctx);
-            if (extra) {
-              enriched = {
-                ...member,
-                username: member.username || extra.username,
-                first_name: member.first_name || extra.first_name,
-                custom_title: member.custom_title || extra.custom_title,
-              };
+        for (const official of AUTHORIZED_STAFF_ROSTER) {
+          const uClean = official.username.toLowerCase();
+          const dbData = staffMap.get(uClean) || (official.defaultId ? staffMap.get(String(official.defaultId)) : null);
+
+          const memberObj = {
+            user_id: dbData?.user_id || official.defaultId || null,
+            username: official.username,
+            first_name: dbData?.first_name || official.username,
+            custom_title: official.roles.includes('TRATO ADMIN') ? 'Trato Admin' : 'Admin',
+          };
+
+          if (!adminUsernames.has(uClean)) {
+            grouped.admins.push(memberObj);
+            adminUsernames.add(uClean);
+          }
+
+          if (official.roles.includes('TRATO ADMIN') && !dealAdminUsernames.has(uClean)) {
+            grouped.dealAdmins.push({ ...memberObj, avgRating: '5.0' });
+            dealAdminUsernames.add(uClean);
+          }
+        }
+      } else {
+        const adminIdSet = new Set();
+        const dealAdminIdSet = new Set();
+
+        for (const ownerId of effectiveOwnerIds) {
+          const numId = Number(ownerId);
+          if (adminIdSet.has(numId)) continue;
+          const ownerDetails = await helpers.resolveStaffUserDetails(ownerId, tenantId, ctx);
+          if (ownerDetails) {
+            grouped.admins.push({
+              ...ownerDetails,
+              custom_title: ownerDetails.custom_title || 'Admin',
+            });
+            adminIdSet.add(numId);
+          }
+        }
+        try {
+          const staffMembers = await db.getAllStaff(tenantId);
+
+          for (const member of staffMembers) {
+            const roleStr = String(member.role || '').toUpperCase();
+            const roles = roleStr.split(/[,/|]+/).map((r) => r.trim());
+            const numUserId = Number(member.user_id);
+
+            let enriched = member;
+            if (!member.first_name || !member.username) {
+              const extra = await helpers.resolveStaffUserDetails(member.user_id, tenantId, ctx);
+              if (extra) {
+                enriched = {
+                  ...member,
+                  username: member.username || extra.username,
+                  first_name: member.first_name || extra.first_name,
+                  custom_title: member.custom_title || extra.custom_title,
+                };
+              }
+            }
+
+            const isAdmin =
+              roles.includes('ADMIN') ||
+              roles.includes('ADMINISTRADOR') ||
+              roles.includes('ADMINS') ||
+              roles.includes('OWNER') ||
+              roles.includes('CO-OWNER') ||
+              roles.includes('COOWNER');
+
+            if (isAdmin && !adminIdSet.has(numUserId)) {
+              grouped.admins.push(enriched);
+              adminIdSet.add(numUserId);
+            }
+
+            const isDealAdmin =
+              roles.includes('TRATO ADMIN') ||
+              roles.includes('TRATOADMIN') ||
+              roles.includes('TRATO_ADMIN') ||
+              roleStr.includes('TRATO');
+
+            if (isDealAdmin && !dealAdminIdSet.has(numUserId)) {
+              grouped.dealAdmins.push({ ...enriched, avgRating: '5.0' });
+              dealAdminIdSet.add(numUserId);
             }
           }
-
-          const isAdmin =
-            roles.includes('ADMIN') ||
-            roles.includes('ADMINISTRADOR') ||
-            roles.includes('ADMINS') ||
-            roles.includes('OWNER') ||
-            roles.includes('CO-OWNER') ||
-            roles.includes('COOWNER');
-
-          if (isAdmin && !adminIdSet.has(numUserId)) {
-            grouped.admins.push(enriched);
-            adminIdSet.add(numUserId);
-          }
-
-          const isDealAdmin =
-            roles.includes('TRATO ADMIN') ||
-            roles.includes('TRATOADMIN') ||
-            roles.includes('TRATO_ADMIN') ||
-            roleStr.includes('TRATO');
-
-          if (isDealAdmin && !dealAdminIdSet.has(numUserId)) {
-            grouped.dealAdmins.push({ ...enriched, avgRating: '5.0' });
-            dealAdminIdSet.add(numUserId);
-          }
-        }
-      } catch {}
+        } catch {}
+      }
 
       const { InlineKeyboard } = require('grammy');
       const { toMathBold } = require('../../utils/aesthetic');

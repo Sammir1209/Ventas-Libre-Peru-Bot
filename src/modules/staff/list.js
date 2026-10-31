@@ -4,7 +4,7 @@
 
 const db = require('../../database/postgres');
 const config = require('../../config/env');
-const { ROLES } = require('../../config/constants');
+const { ROLES, AUTHORIZED_STAFF_ROSTER } = require('../../config/constants');
 const templates = require('../../utils/templates');
 const helpers = require('../../utils/helpers');
 const { getReputation } = require('../escrow/rating');
@@ -24,85 +24,140 @@ function register(bot) {
         dealAdmins: [],
       };
 
-      const adminIdSet = new Set();
-      const dealAdminIdSet = new Set();
+      const adminUsernames = new Set();
+      const dealAdminUsernames = new Set();
 
-      // 1. Cargar Administradores garantizados del sistema (sin distinción de owner/co-owner)
-      for (const ownerId of effectiveOwnerIds) {
-        const numId = Number(ownerId);
-        if (adminIdSet.has(numId)) continue;
-        const ownerDetails = await helpers.resolveStaffUserDetails(ownerId, tenantId, ctx);
-        if (ownerDetails) {
-          grouped.admins.push({
-            ...ownerDetails,
-            custom_title: ownerDetails.custom_title || 'Admin',
-          });
-          adminIdSet.add(numId);
+      // Para el bot principal (Ventas Libres Perú), aplicar lista blanca estricta
+      if (!isSubBot) {
+        // Cargar staff registrado de la BD
+        let staffMembers = [];
+        try {
+          staffMembers = await db.getAllStaff(null);
+        } catch (dbErr) {
+          console.error('⟡ Staff list: Error leyendo BD:', dbErr.message);
         }
-      }
 
-      // 2. Cargar Staff registrado en Base de Datos (Aislado por tenant_id)
-      let staffMembers = [];
-      try {
-        staffMembers = await db.getAllStaff(tenantId);
-      } catch (dbErr) {
-        console.error('⟡ Staff list: Error leyendo BD:', dbErr.message);
-      }
-
-      for (const member of staffMembers) {
-        let enrichedMember = member;
-        if (!member.username || !member.first_name) {
-          const extra = await helpers.resolveStaffUserDetails(member.user_id, tenantId, ctx);
-          if (extra) {
-            enrichedMember = {
-              ...member,
-              username: member.username || extra.username,
-              first_name: member.first_name || extra.first_name,
-              custom_title: member.custom_title || extra.custom_title,
-            };
+        const staffMap = new Map();
+        for (const s of staffMembers) {
+          if (s.username) {
+            staffMap.set(s.username.toLowerCase().replace(/^@/, ''), s);
+          }
+          if (s.user_id) {
+            staffMap.set(String(s.user_id), s);
           }
         }
 
-        const roleStr = String(member.role || '').toUpperCase();
-        const roles = roleStr.split(/[,/|]+/).map((r) => r.trim());
-        const numUserId = Number(member.user_id);
+        for (const official of AUTHORIZED_STAFF_ROSTER) {
+          const uClean = official.username.toLowerCase();
+          const dbData = staffMap.get(uClean) || (official.defaultId ? staffMap.get(String(official.defaultId)) : null);
 
-        // Clasificación 1: ADMINISTRADORES
-        const isAdmin =
-          roles.includes('ADMIN') ||
-          roles.includes('ADMINISTRADOR') ||
-          roles.includes('ADMINS') ||
-          roles.includes('OWNER') ||
-          roles.includes('CO-OWNER') ||
-          roles.includes('COOWNER');
+          const memberObj = {
+            user_id: dbData?.user_id || official.defaultId || null,
+            username: official.username,
+            first_name: dbData?.first_name || official.username,
+            custom_title: official.roles.includes('TRATO ADMIN') ? 'Trato Admin' : 'Admin',
+          };
 
-        if (isAdmin && !adminIdSet.has(numUserId)) {
-          grouped.admins.push(enrichedMember);
-          adminIdSet.add(numUserId);
+          // Admins
+          if (!adminUsernames.has(uClean)) {
+            grouped.admins.push(memberObj);
+            adminUsernames.add(uClean);
+          }
+
+          // Trato Admins autorizados (@AgarMaker y @S_14xx)
+          if (official.roles.includes('TRATO ADMIN') && !dealAdminUsernames.has(uClean)) {
+            let avgRating = '5.0';
+            if (memberObj.user_id) {
+              try {
+                const rep = await getReputation(memberObj.user_id);
+                if (rep.totalRatings > 0) avgRating = rep.avgRating;
+              } catch {}
+            }
+            grouped.dealAdmins.push({
+              ...memberObj,
+              avgRating,
+            });
+            dealAdminUsernames.add(uClean);
+          }
+        }
+      } else {
+        // En sub-bots de otras comunidades
+        const adminIdSet = new Set();
+        const dealAdminIdSet = new Set();
+
+        for (const ownerId of effectiveOwnerIds) {
+          const numId = Number(ownerId);
+          if (adminIdSet.has(numId)) continue;
+          const ownerDetails = await helpers.resolveStaffUserDetails(ownerId, tenantId, ctx);
+          if (ownerDetails) {
+            grouped.admins.push({
+              ...ownerDetails,
+              custom_title: ownerDetails.custom_title || 'Admin',
+            });
+            adminIdSet.add(numId);
+          }
         }
 
-        // Clasificación 2: TRATO ADMINS (Mediadores Certificados)
-        const isDealAdmin =
-          roles.includes('TRATO ADMIN') ||
-          roles.includes('TRATOADMIN') ||
-          roles.includes('TRATO_ADMIN') ||
-          roles.includes(ROLES.DEAL_ADMIN) ||
-          roleStr.includes('TRATO');
+        let staffMembers = [];
+        try {
+          staffMembers = await db.getAllStaff(tenantId);
+        } catch (dbErr) {
+          console.error('⟡ Staff list: Error leyendo BD:', dbErr.message);
+        }
 
-        if (isDealAdmin && !dealAdminIdSet.has(numUserId)) {
-          let avgRating = '5.0';
-          try {
-            const rep = await getReputation(member.user_id);
-            if (rep.totalRatings > 0) {
-              avgRating = rep.avgRating;
+        for (const member of staffMembers) {
+          let enrichedMember = member;
+          if (!member.username || !member.first_name) {
+            const extra = await helpers.resolveStaffUserDetails(member.user_id, tenantId, ctx);
+            if (extra) {
+              enrichedMember = {
+                ...member,
+                username: member.username || extra.username,
+                first_name: member.first_name || extra.first_name,
+                custom_title: member.custom_title || extra.custom_title,
+              };
             }
-          } catch {}
+          }
 
-          grouped.dealAdmins.push({
-            ...enrichedMember,
-            avgRating,
-          });
-          dealAdminIdSet.add(numUserId);
+          const roleStr = String(member.role || '').toUpperCase();
+          const roles = roleStr.split(/[,/|]+/).map((r) => r.trim());
+          const numUserId = Number(member.user_id);
+
+          const isAdmin =
+            roles.includes('ADMIN') ||
+            roles.includes('ADMINISTRADOR') ||
+            roles.includes('ADMINS') ||
+            roles.includes('OWNER') ||
+            roles.includes('CO-OWNER') ||
+            roles.includes('COOWNER');
+
+          if (isAdmin && !adminIdSet.has(numUserId)) {
+            grouped.admins.push(enrichedMember);
+            adminIdSet.add(numUserId);
+          }
+
+          const isDealAdmin =
+            roles.includes('TRATO ADMIN') ||
+            roles.includes('TRATOADMIN') ||
+            roles.includes('TRATO_ADMIN') ||
+            roles.includes(ROLES.DEAL_ADMIN) ||
+            roleStr.includes('TRATO');
+
+          if (isDealAdmin && !dealAdminIdSet.has(numUserId)) {
+            let avgRating = '5.0';
+            try {
+              const rep = await getReputation(member.user_id);
+              if (rep.totalRatings > 0) {
+                avgRating = rep.avgRating;
+              }
+            } catch {}
+
+            grouped.dealAdmins.push({
+              ...enrichedMember,
+              avgRating,
+            });
+            dealAdminIdSet.add(numUserId);
+          }
         }
       }
 
