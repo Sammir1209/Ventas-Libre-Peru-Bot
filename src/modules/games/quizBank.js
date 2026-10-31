@@ -284,3 +284,4 @@ module.exports = {
   normalizeAnswer,
   getRandomQuiz
 };
+

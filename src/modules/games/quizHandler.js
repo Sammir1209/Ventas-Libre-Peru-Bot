@@ -70,21 +70,28 @@ async function triggerQuiz(bot, chatId) {
     // 3. Obtener pregunta aleatoria
     const quiz = getRandomQuiz();
     const sessionId = crypto.randomBytes(8).toString('hex');
-    const expiresAt = new Date(Date.now() + 65 * 1000); // 65 segundos
+    const expiresAt = new Date(Date.now() + 365 * 24 * 3600 * 1000); // Activo indefinidamente hasta que alguien responda
 
     const dateFormatted = getSuperscriptDate();
     const quizText =
-      `<b>⟡ [QUIZZ VLP] TRIVIA</b>\n` +
+      `<b>⟡ [QUIZZ VLP] TRIVIA EN VIVO</b>\n` +
       `──────\n\n` +
       `• <b>Categoría:</b> <code>${quiz.category}</code>\n` +
       `• <b>Premio:</b> <code>Cuenta Streaming (Prime / YouTube)</code>\n\n` +
       `<b>${escapeHtml(quiz.question)}</b>\n\n` +
       `💡 <i>Pista: ${escapeHtml(quiz.hint)}</i>\n\n` +
-      `↳ <b>Responde a este mensaje para ganar.</b> (60s)\n` +
+      `↳ <b>Responde (Reply) a este mensaje para ganar.</b>\n` +
       `──────\n` +
       `${dateFormatted}`;
 
     const sentMsg = await bot.api.sendMessage(cId, quizText, { parse_mode: 'HTML' });
+
+    // Fijar mensaje para alertar a todos los miembros del grupo
+    try {
+      await bot.api.pinChatMessage(cId, sentMsg.message_id, { disable_notification: false });
+    } catch (pinErr) {
+      console.warn('⟡ Error fijando mensaje de quizz:', pinErr.message);
+    }
 
     const sessionObj = {
       id: sessionId,
@@ -107,28 +114,6 @@ async function triggerQuiz(bot, chatId) {
       normalizedAnswers: quiz.normalizedAnswers,
       expiresAt
     });
-
-    // Temporizador de expiración (65s)
-    setTimeout(async () => {
-      const current = activeSessionsMem.get(cId);
-      if (current && current.id === sessionId && current.status === 'ACTIVE') {
-        current.status = 'EXPIRED';
-        activeSessionsMem.delete(cId);
-        await db.expireQuizSession(sessionId);
-
-        const expText =
-          `<b>⟡ [QUIZZ] TIEMPO AGOTADO</b>\n` +
-          `──────\n\n` +
-          `La respuesta correcta era: <b>${escapeHtml(quiz.rawAnswers[0].toUpperCase())}</b>.\n\n` +
-          `──────\n` +
-          `${getSuperscriptDate()}`;
-
-        await bot.api.sendMessage(cId, expText, {
-          parse_mode: 'HTML',
-          reply_parameters: { message_id: sentMsg.message_id }
-        }).catch(() => {});
-      }
-    }, 65 * 1000);
 
     return { success: true, sessionId };
   } catch (err) {
@@ -254,6 +239,17 @@ function register(bot) {
       await db.updateQuizSettings(ctx.chat.id, { enabled: false });
       stopQuizTimer(ctx.chat.id);
 
+      // Si había un quizz activo, cancelarlo y desfijar el mensaje
+      const active = activeSessionsMem.get(ctx.chat.id);
+      if (active) {
+        active.status = 'EXPIRED';
+        activeSessionsMem.delete(ctx.chat.id);
+        await db.expireQuizSession(active.id);
+        try {
+          await ctx.api.unpinChatMessage(ctx.chat.id, active.message_id);
+        } catch {}
+      }
+
       const dateFormatted = getSuperscriptDate();
       await ctx.reply(
         `<b>⟡ [QUIZZ] SISTEMA DETENIDO</b>\n` +
@@ -371,12 +367,6 @@ function register(bot) {
         return next();
       }
 
-      if (new Date(session.expires_at).getTime() <= Date.now()) {
-        session.status = 'EXPIRED';
-        activeSessionsMem.delete(chatId);
-        return next();
-      }
-
       const normalizedUserText = normalizeAnswer(ctx.message.text);
       const isCorrect = (session.normalized_answers || []).some(ans => {
         return normalizedUserText === ans || (ans.length > 3 && normalizedUserText.includes(ans));
@@ -389,6 +379,11 @@ function register(bot) {
       // Respuesta correcta
       session.status = 'SOLVED';
       activeSessionsMem.delete(chatId);
+
+      // Desfijar mensaje para mantener el chat limpio
+      try {
+        await ctx.api.unpinChatMessage(chatId, session.message_id);
+      } catch {}
 
       const winner = ctx.from;
       const winnerName = escapeHtml(winner.first_name || 'Ganador');

@@ -1553,6 +1553,13 @@ function register(bot) {
       } else {
         await db.updateQuizSettings(chatId, { enabled: false });
         stopQuizTimer(chatId);
+        try {
+          const active = await db.getActiveQuizSession(chatId);
+          if (active) {
+            await db.expireQuizSession(active.id);
+            await ctx.api.unpinChatMessage(chatId, active.message_id);
+          }
+        } catch {}
         await ctx.answerCallbackQuery({ text: 'Quizz Automático DETENIDO.' });
       }
 
