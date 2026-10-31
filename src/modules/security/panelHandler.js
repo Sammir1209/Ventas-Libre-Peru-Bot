@@ -1578,7 +1578,7 @@ function register(bot) {
     try {
       const chatId = Number(ctx.match[1]);
       const { triggerQuiz } = require('../games/quizHandler');
-      const res = await triggerQuiz(bot, chatId);
+      const res = await triggerQuiz(bot, chatId, true);
       if (!res.success) {
         if (res.reason === 'ALREADY_ACTIVE') {
           return ctx.answerCallbackQuery({ text: 'Ya hay un Quizz activo en este momento.', show_alert: true });

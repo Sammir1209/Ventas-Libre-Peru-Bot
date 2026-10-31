@@ -38,16 +38,53 @@ function renderPrivateRewardCard(user, reward) {
 }
 
 /**
- * Lanza un Quizz interactivo en un chat específico.
+ * Comprueba si un mensaje de Telegram sigue existiendo o fue borrado para todos.
  */
-async function triggerQuiz(bot, chatId) {
+async function isMessageAlive(bot, chatId, messageId) {
+  try {
+    await bot.api.editMessageReplyMarkup(chatId, Number(messageId));
+    return true;
+  } catch (err) {
+    const errStr = (err.message || err.description || '').toLowerCase();
+    if (errStr.includes('not modified')) {
+      return true; // Mensaje vivo
+    }
+    if (errStr.includes('not found') || errStr.includes('message to edit not found')) {
+      return false; // Mensaje borrado para todos por el admin
+    }
+    return true;
+  }
+}
+
+/**
+ * Lanza un Quizz interactivo en un chat específico.
+ * @param {boolean} force - Si es true, reemplaza de inmediato cualquier quizz activo previo.
+ */
+async function triggerQuiz(bot, chatId, force = false) {
   try {
     const cId = Number(chatId);
 
     // 1. Validar que no haya una sesión ya activa en el chat
     const existing = activeSessionsMem.get(cId) || await db.getActiveQuizSession(cId);
-    if (existing && new Date(existing.expires_at).getTime() > Date.now()) {
-      return { success: false, reason: 'ALREADY_ACTIVE' };
+    if (existing && existing.status === 'ACTIVE') {
+      if (force) {
+        // Reemplazo forzado: expirar anterior y continuar
+        activeSessionsMem.delete(cId);
+        await db.expireQuizSession(existing.id);
+        try {
+          await bot.api.unpinChatMessage(cId, Number(existing.message_id));
+        } catch {}
+      } else {
+        // En loop automático: comprobar si el mensaje anterior fue borrado para todos
+        const alive = await isMessageAlive(bot, cId, existing.message_id);
+        if (!alive) {
+          console.log(`⟡ [Quizz] Mensaje anterior ${existing.message_id} fue borrado en chat ${cId}. Auto-renovando sesión.`);
+          activeSessionsMem.delete(cId);
+          await db.expireQuizSession(existing.id);
+        } else {
+          return { success: false, reason: 'ALREADY_ACTIVE' };
+        }
+      }
     }
 
     // 2. Validar que existan recompensas en stock
@@ -182,10 +219,39 @@ async function deliverRewardToWinner(bot, user, reward, quizId) {
   }
 }
 
+// ── Monitor de Auto-Detección de Mensajes de Quizz Borrados por Admins ──
+let deleteWatcherStarted = false;
+function startDeleteWatcher(bot) {
+  if (deleteWatcherStarted) return;
+  deleteWatcherStarted = true;
+
+  setInterval(async () => {
+    try {
+      if (activeSessionsMem.size === 0) return;
+      for (const [cId, session] of Array.from(activeSessionsMem.entries())) {
+        if (!session || session.status !== 'ACTIVE') continue;
+        const alive = await isMessageAlive(bot, cId, session.message_id);
+        if (!alive) {
+          console.log(`⟡ [Quizz] Mensaje de Quizz ${session.message_id} fue eliminado por un admin en ${cId}. Auto-renovando...`);
+          activeSessionsMem.delete(cId);
+          await db.expireQuizSession(session.id);
+
+          // Si el quizz está habilitado en este chat, auto-generar uno nuevo al instante
+          const settings = await db.getQuizSettings(cId);
+          if (settings && settings.enabled) {
+            await triggerQuiz(bot, cId, true);
+          }
+        }
+      }
+    } catch {}
+  }, 10 * 1000);
+}
+
 /**
  * Registro de Handlers y Listeners en el Bot.
  */
 function register(bot) {
+  startDeleteWatcher(bot);
   // ── 1. Comando /quizzon ──
   bot.command('quizzon', requireStaff(), async (ctx) => {
     try {
@@ -266,18 +332,16 @@ function register(bot) {
     }
   });
 
-  // ── 3. Comando /quizz (Disparo Inmediato) ──
+  // ── 3. Comando /quizz (Disparo Inmediato Forzado) ──
   bot.command('quizz', requireStaff(), async (ctx) => {
     try {
       if (ctx.chat.type === 'private') {
         return ctx.reply('⟡ ✗ <i>Este comando debe ejecutarse dentro de un grupo oficial.</i>', { parse_mode: 'HTML' });
       }
 
-      const res = await triggerQuiz(bot, ctx.chat.id);
+      // force = true reemplaza cualquier quizz previo sin bloquear
+      const res = await triggerQuiz(bot, ctx.chat.id, true);
       if (!res.success) {
-        if (res.reason === 'ALREADY_ACTIVE') {
-          return ctx.reply('⟡ ⚠️ <i>Ya hay un Quizz activo en este momento.</i>', { parse_mode: 'HTML' });
-        }
         if (res.reason === 'NO_STOCK') {
           return ctx.reply('⟡ ✗ <i>No hay cuentas en stock para lanzar el Quizz.</i>', { parse_mode: 'HTML' });
         }
