@@ -6,6 +6,7 @@ const { InlineKeyboard } = require('grammy');
 const { escapeHtml, userMention, formatDate, normalizeUnicodeText } = require('../../utils/formatting');
 const { toMathBold } = require('../../utils/aesthetic');
 const config = require('../../config/env');
+const { isChannelOrServiceMessage } = require('../../utils/helpers');
 
 // Cooldown en memoria: Map<"chatId:userId:category", timestamp>
 const cooldownMap = new Map();
@@ -123,6 +124,9 @@ function register(bot) {
     try {
       // Solo en grupos y supergrupos
       if (!ctx.chat || (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup')) {
+        return next();
+      }
+      if (isChannelOrServiceMessage(ctx)) {
         return next();
       }
 

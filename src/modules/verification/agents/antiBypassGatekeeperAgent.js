@@ -8,6 +8,7 @@ const db = require('../../../database/postgres');
 const config = require('../../../config/env');
 const SentinelAgent = require('./sentinelAgent');
 const UIAgent = require('./uiAgent');
+const { isChannelOrServiceMessage } = require('../../../utils/helpers');
 
 class AntiBypassGatekeeperAgent {
   /**
@@ -15,6 +16,11 @@ class AntiBypassGatekeeperAgent {
    * Si detecta bypass: elimina el mensaje, aplica mute preventivo y envía aviso HUD.
    */
   static async handleIncomingMessage(ctx, next) {
+    // 0. Inmunidad total para publicaciones del canal vinculado o cuentas de servicio de Telegram
+    if (isChannelOrServiceMessage(ctx)) {
+      return next();
+    }
+
     if (!ctx.chat || (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup')) {
       return next();
     }

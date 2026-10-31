@@ -1,4 +1,5 @@
 const { escapeHtml, userMention } = require('../../utils/formatting');
+const { isChannelOrServiceMessage } = require('../../utils/helpers');
 
 // ══════════════════════════════════════════════════════════
 // ⟡ Módulo: Escudo Anti-Ban de Grupos (ShieldGuard)
@@ -56,6 +57,9 @@ function register(bot) {
     try {
       // Solo en grupos y supergrupos
       if (!ctx.chat || (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup')) {
+        return next();
+      }
+      if (isChannelOrServiceMessage(ctx)) {
         return next();
       }
 

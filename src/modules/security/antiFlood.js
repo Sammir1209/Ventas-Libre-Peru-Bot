@@ -2,6 +2,7 @@ const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { SYM } = require('../../config/constants');
 const { parseDuration } = require('../moderation/sentinel');
+const { isChannelOrServiceMessage } = require('../../utils/helpers');
 
 // ══════
 // ⟡ MOTOR ANTI-FLOOD EN MEMORIA ULTRA-RÁPIDO
@@ -74,6 +75,7 @@ async function setAntiFloodConfig(chatId, conf) {
  * Retorna { isFlood: boolean, reason: string }
  */
 async function checkMessageFlood(ctx) {
+  if (isChannelOrServiceMessage(ctx)) return { isFlood: false };
   if (!ctx.chat || (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup')) {
     return { isFlood: false };
   }

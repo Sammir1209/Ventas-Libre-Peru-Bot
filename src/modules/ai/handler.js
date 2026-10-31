@@ -654,6 +654,13 @@ function register(bot) {
       return next();
     }
 
+    // QUARANTINE_QUIZZ_REPLY: Si responde a un mensaje de Quizz o Trivia, nunca procesar con IA
+    if (ctx.message?.reply_to_message) {
+      const repText = (ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption || '').toUpperCase();
+      if (/(?:QUIZZ|TRIVIA)/i.test(repText)) {
+        return next();
+      }
+    }
     const isBotMentioned = text.toLowerCase().includes(`@${botUsername.toLowerCase()}`);
     const isReplyToBot = ctx.message.reply_to_message?.from?.is_bot && ctx.message.reply_to_message?.from?.username?.toLowerCase() === botUsername.toLowerCase();
 

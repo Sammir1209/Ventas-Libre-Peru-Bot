@@ -1,5 +1,6 @@
 const db = require('../../database/postgres');
 const config = require('../../config/env');
+const { isChannelOrServiceMessage } = require('../../utils/helpers');
 
 // ══════
 // ⟡ MOTOR DE BLOQUEOS SELECTIVOS DE CONTENIDO (LOCKS)
@@ -77,6 +78,7 @@ function containsArabicOrRtl(text) {
  * Retorna { shouldDelete: boolean, reason: string }
  */
 async function evaluateMessageLocks(ctx) {
+  if (isChannelOrServiceMessage(ctx)) return { shouldDelete: false };
   if (!ctx.chat || (ctx.chat.type !== 'group' && ctx.chat.type !== 'supergroup')) {
     return { shouldDelete: false };
   }

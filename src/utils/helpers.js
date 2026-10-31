@@ -1,6 +1,9 @@
 const config = require('../config/env');
 const db = require('../database/postgres');
-const userbot = require('../userbot/client');
+let userbot = null;
+try {
+  userbot = require('../userbot/client');
+} catch {}
 
 // ══════
 // ⟡ Utilidades Generales — Ventas Libres Perú
@@ -11,6 +14,34 @@ const userbot = require('../userbot/client');
  */
 function isOwner(userId) {
   return config.OWNER_IDS.includes(userId);
+}
+
+/**
+ * Determina si un mensaje proviene de un canal oficial, reenvío automático
+ * o cuenta de servicio de Telegram (Canal vinculado a grupo de discusión o administrador anónimo).
+ */
+function isChannelOrServiceMessage(ctx) {
+  if (ctx?.channelPost) return true;
+  const msg = ctx?.message;
+  if (!msg) return false;
+
+  // 1. Reenvío automático oficial desde el canal conectado a la discusión
+  if (msg.is_automatic_forward) return true;
+
+  // 2. Mensaje emitido en nombre de un canal (sender_chat)
+  if (msg.sender_chat && msg.sender_chat.type === 'channel') return true;
+
+  // 3. Cuentas de infraestructura y servicio de Telegram:
+  // - 777000: Telegram Service Notifications (remitente de posts automáticos de canales)
+  // - 136817688: @Channel_Bot (mensajes enviados en nombre de un canal)
+  // - 1087968824: @GroupAnonymousBot (administradores anónimos del grupo)
+  const fromId = msg.from?.id;
+  if (fromId === 777000 || fromId === 136817688 || fromId === 1087968824) return true;
+
+  // 4. Si el remitente es un canal anónimo verificado
+  if (ctx?.senderChat && ctx.senderChat.type === 'channel') return true;
+
+  return false;
 }
 
 /**
@@ -425,6 +456,7 @@ async function resolveStaffUserDetails(userId, tenantId = null, ctx = null) {
 
 module.exports = {
   isOwner,
+  isChannelOrServiceMessage,
   extractTarget,
   resolveTarget,
   searchCandidatesInCommunity,
