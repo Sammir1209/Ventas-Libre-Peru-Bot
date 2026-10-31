@@ -34,6 +34,28 @@ if (Pool && config.POSTGRES_URL && !config.POSTGRES_URL.includes('localhost')) {
   });
 }
 
+
+// ══════════════════════════════════════════════════════════
+// ⟡ MOTOR DE CACHÉ L1 EN MEMORIA ULTRA-RÁPIDA (Zero-Lag Engine)
+// ══════════════════════════════════════════════════════════
+const staffL1Cache = new Map();     // key -> { data, expireAt }
+const settingsL1Cache = new Map();  // key -> { data, expireAt }
+const L1_TTL_MS = 5 * 60 * 1000;    // 5 minutos de alta velocidad
+
+function getL1(cache, key) {
+  const item = cache.get(key);
+  if (!item) return undefined;
+  if (Date.now() > item.expireAt) {
+    cache.delete(key);
+    return undefined;
+  }
+  return item.data;
+}
+
+function setL1(cache, key, data, ttlMs = L1_TTL_MS) {
+  cache.set(key, { data, expireAt: Date.now() + ttlMs });
+}
+
 // ══════
 // ⟡ CRUD — Usuarios
 // ══════
@@ -752,6 +774,7 @@ async function unburnUser(userId, tenantId = null) {
 // ══════
 
 async function setStaffRole(userId, username, firstName, role, assignedBy, customTitle = null, tenantId = null) {
+  staffL1Cache.clear();
   if (useSupabase && supabase) {
     const basePayload = {
       user_id: userId,
@@ -797,6 +820,7 @@ async function setStaffRole(userId, username, firstName, role, assignedBy, custo
 }
 
 async function removeStaff(userId, tenantId = null) {
+  staffL1Cache.clear();
   if (useSupabase && supabase) {
     let query = supabase.from('staff').delete().eq('user_id', userId);
     if (tenantId) query = query.eq('tenant_id', tenantId);
@@ -815,6 +839,11 @@ async function removeStaff(userId, tenantId = null) {
 }
 
 async function getStaffMember(userId, tenantId = null) {
+  const cacheKey = `${tenantId || 'global'}:${userId}`;
+  const cached = getL1(staffL1Cache, cacheKey);
+  if (cached !== undefined) return cached;
+
+  let member = null;
   if (useSupabase && supabase) {
     let query = supabase.from('staff').select('*').eq('user_id', userId);
     if (tenantId) {
@@ -827,22 +856,23 @@ async function getStaffMember(userId, tenantId = null) {
       console.error('⟡ Supabase getStaffMember error:', error.message);
     }
     if (!data && !tenantId) {
-      // Fallback si la columna tenant_id no se ha migrado aún
       const fb = await supabase.from('staff').select('*').eq('user_id', userId).maybeSingle();
-      return fb.data || null;
+      member = fb.data || null;
+    } else {
+      member = data || null;
     }
-    return data || null;
-  }
-  if (pool) {
+  } else if (pool) {
     let res;
     if (tenantId) {
       res = await pool.query(`SELECT * FROM staff WHERE user_id = $1 AND tenant_id = $2`, [userId, tenantId]);
     } else {
       res = await pool.query(`SELECT * FROM staff WHERE user_id = $1 AND tenant_id IS NULL`, [userId]);
     }
-    return res.rows[0] || null;
+    member = res.rows[0] || null;
   }
-  return null;
+
+  setL1(staffL1Cache, cacheKey, member);
+  return member;
 }
 
 async function getAllStaff(tenantId = null) {
@@ -1542,6 +1572,8 @@ function saveLocalSettings(settings) {
 }
 
 async function setSetting(key, value, tenantId = null) {
+  const cacheKey = `${tenantId || 'global'}:${key}`;
+  setL1(settingsL1Cache, cacheKey, value ? value.toString() : value);
   // Aislamiento Multi-Tenant: Si es un Sub-Bot, guardar en su propio registro
   if (tenantId) {
     const subBot = await getSubBotById(tenantId);
@@ -1574,33 +1606,36 @@ async function setSetting(key, value, tenantId = null) {
 }
 
 async function getSetting(key, tenantId = null) {
-  // Aislamiento Multi-Tenant: Si es un Sub-Bot, leer de su registro exclusivo
+  const cacheKey = `${tenantId || 'global'}:${key}`;
+  const cached = getL1(settingsL1Cache, cacheKey);
+  if (cached !== undefined) return cached;
+
+  let val = null;
   if (tenantId) {
     const subBot = await getSubBotById(tenantId);
     if (subBot) {
-      if (subBot[key] !== undefined && subBot[key] !== null) return String(subBot[key]);
-      if (subBot.custom_settings && subBot.custom_settings[key] !== undefined) return String(subBot.custom_settings[key]);
+      if (subBot[key] !== undefined && subBot[key] !== null) val = String(subBot[key]);
+      else if (subBot.custom_settings && subBot.custom_settings[key] !== undefined) val = String(subBot.custom_settings[key]);
     }
-    return null;
+  } else {
+    if (useSupabase && supabase) {
+      try {
+        const { data } = await supabase
+          .from('bot_settings')
+          .select('value')
+          .eq('key', key)
+          .maybeSingle();
+        if (data && data.value) val = data.value;
+      } catch {}
+    }
+    if (val === null) {
+      const local = loadLocalSettings();
+      if (local && local[key]) val = String(local[key]);
+    }
   }
 
-  // Bot Principal: Intentar desde Supabase
-  if (useSupabase && supabase) {
-    try {
-      const { data } = await supabase
-        .from('bot_settings')
-        .select('value')
-        .eq('key', key)
-        .maybeSingle();
-      if (data && data.value) return data.value;
-    } catch {}
-  }
-
-  // Fallback a archivo local JSON
-  const local = loadLocalSettings();
-  if (local[key]) return local[key];
-
-  return null;
+  setL1(settingsL1Cache, cacheKey, val);
+  return val;
 }
 
 // ══════

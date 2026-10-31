@@ -15,10 +15,9 @@ const Tesseract = require('tesseract.js');
 
 // Modelos Gemini con soporte de visión multimodal activo y ordenados por velocidad
 const VISION_MODELS = [
-  'gemini-3.5-flash',
-  'gemini-flash-latest',
-  'gemini-3.6-flash',
-  'gemini-3.7-flash',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash-exp',
+  'gemini-1.5-flash-8b',
 ];
 
 /**
@@ -199,7 +198,7 @@ async function extractWithGeminiVision(base64Image, mimeType = 'image/jpeg') {
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(16000),
+          signal: AbortSignal.timeout(5000),
           body: JSON.stringify(payload),
         });
 
@@ -983,14 +982,13 @@ function register(bot) {
       const photos = ctx.message?.photo || [];
       if (photos.length === 0) return next();
 
-      const isPrivate = ctx.chat?.type === 'private';
-      const isExplicitInquiry = PROFILE_INQUIRY_REGEX.test(caption) || isPrivate;
+      // SOLO escanear si el texto incluye palabras clave explícitas de consulta de reputación
+      // NO procesar fotos arbitrarias, comprobantes bancarios ni memes
+      const isExplicitInquiry = PROFILE_INQUIRY_REGEX.test(caption);
 
-      // SOLO escanear si incluye palabras clave explícitas o es en chat privado
-      // NO enviar ningún mensaje si solo envían foto sin texto
       if (isExplicitInquiry) {
         const bestPhoto = photos[photos.length - 1];
-        await processProfileInspection(ctx, bestPhoto.file_id, { isExplicitInquiry });
+        await processProfileInspection(ctx, bestPhoto.file_id, { isExplicitInquiry: true });
         return;
       }
     } catch (err) {

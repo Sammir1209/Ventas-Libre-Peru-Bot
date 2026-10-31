@@ -112,20 +112,16 @@ Quien te habla es un miembro activo del STAFF (${userInfo.role || 'Admin'}). Res
 // ── Modelos Disponibles por Proveedor ──
 
 const GEMINI_MODELS = [
-  'gemini-3.1-flash-lite',
-  'gemini-3.5-flash-lite',
-  'gemini-3.5-flash',
-  'gemini-3.6-flash',
-  'gemini-flash-latest',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash-exp',
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-pro',
 ];
 
 const GROQ_MODELS = [
-  'qwen/qwen3.8-27b',
-  'openai/gpt-oss-120b',
-  'openai/gpt-oss-20b',
-  'groq/compound',
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant',
+  'gemma2-9b-it',
 ];
 
 const OPENROUTER_MODELS = [
@@ -177,6 +173,7 @@ async function callGemini(userMessage, conversationHistory, apiKeys, systemPromp
         const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(8000),
           body: JSON.stringify(payload),
         });
 

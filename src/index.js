@@ -128,15 +128,34 @@ async function main() {
   bot.use(commandPrefixes());
   bot.use(antiSpam());
 
-  // ── Auto-registro de usuarios y grupos ──
+  // ── Auto-registro con Debounce y Telemetría No Bloqueante (Zero-Lag) ──
+  const recentUserUpserts = new Map(); // userId -> timestamp
+  const recentGroupRegistrations = new Map(); // chatId -> timestamp
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [uid, time] of recentUserUpserts.entries()) {
+      if (now - time > 15 * 60 * 1000) recentUserUpserts.delete(uid);
+    }
+    for (const [gid, time] of recentGroupRegistrations.entries()) {
+      if (now - time > 60 * 60 * 1000) recentGroupRegistrations.delete(gid);
+    }
+  }, 15 * 60 * 1000);
+
   bot.use(async (ctx, next) => {
     try {
+      const now = Date.now();
       if (ctx.from && !ctx.from.is_bot) {
-        await db.upsertUser(
-          ctx.from.id,
-          ctx.from.username || null,
-          ctx.from.first_name || null
-        );
+        const lastUpsert = recentUserUpserts.get(ctx.from.id);
+        if (!lastUpsert || now - lastUpsert > 15 * 60 * 1000) {
+          recentUserUpserts.set(ctx.from.id, now);
+          // Ejecución en segundo plano sin pausar el hilo de respuesta
+          db.upsertUser(
+            ctx.from.id,
+            ctx.from.username || null,
+            ctx.from.first_name || null
+          ).catch(() => {});
+        }
         if (ctx.chat && (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup')) {
           const actTracker = require('./modules/moderation/activityTracker');
           const msgSnippet = ctx.message?.text || ctx.message?.caption || '';
@@ -144,12 +163,17 @@ async function main() {
         }
       }
       if (ctx.chat && (ctx.chat.type === 'group' || ctx.chat.type === 'supergroup' || ctx.chat.type === 'channel')) {
-        await db.registerOfficialGroup(
-          ctx.chat.id,
-          ctx.chat.title || 'Sin título',
-          ctx.chat.type,
-          ctx.chat.username || null
-        );
+        const lastGroupReg = recentGroupRegistrations.get(ctx.chat.id);
+        if (!lastGroupReg || now - lastGroupReg > 60 * 60 * 1000) {
+          recentGroupRegistrations.set(ctx.chat.id, now);
+          // Ejecución en segundo plano sin pausar el hilo de respuesta
+          db.registerOfficialGroup(
+            ctx.chat.id,
+            ctx.chat.title || 'Sin título',
+            ctx.chat.type,
+            ctx.chat.username || null
+          ).catch(() => {});
+        }
       }
     } catch {}
     return next();
