@@ -119,10 +119,11 @@ function buildUserHelp() {
     `▸ <b>COMANDOS PRINCIPALES</b>\n` +
     `  • <code>/tratoadm</code> — Intermediación 100% segura para tus compras\n` +
     `  • <code>/quemar</code> — Denunciar a un estafador con pruebas reales\n` +
+    `  • <code>/me</code> — Consultar tu perfil y datos personales\n` +
     `  • <code>/info [id/@user]</code> — Verificar antecedentes de un vendedor\n` +
     `  • <code>/blacklist</code> — Ver lista pública de usuarios vetados\n` +
     `  • <code>/staff</code> — Conocer al equipo oficial de mediadores\n` +
-    `  • <code>/perfil</code> — Ver tu reputación y tratos concretados\n\n` +
+    `  • <code>/perfil</code> — Ver tarjeta de reputación gráfica\n\n` +
     `──────\n` +
     `💡 <i>Consejo de Oro: Jamás compres por mensaje privado sin mediador. Usa <code>/tratoadm</code> para proteger tu dinero.</i>`;
 

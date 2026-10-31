@@ -387,20 +387,41 @@ function register(bot) {
     }
   });
 
-  // ── Comando /info [ID, @username o responder] (Plantilla original en texto) ──
+  // ── Comando /me (Consultar perfil propio HUD y datos personales) ──
+  bot.command('me', async (ctx) => {
+    try {
+      if (!ctx.from) return;
+      const { text, keyboard } = await buildUserProfile(ctx, {
+        userId: ctx.from.id,
+        username: ctx.from.username || null,
+        firstName: ctx.from.first_name || null,
+        isCommunity: true,
+      });
+      return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+    } catch (err) {
+      console.error('⟡ Info: Error en /me:', err.message);
+      await ctx.reply(`⟡ ✗ Error al obtener tu perfil: ${err.message}`, { parse_mode: 'HTML' });
+    }
+  });
+
+  // ── Comando /info [ID, @username o responder] (Solo para ver perfiles de terceros) ──
   bot.command('info', async (ctx) => {
     try {
       const extracted = extractTarget(ctx);
 
-      // 1. Caso A: Sin argumento y sin reply -> consultar propio perfil
+      // 1. Caso A: Sin argumento y sin reply -> Guía obligatoria (no muestra perfil propio)
       if (!extracted) {
-        const { text, keyboard } = await buildUserProfile(ctx, {
-          userId: ctx.from.id,
-          username: ctx.from.username || null,
-          firstName: ctx.from.first_name || null,
-          isCommunity: true,
-        });
-        return await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+        return await ctx.reply(
+          `⟡ <b>[CONSULTA DE ANTECEDENTES]</b> ⊱ <code>INFO</code> ⊰\n` +
+          `──────\n` +
+          `▪ <i>El comando <code>/info</code> es exclusivo para consultar antecedentes de otros usuarios:</i>\n\n` +
+          `  ↳ <code>/info @username</code>\n` +
+          `  ↳ <code>/info [ID]</code>\n` +
+          `  ↳ <i>O responde al mensaje de un usuario con</i> <code>/info</code>\n\n` +
+          `──────\n` +
+          `💡 <i>Para ver tu propio perfil utiliza:</i> <code>/me</code>`,
+          { parse_mode: 'HTML' }
+        );
       }
 
       // 2. Caso B: Reply a mensaje o ID numérico explícito -> target directo

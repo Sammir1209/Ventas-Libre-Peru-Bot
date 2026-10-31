@@ -808,7 +808,7 @@ function burnAlertBroadcast(targetId, context = null, targetUsername = null, tar
   return text;
 }
 
-function formatStaffUser(username, userId, bullet = '•', customTitle = null) {
+function formatStaffUser(username, userId, bullet = '↳', customTitle = null) {
   const cleanUser = username ? String(username).replace(/^@/, '').trim() : null;
   const userTag = cleanUser
     ? `<a href="https://t.me/${cleanUser}">@${escapeHtml(cleanUser)}</a>`
@@ -831,21 +831,23 @@ function renderStaffList(groupedStaff, communityName = 'Ventas Libres Perú') {
 
   if (admins.length > 0) {
     for (const m of admins) {
-      output += `${formatStaffUser(m.username, m.user_id, '•', m.custom_title)}\n`;
+      const displayTitle = m.custom_title || (m.role?.includes('TRATO') ? 'Trato Admin' : 'Admin');
+      output += `${formatStaffUser(m.username, m.user_id, '↳', displayTitle)}\n`;
     }
   } else {
-    output += `<i>• No registrados</i>\n`;
+    output += `<i>↳ No registrados</i>\n`;
   }
 
   output += `\n✦ <b>TRATO ADMINS (MEDIADORES):</b>\n`;
   if (dealAdmins.length > 0) {
     for (const m of dealAdmins) {
       const score = m.avgRating ? `${m.avgRating} ★` : `5.0 ★`;
-      const base = formatStaffUser(m.username, m.user_id, '•', m.custom_title);
+      const displayTitle = m.custom_title || 'Trato Admin';
+      const base = formatStaffUser(m.username, m.user_id, '↳', displayTitle);
       output += `${base} ⊱ <b>${score}</b> ⊰\n`;
     }
   } else {
-    output += `<i>• No registrados</i>\n`;
+    output += `<i>↳ No registrados</i>\n`;
   }
 
   output +=
