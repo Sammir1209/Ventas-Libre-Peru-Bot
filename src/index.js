@@ -123,6 +123,8 @@ async function main() {
   bot.api.config.use(apiThrottler());
 
   // ── Middleware global ──
+  const { commandPrefixes } = require('./middleware/commandPrefixes');
+  bot.use(commandPrefixes());
   bot.use(antiSpam());
 
   // ── Auto-registro de usuarios y grupos ──

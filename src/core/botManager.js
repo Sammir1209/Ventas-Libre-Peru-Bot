@@ -82,7 +82,7 @@ class BotManager {
         }
 
         // 2. Si es comando o mensaje privado
-        const isCommand = Boolean(ctx.message?.text?.startsWith('/'));
+        const isCommand = Boolean(ctx.message?.text && /^[/.$!?]/.test(ctx.message.text));
         const isPrivate = ctx.chat?.type === 'private';
 
         if (isCommand || isPrivate) {
@@ -108,6 +108,8 @@ class BotManager {
     });
 
     // Middleware Anti-Spam
+    const { commandPrefixes } = require('../middleware/commandPrefixes');
+    bot.use(commandPrefixes());
     bot.use(antiSpam());
 
     // ── Módulos CORE (Siempre activos para todo bot / sub-bot) ──
