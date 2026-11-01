@@ -5,7 +5,28 @@
 // ══════════════════════════════════════════════════════════
 
 const crypto = require('crypto');
-const { InputFile } = require('grammy');
+let InlineKeyboard = null;
+let InputFile = null;
+try {
+  const grammy = require('grammy');
+  InlineKeyboard = grammy.InlineKeyboard;
+  InputFile = grammy.InputFile;
+} catch {
+  InputFile = class InputFile {
+    constructor(file, filename) {
+      this.file = file;
+      this.filename = filename;
+    }
+  };
+  InlineKeyboard = class InlineKeyboard {
+    constructor() {
+      this.inline_keyboard = [[]];
+    }
+    text(label, data) { return this; }
+    row() { return this; }
+    url(label, url) { return this; }
+  };
+}
 const db = require('../../database/postgres');
 const config = require('../../config/env');
 const { requireStaff } = require('../../middleware/auth');
@@ -17,6 +38,122 @@ const { getRandomQuiz, normalizeAnswer } = require('./quizBank');
 const activeIntervals = new Map();
 // Cache de sesión en memoria activa: chatId -> quizSession
 const activeSessionsMem = new Map();
+
+/**
+ * Genera un token único de canje con formato VLP-<HEX12>.
+ */
+function generateClaimToken() {
+  return 'VLP-' + crypto.randomBytes(6).toString('hex').toUpperCase();
+}
+
+/**
+ * Parsea y formatea credenciales directas de cuenta (JSON, user:pass o texto plano).
+ * Retorna { username, password, extra, formattedText }.
+ */
+function formatAccountCredentials(accountData, accountTitle = '', category = '') {
+  let username = '';
+  let password = '';
+  let extra = '';
+
+  let raw = typeof accountData === 'string' ? accountData.trim() : (accountData ? JSON.stringify(accountData) : '');
+
+  // 1. Ingesta de JSON u objeto
+  if (typeof accountData === 'object' && accountData !== null) {
+    username = accountData.email || accountData.username || accountData.user || accountData.correo || accountData.login || '';
+    password = accountData.password || accountData.pass || accountData.contraseña || accountData.clave || '';
+    const extraParts = [];
+    if (accountData.pin) extraParts.push(`PIN: ${accountData.pin}`);
+    if (accountData.profile || accountData.perfil) extraParts.push(`Perfil: ${accountData.profile || accountData.perfil}`);
+    if (accountData.details || accountData.detalles || accountData.extra) extraParts.push(accountData.details || accountData.detalles || accountData.extra);
+    extra = extraParts.join(' | ');
+  } else if (raw.startsWith('{') && raw.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(raw);
+      username = parsed.email || parsed.username || parsed.user || parsed.correo || parsed.login || '';
+      password = parsed.password || parsed.pass || parsed.contraseña || parsed.clave || '';
+      const extraParts = [];
+      if (parsed.pin) extraParts.push(`PIN: ${parsed.pin}`);
+      if (parsed.profile || parsed.perfil) extraParts.push(`Perfil: ${parsed.profile || parsed.perfil}`);
+      if (parsed.details || parsed.detalles || parsed.extra) extraParts.push(parsed.details || parsed.detalles || parsed.extra);
+      extra = extraParts.join(' | ');
+    } catch {}
+  }
+
+  // 2. Ingesta de formato multilínea o delimitado por dos puntos
+  if (!username && !password && raw) {
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+    const details = [];
+
+    for (const line of lines) {
+      const uMatch = line.match(/^(?:usuario|correo|email|user|login)\s*[:=]\s*(.+)$/i);
+      if (uMatch && !username) {
+        username = uMatch[1].trim();
+        continue;
+      }
+      const pMatch = line.match(/^(?:contrase[ñn]a|password|clave|pass)\s*[:=]\s*(.+)$/i);
+      if (pMatch && !password) {
+        password = pMatch[1].trim();
+        continue;
+      }
+      const pinMatch = line.match(/^(?:pin|perfil|profile|detalles?|extra)\s*[:=]\s*(.+)$/i);
+      if (pinMatch) {
+        details.push(line);
+        continue;
+      }
+      const colonMatch = line.match(/^([^\s:]+@[^\s:]+):([^\s:]+)(?::(.*))?$/) ||
+                         line.match(/^([a-zA-Z0-9._-]+):([^\s:]+)(?::(.*))?$/);
+      if (colonMatch && !username && !password) {
+        username = colonMatch[1].trim();
+        password = colonMatch[2].trim();
+        if (colonMatch[3]) details.push(colonMatch[3].trim());
+        continue;
+      }
+      if (!line.startsWith('#') && !line.includes('\t')) {
+        details.push(line);
+      }
+    }
+    if (details.length > 0) {
+      extra = details.join(' | ');
+    }
+  }
+
+  // 3. Fallback para volcados de cookies legacy
+  if (!username && !password) {
+    if (raw.includes('Netscape HTTP Cookie File') || raw.includes('\t')) {
+      const profileMatch = raw.match(/Profile:\s*([^|\n]+)/i);
+      const planMatch = raw.match(/Plan:\s*([^|\n]+)/i);
+      const regionMatch = raw.match(/Region:\s*([^|\n]+)/i);
+
+      username = profileMatch ? `Perfil: ${profileMatch[1].trim()}` : (accountTitle || 'Cuenta Activa');
+      password = '[Acceso Tokenizado / Pre-activado]';
+      const parts = [];
+      if (planMatch) parts.push(`Plan: ${planMatch[1].trim()}`);
+      if (regionMatch) parts.push(`Región: ${regionMatch[1].trim()}`);
+      if (accountTitle) parts.push(accountTitle);
+      extra = parts.join(' | ');
+    } else {
+      username = accountTitle || 'Usuario VLP';
+      password = raw.length < 100 ? raw : '[Credenciales en Panel]';
+      extra = accountTitle ? `Referencia: ${accountTitle}` : '';
+    }
+  }
+
+  if (!username) username = accountTitle || 'Cuenta VLP';
+  if (!password) password = '[Sin Contraseña Requerida]';
+
+  const uEsc = escapeHtml(username);
+  const pEsc = escapeHtml(password);
+  const eEsc = escapeHtml(extra);
+
+  let formattedText =
+    `• <b>Usuario / Correo:</b> <code>${uEsc}</code>\n` +
+    `• <b>Contraseña:</b> <code>${pEsc}</code>`;
+  if (extra) {
+    formattedText += `\n• <b>Detalles:</b> <code>${eEsc}</code>`;
+  }
+
+  return { username, password, extra, formattedText };
+}
 
 /**
  * Formatea la plantilla estética de entrega privada de una recompensa.
@@ -262,7 +399,7 @@ function startDeleteWatcher(bot) {
         }
       }
     } catch {}
-  }, 10 * 1000);
+  }, 10 * 1000).unref?.();
 }
 
 /**
@@ -371,49 +508,137 @@ function register(bot) {
     }
   });
 
-  // ── 4. Comando /claim (Privado) ──
+  // ── 4. Comando /claim (Privado con Validación de Código) ──
   bot.command('claim', async (ctx) => {
     try {
+      // 1. Intercepción de chats de grupo / supergrupo
       if (ctx.chat.type !== 'private') {
-        return ctx.reply('⟡ ✗ <i>El comando <code>/claim</code> solo funciona en chat privado con el bot.</i>', { parse_mode: 'HTML' });
+        const botUsername = ctx.me?.username || 'ventas_libres_peru_Bot';
+        const kb = new InlineKeyboard().url(btn('Abrir Chat Privado', '◈', '◈'), `https://t.me/${botUsername}`);
+        return ctx.reply(
+          `<b>⟡ [SEGURIDAD] CANJE PRIVADO</b>\n` +
+          `──────\n\n` +
+          `<i>El comando <code>/claim</code> únicamente puede ejecutarse en chat privado con el bot para proteger tus credenciales.</i>\n\n` +
+          `↳ Inicia un chat privado con @${botUsername} y canjea tu código allí.\n\n` +
+          `──────\n` +
+          `${getSuperscriptDate()}`,
+          { parse_mode: 'HTML', reply_markup: kb }
+        );
       }
 
-      const pending = await db.getPendingClaim(ctx.from.id);
-      if (!pending) {
+      // 2. Parseo del código de argumento
+      const code = (ctx.match || '').trim();
+      if (!code) {
         return ctx.reply(
-          `<b>⟡ [RECOMPENSAS] SIN PREMIOS PENDIENTES</b>\n` +
+          `<b>⟡ [RECOMPENSAS] SINTAXIS DE CANJE</b>\n` +
           `──────\n\n` +
-          `No tienes ninguna cuenta pendiente por retirar.\n` +
-          `<i>¡Responde los quizzes en el grupo para ganar!</i>\n\n` +
+          `<i>Debes especificar el código de canje que ganaste en el grupo.</i>\n\n` +
+          `▸ <b>Uso:</b> <code>/claim &lt;código&gt;</code>\n` +
+          `▸ <b>Ejemplo:</b> <code>/claim VLP-A1B2C3D4E5F6</code>\n\n` +
           `──────\n` +
           `${getSuperscriptDate()}`,
           { parse_mode: 'HTML' }
         );
       }
 
-      const reward = {
-        id: pending.reward_id,
-        category: pending.reward_category || pending.category || 'CUENTA',
-        account_title: pending.account_title || 'Cuenta Premium Oficial',
-        account_data: pending.account_data || '# Sin credenciales'
-      };
+      // 3. Canje atómico en base de datos
+      const claimResult = await db.redeemClaimAtomic(code, ctx.from.id);
 
-      const text = renderPrivateRewardCard(ctx.from, reward);
-      const fileName = `cuenta_${reward.category.toLowerCase()}_vlp.txt`;
-      const buffer = Buffer.from(reward.account_data, 'utf8');
+      if (!claimResult || !claimResult.success) {
+        const reason = claimResult?.reason || 'UNKNOWN';
+        const dateFormatted = getSuperscriptDate();
 
-      const kb = buildRewardKeyboard(reward.id, reward.category, reward.account_title);
-      await ctx.reply(text, { parse_mode: 'HTML', reply_markup: kb });
-      await ctx.replyWithDocument(new InputFile(buffer, fileName), {
-        caption: `【 𝗖𝗢𝗢𝗞𝗜𝗘𝗦 】 ⟡ <b>${escapeHtml(reward.account_title)}</b>.`,
-        parse_mode: 'HTML',
-        reply_markup: kb
-      });
+        if (reason === 'NOT_FOUND') {
+          return ctx.reply(
+            `<b>⟡ [RECOMPENSAS] CÓDIGO INVÁLIDO</b>\n` +
+            `──────\n\n` +
+            `<i>Código inválido o inexistente.</i>\n` +
+            `Verifica haber escrito correctamente tu código de reclamo.\n\n` +
+            `──────\n` +
+            `${dateFormatted}`,
+            { parse_mode: 'HTML' }
+          );
+        }
 
-      await db.clearPendingClaim(ctx.from.id);
+        if (reason === 'UNAUTHORIZED') {
+          return ctx.reply(
+            `<b>⟡ [SEGURIDAD] CANJE NO AUTORIZADO</b>\n` +
+            `──────\n\n` +
+            `<i>Este código fue emitido para otro usuario.</i>\n` +
+            `Solo el usuario que acertó la trivia en el grupo puede canjear este premio.\n\n` +
+            `──────\n` +
+            `${dateFormatted}`,
+            { parse_mode: 'HTML' }
+          );
+        }
+
+        if (reason === 'ALREADY_CLAIMED') {
+          return ctx.reply(
+            `<b>⟡ [RECOMPENSAS] CÓDIGO YA CANJEADO</b>\n` +
+            `──────\n\n` +
+            `<i>Este código ya fue canjeado previamente.</i>\n` +
+            `Cada código es de un solo uso.\n\n` +
+            `──────\n` +
+            `${dateFormatted}`,
+            { parse_mode: 'HTML' }
+          );
+        }
+
+        if (reason === 'EXPIRED') {
+          return ctx.reply(
+            `<b>⟡ [RECOMPENSAS] CÓDIGO EXPIRADO</b>\n` +
+            `──────\n\n` +
+            `<i>Este código ha expirado.</i>\n` +
+            `Los códigos de reclamo tienen una validez de 15 minutos desde su emisión.\n\n` +
+            `──────\n` +
+            `${dateFormatted}`,
+            { parse_mode: 'HTML' }
+          );
+        }
+
+        return ctx.reply(
+          `<b>⟡ [RECOMPENSAS] ERROR DE CANJE</b>\n` +
+          `──────\n\n` +
+          `<i>No se pudo procesar tu reclamo: ${escapeHtml(reason)}</i>\n\n` +
+          `──────\n` +
+          `${dateFormatted}`,
+          { parse_mode: 'HTML' }
+        );
+      }
+
+      // 4. Entrega directa de credenciales sin cookies ni adjuntos
+      const reward = claimResult.reward || {};
+      const { username, password, extra } = formatAccountCredentials(
+        reward.account_data,
+        reward.account_title,
+        reward.category
+      );
+
+      const userName = escapeHtml(ctx.from.first_name || 'Ganador');
+      const title = escapeHtml(reward.account_title || reward.category || 'Cuenta Premium Oficial');
+      const cat = escapeHtml(reward.category || 'STREAMING');
+      const dateFormatted = getSuperscriptDate();
+
+      const deliveryMessage =
+        `<b>【 𝗩𝗘𝗡𝗧𝗔𝗦 𝗟𝗜𝗕𝗥𝗘𝗦 𝗣𝗘𝗥𝗨 】 ⟡ 『 𝗣𝗥𝗘𝗠𝗜𝗢 𝗢𝗙𝗜𝗖𝗜𝗔𝗟 』</b>\n` +
+        `────── // ───\n\n` +
+        `▸ <b>Ganador:</b> <b>${userName}</b>\n` +
+        `▸ <b>Premio:</b> <code>${title}</code>\n` +
+        `▸ <b>Categoría:</b> <code>〔 ${cat} 〕</code>\n` +
+        `▸ <b>Estado:</b> <code>〔 𝗘𝗡𝗧𝗥𝗘𝗚𝗔𝗗𝗢 〕</code>\n\n` +
+        `<b>✦ DATOS DE ACCESO:</b>\n` +
+        `• <b>Usuario / Correo:</b> <code>${escapeHtml(username)}</code>\n` +
+        `• <b>Contraseña:</b> <code>${escapeHtml(password)}</code>\n` +
+        (extra ? `• <b>Detalles:</b> <code>${escapeHtml(extra)}</code>\n` : '') +
+        `\n` +
+        `! <i>Prohibido modificar contraseña o perfiles. Cuenta sujeta a monitoreo oficial.</i>\n\n` +
+        `────── // ───\n` +
+        `${dateFormatted}`;
+
+      await ctx.reply(deliveryMessage, { parse_mode: 'HTML' });
     } catch (err) {
       console.error('⟡ Error en /claim:', err.message);
-      ctx.reply(`⟡ ✗ Error al procesar tu reclamo: ${err.message}`);
+      ctx.reply(`⟡ ✗ Error al procesar tu reclamo: ${escapeHtml(err.message)}`, { parse_mode: 'HTML' });
     }
   });
 
@@ -444,11 +669,24 @@ function register(bot) {
       const replyTo = ctx.message.reply_to_message;
       if (!replyTo) return next();
 
-      const replyText = (replyTo.text || replyTo.caption || '').toUpperCase();
-      const isQuizCard = replyText.includes('QUIZZ') || replyText.includes('TRIVIA');
+      const rawReply = (replyTo.text || replyTo.caption || '');
+      const replyText = rawReply.toUpperCase();
+      const isQuizCard = replyText.includes('QUIZZ') || replyText.includes('TRIVIA') ||
+                         rawReply.includes('𝗤𝗨𝗜𝗭𝗭') || rawReply.includes('𝗧𝗥𝗜𝗩𝗜𝗔');
 
       const chatId = ctx.chat.id;
-      let session = activeSessionsMem.get(chatId) || await db.getActiveQuizSession(chatId);
+      let session = activeSessionsMem.get(chatId);
+      if (!session) {
+        session = await db.getActiveQuizSession(chatId);
+        if (session) {
+          const mem = activeSessionsMem.get(chatId);
+          if (mem) {
+            session = mem;
+          } else if (session.status === 'ACTIVE') {
+            activeSessionsMem.set(chatId, session);
+          }
+        }
+      }
 
       const matchesSession = session && Number(session.message_id) === Number(replyTo.message_id);
 
@@ -480,9 +718,15 @@ function register(bot) {
         return;
       }
 
-      // Respuesta correcta
+      // Candado atómico sincrónico: verificar si la sesión sigue activa
+      const currentMem = activeSessionsMem.get(chatId);
+      if (session.status !== 'ACTIVE' || (currentMem && currentMem.status !== 'ACTIVE')) {
+        return;
+      }
+
+      // Respuesta correcta: Bloqueo sincrónico inmediato para evitar race condition
       session.status = 'SOLVED';
-      activeSessionsMem.delete(chatId);
+      activeSessionsMem.set(chatId, session);
 
       // Desfijar mensaje para mantener el chat limpio
       try {
@@ -493,32 +737,66 @@ function register(bot) {
       const winnerName = escapeHtml(winner.first_name || 'Ganador');
       const winnerUser = winner.username ? `@${escapeHtml(winner.username)}` : `ID: ${winner.id}`;
 
+      // Adquisición atómica de stock
       const reward = await db.acquireRewardAtomic(winner.id, winner.username, session.id);
 
-      let deliveryStatus = false;
-      if (reward) {
-        await db.solveQuizSession(session.id, winner.id, winner.username, reward.id);
-        const deliveryResult = await deliverRewardToWinner(bot, winner, reward, session.id);
-        deliveryStatus = deliveryResult.deliveredDirectly;
+      if (!reward) {
+        await db.solveQuizSession(session.id, winner.id, winner.username, null);
+        return ctx.reply(
+          `<b>【 𝗤𝗨𝗜𝗭𝗭 】 ⟡ 「 𝗚𝗔𝗡𝗔𝗗𝗢𝗥 𝗗𝗘𝗧𝗘𝗖𝗧𝗔𝗗𝗢 」</b>\n` +
+          `────── // ───\n\n` +
+          `▸ <b>Ganador:</b> <b>${winnerName}</b> (${winnerUser})\n` +
+          `▸ <b>Respuesta:</b> <b>${escapeHtml(ctx.message.text.toUpperCase())}</b>\n\n` +
+          `! <i>¡Respuesta correcta! Sin embargo, el stock de cuentas se ha agotado en este momento. Por favor contacta al Staff.</i>\n\n` +
+          `────── // ───\n` +
+          `${getSuperscriptDate()}`,
+          {
+            parse_mode: 'HTML',
+            reply_parameters: { message_id: ctx.message.message_id }
+          }
+        );
       }
+
+      await db.solveQuizSession(session.id, winner.id, winner.username, reward.id);
+
+      // Generar token único y registrar reclamo en BD con 15 minutos de TTL
+      const generatedCode = generateClaimToken();
+      const tokenRecord = await db.createClaimToken({
+        claimCode: generatedCode,
+        userId: winner.id,
+        rewardId: reward.id,
+        quizId: session.id,
+        category: reward.category,
+        ttlMinutes: 15
+      });
+      const claimCode = tokenRecord?.claimCode || generatedCode;
 
       const botUsername = ctx.me?.username || 'ventas_libres_peru_Bot';
       const dateFormatted = getSuperscriptDate();
+      const rewardTitle = escapeHtml(reward.account_title || reward.category || 'Cuenta Streaming');
+      const userAnswer = escapeHtml(ctx.message.text.toUpperCase());
 
+      // Anuncio en grupo con mención, respuesta, código y comando /claim <code>
       const winMessage =
         `<b>【 𝗤𝗨𝗜𝗭𝗭 】 ⟡ 「 𝗚𝗔𝗡𝗔𝗗𝗢𝗥 𝗗𝗘𝗧𝗘𝗖𝗧𝗔𝗗𝗢 」</b>\n` +
         `────── // ───\n\n` +
         `▸ <b>Ganador:</b> <b>${winnerName}</b> (${winnerUser})\n` +
-        `▸ <b>Respuesta:</b> <b>${escapeHtml(ctx.message.text.toUpperCase())}</b>\n` +
-        `▸ <b>Premio:</b> <code>${escapeHtml(reward ? reward.account_title : 'Cuenta Streaming')}</code>\n\n` +
-        (deliveryStatus
-          ? `✓ <i>Premio y convertidor de cookies enviados a tu chat privado.</i>\n`
-          : `◈ <i>Abre chat privado con @${botUsername} y envía <code>/claim</code> para retirar tu cuenta.</i>\n`) +
+        `▸ <b>Respuesta:</b> <b>${userAnswer}</b>\n` +
+        `▸ <b>Premio:</b> <code>${rewardTitle}</code>\n\n` +
+        `<b>✦ CÓDIGO DE RECLAMO:</b>\n` +
+        `<code>${claimCode}</code>\n\n` +
+        `◈ <i>Canjea tu cuenta por chat privado con @${botUsername} usando:</i>\n` +
+        `<code>/claim ${claimCode}</code>\n\n` +
+        `⟡ <i>El código vence en 15 minutos y está vinculado exclusivamente a tu usuario.</i>\n` +
         `────── // ───\n` +
         `${dateFormatted}`;
 
+      const claimKb = new InlineKeyboard()
+        .url(btn('CANJEAR EN PRIVADO', '◈', '◈'), `https://t.me/${botUsername}`);
+
       await ctx.reply(winMessage, {
         parse_mode: 'HTML',
+        reply_markup: claimKb,
         reply_parameters: { message_id: ctx.message.message_id }
       });
 
@@ -539,7 +817,7 @@ function register(bot) {
     } catch (initErr) {
       console.warn('⟡ Error iniciando timers de quizz al arranque:', initErr.message);
     }
-  }, 5000);
+  }, 5000).unref?.();
 }
 
 module.exports = {
@@ -548,5 +826,7 @@ module.exports = {
   renderPrivateRewardCard,
   triggerQuiz,
   startQuizTimer,
-  stopQuizTimer
+  stopQuizTimer,
+  formatAccountCredentials,
+  generateClaimToken
 };

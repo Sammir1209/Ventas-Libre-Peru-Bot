@@ -6,3 +6,4 @@ scratch/
 *.traineddata
 dashboard/.next/
 dashboard/node_modules/
+.agents/teamwork/

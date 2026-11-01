@@ -1,4 +1,7 @@
-// fs and path imported at top
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
 let createClient = null;
 try {
   createClient = require('@supabase/supabase-js').createClient;
@@ -1548,8 +1551,6 @@ async function getAllGroups(tenantId = null) {
   return [];
 }
 
-const fs = require('fs');
-const path = require('path');
 const SETTINGS_FILE = path.resolve(__dirname, '../../data/settings.json');
 
 function loadLocalSettings() {
@@ -2927,19 +2928,32 @@ async function initPanelSessionsTable() {
         );
 
         CREATE TABLE IF NOT EXISTS pending_claims (
-          user_id BIGINT PRIMARY KEY,
-          reward_id INTEGER,
+          claim_code VARCHAR(64) PRIMARY KEY,
+          user_id BIGINT NOT NULL,
+          reward_id INTEGER NOT NULL,
           quiz_id VARCHAR(64),
           category VARCHAR(64),
+          status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          claimed_at TIMESTAMP WITH TIME ZONE,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
+
+        ALTER TABLE pending_claims ADD COLUMN IF NOT EXISTS claim_code VARCHAR(64);
+        ALTER TABLE pending_claims ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'PENDING';
+        ALTER TABLE pending_claims ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE pending_claims ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE pending_claims DROP CONSTRAINT IF EXISTS pending_claims_pkey;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_claims_code ON pending_claims(claim_code);
+        CREATE INDEX IF NOT EXISTS idx_pending_claims_user_status ON pending_claims(user_id, status);
+        CREATE INDEX IF NOT EXISTS idx_pending_claims_expires ON pending_claims(status, expires_at);
       `);
     }
   } catch (err) {
     console.warn('⟡ initMultiTenantSchema warning:', err.message);
   }
 }
-setTimeout(initPanelSessionsTable, 2000);
+setTimeout(initPanelSessionsTable, 2000).unref?.();
 
 async function autoSeedRewards() {
   try {
@@ -2960,7 +2974,7 @@ async function autoSeedRewards() {
     console.warn('⟡ Error en autoSeedRewards:', err.message);
   }
 }
-setTimeout(autoSeedRewards, 4000);
+setTimeout(autoSeedRewards, 4000).unref?.();
 
 async function createPanelSession(userId, tenantId = null, role = 'STAFF', accessKey, tokenHash, ttlHours = 24) {
   const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000).toISOString();
@@ -3206,7 +3220,10 @@ async function getAvailableRewardsCount(category = null) {
   };
 }
 
-async function insertReward({ category, accountTitle, accountData }) {
+async function insertReward(reward) {
+  const category = reward.category;
+  const accountTitle = reward.accountTitle || reward.account_title;
+  const accountData = reward.accountData || reward.account_data;
   if (pool) {
     try {
       const res = await pool.query(`
@@ -3405,7 +3422,7 @@ async function solveQuizSession(quizId, winnerId, winnerUsername, rewardId) {
             winner_id = $1,
             winner_username = $2,
             reward_id = $3
-        WHERE id = $4
+        WHERE id = $4 AND status = 'ACTIVE'
         RETURNING *
       `, [wId, winnerUsername || null, rId, quizId]);
       if (res.rows[0]) return res.rows[0];
@@ -3424,6 +3441,7 @@ async function solveQuizSession(quizId, winnerId, winnerUsername, rewardId) {
           reward_id: rId
         })
         .eq('id', quizId)
+        .eq('status', 'ACTIVE')
         .select()
         .maybeSingle();
       if (data) return data;
@@ -3432,6 +3450,7 @@ async function solveQuizSession(quizId, winnerId, winnerUsername, rewardId) {
 
   const s = memQuizSessions.get(quizId);
   if (s) {
+    if (s.status !== 'ACTIVE') return null;
     s.status = 'SOLVED';
     s.winner_id = wId;
     s.winner_username = winnerUsername || null;
@@ -3456,59 +3475,453 @@ async function expireQuizSession(quizId) {
   if (s && s.status === 'ACTIVE') s.status = 'EXPIRED';
 }
 
-async function setPendingClaim(userId, rewardId, quizId, category) {
+/**
+ * Crea un token de reclamo seguro vinculado exclusivamente al usuario ganador.
+ * @param {object} params
+ * @param {number|string} params.userId - ID de Telegram del ganador
+ * @param {number|string} params.rewardId - ID del premio en quiz_rewards
+ * @param {string} [params.quizId] - ID de la sesión de trivia
+ * @param {string} [params.category] - Categoría del premio
+ * @param {number} [params.ttlMinutes=15] - Tiempo de vida en minutos
+ * @param {string} [params.claimCode] - Código personalizado opcional
+ * @returns {Promise<{ success: boolean, claimCode: string, expiresAt: Date, claim: object }>}
+ */
+async function createClaimToken({ userId, rewardId, quizId = null, category = null, ttlMinutes = 15, claimCode = null }) {
   const uId = Number(userId);
   const rId = Number(rewardId);
+  const numTtl = (typeof ttlMinutes === 'number' || (typeof ttlMinutes === 'string' && ttlMinutes.trim() !== '')) ? Number(ttlMinutes) : NaN;
+  const ttlMs = (Number.isFinite(numTtl) ? numTtl : 15) * 60 * 1000;
+  const expiresAt = new Date(Date.now() + ttlMs);
+  const expIso = expiresAt.toISOString();
+
+  // Generación criptográfica segura de código: VLP- + 12 hex chars (ej. VLP-A1B2C3D4E5F6)
+  const code = (claimCode && String(claimCode).trim().toUpperCase()) ||
+    `VLP-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
+
+  // 1. PostgreSQL Direct Pool
   if (pool) {
     try {
-      await pool.query(`
-        INSERT INTO pending_claims (user_id, reward_id, quiz_id, category, created_at)
-        VALUES ($1, $2, $3, $4, NOW())
-        ON CONFLICT (user_id) DO UPDATE SET
+      const res = await pool.query(`
+        INSERT INTO pending_claims (
+          claim_code, user_id, reward_id, quiz_id, category, status, expires_at, created_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, 'PENDING', $6, NOW()
+        )
+        ON CONFLICT (claim_code) DO UPDATE SET
+          user_id = EXCLUDED.user_id,
           reward_id = EXCLUDED.reward_id,
           quiz_id = EXCLUDED.quiz_id,
           category = EXCLUDED.category,
+          status = 'PENDING',
+          expires_at = EXCLUDED.expires_at,
+          claimed_at = NULL,
           created_at = NOW()
-      `, [uId, rId, quizId, category]);
-      return true;
+        RETURNING *
+      `, [code, uId, rId, quizId, category, expIso]);
+
+      if (res.rows[0]) {
+        return { success: true, claimCode: code, expiresAt, claim: res.rows[0] };
+      }
     } catch (err) {
-      console.warn('⟡ pool setPendingClaim error:', err.message);
+      console.warn('⟡ pool createClaimToken error:', err.message);
     }
   }
+
+  // 2. Supabase REST Client
   if (useSupabase && supabase) {
     try {
-      await supabase.from('pending_claims').upsert({
-        user_id: uId,
-        reward_id: rId,
-        quiz_id: quizId,
-        category,
-        created_at: new Date().toISOString()
-      }, { onConflict: 'user_id' });
-      return true;
-    } catch {}
+      const { data, error } = await supabase
+        .from('pending_claims')
+        .upsert({
+          claim_code: code,
+          user_id: uId,
+          reward_id: rId,
+          quiz_id: quizId,
+          category,
+          status: 'PENDING',
+          expires_at: expIso,
+          claimed_at: null,
+          created_at: new Date().toISOString()
+        }, { onConflict: 'claim_code' })
+        .select()
+        .maybeSingle();
+
+      if (!error && data) {
+        return { success: true, claimCode: code, expiresAt, claim: data };
+      }
+    } catch (err) {
+      console.warn('⟡ Supabase createClaimToken error:', err.message);
+    }
   }
-  memPendingClaims.set(uId, { user_id: uId, reward_id: rId, quiz_id: quizId, category });
-  return true;
+
+  // 3. In-Memory Map Fallback (memPendingClaims)
+  const memRecord = {
+    claim_code: code,
+    user_id: uId,
+    reward_id: rId,
+    quiz_id: quizId,
+    category,
+    status: 'PENDING',
+    expires_at: expIso,
+    claimed_at: null,
+    created_at: new Date().toISOString()
+  };
+  memPendingClaims.set(code, memRecord);
+
+  return { success: true, claimCode: code, expiresAt, claim: memRecord };
+}
+
+/**
+ * Obtiene un token de reclamo por su código, enriquecido con los datos del premio.
+ * @param {string} claimCode - Código de reclamo
+ * @returns {Promise<object|null>}
+ */
+async function getClaimToken(claimCode) {
+  if (!claimCode) return null;
+  const cleanCode = String(claimCode).trim().toUpperCase();
+
+  // 1. PostgreSQL Direct Pool
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        SELECT 
+          p.*,
+          r.account_title,
+          r.account_data,
+          r.category AS reward_category
+        FROM pending_claims p
+        LEFT JOIN quiz_rewards r ON p.reward_id = r.id
+        WHERE UPPER(p.claim_code) = $1
+      `, [cleanCode]);
+
+      if (res.rows[0]) return res.rows[0];
+    } catch (err) {
+      console.warn('⟡ pool getClaimToken error:', err.message);
+    }
+  }
+
+  // 2. Supabase REST Client
+  if (useSupabase && supabase) {
+    try {
+      const { data: p } = await supabase
+        .from('pending_claims')
+        .select('*')
+        .eq('claim_code', cleanCode)
+        .maybeSingle();
+
+      if (p) {
+        const { data: r } = await supabase
+          .from('quiz_rewards')
+          .select('*')
+          .eq('id', p.reward_id)
+          .maybeSingle();
+
+        return {
+          ...p,
+          reward_category: r?.category || p.category,
+          account_title: r?.account_title || null,
+          account_data: r?.account_data || null
+        };
+      }
+    } catch (err) {
+      console.warn('⟡ Supabase getClaimToken error:', err.message);
+    }
+  }
+
+  // 3. In-Memory Fallback
+  const p = memPendingClaims.get(cleanCode);
+  if (p) {
+    const r = memQuizRewards.find(item => item.id === p.reward_id);
+    return {
+      ...p,
+      reward_category: r?.category || p.category,
+      account_title: r?.account_title || null,
+      account_data: r?.account_data || null
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Canje atómico seguro de un token de reclamo.
+ * Valida unívocamente:
+ * 1. Existencia del código (NOT_FOUND)
+ * 2. Identidad del reclamante ctx.from.id === token.user_id (UNAUTHORIZED)
+ * 3. Expiración de tiempo NOW() < expires_at (EXPIRED)
+ * 4. Uso único y prevención de doble gasto (ALREADY_CLAIMED)
+ * 
+ * @param {string} claimCode - Código de reclamo
+ * @param {number|string} claimantUserId - Telegram ID del usuario que ejecuta /claim
+ * @returns {Promise<{ success: boolean, reward?: object, claim?: object, reason?: 'NOT_FOUND'|'UNAUTHORIZED'|'ALREADY_CLAIMED'|'EXPIRED' }>}
+ */
+async function redeemClaimAtomic(claimCode, claimantUserId) {
+  if (!claimCode) {
+    return { success: false, reason: 'NOT_FOUND' };
+  }
+  const cleanCode = String(claimCode).trim().toUpperCase();
+  const uId = Number(claimantUserId);
+
+  // 1. PostgreSQL Direct Pool (Atómico vía CTE con UPDATE RETURNING + JOIN)
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        WITH atomic_claim AS (
+          UPDATE pending_claims
+          SET status = 'CLAIMED',
+              claimed_at = NOW()
+          WHERE UPPER(claim_code) = $1
+            AND user_id = $2
+            AND status = 'PENDING'
+            AND expires_at > NOW()
+          RETURNING *
+        )
+        SELECT 
+          c.*,
+          r.category AS reward_category,
+          r.account_title,
+          r.account_data
+        FROM atomic_claim c
+        JOIN quiz_rewards r ON c.reward_id = r.id;
+      `, [cleanCode, uId]);
+
+      if (res.rows[0]) {
+        const row = res.rows[0];
+        return {
+          success: true,
+          claim: row,
+          reward: {
+            id: row.reward_id,
+            category: row.reward_category || row.category,
+            account_title: row.account_title,
+            account_data: row.account_data
+          }
+        };
+      }
+
+      // Si no actualizó filas, diagnosticar la causa exacta para responder adecuadamente
+      const diag = await pool.query(
+        `SELECT user_id, status, expires_at FROM pending_claims WHERE UPPER(claim_code) = $1`,
+        [cleanCode]
+      );
+      if (!diag.rows[0]) {
+        return { success: false, reason: 'NOT_FOUND' };
+      }
+      const existing = diag.rows[0];
+      if (Number(existing.user_id) !== uId) {
+        return { success: false, reason: 'UNAUTHORIZED' };
+      }
+      if (existing.status === 'CLAIMED') {
+        return { success: false, reason: 'ALREADY_CLAIMED' };
+      }
+      if (new Date(existing.expires_at).getTime() <= Date.now() || existing.status === 'EXPIRED') {
+        return { success: false, reason: 'EXPIRED' };
+      }
+      return { success: false, reason: 'ALREADY_CLAIMED' };
+    } catch (err) {
+      console.warn('⟡ pool redeemClaimAtomic error:', err.message);
+    }
+  }
+
+  // 2. Supabase REST Client
+  if (useSupabase && supabase) {
+    try {
+      const nowIso = new Date().toISOString();
+
+      // Diagnóstico previo para identificar rechazo exacto
+      const { data: existing } = await supabase
+        .from('pending_claims')
+        .select('*')
+        .eq('claim_code', cleanCode)
+        .maybeSingle();
+
+      if (!existing) {
+        return { success: false, reason: 'NOT_FOUND' };
+      }
+      if (Number(existing.user_id) !== uId) {
+        return { success: false, reason: 'UNAUTHORIZED' };
+      }
+      if (existing.status === 'CLAIMED') {
+        return { success: false, reason: 'ALREADY_CLAIMED' };
+      }
+      if (new Date(existing.expires_at).getTime() <= Date.now() || existing.status === 'EXPIRED') {
+        return { success: false, reason: 'EXPIRED' };
+      }
+
+      // Canje condicional atómico
+      const { data: updated, error } = await supabase
+        .from('pending_claims')
+        .update({
+          status: 'CLAIMED',
+          claimed_at: nowIso
+        })
+        .eq('claim_code', cleanCode)
+        .eq('user_id', uId)
+        .eq('status', 'PENDING')
+        .gt('expires_at', nowIso)
+        .select()
+        .maybeSingle();
+
+      if (!error && updated) {
+        const { data: r } = await supabase
+          .from('quiz_rewards')
+          .select('*')
+          .eq('id', updated.reward_id)
+          .maybeSingle();
+
+        return {
+          success: true,
+          claim: updated,
+          reward: r || {
+            id: updated.reward_id,
+            category: updated.category,
+            account_title: 'Cuenta Reclamada',
+            account_data: 'Sin credenciales'
+          }
+        };
+      }
+
+      return { success: false, reason: 'ALREADY_CLAIMED' };
+    } catch (err) {
+      console.warn('⟡ Supabase redeemClaimAtomic error:', err.message);
+    }
+  }
+
+  // 3. In-Memory Fallback (memPendingClaims)
+  const token = memPendingClaims.get(cleanCode);
+  if (!token) {
+    return { success: false, reason: 'NOT_FOUND' };
+  }
+
+  if (Number(token.user_id) !== uId) {
+    return { success: false, reason: 'UNAUTHORIZED' };
+  }
+
+  if (token.status === 'CLAIMED') {
+    return { success: false, reason: 'ALREADY_CLAIMED' };
+  }
+
+  const now = Date.now();
+  const expTime = new Date(token.expires_at).getTime();
+  if (token.status === 'EXPIRED' || expTime <= now) {
+    token.status = 'EXPIRED';
+    return { success: false, reason: 'EXPIRED' };
+  }
+
+  if (token.status !== 'PENDING') {
+    return { success: false, reason: 'ALREADY_CLAIMED' };
+  }
+
+  // Transición atómica de estado
+  token.status = 'CLAIMED';
+  token.claimed_at = new Date().toISOString();
+
+  const reward = memQuizRewards.find(r => r.id === token.reward_id);
+  return {
+    success: true,
+    claim: { ...token },
+    reward: reward ? { ...reward } : {
+      id: token.reward_id,
+      category: token.category,
+      account_title: 'Cuenta Reclamada',
+      account_data: 'Sin credenciales'
+    }
+  };
+}
+
+/**
+ * Marca como EXPIRED todos los tokens en estado PENDING cuya fecha de expiración haya vencido.
+ * @returns {Promise<number>} Cantidad de reclamos expirados
+ */
+async function expireStaleClaims() {
+  let count = 0;
+  const nowIso = new Date().toISOString();
+
+  // 1. PostgreSQL Direct Pool
+  if (pool) {
+    try {
+      const res = await pool.query(`
+        UPDATE pending_claims
+        SET status = 'EXPIRED'
+        WHERE status = 'PENDING' AND expires_at <= NOW()
+        RETURNING claim_code
+      `);
+      return res.rowCount || 0;
+    } catch (err) {
+      console.warn('⟡ pool expireStaleClaims error:', err.message);
+    }
+  }
+
+  // 2. Supabase REST Client
+  if (useSupabase && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('pending_claims')
+        .update({ status: 'EXPIRED' })
+        .eq('status', 'PENDING')
+        .lte('expires_at', nowIso)
+        .select('claim_code');
+
+      if (!error && data) return data.length;
+    } catch (err) {
+      console.warn('⟡ Supabase expireStaleClaims error:', err.message);
+    }
+  }
+
+  // 3. In-Memory Fallback
+  const now = Date.now();
+  for (const token of memPendingClaims.values()) {
+    if (token.status === 'PENDING' && new Date(token.expires_at).getTime() <= now) {
+      token.status = 'EXPIRED';
+      count++;
+    }
+  }
+
+  return count;
+}
+
+async function setPendingClaim(userId, rewardId, quizId, category) {
+  const legacyCode = `VLP-LEGACY-${userId}`;
+  return createClaimToken({
+    userId,
+    rewardId,
+    quizId,
+    category,
+    ttlMinutes: 1440,
+    claimCode: legacyCode
+  });
 }
 
 async function getPendingClaim(userId) {
   const uId = Number(userId);
+
   if (pool) {
     try {
       const res = await pool.query(`
         SELECT p.*, r.category as reward_category, r.account_title, r.account_data
         FROM pending_claims p
         JOIN quiz_rewards r ON p.reward_id = r.id
-        WHERE p.user_id = $1
+        WHERE p.user_id = $1 AND p.status = 'PENDING' AND (p.expires_at IS NULL OR p.expires_at > NOW())
+        ORDER BY p.created_at DESC
+        LIMIT 1
       `, [uId]);
       if (res.rows[0]) return res.rows[0];
     } catch (err) {
       console.warn('⟡ pool getPendingClaim error:', err.message);
     }
   }
+
   if (useSupabase && supabase) {
     try {
-      const { data: p } = await supabase.from('pending_claims').select('*').eq('user_id', uId).maybeSingle();
+      const { data: p } = await supabase
+        .from('pending_claims')
+        .select('*')
+        .eq('user_id', uId)
+        .eq('status', 'PENDING')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       if (p) {
         const { data: r } = await supabase.from('quiz_rewards').select('*').eq('id', p.reward_id).maybeSingle();
         if (r) {
@@ -3523,16 +3936,17 @@ async function getPendingClaim(userId) {
     } catch {}
   }
 
-  const p = memPendingClaims.get(uId);
-  if (p) {
-    const r = memQuizRewards.find(item => item.id === p.reward_id);
-    if (r) {
-      return {
-        ...p,
-        reward_category: r.category,
-        account_title: r.account_title,
-        account_data: r.account_data
-      };
+  for (const p of memPendingClaims.values()) {
+    if (p.user_id === uId && p.status === 'PENDING') {
+      const r = memQuizRewards.find(item => item.id === p.reward_id);
+      if (r) {
+        return {
+          ...p,
+          reward_category: r.category,
+          account_title: r.account_title,
+          account_data: r.account_data
+        };
+      }
     }
   }
   return null;
@@ -3540,17 +3954,33 @@ async function getPendingClaim(userId) {
 
 async function clearPendingClaim(userId) {
   const uId = Number(userId);
+
   if (pool) {
     try {
-      await pool.query(`DELETE FROM pending_claims WHERE user_id = $1`, [uId]);
+      await pool.query(`
+        UPDATE pending_claims
+        SET status = 'CLAIMED', claimed_at = NOW()
+        WHERE user_id = $1 AND status = 'PENDING'
+      `, [uId]);
     } catch {}
   }
+
   if (useSupabase && supabase) {
     try {
-      await supabase.from('pending_claims').delete().eq('user_id', uId);
+      await supabase
+        .from('pending_claims')
+        .update({ status: 'CLAIMED', claimed_at: new Date().toISOString() })
+        .eq('user_id', uId)
+        .eq('status', 'PENDING');
     } catch {}
   }
-  memPendingClaims.delete(uId);
+
+  for (const token of memPendingClaims.values()) {
+    if (token.user_id === uId && token.status === 'PENDING') {
+      token.status = 'CLAIMED';
+      token.claimed_at = new Date().toISOString();
+    }
+  }
 }
 
 async function getRewardById(rewardId) {
@@ -3785,6 +4215,10 @@ module.exports = {
   getActiveQuizSession,
   solveQuizSession,
   expireQuizSession,
+  createClaimToken,
+  getClaimToken,
+  redeemClaimAtomic,
+  expireStaleClaims,
   setPendingClaim,
   getPendingClaim,
   clearPendingClaim,
